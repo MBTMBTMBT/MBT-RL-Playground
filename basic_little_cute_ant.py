@@ -76,7 +76,7 @@ model = PPO("MlpPolicy", vec_env, verbose=1, tensorboard_log=tensorboard_log)
 eval_env = gym.make("Ant-v5", render_mode="rgb_array")  # Ensure render_mode is set
 
 # Initialize the custom callback
-callback = TensorboardGifCallback(eval_env, log_dir=log_dir, eval_freq=5000, n_eval_episodes=5)
+callback = TensorboardGifCallback(eval_env, log_dir=log_dir, eval_freq=10_000, n_eval_episodes=5)
 
 # Start training the model
 model.learn(total_timesteps=500_000, callback=callback, progress_bar=True)
