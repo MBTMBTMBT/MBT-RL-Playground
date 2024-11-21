@@ -79,7 +79,7 @@ eval_env = gym.make("Ant-v5", render_mode="rgb_array")  # Ensure render_mode is 
 callback = TensorboardGifCallback(eval_env, log_dir=log_dir, eval_freq=10_000, n_eval_episodes=5)
 
 # Start training the model
-model.learn(total_timesteps=500_000, callback=callback, progress_bar=True)
+model.learn(total_timesteps=50_000_000, callback=callback, progress_bar=True)
 
 # Save the trained model
 model.save(os.path.join(log_dir, "ppo_ant_model"))
