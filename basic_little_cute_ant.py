@@ -1,13 +1,10 @@
 import gymnasium as gym
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import BaseCallback
-from stable_baselines3.common.vec_env import DummyVecEnv, VecVideoRecorder
-from stable_baselines3.common.logger import configure
-import numpy as np
+from stable_baselines3.common.vec_env import DummyVecEnv
 import os
 from moviepy.video.io.ImageSequenceClip import ImageSequenceClip
-import matplotlib.pyplot as plt
-
+import numpy as np
 
 # Custom callback to evaluate the model periodically and save GIFs to TensorBoard
 class TensorboardGifCallback(BaseCallback):
@@ -27,14 +24,19 @@ class TensorboardGifCallback(BaseCallback):
 
         for _ in range(self.n_eval_episodes):
             obs, _ = self.eval_env.reset()
-            done = False
+            terminated = False
+            truncated = False
             episode_reward = 0
 
-            while not done:
-                frame = self.eval_env.render(mode='rgb_array')
-                frames.append(frame)
+            while not (terminated or truncated):
+                # Render the frame (ensure render_mode="rgb_array" is set)
+                frame = self.eval_env.render()
+                if frame is not None:
+                    frames.append(frame)
+
+                # Predict action and step environment
                 action, _ = self.model.predict(obs, deterministic=False)
-                obs, reward, done, _, _ = self.eval_env.step(action)
+                obs, reward, terminated, truncated, info = self.eval_env.step(action)
                 episode_reward += reward
 
             total_rewards.append(episode_reward)
@@ -42,11 +44,11 @@ class TensorboardGifCallback(BaseCallback):
         # Save the generated GIF
         gif_path = os.path.join(self.gif_dir, f"eval_{self.num_timesteps}.gif")
         clip = ImageSequenceClip(frames, fps=30)
-        clip.write_gif(gif_path, fps=30)
+        clip.write_gif(gif_path, fps=30, logger=None)
 
         # Log GIF and evaluation results to TensorBoard
         self.logger.record(f"eval/mean_reward", np.mean(total_rewards))
-        self.logger.record(f"eval/gif", gif_path)
+        self.logger.record(f"eval/gif_path", gif_path)
         return gif_path
 
     def _on_step(self):
@@ -58,7 +60,7 @@ class TensorboardGifCallback(BaseCallback):
 
 
 # Create the training environment
-env = gym.make("Ant-v5")
+env = gym.make("Ant-v5", render_mode="rgb_array")  # Ensure render_mode is set
 vec_env = DummyVecEnv([lambda: env])  # Vectorized environment
 
 # Set up logging directories for model and TensorBoard
@@ -71,10 +73,10 @@ os.makedirs(tensorboard_log, exist_ok=True)
 model = PPO("MlpPolicy", vec_env, verbose=1, tensorboard_log=tensorboard_log)
 
 # Create an evaluation environment
-eval_env = gym.make("Ant-v5")
+eval_env = gym.make("Ant-v5", render_mode="rgb_array")  # Ensure render_mode is set
 
 # Initialize the custom callback
-callback = TensorboardGifCallback(eval_env, log_dir=log_dir, eval_freq=5000)
+callback = TensorboardGifCallback(eval_env, log_dir=log_dir, eval_freq=5000, n_eval_episodes=5)
 
 # Start training the model
 model.learn(total_timesteps=500_000, callback=callback, progress_bar=True)
