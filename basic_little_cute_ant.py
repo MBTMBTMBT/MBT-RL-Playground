@@ -62,8 +62,8 @@ env = gym.make("Ant-v5")
 vec_env = DummyVecEnv([lambda: env])  # Vectorized environment
 
 # Set up logging directories for model and TensorBoard
-log_dir = ".experiments/anttt/logs"
-tensorboard_log = ".experiments/anttt/tensorboard"
+log_dir = "./experiments/anttt/logs"
+tensorboard_log = "./experiments/anttt/tensorboard"
 os.makedirs(log_dir, exist_ok=True)
 os.makedirs(tensorboard_log, exist_ok=True)
 
@@ -77,7 +77,7 @@ eval_env = gym.make("Ant-v5")
 callback = TensorboardGifCallback(eval_env, log_dir=log_dir, eval_freq=5000)
 
 # Start training the model
-model.learn(total_timesteps=500_000, callback=callback)
+model.learn(total_timesteps=500_000, callback=callback, progress_bar=True)
 
 # Save the trained model
 model.save(os.path.join(log_dir, "ppo_ant_model"))
