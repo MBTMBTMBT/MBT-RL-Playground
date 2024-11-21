@@ -76,10 +76,10 @@ model = PPO("MlpPolicy", vec_env, verbose=1, tensorboard_log=tensorboard_log)
 eval_env = gym.make("Ant-v5", render_mode="rgb_array")  # Ensure render_mode is set
 
 # Initialize the custom callback
-callback = TensorboardGifCallback(eval_env, log_dir=log_dir, eval_freq=500_000, n_eval_episodes=20)
+callback = TensorboardGifCallback(eval_env, log_dir=log_dir, eval_freq=50_000, n_eval_episodes=20)
 
 # Start training the model
-model.learn(total_timesteps=50_000_000, callback=callback, progress_bar=True)
+model.learn(total_timesteps=5_000_000, callback=callback, progress_bar=True)
 
 # Save the trained model
 model.save(os.path.join(log_dir, "ppo_ant_model"))
