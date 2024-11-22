@@ -32,7 +32,14 @@ class TensorboardGifCallback(BaseCallback):
                 # Render the frame (ensure render_mode="rgb_array" is set)
                 frame = self.eval_env.render()
                 if frame is not None:
-                    frames.append(frame)
+                    try:
+                        # Validate the frame shape (e.g., ensure RGB format)
+                        if frame.shape[-1] != 3:
+                            raise ValueError(f"Invalid frame shape: {frame.shape}")
+                        frames.append(frame)
+                    except Exception as e:
+                        self.logger.log(f"Frame rendering error: {e}")
+                        break
 
                 # Predict action and step environment
                 action, _ = self.model.predict(obs, deterministic=False)
@@ -43,19 +50,27 @@ class TensorboardGifCallback(BaseCallback):
 
         # Save the generated GIF
         gif_path = os.path.join(self.gif_dir, f"eval_{self.num_timesteps}.gif")
-        clip = ImageSequenceClip(frames, fps=30)
-        clip.write_gif(gif_path, fps=30, logger=None)
+        try:
+            clip = ImageSequenceClip(frames, fps=30)
+            clip.write_gif(gif_path, fps=30, logger=None)  # Disable progress bar
+            self.logger.log(f"Saved GIF: {gif_path}")
+        except Exception as e:
+            self.logger.log(f"GIF saving error at step {self.num_timesteps}: {e}")
+            gif_path = None  # Ensure gif_path is None if saving fails
 
-        # Log GIF and evaluation results to TensorBoard
+        # Log evaluation results to TensorBoard
         self.logger.record(f"eval/mean_reward", np.mean(total_rewards))
-        self.logger.record(f"eval/gif_path", gif_path)
+        if gif_path:
+            self.logger.record(f"eval/gif_path", gif_path)
         return gif_path
 
     def _on_step(self):
         # Periodically evaluate and save GIF
         if self.n_calls % self.eval_freq == 0:
-            gif_path = self.evaluate_policy()
-            self.logger.log(f"Saved GIF: {gif_path}")
+            try:
+                gif_path = self.evaluate_policy()
+            except Exception as e:
+                self.logger.log(f"Error during evaluation: {e}")
         return True
 
 
