@@ -13,8 +13,8 @@ if __name__ == '__main__':
 
     # Define MountainCar state and action spaces
     state_space = [
-        {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 20},  # Position
-        {'type': 'continuous', 'range': (-0.07, 0.07), 'bins': 20}  # Velocity
+        {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 16},  # Position
+        {'type': 'continuous', 'range': (-0.07, 0.07), 'bins': 8}  # Velocity
     ]
 
     action_space = [
@@ -28,10 +28,10 @@ if __name__ == '__main__':
     env = gym.make('MountainCar-v0')
 
     # Training parameters
-    total_steps = int(5e6)       # Total steps
+    total_steps = int(10e6)       # Total steps
     alpha = 0.1                 # Learning rate
     gamma = 0.99                # Discount factor
-    epsilon_start = 0.25        # Starting exploration rate
+    epsilon_start = 0.75        # Starting exploration rate
     epsilon_end = 0.01          # Minimum exploration rate
     epsilon_decay = (epsilon_start - epsilon_end) / total_steps  # Linear decay rate
     epsilon = epsilon_start     # Initial exploration rate
@@ -44,7 +44,7 @@ if __name__ == '__main__':
 
     # Define custom initialization ranges for each state variable
     custom_state_range = {
-        "position": (-1.2, 0.6),  # Position
+        "position": (-1.2, 0.4),  # Position
         "velocity": (-0.07, 0.07)  # Velocity
     }
 
