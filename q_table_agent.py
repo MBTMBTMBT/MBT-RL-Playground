@@ -332,7 +332,7 @@ if __name__ == '__main__':
     env = gym.make('CartPole-v1')
 
     # Training parameters
-    total_steps = int(1e2*1e3)       # Total steps
+    total_steps = int(1e3*1e3)       # Total steps
     alpha = 0.05                # Learning rate
     gamma = 0.99                # Discount factor
     epsilon_start = 0.25        # Starting exploration rate
@@ -346,10 +346,27 @@ if __name__ == '__main__':
     current_steps = 0            # Track total steps so far
     episode_steps = 0            # Steps in the current episode
 
+    # Define the custom state range
+    custom_state_range = {
+        "position": (-2.4, 2.4),  # Cart position
+        "velocity": (-2.0, 2.0),  # Cart velocity
+        "angle": (-0.2, 0.2),  # Pole angle
+        "angular_velocity": (-2.0, 2.0)  # Pole angular velocity
+    }
+
     # Training loop with progress bar
     with tqdm(total=total_steps, desc="Training Progress") as pbar:
         while current_steps < total_steps:
             state, _ = env.reset()
+
+            # Randomly sample the initial state from the specified range
+            low = np.array([v[0] for v in custom_state_range.values()])
+            high = np.array([v[1] for v in custom_state_range.values()])
+            random_state = np.random.uniform(low, high)
+
+            # Manually set the environment's internal state
+            env.state = random_state
+
             total_reward = 0
             done = False
 
