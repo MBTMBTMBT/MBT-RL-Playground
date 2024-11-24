@@ -1,3 +1,5 @@
+import ast
+import base64
 from typing import List, Dict, Union, Tuple, Any
 import numpy as np
 import gymnasium as gym
@@ -97,52 +99,37 @@ class QTableAgent:
         else:
             self.action_bins: List[np.ndarray] = [self._discretize_space(dim) for dim in action_space]
 
-        # Initialize Q-Table
+        # Initialize Q-Table and visit counts
         self.q_table: np.ndarray = self._initialize_q_table()
+        self.visit_counts: np.ndarray = np.zeros_like(self.q_table, dtype=int)  # Track sampling counts
 
         # Print Q-table size and dimension details
         self._print_q_table_info()
 
     def _discretize_space(self, space: Dict[str, Any]) -> np.ndarray:
-        """
-        Discretize a single state or action dimension.
-
-        :param space: A dictionary defining the dimension type and properties.
-        :return: A numpy array of discretized bins.
-        """
+        """Discretize a single state or action dimension."""
         if space['type'] == 'discrete':
-            return np.arange(space['bins'])  # Direct discrete indices
+            return np.arange(space['bins'])
         elif space['type'] == 'continuous':
             low, high = space['range']
-            return np.linspace(low, high, space['bins'])  # Linearly spaced bins
+            return np.linspace(low, high, space['bins'])
         else:
             raise ValueError("Invalid space type. Use 'discrete' or 'continuous'.")
 
     def _generate_action_combinations(self, action_space: List[Dict[str, Any]]) -> np.ndarray:
-        """
-        Generate all possible combinations of actions when action combination is enabled.
-
-        :param action_space: A list of dictionaries defining the action space.
-        :return: A numpy array of all possible action combinations.
-        """
+        """Generate all possible combinations of actions when action combination is enabled."""
         action_bins: List[np.ndarray] = [self._discretize_space(dim) for dim in action_space]
         return np.array(np.meshgrid(*action_bins)).T.reshape(-1, len(action_space))
 
     def _initialize_q_table(self) -> np.ndarray:
-        """
-        Initialize the Q-Table with zeros based on state and action space sizes.
-
-        :return: A multi-dimensional numpy array representing the Q-Table.
-        """
+        """Initialize the Q-Table with zeros based on state and action space sizes."""
         state_sizes: List[int] = [len(bins) for bins in self.state_bins]
         action_size: int = len(self.action_bins) if self.action_combination else np.prod(
             [len(bins) for bins in self.action_bins])
         return np.zeros(state_sizes + [action_size])
 
     def _print_q_table_info(self) -> None:
-        """
-        Print detailed information about the Q-Table size and dimensions.
-        """
+        """Print detailed information about the Q-Table size and dimensions."""
         state_sizes = [len(bins) for bins in self.state_bins]
         action_size = len(self.action_bins) if self.action_combination else np.prod(
             [len(bins) for bins in self.action_bins])
@@ -156,19 +143,18 @@ class QTableAgent:
         print(f" - Total Entries: {self.q_table.size}")
 
     def save_q_table(self, file_path: str) -> None:
-        """
-        Save the Q-Table and agent configuration to a CSV file.
+        """Save the Q-Table, visit counts, and agent configuration to a CSV file."""
+        print(f"Saving Q-Table and configuration to {file_path}...")
 
-        :param file_path: Path to save the Q-Table and configuration.
-        """
-        # Flatten Q-table
+        # Flatten Q-table and visit counts
         flat_indices = np.array(np.unravel_index(np.arange(self.q_table.size), self.q_table.shape)).T
         flat_values = self.q_table.flatten()
+        flat_visits = self.visit_counts.flatten()
 
-        # Combine indices and values into a DataFrame
-        column_names = [f"State_{i}" for i in range(len(self.state_bins))] + ["Action", "Q_Value"]
+        # Combine indices, Q-values, and visit counts into a DataFrame
+        column_names = [f"State_{i}" for i in range(len(self.state_bins))] + ["Action", "Q_Value", "Visit_Count"]
         data = pd.DataFrame(
-            np.hstack((flat_indices, flat_values[:, None])),
+            np.hstack((flat_indices, flat_values[:, None], flat_visits[:, None])),
             columns=column_names
         )
 
@@ -178,26 +164,26 @@ class QTableAgent:
             "action_space": self.action_space,
             "action_combination": self.action_combination
         }
-        metadata_df = pd.DataFrame({"Metadata": [str(metadata)]})
+        metadata_str = base64.b64encode(repr(metadata).encode("utf-8")).decode("utf-8")
+        metadata_df = pd.DataFrame({"Metadata": [metadata_str]})
 
         # Save metadata and Q-Table
         with open(file_path, "w") as f:
             metadata_df.to_csv(f, index=False, header=False)
             data.to_csv(f, index=False)
-        print(f"Q-Table and configuration saved to {file_path}")
+        print(f"Q-Table and configuration successfully saved to {file_path}.")
 
     @classmethod
     def load_q_table(cls, file_path: str) -> "QTableAgent":
-        """
-        Load the Q-Table and agent configuration from a CSV file.
+        """Load the Q-Table, visit counts, and agent configuration from a CSV file."""
+        print(f"Loading Q-Table and configuration from {file_path}...")
 
-        :param file_path: Path to the Q-Table and configuration file.
-        :return: A new QTableAgent instance initialized with the loaded configuration and Q-Table.
-        """
         with open(file_path, "r") as f:
-            # Read metadata (first line)
+            # Read metadata
             metadata_line = f.readline().strip()
-            metadata = eval(metadata_line.split(",", 1)[-1].strip('"'))
+            metadata_encoded = metadata_line.split(",", 1)[-1].strip()
+            metadata_str = base64.b64decode(metadata_encoded).decode("utf-8")
+            metadata = ast.literal_eval(metadata_str)
 
             # Read Q-Table data
             data = pd.read_csv(f)
@@ -210,11 +196,13 @@ class QTableAgent:
         # Initialize a new agent
         agent = cls(state_space, action_space, action_combination)
 
-        # Load Q-Table values and reshape
+        # Load Q-Table and visit counts
         q_values = data["Q_Value"].values
+        visit_counts = data["Visit_Count"].values
         agent.q_table = q_values.reshape(agent.q_table.shape)
+        agent.visit_counts = visit_counts.reshape(agent.q_table.shape)
 
-        print(f"Q-Table and configuration loaded from {file_path}")
+        print("Q-Table and configuration loaded successfully.")
         agent._print_q_table_info()
         return agent
 
@@ -313,6 +301,9 @@ class QTableAgent:
         state_idx = self.get_state_index(state)
         action_idx = self.get_action_index(action)
 
+        # Update visit counts
+        self.visit_counts[state_idx + (action_idx,)] += 1
+
         # Compute the target value
         next_q = np.max(self.q_table[self.get_state_index(next_state)])
         target = reward + gamma * next_q
@@ -324,10 +315,10 @@ class QTableAgent:
 if __name__ == '__main__':
     # Define CartPole state and action spaces
     state_space = [
-        {'type': 'continuous', 'range': (-4.8, 4.8), 'bins': 16},  # Cart position
-        {'type': 'continuous', 'range': (-10, 10), 'bins': 64},    # Cart velocity
-        {'type': 'continuous', 'range': (-0.418, 0.418), 'bins': 64},  # Pole angle
-        {'type': 'continuous', 'range': (-10, 10), 'bins': 64}     # Pole angular velocity
+        {'type': 'continuous', 'range': (-2.4, 2.4), 'bins': 8},  # Cart position
+        {'type': 'continuous', 'range': (-2, 2), 'bins': 16},  # Cart velocity
+        {'type': 'continuous', 'range': (-0.25, 0.25), 'bins': 16},  # Pole angle
+        {'type': 'continuous', 'range': (-2, 2), 'bins': 16}  # Pole angular velocity
     ]
 
     action_space = [
@@ -341,20 +332,23 @@ if __name__ == '__main__':
     env = gym.make('CartPole-v1')
 
     # Training parameters
-    num_episodes = int(25e3)  # Total episodes
-    alpha = 0.1               # Learning rate
-    gamma = 0.99              # Discount factor
-    epsilon_start = 0.5       # Starting exploration rate
-    epsilon_end = 0.001        # Minimum exploration rate
-    epsilon_decay = (epsilon_start - epsilon_end) / num_episodes  # Linear decay rate
-    epsilon = epsilon_start   # Initial exploration rate
+    total_steps = int(1e2*1e3)       # Total steps
+    alpha = 0.05                # Learning rate
+    gamma = 0.99                # Discount factor
+    epsilon_start = 0.25        # Starting exploration rate
+    epsilon_end = 0.001         # Minimum exploration rate
+    epsilon_decay = (epsilon_start - epsilon_end) / total_steps  # Linear decay rate
+    epsilon = epsilon_start     # Initial exploration rate
 
-    # Store rewards for visualization
-    train_rewards = []
+    # Metrics
+    train_rewards = []           # Store rewards for each episode
+    episode_rewards = []         # Store recent episode rewards for progress bar updates
+    current_steps = 0            # Track total steps so far
+    episode_steps = 0            # Steps in the current episode
 
     # Training loop with progress bar
-    with tqdm(total=num_episodes) as pbar:
-        for episode in range(num_episodes):
+    with tqdm(total=total_steps, desc="Training Progress") as pbar:
+        while current_steps < total_steps:
             state, _ = env.reset()
             total_reward = 0
             done = False
@@ -376,28 +370,38 @@ if __name__ == '__main__':
                 # Update state and reward
                 state = next_state
                 total_reward += reward
+                episode_steps += 1
+                current_steps += 1
 
-                if done or truncated:
+                # Update exploration rate
+                epsilon = max(epsilon_end, epsilon - epsilon_decay)
+
+                # Update progress bar
+                pbar.update(1)
+
+                # Exit if total steps exceed limit
+                if current_steps >= total_steps:
                     break
 
-            train_rewards.append(total_reward)
+                if done or truncated:
+                    # Track episode reward and reset episode steps
+                    train_rewards.append(total_reward)
+                    episode_rewards.append(total_reward)
+                    episode_steps = 0
 
-            # Adjust exploration rate (epsilon linear decay)
-            epsilon = max(epsilon_end, epsilon - epsilon_decay)
+                    # Update progress bar description
+                    recent_avg = np.mean(episode_rewards[-10:]) if len(episode_rewards) >= 10 else np.mean(episode_rewards)
+                    recent_max = max(episode_rewards[-10:]) if len(episode_rewards) >= 10 else max(episode_rewards)
+                    pbar.set_description(
+                        f"Steps: {current_steps}/{total_steps}, "
+                        f"Recent Avg: {recent_avg:.2f}, Max: {recent_max:.2f}, Epsilon: {epsilon:.4f}"
+                    )
+                    break
 
-            # Update progress bar and statistics
-            avg_reward = np.mean(train_rewards[-100:]) if len(train_rewards) >= 100 else np.mean(train_rewards)
-            max_reward = np.max(train_rewards)
-            pbar.set_description(
-                f"Episode {episode + 1}/{num_episodes}, "
-                f"Reward: {total_reward}, Avg: {avg_reward:.2f}, Max: {max_reward}, Epsilon: {epsilon:.4f}"
-            )
-            pbar.update(1)
-
-    # save agent
+    # Save agent
     agent.save_q_table("q_table_agent.csv")
 
-    # test loading the agent
+    # Test loading the agent
     agent = QTableAgent.load_q_table("q_table_agent.csv")
 
     # Test the trained agent
