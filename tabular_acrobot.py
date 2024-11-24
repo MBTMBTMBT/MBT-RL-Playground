@@ -32,7 +32,7 @@ if __name__ == '__main__':
     env = gym.make('Acrobot-v1')
 
     # Training parameters
-    total_steps = int(10e6)       # Total steps
+    total_steps = int(25e6)       # Total steps
     alpha = 0.05                # Learning rate
     gamma = 0.99                # Discount factor
     epsilon_start = 0.25        # Starting exploration rate
@@ -65,7 +65,7 @@ if __name__ == '__main__':
             random_state = np.random.uniform(low, high)  # Randomly sample initial state
 
             # Manually set the environment's state to the sampled random state
-            env.env.state = random_state
+            env.state = random_state
 
             total_reward = 0
             done = False
