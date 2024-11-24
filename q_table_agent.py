@@ -99,6 +99,9 @@ class QTableAgent:
         # Initialize Q-Table
         self.q_table: np.ndarray = self._initialize_q_table()
 
+        # Print Q-table size and dimension details
+        self._print_q_table_info()
+
     def _discretize_space(self, space: Dict[str, Any]) -> np.ndarray:
         """
         Discretize a single state or action dimension.
@@ -134,6 +137,22 @@ class QTableAgent:
         action_size: int = len(self.action_bins) if self.action_combination else np.prod(
             [len(bins) for bins in self.action_bins])
         return np.zeros(state_sizes + [action_size])
+
+    def _print_q_table_info(self) -> None:
+        """
+        Print detailed information about the Q-Table size and dimensions.
+        """
+        state_sizes = [len(bins) for bins in self.state_bins]
+        action_size = len(self.action_bins) if self.action_combination else np.prod(
+            [len(bins) for bins in self.action_bins])
+
+        print("Q-Table Details:")
+        print(f" - State Space Dimensions: {len(state_sizes)}")
+        print(f"   Sizes: {state_sizes}")
+        print(f" - Action Space Dimensions: {1 if self.action_combination else len(self.action_bins)}")
+        print(f"   Sizes: {action_size}")
+        print(f" - Total Q-Table Shape: {self.q_table.shape}")
+        print(f" - Total Entries: {self.q_table.size}")
 
     def get_state_index(self, state: List[float]) -> Tuple[int, ...]:
         """
@@ -258,10 +277,13 @@ if __name__ == '__main__':
     env = gym.make('CartPole-v1')
 
     # Training parameters
-    num_episodes = int(50e3)
-    alpha = 0.1  # Learning rate
-    gamma = 0.99  # Discount factor
-    epsilon = 0.25  # Exploration rate
+    num_episodes = int(25e3)  # Total episodes
+    alpha = 0.1               # Learning rate
+    gamma = 0.99              # Discount factor
+    epsilon_start = 0.5       # Starting exploration rate
+    epsilon_end = 0.001        # Minimum exploration rate
+    epsilon_decay = (epsilon_start - epsilon_end) / num_episodes  # Linear decay rate
+    epsilon = epsilon_start   # Initial exploration rate
 
     # Store rewards for visualization
     train_rewards = []
@@ -296,14 +318,15 @@ if __name__ == '__main__':
 
             train_rewards.append(total_reward)
 
-            # Adjust exploration rate (epsilon decay)
-            epsilon = max(0.01, epsilon * 0.995)
+            # Adjust exploration rate (epsilon linear decay)
+            epsilon = max(epsilon_end, epsilon - epsilon_decay)
 
             # Update progress bar and statistics
             avg_reward = np.mean(train_rewards[-100:]) if len(train_rewards) >= 100 else np.mean(train_rewards)
             max_reward = np.max(train_rewards)
             pbar.set_description(
-                f"Episode {episode + 1}/{num_episodes}, Reward: {total_reward}, Avg: {avg_reward:.2f}, Max: {max_reward}"
+                f"Episode {episode + 1}/{num_episodes}, "
+                f"Reward: {total_reward}, Avg: {avg_reward:.2f}, Max: {max_reward}, Epsilon: {epsilon:.4f}"
             )
             pbar.update(1)
 
