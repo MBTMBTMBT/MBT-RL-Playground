@@ -258,7 +258,7 @@ if __name__ == '__main__':
     env = gym.make('CartPole-v1')
 
     # Training parameters
-    num_episodes = int(1e5)
+    num_episodes = int(50e3)
     alpha = 0.1  # Learning rate
     gamma = 0.99  # Discount factor
     epsilon = 0.25  # Exploration rate
