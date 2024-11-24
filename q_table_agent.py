@@ -317,7 +317,7 @@ if __name__ == '__main__':
     state_space = [
         {'type': 'continuous', 'range': (-2.4, 2.4), 'bins': 8},  # Cart position
         {'type': 'continuous', 'range': (-2, 2), 'bins': 16},  # Cart velocity
-        {'type': 'continuous', 'range': (-0.25, 0.25), 'bins': 16},  # Pole angle
+        {'type': 'continuous', 'range': (-0.25, 0.25), 'bins': 8},  # Pole angle
         {'type': 'continuous', 'range': (-2, 2), 'bins': 16}  # Pole angular velocity
     ]
 
