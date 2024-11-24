@@ -226,17 +226,19 @@ class QTableAgent:
     @classmethod
     def load_q_table(cls, file_path: str) -> "QTableAgent":
         """
-        Load the Q-Table, visit counts, and agent configuration from a CSV file, restoring both bin indices and actual values.
+        Load the Q-Table, visit counts, and agent configuration from a CSV file,
+        restoring both bin indices and actual values.
         """
         print(f"Loading sparse Q-Table and configuration from {file_path}...")
 
         with open(file_path, "r") as f:
-            # Load metadata
+            # Read metadata
             metadata_line = f.readline().strip()
-            metadata_str = metadata_line.split(",", 1)[-1]
-            metadata = ast.literal_eval(base64.b64decode(metadata_str).decode("utf-8"))
+            metadata_encoded = metadata_line.split(",", 1)[-1].strip()
+            metadata_str = base64.b64decode(metadata_encoded).decode("utf-8")
+            metadata = ast.literal_eval(metadata_str)
 
-            # Load sparse Q-Table data
+            # Read Q-Table data
             data = pd.read_csv(f)
 
         # Extract metadata for initialization
@@ -244,25 +246,32 @@ class QTableAgent:
         action_space = metadata["action_space"]
         action_combination = metadata["action_combination"]
 
-        # Initialize the QTableAgent
+        # Initialize a new agent
         agent = cls(state_space, action_space, action_combination)
 
-        # Rebuild the sparse Q-Table and visit counts
+        # Restore the sparse Q-Table and visit counts
         for _, row in data.iterrows():
+            # Use saved indices directly for restoration
             state_indices = tuple(
-                np.searchsorted(agent.state_bins[dim], row[f"State_{dim}_Value"]) for dim in
-                range(len(agent.state_bins))
+                int(row[f"State_{dim}_Index"]) for dim in range(len(agent.state_bins))
             )
-            action_indices = tuple(
-                np.searchsorted(agent.action_bins[dim], row[f"Action_{dim}_Value"]) for dim in
-                range(len(agent.action_bins))
-            )
+            if agent.action_combination:
+                # If action_combination is True, handle as a single index
+                action_index = int(row[f"Action_Index"])
+            else:
+                # Otherwise, handle as multi-dimensional action indices
+                action_index = tuple(
+                    int(row[f"Action_{dim}_Index"]) for dim in range(len(agent.action_bins))
+                )
+
+            # Retrieve Q-value and visit count
             q_value = row["Q_Value"]
             visit_count = row["Visit_Count"]
 
             # Update the sparse Q-Table
-            agent.q_table[(state_indices, action_indices)] = q_value
-            agent.visit_counts[(state_indices, action_indices)] = visit_count
+            key = state_indices + (action_index if agent.action_combination else action_index)
+            agent.q_table[key] = q_value
+            agent.visit_counts[key] = visit_count
 
         print("Sparse Q-Table successfully loaded.")
         agent.print_q_table_info()
