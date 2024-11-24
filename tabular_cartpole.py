@@ -24,7 +24,7 @@ if __name__ == '__main__':
     env = gym.make('CartPole-v1')
 
     # Training parameters
-    total_steps = int(10*1e6)       # Total steps
+    total_steps = int(10e6)       # Total steps
     alpha = 0.05                # Learning rate
     gamma = 0.99                # Discount factor
     epsilon_start = 0.25        # Starting exploration rate
@@ -40,10 +40,10 @@ if __name__ == '__main__':
 
     # Define the custom state range
     custom_state_range = {
-        "position": (-2.4, 2.4),  # Cart position
-        "velocity": (-2.0, 2.0),  # Cart velocity
-        "angle": (-0.2, 0.2),  # Pole angle
-        "angular_velocity": (-2.0, 2.0)  # Pole angular velocity
+        "position": (-3.0, 3.0),  # Cart position
+        "velocity": (-2.5, 2.5),  # Cart velocity
+        "angle": (-0.3, 0.3),  # Pole angle
+        "angular_velocity": (-2.5, 2.5)  # Pole angular velocity
     }
 
     # Training loop with progress bar
@@ -137,4 +137,6 @@ if __name__ == '__main__':
     plt.ylabel("Total Reward")
     plt.legend()
     plt.grid()
-    plt.show()
+    save_path = "./experiments/cartpole/cartpole_training_results.png"
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')  # Save the figure to the specified path
+    print(f"Plot saved to {save_path}")

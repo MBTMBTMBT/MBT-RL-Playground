@@ -91,18 +91,21 @@ class QTableAgent:
         self.action_space: List[Dict[str, Any]] = action_space
         self.action_combination: bool = action_combination
 
-        # Discretize the state space
+        # Discretize the state space and create a mapping to their original values
         self.state_bins: List[np.ndarray] = [self._discretize_space(dim) for dim in state_space]
+        self.state_value_map: List[np.ndarray] = self.state_bins  # Save the bin edges as the mapping
 
-        # Discretize or combine the action space
+        # Discretize the action space and create a mapping
         if action_combination:
             self.action_bins: np.ndarray = self._generate_action_combinations(action_space)
+            self.action_value_map: np.ndarray = self.action_bins
         else:
             self.action_bins: List[np.ndarray] = [self._discretize_space(dim) for dim in action_space]
+            self.action_value_map: List[np.ndarray] = self.action_bins
 
         # Initialize Q-Table and visit counts
         self.q_table: np.ndarray = self._initialize_q_table()
-        self.visit_counts: np.ndarray = np.zeros_like(self.q_table, dtype=int)  # Track sampling counts
+        self.visit_counts: np.ndarray = np.zeros_like(self.q_table, dtype=int)
 
         # Print Q-table size and dimension details
         self._print_q_table_info()
@@ -144,18 +147,45 @@ class QTableAgent:
         print(f" - Total Entries: {self.q_table.size}")
 
     def save_q_table(self, file_path: str) -> None:
-        """Save the Q-Table, visit counts, and agent configuration to a CSV file."""
+        """
+        Save the Q-Table, visit counts, and agent configuration to a CSV file.
+        """
         print(f"Saving Q-Table and configuration to {file_path}...")
+
+        # Calculate decimal places for states and actions
+        state_decimals = [
+            max(0, int(-np.floor(np.log10(np.abs(bins[1] - bins[0]))))) + 1 if len(bins) > 1 else 0
+            for bins in self.state_bins
+        ]
+        action_decimals = [
+            max(0, int(-np.floor(np.log10(np.abs(bins[1] - bins[0]))))) + 1 if len(bins) > 1 else 0
+            for bins in self.action_bins
+        ]
 
         # Flatten Q-table and visit counts
         flat_indices = np.array(np.unravel_index(np.arange(self.q_table.size), self.q_table.shape)).T
         flat_values = self.q_table.flatten()
         flat_visits = self.visit_counts.flatten()
 
-        # Combine indices, Q-values, and visit counts into a DataFrame
-        column_names = [f"State_{i}" for i in range(len(self.state_bins))] + ["Action", "Q_Value", "Visit_Count"]
+        # Map indices to original state and action values with rounding
+        state_values = [
+            [round(self.state_bins[dim][index], state_decimals[dim]) for dim, index in enumerate(row[:-1])]
+            for row in flat_indices
+        ]
+        action_values = [
+            # Single action combination or multi-action dimensions
+            [round(self.action_bins[dim][row[len(self.state_bins) + dim]], action_decimals[dim])
+             for dim in range(len(self.action_bins))]
+            for row in flat_indices
+        ]
+
+        # Combine state, action, Q-values, and visit counts into a DataFrame
+        column_names = [f"State_{i}" for i in range(len(self.state_bins))] + \
+                       [f"Action_{i}" for i in range(len(self.action_bins))] + \
+                       ["Q_Value", "Visit_Count"]
         data = pd.DataFrame(
-            np.hstack((flat_indices, flat_values[:, None], flat_visits[:, None])),
+            [state + action + [q, visit]
+             for state, action, q, visit in zip(state_values, action_values, flat_values, flat_visits)],
             columns=column_names
         )
 
@@ -177,7 +207,9 @@ class QTableAgent:
 
     @classmethod
     def load_q_table(cls, file_path: str) -> "QTableAgent":
-        """Load the Q-Table, visit counts, and agent configuration from a CSV file."""
+        """
+        Load the Q-Table, visit counts, and agent configuration from a CSV file.
+        """
         print(f"Loading Q-Table and configuration from {file_path}...")
 
         with open(file_path, "r") as f:
@@ -198,11 +230,23 @@ class QTableAgent:
         # Initialize a new agent
         agent = cls(state_space, action_space, action_combination)
 
-        # Load Q-Table and visit counts
-        q_values = data["Q_Value"].values
-        visit_counts = data["Visit_Count"].values
-        agent.q_table = q_values.reshape(agent.q_table.shape)
-        agent.visit_counts = visit_counts.reshape(agent.q_table.shape)
+        # Restore Q-Table and visit counts
+        for _, row in data.iterrows():
+            # Extract state and action indices
+            state_indices = [
+                np.searchsorted(agent.state_bins[dim], row[f"State_{dim}"])
+                for dim in range(len(agent.state_bins))
+            ]
+            action_indices = [
+                np.searchsorted(agent.action_bins[dim], row[f"Action_{dim}"])
+                for dim in range(len(agent.action_bins))
+            ]
+            q_value = row["Q_Value"]
+            visit_count = row["Visit_Count"]
+
+            # Map indices to Q-Table
+            agent.q_table[tuple(state_indices + action_indices)] = q_value
+            agent.visit_counts[tuple(state_indices + action_indices)] = visit_count
 
         print("Q-Table and configuration loaded successfully.")
         agent._print_q_table_info()
@@ -211,6 +255,7 @@ class QTableAgent:
     def get_state_index(self, state: List[float]) -> Tuple[int, ...]:
         """
         Get the index of a given state in the Q-Table.
+        If the state is out of range, clip it to the nearest boundary.
 
         :param state: A list of state values.
         :return: A tuple of indices corresponding to the discretized state.
@@ -218,25 +263,31 @@ class QTableAgent:
         state_index: List[int] = []
         for i, value in enumerate(state):
             bins = self.state_bins[i]
-            state_index.append(np.digitize(value, bins) - 1)
+            # Clip the value to stay within the bin range
+            clipped_value = np.clip(value, bins[0], bins[-1])
+            state_index.append(np.digitize(clipped_value, bins) - 1)
         return tuple(state_index)
 
     def get_action_index(self, action: List[float]) -> int:
         """
         Get the index of a given action in the Q-Table.
+        If the action is out of range, clip it to the nearest boundary.
 
         :param action: A list of action values.
         :return: An integer index corresponding to the discretized action.
         """
         if self.action_combination:
             action = np.array(action).reshape(1, -1)
-            distances = np.linalg.norm(self.action_bins - action, axis=1)
+            clipped_action = np.clip(action, self.action_bins[:, 0], self.action_bins[:, -1])
+            distances = np.linalg.norm(self.action_bins - clipped_action, axis=1)
             return np.argmin(distances)
         else:
             action_index: List[int] = []
             for i, value in enumerate(action):
                 bins = self.action_bins[i]
-                action_index.append(np.digitize(value, bins) - 1)
+                # Clip the value to stay within the bin range
+                clipped_value = np.clip(value, bins[0], bins[-1])
+                action_index.append(np.digitize(clipped_value, bins) - 1)
             return np.ravel_multi_index(action_index, [len(bins) for bins in self.action_bins])
 
     def get_q_value(self, state: List[float], action: List[float]) -> float:
