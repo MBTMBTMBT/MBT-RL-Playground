@@ -46,10 +46,27 @@ if __name__ == '__main__':
     current_steps = 0            # Track total steps so far
     episode_steps = 0            # Steps in the current episode
 
-    # Training loop with progress bar
+    # Define custom initialization ranges for each state variable
+    custom_state_range = {
+        "Cos_theta1": (-1.0, 1.0),  # Cosine of theta1
+        "Sin_theta1": (-1.0, 1.0),  # Sine of theta1
+        "Cos_theta2": (-1.0, 1.0),  # Cosine of theta2
+        "Sin_theta2": (-1.0, 1.0),  # Sine of theta2
+        "Angular_velocity_1": (-4.0, 4.0),  # Angular velocity of link 1
+        "Angular_velocity_2": (-9.0, 9.0)  # Angular velocity of link 2
+    }
+
     with tqdm(total=total_steps, desc="Training Progress") as pbar:
         while current_steps < total_steps:
+            # Reset environment and sample a random initial state
             state, _ = env.reset()
+            low = np.array([v[0] for v in custom_state_range.values()])
+            high = np.array([v[1] for v in custom_state_range.values()])
+            random_state = np.random.uniform(low, high)  # Randomly sample initial state
+
+            # Manually set the environment's state to the sampled random state
+            env.env.state = random_state
+
             total_reward = 0
             done = False
 
