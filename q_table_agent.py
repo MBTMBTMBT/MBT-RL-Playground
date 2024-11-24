@@ -108,7 +108,7 @@ class QTableAgent:
         self.visit_counts: np.ndarray = np.zeros_like(self.q_table, dtype=int)
 
         # Print Q-table size and dimension details
-        self._print_q_table_info()
+        self.print_q_table_info()
 
     def _discretize_space(self, space: Dict[str, Any]) -> np.ndarray:
         """Discretize a single state or action dimension."""
@@ -132,7 +132,7 @@ class QTableAgent:
             [len(bins) for bins in self.action_bins])
         return np.zeros(state_sizes + [action_size])
 
-    def _print_q_table_info(self) -> None:
+    def print_q_table_info(self) -> None:
         """Print detailed information about the Q-Table size and dimensions."""
         state_sizes = [len(bins) for bins in self.state_bins]
         action_size = len(self.action_bins) if self.action_combination else np.prod(
@@ -260,7 +260,7 @@ class QTableAgent:
             agent.visit_counts[tuple(state_indices + action_indices)] = visit_count
 
         print("Q-Table and configuration loaded successfully.")
-        agent._print_q_table_info()
+        agent.print_q_table_info()
         return agent
 
     def get_state_index(self, state: List[float]) -> Tuple[int, ...]:
