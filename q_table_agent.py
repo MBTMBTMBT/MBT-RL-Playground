@@ -215,6 +215,7 @@ class QTableAgent:
         agent.q_table = q_values.reshape(agent.q_table.shape)
 
         print(f"Q-Table and configuration loaded from {file_path}")
+        agent._print_q_table_info()
         return agent
 
     def get_state_index(self, state: List[float]) -> Tuple[int, ...]:
@@ -393,6 +394,12 @@ if __name__ == '__main__':
             )
             pbar.update(1)
 
+    # save agent
+    agent.save_q_table("q_table_agent.csv")
+
+    # test loading the agent
+    agent = QTableAgent.load_q_table("q_table_agent.csv")
+
     # Test the trained agent
     test_rewards = []
     for _ in range(20):  # Perform 20 test episodes
@@ -407,9 +414,6 @@ if __name__ == '__main__':
             if done or truncated:
                 break
         test_rewards.append(total_reward)
-
-    # save agent
-    agent.save_q_table("q_table_agent.csv")
 
     # Plot training and testing results
     plt.figure(figsize=(10, 6))
