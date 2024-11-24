@@ -2,14 +2,20 @@ if __name__ == '__main__':
     import numpy as np
     import gymnasium as gym
     from matplotlib import pyplot as plt
+    from matplotlib.animation import FuncAnimation
     from tqdm import tqdm
     from q_table_agent import QTableAgent
+    import os
+
+    # Create save directory
+    save_dir = "./experiments/cartpole/"
+    os.makedirs(save_dir, exist_ok=True)
 
     # Define CartPole state and action spaces
     state_space = [
         {'type': 'continuous', 'range': (-2.4, 2.4), 'bins': 8},  # Cart position
         {'type': 'continuous', 'range': (-2, 2), 'bins': 16},  # Cart velocity
-        {'type': 'continuous', 'range': (-0.25, 0.25), 'bins': 8},  # Pole angle
+        {'type': 'continuous', 'range': (-0.25, 0.25), 'bins': 16},  # Pole angle
         {'type': 'continuous', 'range': (-2, 2), 'bins': 16}  # Pole angular velocity
     ]
 
@@ -24,7 +30,7 @@ if __name__ == '__main__':
     env = gym.make('CartPole-v1')
 
     # Training parameters
-    total_steps = int(10e6)       # Total steps
+    total_steps = int(5e6)       # Total steps
     alpha = 0.05                # Learning rate
     gamma = 0.99                # Discount factor
     epsilon_start = 0.25        # Starting exploration rate
@@ -108,12 +114,50 @@ if __name__ == '__main__':
                     break
 
     # Save agent
-    agent.save_q_table("./experiments/cartpole/q_table_agent.csv")
+    agent.save_q_table(os.path.join(save_dir, "q_table_agent.csv"))
 
     # Test loading the agent
-    agent = QTableAgent.load_q_table("./experiments/cartpole/q_table_agent.csv")
+    agent = QTableAgent.load_q_table(os.path.join(save_dir, "q_table_agent.csv"))
 
-    # Test the trained agent
+    # Initialize CartPole environment for testing and rendering
+    env = gym.make('CartPole-v1', render_mode="rgb_array")
+
+    # Select one episode to save as a video
+    state, _ = env.reset()
+    frames = []  # List to store frames for the animation
+    total_reward = 0
+    done = False
+
+    while not done:
+        probabilities = agent.get_action_probabilities(state, strategy="greedy")
+        action = [np.argmax(probabilities)]
+        state, reward, done, truncated, _ = env.step(action[0])
+        total_reward += reward
+
+        # Append the rendered frame
+        frames.append(env.render())
+
+        if done or truncated:
+            break
+
+    # Save the frames as a video using matplotlib.animation
+    fig, ax = plt.subplots()
+    ax.axis('off')  # Turn off axes for a cleaner output
+    img = ax.imshow(frames[0])  # Display the first frame
+
+    def update(frame):
+        img.set_data(frame)
+        return [img]
+
+    # Create an animation object
+    ani = FuncAnimation(fig, update, frames=frames, interval=50, blit=True)
+
+    # Save the animation as a GIF
+    gif_path = os.path.join(save_dir, "cartpole_test.gif")
+    ani.save(gif_path, dpi=300, writer="pillow")
+    print(f"Animation saved to {gif_path}")
+
+    # Test the trained agent for evaluation
     test_rewards = []
     for _ in range(20):  # Perform 20 test episodes
         state, _ = env.reset()
@@ -137,6 +181,6 @@ if __name__ == '__main__':
     plt.ylabel("Total Reward")
     plt.legend()
     plt.grid()
-    save_path = "./experiments/cartpole/cartpole_training_results.png"
+    save_path = os.path.join(save_dir, "cartpole_training_results.png")
     plt.savefig(save_path, dpi=300, bbox_inches='tight')  # Save the figure to the specified path
     print(f"Plot saved to {save_path}")

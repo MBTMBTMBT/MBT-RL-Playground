@@ -148,7 +148,7 @@ class QTableAgent:
 
     def save_q_table(self, file_path: str) -> None:
         """
-        Save the Q-Table, visit counts, and agent configuration to a CSV file.
+        Save the Q-Table, visit counts, and agent configuration to a CSV file, including bin indices and actual values.
         """
         print(f"Saving Q-Table and configuration to {file_path}...")
 
@@ -168,26 +168,35 @@ class QTableAgent:
         flat_visits = self.visit_counts.flatten()
 
         # Map indices to original state and action values with rounding
+        state_indices = flat_indices[:, :len(self.state_bins)]
+        action_indices = flat_indices[:, len(self.state_bins):]
         state_values = [
-            [round(self.state_bins[dim][index], state_decimals[dim]) for dim, index in enumerate(row[:-1])]
-            for row in flat_indices
+            [round(self.state_bins[dim][index], state_decimals[dim]) for dim, index in enumerate(state_row)]
+            for state_row in state_indices
         ]
         action_values = [
-            # Single action combination or multi-action dimensions
-            [round(self.action_bins[dim][row[len(self.state_bins) + dim]], action_decimals[dim])
-             for dim in range(len(self.action_bins))]
-            for row in flat_indices
+            [round(self.action_bins[dim][action_row[dim]], action_decimals[dim]) for dim in
+             range(len(self.action_bins))]
+            for action_row in action_indices
         ]
 
-        # Combine state, action, Q-values, and visit counts into a DataFrame
-        column_names = [f"State_{i}" for i in range(len(self.state_bins))] + \
-                       [f"Action_{i}" for i in range(len(self.action_bins))] + \
-                       ["Q_Value", "Visit_Count"]
-        data = pd.DataFrame(
-            [state + action + [q, visit]
-             for state, action, q, visit in zip(state_values, action_values, flat_values, flat_visits)],
-            columns=column_names
+        # Combine indices, values, Q-values, and visit counts into a DataFrame
+        data = []
+        for state_idx, state_val, action_idx, action_val, q_val, visit in zip(
+                state_indices, state_values, action_indices, action_values, flat_values, flat_visits
+        ):
+            data.append(
+                list(state_idx) + list(state_val) + list(action_idx) + list(action_val) + [q_val, visit]
+            )
+
+        column_names = (
+                [f"State_{i}_Index" for i in range(len(self.state_bins))] +
+                [f"State_{i}_Value" for i in range(len(self.state_bins))] +
+                [f"Action_{i}_Index" for i in range(len(self.action_bins))] +
+                [f"Action_{i}_Value" for i in range(len(self.action_bins))] +
+                ["Q_Value", "Visit_Count"]
         )
+        df = pd.DataFrame(data, columns=column_names)
 
         # Add metadata about the agent configuration
         metadata = {
@@ -202,13 +211,13 @@ class QTableAgent:
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
         with open(file_path, "w") as f:
             metadata_df.to_csv(f, index=False, header=False)
-            data.to_csv(f, index=False)
+            df.to_csv(f, index=False)
         print(f"Q-Table and configuration successfully saved to {file_path}.")
 
     @classmethod
     def load_q_table(cls, file_path: str) -> "QTableAgent":
         """
-        Load the Q-Table, visit counts, and agent configuration from a CSV file.
+        Load the Q-Table, visit counts, and agent configuration from a CSV file, restoring both bin indices and actual values.
         """
         print(f"Loading Q-Table and configuration from {file_path}...")
 
@@ -232,19 +241,17 @@ class QTableAgent:
 
         # Restore Q-Table and visit counts
         for _, row in data.iterrows():
-            # Extract state and action indices
+            # Extract state and action indices from the saved data
             state_indices = [
-                np.searchsorted(agent.state_bins[dim], row[f"State_{dim}"])
-                for dim in range(len(agent.state_bins))
+                int(row[f"State_{dim}_Index"]) for dim in range(len(agent.state_bins))
             ]
             action_indices = [
-                np.searchsorted(agent.action_bins[dim], row[f"Action_{dim}"])
-                for dim in range(len(agent.action_bins))
+                int(row[f"Action_{dim}_Index"]) for dim in range(len(agent.action_bins))
             ]
             q_value = row["Q_Value"]
             visit_count = row["Visit_Count"]
 
-            # Map indices to Q-Table
+            # Update the Q-Table and visit counts
             agent.q_table[tuple(state_indices + action_indices)] = q_value
             agent.visit_counts[tuple(state_indices + action_indices)] = visit_count
 
