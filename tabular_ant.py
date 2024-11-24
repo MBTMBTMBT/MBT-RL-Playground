@@ -26,7 +26,7 @@ if __name__ == '__main__':
     env = gym.make('Ant-v4')
 
     # Training parameters
-    total_steps = int(1e6)       # Total steps
+    total_steps = int(10e6)       # Total steps
     alpha = 0.1                 # Learning rate
     gamma = 0.99                # Discount factor
     epsilon_start = 0.3         # Starting exploration rate
