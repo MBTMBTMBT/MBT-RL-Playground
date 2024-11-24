@@ -1,6 +1,7 @@
 from typing import List, Dict, Union, Tuple, Any
 import numpy as np
 import gymnasium as gym
+import pandas as pd
 from matplotlib import pyplot as plt
 from tqdm import tqdm
 
@@ -153,6 +154,68 @@ class QTableAgent:
         print(f"   Sizes: {action_size}")
         print(f" - Total Q-Table Shape: {self.q_table.shape}")
         print(f" - Total Entries: {self.q_table.size}")
+
+    def save_q_table(self, file_path: str) -> None:
+        """
+        Save the Q-Table and agent configuration to a CSV file.
+
+        :param file_path: Path to save the Q-Table and configuration.
+        """
+        # Flatten Q-table
+        flat_indices = np.array(np.unravel_index(np.arange(self.q_table.size), self.q_table.shape)).T
+        flat_values = self.q_table.flatten()
+
+        # Combine indices and values into a DataFrame
+        column_names = [f"State_{i}" for i in range(len(self.state_bins))] + ["Action", "Q_Value"]
+        data = pd.DataFrame(
+            np.hstack((flat_indices, flat_values[:, None])),
+            columns=column_names
+        )
+
+        # Add metadata about the agent configuration
+        metadata = {
+            "state_space": self.state_space,
+            "action_space": self.action_space,
+            "action_combination": self.action_combination
+        }
+        metadata_df = pd.DataFrame({"Metadata": [str(metadata)]})
+
+        # Save metadata and Q-Table
+        with open(file_path, "w") as f:
+            metadata_df.to_csv(f, index=False, header=False)
+            data.to_csv(f, index=False)
+        print(f"Q-Table and configuration saved to {file_path}")
+
+    @classmethod
+    def load_q_table(cls, file_path: str) -> "QTableAgent":
+        """
+        Load the Q-Table and agent configuration from a CSV file.
+
+        :param file_path: Path to the Q-Table and configuration file.
+        :return: A new QTableAgent instance initialized with the loaded configuration and Q-Table.
+        """
+        with open(file_path, "r") as f:
+            # Read metadata (first line)
+            metadata_line = f.readline().strip()
+            metadata = eval(metadata_line.split(",", 1)[-1].strip('"'))
+
+            # Read Q-Table data
+            data = pd.read_csv(f)
+
+        # Extract state space and action space
+        state_space = metadata["state_space"]
+        action_space = metadata["action_space"]
+        action_combination = metadata["action_combination"]
+
+        # Initialize a new agent
+        agent = cls(state_space, action_space, action_combination)
+
+        # Load Q-Table values and reshape
+        q_values = data["Q_Value"].values
+        agent.q_table = q_values.reshape(agent.q_table.shape)
+
+        print(f"Q-Table and configuration loaded from {file_path}")
+        return agent
 
     def get_state_index(self, state: List[float]) -> Tuple[int, ...]:
         """
@@ -344,6 +407,9 @@ if __name__ == '__main__':
             if done or truncated:
                 break
         test_rewards.append(total_reward)
+
+    # save agent
+    agent.save_q_table("q_table_agent.csv")
 
     # Plot training and testing results
     plt.figure(figsize=(10, 6))
