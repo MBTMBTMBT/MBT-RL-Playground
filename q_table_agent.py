@@ -293,16 +293,16 @@ class QTableAgent:
         :return: An integer index corresponding to the discretized action.
         """
         if self.action_combination:
+            # If combining actions, match action with the closest in the precomputed action_bins
             action = np.array(action).reshape(1, -1)
-            clipped_action = np.clip(action, self.action_bins[:, 0], self.action_bins[:, -1])
-            distances = np.linalg.norm(self.action_bins - clipped_action, axis=1)
+            distances = np.linalg.norm(self.action_bins - action, axis=1)
             return np.argmin(distances)
         else:
-            action_index: List[int] = []
+            # For non-combined actions, calculate the multi-index for each dimension
+            action_index = []
             for i, value in enumerate(action):
                 bins = self.action_bins[i]
-                # Clip the value to stay within the bin range
-                clipped_value = np.clip(value, bins[0], bins[-1])
+                clipped_value = np.clip(value, bins[0], bins[-1])  # Clip to bin range
                 action_index.append(np.digitize(clipped_value, bins) - 1)
             return np.ravel_multi_index(action_index, [len(bins) for bins in self.action_bins])
 
@@ -330,13 +330,20 @@ class QTableAgent:
         """
         state_idx: Tuple[int, ...] = self.get_state_index(state)
 
-        # Check if the state exists in the sparse table
-        q_values: np.ndarray = np.zeros(len(self.action_bins))  # Default Q-values for all actions
-        for action_idx in range(len(self.action_bins)):
+        # Calculate total actions based on the action_combination flag
+        if self.action_combination:
+            total_actions = len(self.action_bins)  # Combined actions
+        else:
+            total_actions = np.prod([len(bins) for bins in self.action_bins])  # Individual dimensions
+
+        # Initialize Q-values for all actions
+        q_values: np.ndarray = np.zeros(total_actions)
+        for action_idx in range(total_actions):
             key = state_idx + (action_idx,)
             if key in self.q_table:
                 q_values[action_idx] = self.q_table[key]
 
+        # Calculate probabilities based on the specified strategy
         if strategy == "greedy":
             probabilities: np.ndarray = np.zeros_like(q_values)
             probabilities[np.argmax(q_values)] = 1.0
@@ -375,13 +382,25 @@ class QTableAgent:
         # Get indices for the current state and action
         state_idx = self.get_state_index(state)
         action_idx = self.get_action_index(action)
+        key = state_idx + (action_idx,)
+
+        # Calculate total actions
+        if self.action_combination:
+            total_actions = len(self.action_bins)
+        else:
+            total_actions = np.prod([len(bins) for bins in self.action_bins])
+
+        # Get next Q-values for all possible actions in the next state
         next_state_idx = self.get_state_index(next_state)
+        next_q_values = [self.q_table.get(next_state_idx + (a,), 0) for a in range(total_actions)]
+        next_q = max(next_q_values)
 
-        # Update visit count
-        self.visit_counts[state_idx + (action_idx,)] += 1
+        # Compute the Q-Learning target
+        target = reward + gamma * next_q
 
-        # Q-learning update
-        max_next_q = max(self.q_table[next_state_idx + (next_action_idx,)]
-                         for next_action_idx in range(len(self.action_bins)))
-        target = reward + gamma * max_next_q
-        self.q_table[state_idx + (action_idx,)] += alpha * (target - self.q_table[state_idx + (action_idx,)])
+        # Update the Q-Table
+        current_q = self.q_table.get(key, 0)
+        self.q_table[key] = current_q + alpha * (target - current_q)
+
+        # Update visit counts
+        self.visit_counts[key] = self.visit_counts.get(key, 0) + 1
