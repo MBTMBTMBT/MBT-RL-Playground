@@ -1,12 +1,10 @@
 import ast
 import base64
+from collections import defaultdict
 import os
 from typing import List, Dict, Union, Tuple, Any
 import numpy as np
-import gymnasium as gym
 import pandas as pd
-from matplotlib import pyplot as plt
-from tqdm import tqdm
 
 
 class QTableAgent:
@@ -103,9 +101,9 @@ class QTableAgent:
             self.action_bins: List[np.ndarray] = [self._discretize_space(dim) for dim in action_space]
             self.action_value_map: List[np.ndarray] = self.action_bins
 
-        # Initialize Q-Table and visit counts
-        self.q_table: np.ndarray = self._initialize_q_table()
-        self.visit_counts: np.ndarray = np.zeros_like(self.q_table, dtype=int)
+        # Initialize Q-Table and visit counts as defaultdicts
+        self.q_table = defaultdict(lambda: 0.0)  # Default Q-value is 0.0
+        self.visit_counts = defaultdict(lambda: 0)  # Default visit count is 0
 
         # Print Q-table size and dimension details
         self.print_q_table_info()
@@ -133,18 +131,23 @@ class QTableAgent:
         return np.zeros(state_sizes + [action_size])
 
     def print_q_table_info(self) -> None:
-        """Print detailed information about the Q-Table size and dimensions."""
+        """Print detailed information about the sparse Q-Table."""
         state_sizes = [len(bins) for bins in self.state_bins]
         action_size = len(self.action_bins) if self.action_combination else np.prod(
             [len(bins) for bins in self.action_bins])
 
-        print("Q-Table Details:")
+        # Calculate sparsity information
+        total_entries = np.prod(state_sizes) * action_size  # Full dense size
+        non_zero_entries = len(self.q_table)  # Only entries in the sparse table
+
+        print("Sparse Q-Table Details:")
         print(f" - State Space Dimensions: {len(state_sizes)}")
         print(f"   Sizes: {state_sizes}")
         print(f" - Action Space Dimensions: {1 if self.action_combination else len(self.action_bins)}")
         print(f"   Sizes: {action_size}")
-        print(f" - Total Q-Table Shape: {self.q_table.shape}")
-        print(f" - Total Entries: {self.q_table.size}")
+        print(f" - Non-Zero Entries in Sparse Q-Table: {non_zero_entries}")
+        print(f" - Total Possible Entries (Dense): {total_entries}")
+        print(f" - Sparsity: {100 * (1 - non_zero_entries / total_entries):.2f}%")
 
     def save_q_table(self, file_path: str) -> None:
         """
@@ -163,33 +166,33 @@ class QTableAgent:
             for bins in self.action_bins
         ]
 
-        # Flatten Q-table and visit counts
-        flat_indices = np.array(np.unravel_index(np.arange(self.q_table.size), self.q_table.shape)).T
-        flat_values = self.q_table.flatten()
-        flat_visits = self.visit_counts.flatten()
-
-        # Map indices to original state and action values with rounding
-        state_indices = flat_indices[:, :len(self.state_bins)]
-        action_indices = flat_indices[:, len(self.state_bins):]
-        state_values = [
-            [round(self.state_bins[dim][index], state_decimals[dim]) for dim, index in enumerate(state_row)]
-            for state_row in state_indices
-        ]
-        action_values = [
-            [round(self.action_bins[dim][action_row[dim]], action_decimals[dim]) for dim in
-             range(len(self.action_bins))]
-            for action_row in action_indices
-        ]
-
-        # Combine indices, values, Q-values, and visit counts into a DataFrame
+        # Prepare data for saving
         data = []
-        for state_idx, state_val, action_idx, action_val, q_val, visit in zip(
-                state_indices, state_values, action_indices, action_values, flat_values, flat_visits
-        ):
+        for key, q_value in self.q_table.items():
+            state_indices = key[:len(self.state_bins)]
+            action_indices = key[len(self.state_bins):]
+
+            # Map indices to original values
+            state_values = [
+                round(self.state_bins[dim][state_idx], state_decimals[dim])
+                for dim, state_idx in enumerate(state_indices)
+            ]
+            action_values = [
+                round(self.action_bins[dim][action_idx], action_decimals[dim])
+                for dim, action_idx in enumerate(action_indices)
+            ]
+
+            # Collect visit count
+            visit_count = self.visit_counts.get(key, 0)
+
+            # Append row to data
             data.append(
-                list(state_idx) + list(state_val) + list(action_idx) + list(action_val) + [q_val, visit]
+                list(state_indices) + list(state_values) +
+                list(action_indices) + list(action_values) +
+                [q_value, visit_count]
             )
 
+        # Define column names
         column_names = (
                 [f"State_{i}_Index" for i in range(len(self.state_bins))] +
                 [f"State_{i}_Value" for i in range(len(self.state_bins))] +
@@ -197,6 +200,8 @@ class QTableAgent:
                 [f"Action_{i}_Value" for i in range(len(self.action_bins))] +
                 ["Q_Value", "Visit_Count"]
         )
+
+        # Convert to DataFrame
         df = pd.DataFrame(data, columns=column_names)
 
         # Filter rows where `Visit_Count` >= 1
@@ -223,43 +228,43 @@ class QTableAgent:
         """
         Load the Q-Table, visit counts, and agent configuration from a CSV file, restoring both bin indices and actual values.
         """
-        print(f"Loading Q-Table and configuration from {file_path}...")
+        print(f"Loading sparse Q-Table and configuration from {file_path}...")
 
         with open(file_path, "r") as f:
-            # Read metadata
+            # Load metadata
             metadata_line = f.readline().strip()
-            metadata_encoded = metadata_line.split(",", 1)[-1].strip()
-            metadata_str = base64.b64decode(metadata_encoded).decode("utf-8")
-            metadata = ast.literal_eval(metadata_str)
+            metadata_str = metadata_line.split(",", 1)[-1]
+            metadata = ast.literal_eval(base64.b64decode(metadata_str).decode("utf-8"))
 
-            # Read Q-Table data
+            # Load sparse Q-Table data
             data = pd.read_csv(f)
 
-        # Extract state space and action space
+        # Extract metadata for initialization
         state_space = metadata["state_space"]
         action_space = metadata["action_space"]
         action_combination = metadata["action_combination"]
 
-        # Initialize a new agent
+        # Initialize the QTableAgent
         agent = cls(state_space, action_space, action_combination)
 
-        # Restore Q-Table and visit counts
+        # Rebuild the sparse Q-Table and visit counts
         for _, row in data.iterrows():
-            # Extract state and action indices from the saved data
-            state_indices = [
-                int(row[f"State_{dim}_Index"]) for dim in range(len(agent.state_bins))
-            ]
-            action_indices = [
-                int(row[f"Action_{dim}_Index"]) for dim in range(len(agent.action_bins))
-            ]
+            state_indices = tuple(
+                np.searchsorted(agent.state_bins[dim], row[f"State_{dim}_Value"]) for dim in
+                range(len(agent.state_bins))
+            )
+            action_indices = tuple(
+                np.searchsorted(agent.action_bins[dim], row[f"Action_{dim}_Value"]) for dim in
+                range(len(agent.action_bins))
+            )
             q_value = row["Q_Value"]
             visit_count = row["Visit_Count"]
 
-            # Update the Q-Table and visit counts
-            agent.q_table[tuple(state_indices + action_indices)] = q_value
-            agent.visit_counts[tuple(state_indices + action_indices)] = visit_count
+            # Update the sparse Q-Table
+            agent.q_table[(state_indices, action_indices)] = q_value
+            agent.visit_counts[(state_indices, action_indices)] = visit_count
 
-        print("Q-Table and configuration loaded successfully.")
+        print("Sparse Q-Table successfully loaded.")
         agent.print_q_table_info()
         return agent
 
@@ -309,8 +314,8 @@ class QTableAgent:
         :param action: A list of action values.
         :return: The Q-value corresponding to the state and action.
         """
-        state_idx: Tuple[int, ...] = self.get_state_index(state)
-        action_idx: int = self.get_action_index(action)
+        state_idx = self.get_state_index(state)
+        action_idx = self.get_action_index(action)
         return self.q_table[state_idx + (action_idx,)]
 
     def get_action_probabilities(self, state: List[float], strategy: str = "greedy",
@@ -324,7 +329,13 @@ class QTableAgent:
         :return: A numpy array of action probabilities.
         """
         state_idx: Tuple[int, ...] = self.get_state_index(state)
-        q_values: np.ndarray = self.q_table[state_idx]
+
+        # Check if the state exists in the sparse table
+        q_values: np.ndarray = np.zeros(len(self.action_bins))  # Default Q-values for all actions
+        for action_idx in range(len(self.action_bins)):
+            key = state_idx + (action_idx,)
+            if key in self.q_table:
+                q_values[action_idx] = self.q_table[key]
 
         if strategy == "greedy":
             probabilities: np.ndarray = np.zeros_like(q_values)
@@ -345,8 +356,8 @@ class QTableAgent:
         :param action: A list of action values.
         :param value: The new Q-value to be updated.
         """
-        state_idx: Tuple[int, ...] = self.get_state_index(state)
-        action_idx: int = self.get_action_index(action)
+        state_idx = self.get_state_index(state)
+        action_idx = self.get_action_index(action)
         self.q_table[state_idx + (action_idx,)] = value
 
     def update(self, state: List[float], action: List[float], reward: float, next_state: List[float],
@@ -364,13 +375,13 @@ class QTableAgent:
         # Get indices for the current state and action
         state_idx = self.get_state_index(state)
         action_idx = self.get_action_index(action)
+        next_state_idx = self.get_state_index(next_state)
 
-        # Update visit counts
+        # Update visit count
         self.visit_counts[state_idx + (action_idx,)] += 1
 
-        # Compute the target value
-        next_q = np.max(self.q_table[self.get_state_index(next_state)])
-        target = reward + gamma * next_q
-
-        # Update current state-action pair
+        # Q-learning update
+        max_next_q = max(self.q_table[next_state_idx + (next_action_idx,)]
+                         for next_action_idx in range(len(self.action_bins)))
+        target = reward + gamma * max_next_q
         self.q_table[state_idx + (action_idx,)] += alpha * (target - self.q_table[state_idx + (action_idx,)])
