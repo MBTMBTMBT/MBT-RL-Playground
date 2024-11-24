@@ -149,6 +149,7 @@ class QTableAgent:
     def save_q_table(self, file_path: str) -> None:
         """
         Save the Q-Table, visit counts, and agent configuration to a CSV file, including bin indices and actual values.
+        Only rows with `Visit_Count` >= 1 are saved in the file.
         """
         print(f"Saving Q-Table and configuration to {file_path}...")
 
@@ -198,6 +199,9 @@ class QTableAgent:
         )
         df = pd.DataFrame(data, columns=column_names)
 
+        # Filter rows where `Visit_Count` >= 1
+        filtered_df = df[df["Visit_Count"] >= 1]
+
         # Add metadata about the agent configuration
         metadata = {
             "state_space": self.state_space,
@@ -207,12 +211,12 @@ class QTableAgent:
         metadata_str = base64.b64encode(repr(metadata).encode("utf-8")).decode("utf-8")
         metadata_df = pd.DataFrame({"Metadata": [metadata_str]})
 
-        # Save metadata and Q-Table
+        # Save metadata and filtered Q-Table
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
         with open(file_path, "w") as f:
             metadata_df.to_csv(f, index=False, header=False)
-            df.to_csv(f, index=False)
-        print(f"Q-Table and configuration successfully saved to {file_path}.")
+            filtered_df.to_csv(f, index=False)
+        print(f"Filtered Q-Table and configuration successfully saved to {file_path}.")
 
     @classmethod
     def load_q_table(cls, file_path: str) -> "QTableAgent":
