@@ -7,6 +7,8 @@ if __name__ == '__main__':
     from q_table_agent import QTableAgent
     import os
 
+    os.environ["MUJOCO_GL"] = "glfw"
+
     # Create save directory
     save_dir = "./experiments/ant/"
     os.makedirs(save_dir, exist_ok=True)
@@ -23,7 +25,7 @@ if __name__ == '__main__':
     agent = QTableAgent(state_space, action_space, action_combination=True)
 
     # Initialize Ant environment
-    env = gym.make('Ant-v4')
+    env = gym.make('Ant-v5')
 
     # Training parameters
     total_steps = int(10e6)       # Total steps
@@ -71,7 +73,7 @@ if __name__ == '__main__':
                     )  # Random continuous action
                 else:
                     probabilities = agent.get_action_probabilities(state, strategy="greedy")
-                    action = [np.argmax(probabilities)]  # Exploit the best action
+                    action = np.array(probabilities)
 
                 # Perform action in the environment
                 next_state, reward, done, truncated, _ = env.step(action)
