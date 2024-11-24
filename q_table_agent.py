@@ -7,6 +7,70 @@ import numpy as np
 import pandas as pd
 
 
+"""
+# Example usage scenarios for state_space and action_space definitions.
+
+# Example 1: For CartPole (Default Setup)
+# The environment is simple with 4 continuous state dimensions and 1 discrete action dimension.
+state_space = [
+    {'type': 'continuous', 'range': (-4.8, 4.8), 'bins': 10},  # Cart position
+    {'type': 'continuous', 'range': (-10, 10), 'bins': 10},    # Cart velocity
+    {'type': 'continuous', 'range': (-0.418, 0.418), 'bins': 10},  # Pole angle
+    {'type': 'continuous', 'range': (-10, 10), 'bins': 10}     # Pole angular velocity
+]
+action_space = [
+    {'type': 'discrete', 'bins': 2}  # Two discrete actions: move left (0), move right (1)
+]
+
+# Example 2: For a custom robot arm with joint control
+# Each joint angle is continuous, and there are multiple continuous actions to control torque on each joint.
+state_space = [
+    {'type': 'continuous', 'range': (-180, 180), 'bins': 20},  # Joint 1 angle
+    {'type': 'continuous', 'range': (-180, 180), 'bins': 20},  # Joint 2 angle
+    {'type': 'continuous', 'range': (-180, 180), 'bins': 20}   # Joint 3 angle
+]
+action_space = [
+    {'type': 'continuous', 'range': (-10, 10), 'bins': 5},  # Torque for Joint 1
+    {'type': 'continuous', 'range': (-10, 10), 'bins': 5},  # Torque for Joint 2
+    {'type': 'continuous', 'range': (-10, 10), 'bins': 5}   # Torque for Joint 3
+]
+
+# Example 3: For GridWorld (Tabular Setup)
+# States are discrete grid cells, and actions are discrete directions.
+state_space = [
+    {'type': 'discrete', 'bins': 10},  # Grid rows (10 rows)
+    {'type': 'discrete', 'bins': 10}   # Grid columns (10 columns)
+]
+action_space = [
+    {'type': 'discrete', 'bins': 4}  # Four actions: up (0), down (1), left (2), right (3)
+]
+
+# Example 4: For a simulated car with velocity and angle control
+# The car's state includes continuous velocity and heading angle, with continuous actions for acceleration and steering.
+state_space = [
+    {'type': 'continuous', 'range': (0, 100), 'bins': 10},  # Speed (0 to 100 km/h)
+    {'type': 'continuous', 'range': (-180, 180), 'bins': 18}  # Heading angle (-180 to 180 degrees)
+]
+action_space = [
+    {'type': 'continuous', 'range': (-5, 5), 'bins': 5},  # Acceleration (-5 to 5 m/s^2)
+    {'type': 'continuous', 'range': (-30, 30), 'bins': 5}  # Steering angle (-30 to 30 degrees)
+]
+
+# Example 5: For a complex multi-agent environment (Action Combinations Enabled)
+# Each agent has a discrete state, and actions are combinations of multiple discrete commands.
+state_space = [
+    {'type': 'discrete', 'bins': 5},  # State of Agent 1
+    {'type': 'discrete', 'bins': 5}   # State of Agent 2
+]
+action_space = [
+    {'type': 'discrete', 'bins': 3},  # Action set for Agent 1
+    {'type': 'discrete', 'bins': 3}   # Action set for Agent 2
+]
+# Enable action combinations (both agents act simultaneously)
+agent = QTableAgent(state_space, action_space, action_combination=True)
+"""
+
+
 class QTableAgent:
     def __init__(self,
                  state_space: List[Dict[str, Union[str, Tuple[float, float], int]]],
@@ -14,67 +78,6 @@ class QTableAgent:
                  action_combination: bool = False):
         """
         Initialize the Q-Table Agent.
-
-        # Example usage scenarios for state_space and action_space definitions.
-
-        # Example 1: For CartPole (Default Setup)
-        # The environment is simple with 4 continuous state dimensions and 1 discrete action dimension.
-        state_space = [
-            {'type': 'continuous', 'range': (-4.8, 4.8), 'bins': 10},  # Cart position
-            {'type': 'continuous', 'range': (-10, 10), 'bins': 10},    # Cart velocity
-            {'type': 'continuous', 'range': (-0.418, 0.418), 'bins': 10},  # Pole angle
-            {'type': 'continuous', 'range': (-10, 10), 'bins': 10}     # Pole angular velocity
-        ]
-        action_space = [
-            {'type': 'discrete', 'bins': 2}  # Two discrete actions: move left (0), move right (1)
-        ]
-
-        # Example 2: For a custom robot arm with joint control
-        # Each joint angle is continuous, and there are multiple continuous actions to control torque on each joint.
-        state_space = [
-            {'type': 'continuous', 'range': (-180, 180), 'bins': 20},  # Joint 1 angle
-            {'type': 'continuous', 'range': (-180, 180), 'bins': 20},  # Joint 2 angle
-            {'type': 'continuous', 'range': (-180, 180), 'bins': 20}   # Joint 3 angle
-        ]
-        action_space = [
-            {'type': 'continuous', 'range': (-10, 10), 'bins': 5},  # Torque for Joint 1
-            {'type': 'continuous', 'range': (-10, 10), 'bins': 5},  # Torque for Joint 2
-            {'type': 'continuous', 'range': (-10, 10), 'bins': 5}   # Torque for Joint 3
-        ]
-
-        # Example 3: For GridWorld (Tabular Setup)
-        # States are discrete grid cells, and actions are discrete directions.
-        state_space = [
-            {'type': 'discrete', 'bins': 10},  # Grid rows (10 rows)
-            {'type': 'discrete', 'bins': 10}   # Grid columns (10 columns)
-        ]
-        action_space = [
-            {'type': 'discrete', 'bins': 4}  # Four actions: up (0), down (1), left (2), right (3)
-        ]
-
-        # Example 4: For a simulated car with velocity and angle control
-        # The car's state includes continuous velocity and heading angle, with continuous actions for acceleration and steering.
-        state_space = [
-            {'type': 'continuous', 'range': (0, 100), 'bins': 10},  # Speed (0 to 100 km/h)
-            {'type': 'continuous', 'range': (-180, 180), 'bins': 18}  # Heading angle (-180 to 180 degrees)
-        ]
-        action_space = [
-            {'type': 'continuous', 'range': (-5, 5), 'bins': 5},  # Acceleration (-5 to 5 m/s^2)
-            {'type': 'continuous', 'range': (-30, 30), 'bins': 5}  # Steering angle (-30 to 30 degrees)
-        ]
-
-        # Example 5: For a complex multi-agent environment (Action Combinations Enabled)
-        # Each agent has a discrete state, and actions are combinations of multiple discrete commands.
-        state_space = [
-            {'type': 'discrete', 'bins': 5},  # State of Agent 1
-            {'type': 'discrete', 'bins': 5}   # State of Agent 2
-        ]
-        action_space = [
-            {'type': 'discrete', 'bins': 3},  # Action set for Agent 1
-            {'type': 'discrete', 'bins': 3}   # Action set for Agent 2
-        ]
-        # Enable action combinations (both agents act simultaneously)
-        agent = QTableAgent(state_space, action_space, action_combination=True)
 
         :param state_space: A list of dictionaries defining the state space.
                             Each dictionary specifies:
@@ -151,19 +154,19 @@ class QTableAgent:
 
     def save_q_table(self, file_path: str) -> None:
         """
-        Save the Q-Table, visit counts, and agent configuration to a CSV file, including bin indices and actual values.
+        Save the Q-Table, visit counts, and agent configuration to a CSV file.
         Only rows with `Visit_Count` >= 1 are saved in the file.
         """
         print(f"Saving Q-Table and configuration to {file_path}...")
 
-        # Calculate decimal places for states and actions
+        # Calculate decimal places for states and actions (only for continuous)
         state_decimals = [
-            max(0, int(-np.floor(np.log10(np.abs(bins[1] - bins[0]))))) + 1 if len(bins) > 1 else 0
-            for bins in self.state_bins
+            max(0, int(-np.floor(np.log10(np.abs(bins[1] - bins[0]))))) + 1 if dim['type'] == 'continuous' else 0
+            for bins, dim in zip(self.state_bins, self.state_space)
         ]
         action_decimals = [
-            max(0, int(-np.floor(np.log10(np.abs(bins[1] - bins[0]))))) + 1 if len(bins) > 1 else 0
-            for bins in self.action_bins
+            max(0, int(-np.floor(np.log10(np.abs(bins[1] - bins[0]))))) + 1 if dim['type'] == 'continuous' else 0
+            for bins, dim in zip(self.action_bins, self.action_space)
         ]
 
         # Prepare data for saving
@@ -172,13 +175,16 @@ class QTableAgent:
             state_indices = key[:len(self.state_bins)]
             action_indices = key[len(self.state_bins):]
 
-            # Map indices to original values
+            # Map state indices to values (only for continuous states)
             state_values = [
                 round(self.state_bins[dim][state_idx], state_decimals[dim])
+                if self.state_space[dim]['type'] == 'continuous' else None
                 for dim, state_idx in enumerate(state_indices)
             ]
+            # Map action indices to values (only for continuous actions)
             action_values = [
                 round(self.action_bins[dim][action_idx], action_decimals[dim])
+                if self.action_space[dim]['type'] == 'continuous' else None
                 for dim, action_idx in enumerate(action_indices)
             ]
 
@@ -187,17 +193,17 @@ class QTableAgent:
 
             # Append row to data
             data.append(
-                list(state_indices) + list(state_values) +
-                list(action_indices) + list(action_values) +
+                list(state_indices) + list(filter(lambda x: x is not None, state_values)) +
+                list(action_indices) + list(filter(lambda x: x is not None, action_values)) +
                 [q_value, visit_count]
             )
 
         # Define column names
         column_names = (
-                [f"State_{i}_Index" for i in range(len(self.state_bins))] +
-                [f"State_{i}_Value" for i in range(len(self.state_bins))] +
-                [f"Action_{i}_Index" for i in range(len(self.action_bins))] +
-                [f"Action_{i}_Value" for i in range(len(self.action_bins))] +
+                [f"State_{i}_Index" for i, dim in enumerate(self.state_space)] +
+                [f"State_{i}_Value" for i, dim in enumerate(self.state_space) if dim['type'] == 'continuous'] +
+                [f"Action_{i}_Index" for i, dim in enumerate(self.action_space)] +
+                [f"Action_{i}_Value" for i, dim in enumerate(self.action_space) if dim['type'] == 'continuous'] +
                 ["Q_Value", "Visit_Count"]
         )
 
