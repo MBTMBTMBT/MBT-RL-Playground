@@ -153,12 +153,12 @@ if __name__ == '__main__':
                 {'type': 'continuous', 'range': (-2, 2), 'bins': 16}
             ],
             "action_space": [{'type': 'discrete', 'bins': 2}],
-            "alpha": 0.05,
+            "alpha": 0.1,
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.001,
-            "total_steps": int(25e6),
-            "runs": 8
+            "total_steps": int(5e6),
+            "runs": 3
         },
         {
             "group_name": "12_positions",
@@ -169,12 +169,12 @@ if __name__ == '__main__':
                 {'type': 'continuous', 'range': (-2, 2), 'bins': 16}
             ],
             "action_space": [{'type': 'discrete', 'bins': 2}],
-            "alpha": 0.05,
+            "alpha": 0.1,
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.001,
-            "total_steps": int(25e6),
-            "runs": 8
+            "total_steps": int(5e6),
+            "runs": 3
         },
         {
             "group_name": "8_positions",
@@ -185,12 +185,12 @@ if __name__ == '__main__':
                 {'type': 'continuous', 'range': (-2, 2), 'bins': 16}
             ],
             "action_space": [{'type': 'discrete', 'bins': 2}],
-            "alpha": 0.05,
+            "alpha": 0.1,
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.001,
-            "total_steps": int(25e6),
-            "runs": 8
+            "total_steps": int(5e6),
+            "runs": 3
         },
         {
             "group_name": "4_positions",
@@ -201,12 +201,12 @@ if __name__ == '__main__':
                 {'type': 'continuous', 'range': (-2, 2), 'bins': 16}
             ],
             "action_space": [{'type': 'discrete', 'bins': 2}],
-            "alpha": 0.05,
+            "alpha": 0.1,
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.001,
-            "total_steps": int(25e6),
-            "runs": 8
+            "total_steps": int(5e6),
+            "runs": 3
         },
     ]
 
