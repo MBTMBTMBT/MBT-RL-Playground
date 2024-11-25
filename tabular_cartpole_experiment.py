@@ -144,7 +144,7 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.001,
-            "total_steps": int(2.5e6),
+            "total_steps": int(10e6),
             "runs": 3
         },
         {
@@ -160,7 +160,7 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.001,
-            "total_steps": int(2.5e6),
+            "total_steps": int(10e6),
             "runs": 3
         }
     ]
@@ -186,10 +186,26 @@ if __name__ == '__main__':
         steps = np.linspace(1, group["total_steps"], len(avg_training_rewards))  # Align steps to total_steps
         plt.plot(steps, avg_training_rewards, label=f'{group["group_name"]} (Test Avg: {avg_testing_rewards:.2f})')
 
+        # Compute moving average and standard deviation for training rewards
+        window_size = 25  # Size of the moving average window
+        training_rewards_smoothed = pd.Series(avg_training_rewards).rolling(window=window_size, min_periods=1).mean()
+        training_rewards_std = pd.Series(avg_training_rewards).rolling(window=window_size, min_periods=1).std()
+
+        # Add smoothed training reward line
+        color = plt.gca().lines[-1].get_color()  # Use the same color as the training line
+        plt.plot(steps, training_rewards_smoothed, color=color, linestyle='-', alpha=0.8,
+                 label=f'{group["group_name"]} Smoothed Training Avg')
+
+        # Add standard deviation band for training rewards
+        plt.fill_between(steps,
+                         training_rewards_smoothed - training_rewards_std,
+                         training_rewards_smoothed + training_rewards_std,
+                         color=color, alpha=0.25, label=f'{group["group_name"]} Training Std Dev')
+
         # Add horizontal line for average test reward
         linestyle = linestyles[i % len(linestyles)]  # Cycle through line styles
         plt.axhline(avg_testing_rewards, color="black", linestyle=linestyle, label=f'{group["group_name"]} Test Avg',
-                    alpha=0.7)
+                    alpha=0.9, zorder=5)
 
     # Finalize and save plot
     plt.title("Training Results Across Experiment Groups")
