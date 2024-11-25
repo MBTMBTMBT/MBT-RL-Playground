@@ -32,8 +32,8 @@ if __name__ == '__main__':
     env = gym.make('Acrobot-v1')
 
     # Training parameters
-    total_steps = int(50e6)       # Total steps
-    alpha = 0.05                # Learning rate
+    total_steps = int(100e6)       # Total steps
+    alpha = 0.025                # Learning rate
     gamma = 0.99                # Discount factor
     epsilon_start = 0.25        # Starting exploration rate
     epsilon_end = 0.001         # Minimum exploration rate

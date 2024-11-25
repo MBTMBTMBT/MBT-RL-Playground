@@ -28,8 +28,8 @@ if __name__ == '__main__':
     env = gym.make('MountainCar-v0')
 
     # Training parameters
-    total_steps = int(50e6)       # Total steps
-    alpha = 0.1                 # Learning rate
+    total_steps = int(100e6)       # Total steps
+    alpha = 0.025                 # Learning rate
     gamma = 0.99                # Discount factor
     epsilon_start = 0.25        # Starting exploration rate
     epsilon_end = 0.01          # Minimum exploration rate
