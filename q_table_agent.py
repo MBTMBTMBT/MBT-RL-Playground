@@ -2,7 +2,7 @@ import ast
 import base64
 from collections import defaultdict
 import os
-from typing import List, Dict, Union, Tuple, Any
+from typing import List, Dict, Union, Tuple, Any, Optional
 import numpy as np
 import pandas as pd
 
@@ -514,7 +514,7 @@ class QTableAgent:
     ) -> pd.DataFrame:
         """
         Compute action probabilities for each state using the specified strategy, organize actions horizontally,
-        and retain the `Visit_Count` column.
+        and retain both the `Visit_Count` column and the state/action indices.
 
         :param df: Input DataFrame containing Q-values and visit counts.
         :param strategy: The strategy to use for computing action probabilities. Options are "greedy" or "softmax".
@@ -526,17 +526,18 @@ class QTableAgent:
         if strategy not in ["greedy", "softmax"]:
             raise ValueError("Invalid strategy. Use 'greedy' or 'softmax'.")
 
-        # Extract unique state columns
-        state_columns = [col for col in df.columns if col.startswith("State_") and "Value" in col]
+        # Extract unique state columns (both Index and Value)
+        state_index_columns = [col for col in df.columns if col.startswith("State_") and "Index" in col]
+        state_value_columns = [col for col in df.columns if col.startswith("State_") and "Value" in col]
         action_index_columns = [col for col in df.columns if col.startswith("Action_") and "Index" in col]
 
-        # Group by unique state and calculate probabilities for each action
-        grouped = df.groupby(state_columns)
+        # Group by unique state (based on both Index and Value)
+        grouped = df.groupby(state_index_columns + state_value_columns)
 
         new_data = []
         # Get all unique action combinations
         all_action_indices = [tuple(row) for row in df[action_index_columns].drop_duplicates().to_numpy()]
-        new_columns = state_columns + [
+        new_columns = state_index_columns + state_value_columns + [
             f"Action_{'_'.join(map(str, action))}_Probability" for action in all_action_indices
         ] + ["Visit_Count"]
 
@@ -563,10 +564,82 @@ class QTableAgent:
                     action_idx = all_action_indices.index(action_tuple)
                     probabilities[action_idx] = softmax_probs[i]
 
-            # Append state, action probabilities, and visit count as one row
+            # Append state indices, values, action probabilities, and visit count as one row
             row = list(state_values) + list(probabilities) + [visit_count]
             new_data.append(row)
 
         # Create and return the new DataFrame
         new_df = pd.DataFrame(new_data, columns=new_columns)
         return new_df
+
+    @staticmethod
+    def compute_mutual_information(
+            df: pd.DataFrame,
+            feature_columns: Union[str, List[str]],
+            action_columns: Optional[Union[str, List[str]]] = None,
+            use_visit_count: bool = False
+    ) -> float:
+        """
+        Compute mutual information (MI) between features and the joint action probability distribution,
+        with an option to weight probabilities by visit counts.
+
+        :param df: A DataFrame containing the precomputed probability distributions and optionally visit counts.
+        :param feature_columns: A single feature column or a list of feature columns (e.g., "State_0_Value").
+        :param action_columns: A single action column, a list of action columns, or None to auto-detect.
+                               If providing base names (e.g., "Action_0"), probabilities are auto-detected.
+        :param use_visit_count: Whether to weight probabilities by visit counts. Default is False.
+        :return: The mutual information (MI) value between features and the joint action distribution.
+        """
+        # Ensure inputs are lists for uniform handling
+        if isinstance(feature_columns, str):
+            feature_columns = [feature_columns]
+
+        # Auto-detect or process action columns
+        if action_columns is None:
+            # Detect action probability columns
+            action_columns = [col for col in df.columns if "_Probability" in col and col.startswith("Action_")]
+        else:
+            # Ensure action columns are lists and map base names to full probability columns
+            if isinstance(action_columns, str):
+                action_columns = [action_columns]
+            action_columns = [
+                f"{col}_Probability" if not col.endswith("_Probability") else col
+                for col in action_columns
+            ]
+
+        # Check for valid action columns
+        if not action_columns or any(col not in df.columns for col in action_columns):
+            raise ValueError(f"Invalid or missing action columns: {action_columns}")
+
+        # Check for visit counts if `use_visit_count` is enabled
+        if use_visit_count and "Visit_Count" not in df.columns:
+            raise ValueError("Visit count column ('Visit_Count') is required when 'use_visit_count=True'.")
+
+        # Normalize action probabilities, optionally weighted by visit counts
+        if use_visit_count:
+            df["Weighted_Visit_Count"] = df["Visit_Count"] / df["Visit_Count"].sum()
+            for action_col in action_columns:
+                df[action_col] *= df["Weighted_Visit_Count"]
+
+        # Ensure the action probabilities are normalized
+        total_prob = df[action_columns].sum().sum()
+        df[action_columns] /= total_prob
+
+        # Compute joint probability P(X, A)
+        joint_prob = df.groupby(feature_columns, as_index=False)[action_columns].sum()
+
+        # Compute marginal probabilities P(X) and P(A)
+        joint_prob["P(X)"] = joint_prob[action_columns].sum(axis=1)
+        marginal_action_prob = df[action_columns].sum()
+
+        # Calculate mutual information
+        mi = 0.0
+        for _, row in joint_prob.iterrows():
+            px = row["P(X)"]  # P(X)
+            for action_col in action_columns:
+                pa = marginal_action_prob[action_col]  # P(A)
+                pxa = row[action_col]  # P(X, A)
+                if pxa > 0:  # Avoid log(0)
+                    mi += pxa * np.log2(pxa / (px * pa))
+
+        return mi
