@@ -514,34 +514,48 @@ class QTableAgent:
     ) -> pd.DataFrame:
         """
         Compute action probabilities for each state using the specified strategy, organize actions horizontally,
-        and retain both the `Visit_Count` column and the state/action indices.
+        and retain both the action index and `Visit_Count` columns.
 
         :param df: Input DataFrame containing Q-values and visit counts.
         :param strategy: The strategy to use for computing action probabilities. Options are "greedy" or "softmax".
         :param epsilon: Epsilon for epsilon-greedy strategy. Only used if strategy is "greedy".
         :param temperature: Temperature for softmax strategy. Only used if strategy is "softmax".
-        :return: A new DataFrame with actions as columns (flattened for multi-dimensional actions), and each row representing a state.
+        :return: A new DataFrame with states and actions represented horizontally.
         """
         # Verify input strategy
         if strategy not in ["greedy", "softmax"]:
             raise ValueError("Invalid strategy. Use 'greedy' or 'softmax'.")
 
-        # Extract unique state columns (both Index and Value)
+        # Extract state and action columns dynamically
         state_index_columns = [col for col in df.columns if col.startswith("State_") and "Index" in col]
         state_value_columns = [col for col in df.columns if col.startswith("State_") and "Value" in col]
         action_index_columns = [col for col in df.columns if col.startswith("Action_") and "Index" in col]
 
-        # Group by unique state (based on both Index and Value)
+        if not action_index_columns:
+            raise ValueError("No valid action index columns detected in the input DataFrame.")
+
+        # Group by unique state and calculate probabilities for each action
         grouped = df.groupby(state_index_columns + state_value_columns)
 
-        new_data = []
-        # Get all unique action combinations
-        all_action_indices = [tuple(row) for row in df[action_index_columns].drop_duplicates().to_numpy()]
-        new_columns = state_index_columns + state_value_columns + [
-            f"Action_{'_'.join(map(str, action))}_Probability" for action in all_action_indices
-        ] + ["Visit_Count"]
+        # Dynamically generate all possible action combinations
+        unique_action_combinations = np.array(
+            np.meshgrid(*[df[col].unique() for col in action_index_columns])
+        ).T.reshape(-1, len(action_index_columns))
+        all_action_indices = [tuple(row) for row in unique_action_combinations]
 
-        for state_values, group in grouped:
+        action_column_names = [
+            f"{'_'.join(f'{col}_{value}' for col, value in zip(action_index_columns, action))}_Probability"
+            for action in all_action_indices
+        ]
+        new_columns = state_index_columns + state_value_columns + action_column_names + ["Visit_Count"]
+
+        new_data = []
+
+        for group_keys, group in grouped:
+            # Dynamically unpack state indices and values
+            state_indices = group_keys[:len(state_index_columns)]
+            state_values = group_keys[len(state_index_columns):]
+
             q_values = group["Q_Value"].values
             actions = group[action_index_columns].to_numpy()
             visit_count = group["Visit_Count"].sum()  # Sum visit counts for this state
@@ -564,8 +578,8 @@ class QTableAgent:
                     action_idx = all_action_indices.index(action_tuple)
                     probabilities[action_idx] = softmax_probs[i]
 
-            # Append state indices, values, action probabilities, and visit count as one row
-            row = list(state_values) + list(probabilities) + [visit_count]
+            # Append state, action probabilities, and visit count as one row
+            row = list(state_indices) + list(state_values) + list(probabilities) + [visit_count]
             new_data.append(row)
 
         # Create and return the new DataFrame
@@ -586,30 +600,34 @@ class QTableAgent:
         :param df: A DataFrame containing the precomputed probability distributions and optionally visit counts.
         :param feature_columns: A single feature column or a list of feature columns (e.g., "State_0_Value").
         :param action_columns: A single action column, a list of action columns, or None to auto-detect.
-                               If providing base names (e.g., "Action_0"), probabilities are auto-detected.
+                               If providing base names (e.g., "Action_0_Index"), probabilities are auto-detected.
         :param use_visit_count: Whether to weight probabilities by visit counts. Default is False.
         :return: The mutual information (MI) value between features and the joint action distribution.
         """
+        # Make a copy of the DataFrame to avoid modifying the original
+        df = df.copy()
+
         # Ensure inputs are lists for uniform handling
         if isinstance(feature_columns, str):
             feature_columns = [feature_columns]
 
-        # Auto-detect or process action columns
+        # Process action columns
         if action_columns is None:
-            # Detect action probability columns
+            # Auto-detect all action probability columns
             action_columns = [col for col in df.columns if "_Probability" in col and col.startswith("Action_")]
         else:
-            # Ensure action columns are lists and map base names to full probability columns
+            # If base action names (e.g., "Action_0_Index") are provided, find their probability columns
             if isinstance(action_columns, str):
                 action_columns = [action_columns]
-            action_columns = [
-                f"{col}_Probability" if not col.endswith("_Probability") else col
-                for col in action_columns
-            ]
-
-        # Check for valid action columns
-        if not action_columns or any(col not in df.columns for col in action_columns):
-            raise ValueError(f"Invalid or missing action columns: {action_columns}")
+            full_action_columns = []
+            for base_col in action_columns:
+                matching_columns = [
+                    col for col in df.columns if col.startswith(base_col) and "_Probability" in col
+                ]
+                if not matching_columns:
+                    raise ValueError(f"Invalid or missing action columns for base: {base_col}")
+                full_action_columns.extend(matching_columns)
+            action_columns = full_action_columns
 
         # Check for visit counts if `use_visit_count` is enabled
         if use_visit_count and "Visit_Count" not in df.columns:
