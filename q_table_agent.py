@@ -513,7 +513,8 @@ class QTableAgent:
             temperature: float = 1.0
     ) -> pd.DataFrame:
         """
-        Compute action probabilities for each state using the specified strategy, and organize actions horizontally.
+        Compute action probabilities for each state using the specified strategy, organize actions horizontally,
+        and retain the `Visit_Count` column.
 
         :param df: Input DataFrame containing Q-values and visit counts.
         :param strategy: The strategy to use for computing action probabilities. Options are "greedy" or "softmax".
@@ -537,11 +538,12 @@ class QTableAgent:
         all_action_indices = [tuple(row) for row in df[action_index_columns].drop_duplicates().to_numpy()]
         new_columns = state_columns + [
             f"Action_{'_'.join(map(str, action))}_Probability" for action in all_action_indices
-        ]
+        ] + ["Visit_Count"]
 
         for state_values, group in grouped:
             q_values = group["Q_Value"].values
             actions = group[action_index_columns].to_numpy()
+            visit_count = group["Visit_Count"].sum()  # Sum visit counts for this state
 
             # Compute probabilities based on strategy
             if strategy == "greedy":
@@ -561,8 +563,8 @@ class QTableAgent:
                     action_idx = all_action_indices.index(action_tuple)
                     probabilities[action_idx] = softmax_probs[i]
 
-            # Append state and action probabilities as one row
-            row = list(state_values) + list(probabilities)
+            # Append state, action probabilities, and visit count as one row
+            row = list(state_values) + list(probabilities) + [visit_count]
             new_data.append(row)
 
         # Create and return the new DataFrame
