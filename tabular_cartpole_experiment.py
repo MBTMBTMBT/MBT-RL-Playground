@@ -153,11 +153,11 @@ if __name__ == '__main__':
                 {'type': 'continuous', 'range': (-2, 2), 'bins': 16}
             ],
             "action_space": [{'type': 'discrete', 'bins': 2}],
-            "alpha": 0.05,
+            "alpha": 0.1,
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.001,
-            "total_steps": int(25e6),
+            "total_steps": int(10e6),
             "runs": 8
         },
         {
@@ -169,11 +169,11 @@ if __name__ == '__main__':
                 {'type': 'continuous', 'range': (-2, 2), 'bins': 16}
             ],
             "action_space": [{'type': 'discrete', 'bins': 2}],
-            "alpha": 0.05,
+            "alpha": 0.1,
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.001,
-            "total_steps": int(25e6),
+            "total_steps": int(10e6),
             "runs": 8
         },
         {
@@ -185,11 +185,11 @@ if __name__ == '__main__':
                 {'type': 'continuous', 'range': (-2, 2), 'bins': 16}
             ],
             "action_space": [{'type': 'discrete', 'bins': 2}],
-            "alpha": 0.05,
+            "alpha": 0.1,
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.001,
-            "total_steps": int(25e6),
+            "total_steps": int(10e6),
             "runs": 8
         },
         {
@@ -201,11 +201,11 @@ if __name__ == '__main__':
                 {'type': 'continuous', 'range': (-2, 2), 'bins': 16}
             ],
             "action_space": [{'type': 'discrete', 'bins': 2}],
-            "alpha": 0.05,
+            "alpha": 0.1,
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.001,
-            "total_steps": int(25e6),
+            "total_steps": int(10e6),
             "runs": 8
         },
     ]
