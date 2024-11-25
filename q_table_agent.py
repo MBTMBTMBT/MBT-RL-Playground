@@ -419,3 +419,77 @@ class QTableAgent:
 
         # Update visit counts
         self.visit_counts[key] = self.visit_counts.get(key, 0) + 1
+
+    def query_q_table(self, state_conditions: Dict[int, Union[float, Tuple[float, float]]] = None,
+                      action_conditions: Dict[int, Union[float, Tuple[float, float]]] = None) -> pd.DataFrame:
+        """
+        Query the Q-Table based on specific conditions for states and/or actions.
+
+        :param state_conditions: A dictionary where keys are state indices (int), and values are either:
+                                 - A specific value (float) for exact match, or
+                                 - A tuple (low, high) for range match.
+        :param action_conditions: A dictionary where keys are action indices (int), and values are either:
+                                  - A specific value (float) for exact match, or
+                                  - A tuple (low, high) for range match.
+        :return: A pandas DataFrame with matching entries, including Q-Values and Visit Counts.
+        """
+        # Prepare data for filtering
+        data = []
+        for key, q_value in self.q_table.items():
+            state_indices = key[:len(self.state_bins)]
+            action_indices = key[len(self.state_bins):]
+
+            # Map state indices to values (only for continuous states)
+            state_values = [
+                self.state_bins[dim][state_idx]
+                if self.state_space[dim]['type'] == 'continuous' else state_idx
+                for dim, state_idx in enumerate(state_indices)
+            ]
+            # Map action indices to values (only for continuous actions)
+            action_values = [
+                self.action_bins[dim][action_idx]
+                if self.action_space[dim]['type'] == 'continuous' else action_idx
+                for dim, action_idx in enumerate(action_indices)
+            ]
+
+            visit_count = self.visit_counts.get(key, 0)
+
+            # Append data row
+            data.append(
+                list(state_indices) + state_values +
+                list(action_indices) + action_values +
+                [q_value, visit_count]
+            )
+
+        # Create DataFrame
+        column_names = (
+                [f"State_{i}_Index" for i in range(len(self.state_bins))] +
+                [f"State_{i}_Value" for i, dim in enumerate(self.state_space) if dim['type'] == 'continuous'] +
+                [f"Action_{i}_Index" for i in range(len(self.action_bins))] +
+                [f"Action_{i}_Value" for i, dim in enumerate(self.action_space) if dim['type'] == 'continuous'] +
+                ["Q_Value", "Visit_Count"]
+        )
+        df = pd.DataFrame(data, columns=column_names)
+
+        # Filter rows where `Visit_Count` > 0
+        df = df[df["Visit_Count"] > 0]
+
+        # Apply state conditions
+        if state_conditions:
+            for state_idx, condition in state_conditions.items():
+                if isinstance(condition, tuple):  # Range condition
+                    low, high = condition
+                    df = df[(df[f"State_{state_idx}_Value"] >= low) & (df[f"State_{state_idx}_Value"] <= high)]
+                else:  # Exact match
+                    df = df[df[f"State_{state_idx}_Value"] == condition]
+
+        # Apply action conditions
+        if action_conditions:
+            for action_idx, condition in action_conditions.items():
+                if isinstance(condition, tuple):  # Range condition
+                    low, high = condition
+                    df = df[(df[f"Action_{action_idx}_Value"] >= low) & (df[f"Action_{action_idx}_Value"] <= high)]
+                else:  # Exact match
+                    df = df[df[f"Action_{action_idx}_Value"] == condition]
+
+        return df
