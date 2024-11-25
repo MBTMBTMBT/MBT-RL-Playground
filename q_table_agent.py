@@ -422,7 +422,8 @@ class QTableAgent:
 
     def query_q_table(
             self,
-            filters: List[Dict[str, Union[str, Any]]] = None
+            filters: List[Dict[str, Union[str, Any]]] = None,
+            logic: str = "AND"
     ) -> pd.DataFrame:
         """
         Query the Q-Table based on specified filters and return a filtered sub-table.
@@ -430,8 +431,9 @@ class QTableAgent:
         :param filters: A list of dictionaries specifying the query conditions.
                         Each dictionary must have the following keys:
                         - 'field': The name of the field to filter (e.g., "State_0_Index", "Action_0_Value").
-                        - 'operator': The comparison operator, such as '=', '>', '<', '>=', '<=', 'IN'.
-                        - 'value': The value(s) to compare against.
+                        - 'operator': The comparison operator, such as '=', '>', '<', '>=', '<=', 'IN', or 'BETWEEN'.
+                        - 'value': The value(s) to compare against (for 'BETWEEN', provide a tuple (low, high)).
+        :param logic: The logic operator for combining filters. Options are "AND" or "OR". Default is "AND".
         :return: A Pandas DataFrame containing the filtered Q-Table.
         """
         # Prepare data for query
@@ -481,28 +483,49 @@ class QTableAgent:
         if not filters:
             return filtered_df
 
-        # Apply filters
+        # Apply filters based on logic
+        if logic not in ["AND", "OR"]:
+            raise ValueError(f"Unsupported logic: {logic}")
+
+        filter_masks = []
         for condition in filters:
             field = condition["field"]
             operator = condition["operator"]
             value = condition["value"]
 
             if operator == "=":
-                filtered_df = filtered_df[filtered_df[field] == value]
+                mask = filtered_df[field] == value
             elif operator == ">":
-                filtered_df = filtered_df[filtered_df[field] > value]
+                mask = filtered_df[field] > value
             elif operator == ">=":
-                filtered_df = filtered_df[filtered_df[field] >= value]
+                mask = filtered_df[field] >= value
             elif operator == "<":
-                filtered_df = filtered_df[filtered_df[field] < value]
+                mask = filtered_df[field] < value
             elif operator == "<=":
-                filtered_df = filtered_df[filtered_df[field] <= value]
+                mask = filtered_df[field] <= value
             elif operator == "IN":
-                filtered_df = filtered_df[filtered_df[field].isin(value)]
+                mask = filtered_df[field].isin(value)
+            elif operator == "BETWEEN":
+                if not isinstance(value, tuple) or len(value) != 2:
+                    raise ValueError(f"BETWEEN operator requires a tuple of two values, got: {value}")
+                low, high = value
+                mask = (filtered_df[field] >= low) & (filtered_df[field] <= high)
             else:
                 raise ValueError(f"Unsupported operator: {operator}")
 
-        return filtered_df
+            filter_masks.append(mask)
+
+        # Combine masks with specified logic
+        if logic == "AND":
+            final_mask = filter_masks[0]
+            for mask in filter_masks[1:]:
+                final_mask &= mask
+        elif logic == "OR":
+            final_mask = filter_masks[0]
+            for mask in filter_masks[1:]:
+                final_mask |= mask
+
+        return filtered_df[final_mask]
 
     @classmethod
     def compute_action_probabilities(
