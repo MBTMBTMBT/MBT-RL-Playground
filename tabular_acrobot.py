@@ -13,12 +13,12 @@ if __name__ == '__main__':
 
     # Define Acrobot state and action spaces
     state_space = [
-        {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 16},  # Cosine of theta1
-        {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 16},  # Sine of theta1
-        {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 16},  # Cosine of theta2
-        {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 16},  # Sine of theta2
-        {'type': 'continuous', 'range': (-6.0, 6.0), 'bins': 32},  # Angular velocity of link 1
-        {'type': 'continuous', 'range': (-12.0, 12.0), 'bins': 48}  # Angular velocity of link 2
+        {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 12},  # Cosine of theta1
+        {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 12},  # Sine of theta1
+        {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 12},  # Cosine of theta2
+        {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 12},  # Sine of theta2
+        {'type': 'continuous', 'range': (-6.0, 6.0), 'bins': 8},  # Angular velocity of link 1
+        {'type': 'continuous', 'range': (-12.0, 12.0), 'bins': 16}  # Angular velocity of link 2
     ]
 
     action_space = [
