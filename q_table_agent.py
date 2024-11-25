@@ -629,7 +629,7 @@ class QTableAgent:
         # Make a copy of the DataFrame to avoid modifying the original
         df = df.copy()
 
-        # Ensure inputs are lists for uniform handling
+        # Ensure group1_columns is a list
         if isinstance(group1_columns, str):
             group1_columns = [group1_columns]
 
@@ -661,29 +661,59 @@ class QTableAgent:
         # Normalize probabilities, optionally weighted by visit counts
         if use_visit_count:
             df["Weighted_Visit_Count"] = df["Visit_Count"] / df["Visit_Count"].sum()
-            for col in group2_columns:
-                df[col] *= df["Weighted_Visit_Count"]
+            if is_action_group:
+                for col in group2_columns:
+                    df[col] *= df["Weighted_Visit_Count"]
 
         # Normalize the probabilities to ensure valid distribution
-        total_prob = df[group2_columns].sum().sum() if is_action_group else df["Visit_Count"].sum()
-        df[group2_columns] = df[group2_columns] / total_prob if is_action_group else df["Visit_Count"] / total_prob
+        if is_action_group:
+            total_prob = df[group2_columns].sum().sum()
+            df[group2_columns] /= total_prob
+        else:
+            # For feature groups, normalize visit counts
+            df["Visit_Prob"] = df["Visit_Count"] / df["Visit_Count"].sum()
 
         # Compute joint probability P(Group1, Group2)
-        joint_prob = df.groupby(group1_columns, as_index=False)[group2_columns].sum()
+        if is_action_group:
+            joint_prob = df.groupby(group1_columns, as_index=False)[group2_columns].sum()
+        else:
+            # For feature groups, compute joint probabilities using Visit_Prob
+            joint_prob = df.groupby(group1_columns + group2_columns)["Visit_Prob"].sum().reset_index()
+            joint_prob.rename(columns={"Visit_Prob": "P(Group1,Group2)"}, inplace=True)
 
         # Compute marginal probabilities P(Group1) and P(Group2)
-        joint_prob["P(Group1)"] = joint_prob[group2_columns].sum(axis=1)
-        marginal_group2_prob = df[group2_columns].sum() if is_action_group else df.groupby(group2_columns)[
-            "Visit_Count"].sum()
+        if is_action_group:
+            joint_prob["P(Group1)"] = joint_prob[group2_columns].sum(axis=1)
+            marginal_group2_prob = df[group2_columns].sum()
+        else:
+            # For feature groups, compute marginals
+            marginal_group1_prob = joint_prob.groupby(group1_columns)["P(Group1,Group2)"].sum().reset_index()
+            marginal_group1_prob.rename(columns={"P(Group1,Group2)": "P(Group1)"}, inplace=True)
+
+            marginal_group2_prob = joint_prob.groupby(group2_columns)["P(Group1,Group2)"].sum().reset_index()
+            marginal_group2_prob.rename(columns={"P(Group1,Group2)": "P(Group2)"}, inplace=True)
+
+        # Merge joint and marginal probabilities
+        if not is_action_group:
+            joint_prob = joint_prob.merge(marginal_group1_prob, on=group1_columns)
+            joint_prob = joint_prob.merge(marginal_group2_prob, on=group2_columns)
 
         # Calculate mutual information
         mi = 0.0
-        for _, row in joint_prob.iterrows():
-            p_group1 = row["P(Group1)"]  # P(Group1)
-            for group2_col in group2_columns:
-                p_group2 = marginal_group2_prob[group2_col] if is_action_group else marginal_group2_prob.loc[group2_col]
-                p_group1_group2 = row[group2_col]  # P(Group1, Group2)
+        if is_action_group:
+            for _, row in joint_prob.iterrows():
+                px = row["P(Group1)"]  # P(Group1)
+                for group2_col in group2_columns:
+                    pa = marginal_group2_prob[group2_col]  # P(Group2)
+                    p_group1_group2 = row[group2_col]  # P(Group1, Group2)
+                    if p_group1_group2 > 0:  # Avoid log(0)
+                        mi += p_group1_group2 * np.log2(p_group1_group2 / (px * pa))
+        else:
+            for _, row in joint_prob.iterrows():
+                p_group1_group2 = row["P(Group1,Group2)"]
+                px = row["P(Group1)"]
+                py = row["P(Group2)"]
                 if p_group1_group2 > 0:  # Avoid log(0)
-                    mi += p_group1_group2 * np.log2(p_group1_group2 / (p_group1 * p_group2))
+                    mi += p_group1_group2 * np.log2(p_group1_group2 / (px * py))
 
         return mi
