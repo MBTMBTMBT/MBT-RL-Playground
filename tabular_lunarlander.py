@@ -31,7 +31,7 @@ if __name__ == '__main__':
     agent = QTableAgent(state_space, action_space)
 
     # Initialize Lunar Lander environment
-    env = gym.make('LunarLander-v3')
+    env = gym.make('LunarLander-v2')
 
     # Training parameters
     total_steps = int(10e6)       # Total steps
@@ -44,9 +44,8 @@ if __name__ == '__main__':
 
     # Metrics
     train_rewards = []           # Store rewards for each episode
-    episode_rewards = []         # Store recent episode rewards for progress bar updates
+    step_rewards = []            # Store rewards with step as x-axis
     current_steps = 0            # Track total steps so far
-    episode_steps = 0            # Steps in the current episode
 
     # Define custom initialization ranges for each state variable
     custom_state_range = {
@@ -91,7 +90,6 @@ if __name__ == '__main__':
                 # Update state and reward
                 state = next_state
                 total_reward += reward
-                episode_steps += 1
                 current_steps += 1
 
                 # Update exploration rate
@@ -100,22 +98,17 @@ if __name__ == '__main__':
                 # Update progress bar
                 pbar.update(1)
 
-                # Exit if total steps exceed limit
-                if current_steps >= total_steps:
-                    break
-
                 if done or truncated:
-                    # Track episode reward and reset episode steps
+                    # Track episode reward
                     train_rewards.append(total_reward)
-                    episode_rewards.append(total_reward)
-                    episode_steps = 0
+                    step_rewards.append((current_steps, total_reward))
 
                     # Update progress bar description
-                    recent_avg = np.mean(episode_rewards[-10:]) if len(episode_rewards) >= 10 else np.mean(episode_rewards)
-                    recent_max = max(episode_rewards[-10:]) if len(episode_rewards) >= 10 else max(episode_rewards)
+                    recent_rewards = [r for _, r in step_rewards[-10:]]
                     pbar.set_description(
                         f"Steps: {current_steps}/{total_steps}, "
-                        f"Recent Avg: {recent_avg:.2f}, Max: {recent_max:.2f}, Epsilon: {epsilon:.4f}"
+                        f"Recent Avg: {np.mean(recent_rewards):.2f}, Max: {max(recent_rewards):.2f}, "
+                        f"Epsilon: {epsilon:.4f}"
                     )
                     break
 
@@ -128,9 +121,9 @@ if __name__ == '__main__':
     # Initialize Lunar Lander environment for testing and rendering
     env = gym.make('LunarLander-v2', render_mode="rgb_array")
 
-    # Select one episode to save as a video
+    # Save test episode as a video
     state, _ = env.reset()
-    frames = []  # List to store frames for the animation
+    frames = []
     total_reward = 0
     done = False
 
@@ -139,10 +132,7 @@ if __name__ == '__main__':
         action = [np.argmax(probabilities)]
         state, reward, done, truncated, _ = env.step(action[0])
         total_reward += reward
-
-        # Append the rendered frame
         frames.append(env.render())
-
         if done or truncated:
             break
 
@@ -155,15 +145,12 @@ if __name__ == '__main__':
         img.set_data(frame)
         return [img]
 
-    # Create an animation object
     ani = FuncAnimation(fig, update, frames=frames, interval=50, blit=True)
-
-    # Save the animation as a GIF
     gif_path = os.path.join(save_dir, "lunar_lander_test.gif")
     ani.save(gif_path, dpi=300, writer="pillow")
     print(f"Animation saved to {gif_path}")
 
-    # Test the trained agent for evaluation
+    # Test the trained agent
     test_rewards = []
     for _ in range(20):  # Perform 20 test episodes
         state, _ = env.reset()
@@ -179,14 +166,15 @@ if __name__ == '__main__':
         test_rewards.append(total_reward)
 
     # Plot training and testing results
+    steps, rewards = zip(*step_rewards)
     plt.figure(figsize=(10, 6))
-    plt.plot(train_rewards, label='Training Rewards')
+    plt.plot(steps, rewards, label='Training Rewards')
     plt.axhline(np.mean(test_rewards), color='r', linestyle='--', label='Mean Test Reward')
     plt.title("Lunar Lander Training and Testing Results")
-    plt.xlabel("Episodes")
+    plt.xlabel("Steps")
     plt.ylabel("Total Reward")
     plt.legend()
     plt.grid()
     save_path = os.path.join(save_dir, "lunar_lander_training_results.png")
-    plt.savefig(save_path, dpi=300, bbox_inches='tight')  # Save the figure to the specified path
-    print(f"Plot saved to {save_path}")
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    print(f"Training and testing results saved to {save_path}")
