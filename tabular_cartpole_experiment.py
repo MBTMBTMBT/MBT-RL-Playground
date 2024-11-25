@@ -144,7 +144,7 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.001,
-            "total_steps": int(10e6),
+            "total_steps": int(15e6),
             "runs": 3
         },
         {
@@ -160,7 +160,7 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.001,
-            "total_steps": int(10e6),
+            "total_steps": int(15e6),
             "runs": 3
         }
     ]
@@ -182,17 +182,14 @@ if __name__ == '__main__':
             save_dir=save_dir
         )
 
-        # Plot training results
+        # Plot smoothed training results
         steps = np.linspace(1, group["total_steps"], len(avg_training_rewards))  # Align steps to total_steps
-        plt.plot(steps, avg_training_rewards, label=f'{group["group_name"]} (Test Avg: {avg_testing_rewards:.2f})')
-
-        # Compute moving average and standard deviation for training rewards
         window_size = 25  # Size of the moving average window
         training_rewards_smoothed = pd.Series(avg_training_rewards).rolling(window=window_size, min_periods=1).mean()
         training_rewards_std = pd.Series(avg_training_rewards).rolling(window=window_size, min_periods=1).std()
 
         # Add smoothed training reward line
-        color = plt.gca().lines[-1].get_color()  # Use the same color as the training line
+        color = plt.cm.tab10(i % 10)  # Use a consistent color palette
         plt.plot(steps, training_rewards_smoothed, color=color, linestyle='-', alpha=0.8,
                  label=f'{group["group_name"]} Smoothed Training Avg')
 
@@ -206,6 +203,11 @@ if __name__ == '__main__':
         linestyle = linestyles[i % len(linestyles)]  # Cycle through line styles
         plt.axhline(avg_testing_rewards, color="black", linestyle=linestyle, label=f'{group["group_name"]} Test Avg',
                     alpha=0.9, zorder=5)
+
+        # Add text annotation for test average above the horizontal line
+        plt.text(group["total_steps"] * 0.98, avg_testing_rewards + 2,  # Adjust position slightly above the line
+                 f'{avg_testing_rewards:.2f}', color="black", fontsize=10,
+                 horizontalalignment='right', verticalalignment='bottom')
 
     # Finalize and save plot
     plt.title("Training Results Across Experiment Groups")
