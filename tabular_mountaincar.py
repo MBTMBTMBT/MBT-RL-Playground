@@ -13,8 +13,8 @@ if __name__ == '__main__':
 
     # Define MountainCar state and action spaces
     state_space = [
-        {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 64},  # Position
-        {'type': 'continuous', 'range': (-0.07, 0.07), 'bins': 64}  # Velocity
+        {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 128},  # Position
+        {'type': 'continuous', 'range': (-0.07, 0.07), 'bins': 128}  # Velocity
     ]
 
     action_space = [

@@ -13,10 +13,10 @@ if __name__ == '__main__':
 
     # Define CartPole state and action spaces
     state_space = [
-        {'type': 'continuous', 'range': (-2.4, 2.4), 'bins': 6},  # Cart position
-        {'type': 'continuous', 'range': (-2, 2), 'bins': 12},  # Cart velocity
+        {'type': 'continuous', 'range': (-2.4, 2.4), 'bins': 16},  # Cart position
+        {'type': 'continuous', 'range': (-2, 2), 'bins': 16},  # Cart velocity
         {'type': 'continuous', 'range': (-0.25, 0.25), 'bins': 16},  # Pole angle
-        {'type': 'continuous', 'range': (-2, 2), 'bins': 12}  # Pole angular velocity
+        {'type': 'continuous', 'range': (-2, 2), 'bins': 16}  # Pole angular velocity
     ]
 
     action_space = [
