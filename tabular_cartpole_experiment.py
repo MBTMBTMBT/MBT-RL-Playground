@@ -140,11 +140,27 @@ if __name__ == '__main__':
                 {'type': 'continuous', 'range': (-2, 2), 'bins': 16}
             ],
             "action_space": [{'type': 'discrete', 'bins': 2}],
-            "alpha": 0.025,
+            "alpha": 0.1,
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.001,
-            "total_steps": int(15e6),
+            "total_steps": int(5e6),
+            "runs": 3
+        },
+        {
+            "group_name": "12_positions",
+            "state_space": [
+                {'type': 'continuous', 'range': (-2.4, 2.4), 'bins': 12},
+                {'type': 'continuous', 'range': (-2, 2), 'bins': 16},
+                {'type': 'continuous', 'range': (-0.25, 0.25), 'bins': 16},
+                {'type': 'continuous', 'range': (-2, 2), 'bins': 16}
+            ],
+            "action_space": [{'type': 'discrete', 'bins': 2}],
+            "alpha": 0.1,
+            "gamma": 0.99,
+            "epsilon_start": 0.25,
+            "epsilon_end": 0.001,
+            "total_steps": int(5e6),
             "runs": 3
         },
         {
@@ -156,13 +172,29 @@ if __name__ == '__main__':
                 {'type': 'continuous', 'range': (-2, 2), 'bins': 16}
             ],
             "action_space": [{'type': 'discrete', 'bins': 2}],
-            "alpha": 0.05,
+            "alpha": 0.1,
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.001,
-            "total_steps": int(15e6),
+            "total_steps": int(5e6),
             "runs": 3
-        }
+        },
+        {
+            "group_name": "4_positions",
+            "state_space": [
+                {'type': 'continuous', 'range': (-2.4, 2.4), 'bins': 4},
+                {'type': 'continuous', 'range': (-2, 2), 'bins': 16},
+                {'type': 'continuous', 'range': (-0.25, 0.25), 'bins': 16},
+                {'type': 'continuous', 'range': (-2, 2), 'bins': 16}
+            ],
+            "action_space": [{'type': 'discrete', 'bins': 2}],
+            "alpha": 0.1,
+            "gamma": 0.99,
+            "epsilon_start": 0.25,
+            "epsilon_end": 0.001,
+            "total_steps": int(5e6),
+            "runs": 3
+        },
     ]
 
     # Run all experiment groups
