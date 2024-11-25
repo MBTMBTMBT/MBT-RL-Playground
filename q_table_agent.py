@@ -612,75 +612,78 @@ class QTableAgent:
     @staticmethod
     def compute_mutual_information(
             df: pd.DataFrame,
-            feature_columns: Union[str, List[str]],
-            action_columns: Optional[Union[str, List[str]]] = None,
+            group1_columns: Union[str, List[str]],
+            group2_columns: Optional[Union[str, List[str]]] = None,
             use_visit_count: bool = False
     ) -> float:
         """
-        Compute mutual information (MI) between features and the joint action probability distribution,
-        with an option to weight probabilities by visit counts.
+        Compute mutual information (MI) between two groups of features or between features and actions.
 
         :param df: A DataFrame containing the precomputed probability distributions and optionally visit counts.
-        :param feature_columns: A single feature column or a list of feature columns (e.g., "State_0_Value").
-        :param action_columns: A single action column, a list of action columns, or None to auto-detect.
-                               If providing base names (e.g., "Action_0_Index"), probabilities are auto-detected.
+        :param group1_columns: A single column or a list of columns representing the first group (e.g., features).
+        :param group2_columns: A single column, a list of columns, or None. If None, computes self-MI for group1.
+                               If the group represents actions, provide the base names, e.g., "Action_0_Index".
         :param use_visit_count: Whether to weight probabilities by visit counts. Default is False.
-        :return: The mutual information (MI) value between features and the joint action distribution.
+        :return: The mutual information (MI) value between the two groups.
         """
         # Make a copy of the DataFrame to avoid modifying the original
         df = df.copy()
 
         # Ensure inputs are lists for uniform handling
-        if isinstance(feature_columns, str):
-            feature_columns = [feature_columns]
+        if isinstance(group1_columns, str):
+            group1_columns = [group1_columns]
 
-        # Process action columns
-        if action_columns is None:
-            # Auto-detect all action probability columns
-            action_columns = [col for col in df.columns if "_Probability" in col and col.startswith("Action_")]
-        else:
-            # If base action names (e.g., "Action_0_Index") are provided, find their probability columns
-            if isinstance(action_columns, str):
-                action_columns = [action_columns]
+        # Process the second group (group2_columns)
+        if group2_columns is None:
+            group2_columns = group1_columns  # Compute self-MI within group1
+        elif isinstance(group2_columns, str):
+            group2_columns = [group2_columns]
+
+        # Check if the second group contains actions
+        is_action_group = all(col.startswith("Action_") for col in group2_columns)
+
+        if is_action_group:
+            # If the group is actions, find corresponding probability columns
             full_action_columns = []
-            for base_col in action_columns:
+            for base_col in group2_columns:
                 matching_columns = [
                     col for col in df.columns if col.startswith(base_col) and "_Probability" in col
                 ]
                 if not matching_columns:
                     raise ValueError(f"Invalid or missing action columns for base: {base_col}")
                 full_action_columns.extend(matching_columns)
-            action_columns = full_action_columns
+            group2_columns = full_action_columns
 
         # Check for visit counts if `use_visit_count` is enabled
         if use_visit_count and "Visit_Count" not in df.columns:
             raise ValueError("Visit count column ('Visit_Count') is required when 'use_visit_count=True'.")
 
-        # Normalize action probabilities, optionally weighted by visit counts
+        # Normalize probabilities, optionally weighted by visit counts
         if use_visit_count:
             df["Weighted_Visit_Count"] = df["Visit_Count"] / df["Visit_Count"].sum()
-            for action_col in action_columns:
-                df[action_col] *= df["Weighted_Visit_Count"]
+            for col in group2_columns:
+                df[col] *= df["Weighted_Visit_Count"]
 
-        # Ensure the action probabilities are normalized
-        total_prob = df[action_columns].sum().sum()
-        df[action_columns] /= total_prob
+        # Normalize the probabilities to ensure valid distribution
+        total_prob = df[group2_columns].sum().sum() if is_action_group else df["Visit_Count"].sum()
+        df[group2_columns] = df[group2_columns] / total_prob if is_action_group else df["Visit_Count"] / total_prob
 
-        # Compute joint probability P(X, A)
-        joint_prob = df.groupby(feature_columns, as_index=False)[action_columns].sum()
+        # Compute joint probability P(Group1, Group2)
+        joint_prob = df.groupby(group1_columns, as_index=False)[group2_columns].sum()
 
-        # Compute marginal probabilities P(X) and P(A)
-        joint_prob["P(X)"] = joint_prob[action_columns].sum(axis=1)
-        marginal_action_prob = df[action_columns].sum()
+        # Compute marginal probabilities P(Group1) and P(Group2)
+        joint_prob["P(Group1)"] = joint_prob[group2_columns].sum(axis=1)
+        marginal_group2_prob = df[group2_columns].sum() if is_action_group else df.groupby(group2_columns)[
+            "Visit_Count"].sum()
 
         # Calculate mutual information
         mi = 0.0
         for _, row in joint_prob.iterrows():
-            px = row["P(X)"]  # P(X)
-            for action_col in action_columns:
-                pa = marginal_action_prob[action_col]  # P(A)
-                pxa = row[action_col]  # P(X, A)
-                if pxa > 0:  # Avoid log(0)
-                    mi += pxa * np.log2(pxa / (px * pa))
+            p_group1 = row["P(Group1)"]  # P(Group1)
+            for group2_col in group2_columns:
+                p_group2 = marginal_group2_prob[group2_col] if is_action_group else marginal_group2_prob.loc[group2_col]
+                p_group1_group2 = row[group2_col]  # P(Group1, Group2)
+                if p_group1_group2 > 0:  # Avoid log(0)
+                    mi += p_group1_group2 * np.log2(p_group1_group2 / (p_group1 * p_group2))
 
         return mi
