@@ -34,7 +34,7 @@ if __name__ == '__main__':
     env = gym.make('LunarLander-v3')
 
     # Training parameters
-    total_steps = int(10e6)       # Total steps
+    total_steps = int(0.05e6)       # Total steps
     alpha = 0.1                 # Learning rate
     gamma = 0.99                # Discount factor
     epsilon_start = 0.3         # Starting exploration rate
@@ -119,7 +119,7 @@ if __name__ == '__main__':
     agent = QTableAgent.load_q_table(os.path.join(save_dir, "q_table_agent.csv"))
 
     # Initialize Lunar Lander environment for testing and rendering
-    env = gym.make('LunarLander-v2', render_mode="rgb_array")
+    env = gym.make('LunarLander-v3', render_mode="rgb_array")
 
     # Save test episode as a video
     state, _ = env.reset()

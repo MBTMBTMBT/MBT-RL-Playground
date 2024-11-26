@@ -47,8 +47,8 @@ def run_experiment_for_group(args):
     agent = QTableAgent(state_space, action_space)
 
     # Initialize CartPole environment
-    env = gym.make('CartPole-v1')
-    env = AddNoiseDimensionWrapper(env)
+    env = gym.make('LunarLander-v3')
+    # env = AddNoiseDimensionWrapper(env)
 
     # Training
     with tqdm(total=total_steps, desc=f"[{group_name}] Run {run_id + 1}", leave=True) as pbar:
@@ -88,8 +88,8 @@ def run_experiment_for_group(args):
     pd.DataFrame(step_rewards, columns=["Step", "Reward"]).to_csv(training_data_path, index=False)
 
     # Testing and GIF generation
-    env = gym.make('CartPole-v1', render_mode="rgb_array")
-    env = AddNoiseDimensionWrapper(env)
+    env = gym.make('LunarLander-v3', render_mode="rgb_array")
+    # env = AddNoiseDimensionWrapper(env)
     frames = []
     for episode in range(20):
         state, _ = env.reset()
@@ -141,62 +141,51 @@ def run_experiment_group(group, save_dir):
 
 if __name__ == '__main__':
     # General experiment parameters
-    experiment_name = "CartPole_Noised_Experiments"
+    experiment_name = "Lunarlander_Experiments"
     save_dir = f"./experiments/{experiment_name}/"
     os.makedirs(save_dir, exist_ok=True)
 
     # Define experiment groups
     experiment_groups = [
         {
-            "group_name": "2_bins_noise",
+            "group_name": "16_bins",
             "state_space": [
-                {'type': 'continuous', 'range': (-2.4, 2.4), 'bins': 12},
-                {'type': 'continuous', 'range': (-2, 2), 'bins': 16},
-                {'type': 'continuous', 'range': (-0.25, 0.25), 'bins': 16},
-                {'type': 'continuous', 'range': (-2, 2), 'bins': 16},
-                {'type': 'continuous', 'range': (-1, 1), 'bins': 2},
+                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 16},  # Horizontal coordinate
+                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 16},  # Vertical coordinate
+                {'type': 'continuous', 'range': (-1.5, 1.5), 'bins': 16},  # Horizontal speed
+                {'type': 'continuous', 'range': (-2.0, 0.5), 'bins': 16},  # Vertical speed
+                {'type': 'continuous', 'range': (-np.pi, np.pi), 'bins': 16},  # Angle
+                {'type': 'continuous', 'range': (-2.0, 2.0), 'bins': 16},  # Angular speed
+                {'type': 'continuous', 'range': (0.0, 1.0), 'bins': 2},   # Left leg contact
+                {'type': 'continuous', 'range': (0.0, 1.0), 'bins': 2}    # Right leg contact
             ],
-            "action_space": [{'type': 'discrete', 'bins': 2}],
+            "action_space": [{'type': 'discrete', 'bins': 4}],
             "alpha": 0.1,
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.001,
-            "total_steps": int(15e6),
-            "runs": 8
+            "total_steps": int(0.1e6),
+            "runs": 8,
         },
         {
-            "group_name": "4_bins_noise",
+            "group_name": "12_bins",
             "state_space": [
-                {'type': 'continuous', 'range': (-2.4, 2.4), 'bins': 12},
-                {'type': 'continuous', 'range': (-2, 2), 'bins': 16},
-                {'type': 'continuous', 'range': (-0.25, 0.25), 'bins': 16},
-                {'type': 'continuous', 'range': (-2, 2), 'bins': 16},
-                {'type': 'continuous', 'range': (-1, 1), 'bins': 4},
+                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 12},  # Horizontal coordinate
+                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 12},  # Vertical coordinate
+                {'type': 'continuous', 'range': (-1.5, 1.5), 'bins': 12},  # Horizontal speed
+                {'type': 'continuous', 'range': (-2.0, 0.5), 'bins': 12},  # Vertical speed
+                {'type': 'continuous', 'range': (-np.pi, np.pi), 'bins': 12},  # Angle
+                {'type': 'continuous', 'range': (-2.0, 2.0), 'bins': 12},  # Angular speed
+                {'type': 'continuous', 'range': (0.0, 1.0), 'bins': 2},  # Left leg contact
+                {'type': 'continuous', 'range': (0.0, 1.0), 'bins': 2}  # Right leg contact
             ],
-            "action_space": [{'type': 'discrete', 'bins': 2}],
+            "action_space": [{'type': 'discrete', 'bins': 4}],
             "alpha": 0.1,
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.001,
-            "total_steps": int(15e6),
-            "runs": 8
-        },
-        {
-            "group_name": "8_bins_noise",
-            "state_space": [
-                {'type': 'continuous', 'range': (-2.4, 2.4), 'bins': 12},
-                {'type': 'continuous', 'range': (-2, 2), 'bins': 16},
-                {'type': 'continuous', 'range': (-0.25, 0.25), 'bins': 16},
-                {'type': 'continuous', 'range': (-2, 2), 'bins': 16},
-                {'type': 'continuous', 'range': (-1, 1), 'bins': 8},
-            ],
-            "action_space": [{'type': 'discrete', 'bins': 2}],
-            "alpha": 0.1,
-            "gamma": 0.99,
-            "epsilon_start": 0.25,
-            "epsilon_end": 0.001,
-            "total_steps": int(15e6),
-            "runs": 8
+            "total_steps": int(0.1e6),
+            "runs": 8,
         },
     ]
 
