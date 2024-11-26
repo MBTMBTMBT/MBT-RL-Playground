@@ -8,6 +8,7 @@ from q_table_agent import QTableAgent
 import os
 import pandas as pd
 from concurrent.futures import ProcessPoolExecutor
+from wrappers import AddNoiseDimensionWrapper
 
 
 # Helper function to align training rewards with truncation
@@ -47,6 +48,7 @@ def run_experiment_for_group(args):
 
     # Initialize CartPole environment
     env = gym.make('CartPole-v1')
+    env = AddNoiseDimensionWrapper(env)
 
     # Training
     with tqdm(total=total_steps, desc=f"[{group_name}] Run {run_id + 1}", leave=True) as pbar:
@@ -87,6 +89,7 @@ def run_experiment_for_group(args):
 
     # Testing and GIF generation
     env = gym.make('CartPole-v1', render_mode="rgb_array")
+    env = AddNoiseDimensionWrapper(env)
     frames = []
     for episode in range(20):
         state, _ = env.reset()
@@ -138,74 +141,61 @@ def run_experiment_group(group, save_dir):
 
 if __name__ == '__main__':
     # General experiment parameters
-    experiment_name = "CartPole_Experiments"
+    experiment_name = "CartPole_Noised_Experiments"
     save_dir = f"./experiments/{experiment_name}/"
     os.makedirs(save_dir, exist_ok=True)
 
     # Define experiment groups
     experiment_groups = [
         {
-            "group_name": "16_positions",
-            "state_space": [
-                {'type': 'continuous', 'range': (-2.4, 2.4), 'bins': 16},
-                {'type': 'continuous', 'range': (-2, 2), 'bins': 16},
-                {'type': 'continuous', 'range': (-0.25, 0.25), 'bins': 16},
-                {'type': 'continuous', 'range': (-2, 2), 'bins': 16}
-            ],
-            "action_space": [{'type': 'discrete', 'bins': 2}],
-            "alpha": 0.1,
-            "gamma": 0.99,
-            "epsilon_start": 0.25,
-            "epsilon_end": 0.001,
-            "total_steps": int(15e6),
-            "runs": 8
-        },
-        {
-            "group_name": "12_positions",
+            "group_name": "2_bins_noise",
             "state_space": [
                 {'type': 'continuous', 'range': (-2.4, 2.4), 'bins': 12},
                 {'type': 'continuous', 'range': (-2, 2), 'bins': 16},
                 {'type': 'continuous', 'range': (-0.25, 0.25), 'bins': 16},
-                {'type': 'continuous', 'range': (-2, 2), 'bins': 16}
+                {'type': 'continuous', 'range': (-2, 2), 'bins': 16},
+                {'type': 'continuous', 'range': (-1, 1), 'bins': 2},
             ],
             "action_space": [{'type': 'discrete', 'bins': 2}],
             "alpha": 0.1,
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.001,
-            "total_steps": int(15e6),
+            "total_steps": int(5e6),
             "runs": 8
         },
         {
-            "group_name": "8_positions",
+            "group_name": "4_bins_noise",
             "state_space": [
-                {'type': 'continuous', 'range': (-2.4, 2.4), 'bins': 8},
+                {'type': 'continuous', 'range': (-2.4, 2.4), 'bins': 12},
                 {'type': 'continuous', 'range': (-2, 2), 'bins': 16},
                 {'type': 'continuous', 'range': (-0.25, 0.25), 'bins': 16},
-                {'type': 'continuous', 'range': (-2, 2), 'bins': 16}
+                {'type': 'continuous', 'range': (-2, 2), 'bins': 16},
+                {'type': 'continuous', 'range': (-1, 1), 'bins': 4},
             ],
             "action_space": [{'type': 'discrete', 'bins': 2}],
             "alpha": 0.1,
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.001,
-            "total_steps": int(15e6),
+            "total_steps": int(5e6),
             "runs": 8
         },
         {
-            "group_name": "4_positions",
+            "group_name": "8_bins_noise",
             "state_space": [
-                {'type': 'continuous', 'range': (-2.4, 2.4), 'bins': 4},
+                {'type': 'continuous', 'range': (-2.4, 2.4), 'bins': 12},
                 {'type': 'continuous', 'range': (-2, 2), 'bins': 16},
                 {'type': 'continuous', 'range': (-0.25, 0.25), 'bins': 16},
-                {'type': 'continuous', 'range': (-2, 2), 'bins': 16}
+                {'type': 'continuous', 'range': (-2, 2), 'bins': 16},
+                {'type': 'continuous', 'range': (-1, 1), 'bins': 8},
             ],
             "action_space": [{'type': 'discrete', 'bins': 2}],
             "alpha": 0.1,
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.001,
-            "total_steps": int(15e6),
+            "total_steps": int(5e6),
             "runs": 8
         },
     ]
