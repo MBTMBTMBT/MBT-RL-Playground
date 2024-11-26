@@ -31,7 +31,7 @@ if __name__ == '__main__':
     agent = QTableAgent(state_space, action_space)
 
     # Initialize Lunar Lander environment
-    env = gym.make('LunarLander-v2')
+    env = gym.make('LunarLander-v3')
 
     # Training parameters
     total_steps = int(10e6)       # Total steps
