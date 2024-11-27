@@ -3,11 +3,10 @@ import gymnasium as gym
 from matplotlib import pyplot as plt
 from matplotlib.animation import FuncAnimation
 from tqdm import tqdm
-from tqdm.contrib.concurrent import process_map  # For parallel progress bar
-from q_table_agent import QTableAgent
+from concurrent.futures import ProcessPoolExecutor
 import os
 import pandas as pd
-from concurrent.futures import ProcessPoolExecutor
+from q_table_agent import QTableAgent
 
 
 # Helper function to align training rewards with truncation
@@ -34,7 +33,7 @@ def generate_test_gif(frames, gif_path):
 
 
 # Single experiment runner
-def run_experiment_for_group(args):
+def run_experiment(args):
     total_steps, alpha, gamma, epsilon_start, epsilon_end, state_space, action_space, group_name, run_id, save_dir = args
     epsilon_decay = (epsilon_start - epsilon_end) / total_steps
     step_rewards = []
@@ -47,10 +46,9 @@ def run_experiment_for_group(args):
 
     # Initialize CartPole environment
     env = gym.make('Acrobot-v1')
-    # env = AddNoiseDimensionWrapper(env)
 
     # Training
-    with tqdm(total=total_steps, desc=f"[{group_name}] Run {run_id + 1}", leave=True) as pbar:
+    with tqdm(total=total_steps, desc=f"[{group_name}] Run {run_id + 1}", leave=False) as pbar:
         while current_steps < total_steps:
             state, _ = env.reset()
             total_reward = 0
@@ -88,7 +86,6 @@ def run_experiment_for_group(args):
 
     # Testing and GIF generation
     env = gym.make('Acrobot-v1', render_mode="rgb_array")
-    # env = AddNoiseDimensionWrapper(env)
     frames = []
     for episode in range(20):
         state, _ = env.reset()
@@ -116,26 +113,39 @@ def run_experiment_for_group(args):
     return step_rewards, np.mean(test_rewards)
 
 
-# Parallel experiment runner for each group
-def run_experiment_group(group, save_dir):
-    args_list = [
-        (
-            group["total_steps"], group["alpha"], group["gamma"],
-            group["epsilon_start"], group["epsilon_end"],
-            group["state_space"], group["action_space"],
-            group["group_name"], run_id, save_dir
-        )
-        for run_id in range(group["runs"])
-    ]
+# Parallel experiment runner for all tasks
+def run_all_experiments(experiment_groups, save_dir, max_workers):
+    # Create a list of all tasks
+    tasks = []
+    for group in experiment_groups:
+        for run_id in range(group["runs"]):
+            tasks.append((
+                group["total_steps"], group["alpha"], group["gamma"],
+                group["epsilon_start"], group["epsilon_end"],
+                group["state_space"], group["action_space"],
+                group["group_name"], run_id, save_dir
+            ))
 
-    with ProcessPoolExecutor() as executor:
-        results = process_map(run_experiment_for_group, args_list, chunksize=1)
+    # Execute tasks in parallel
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        # results = list(tqdm(executor.map(run_experiment, tasks), total=len(tasks), desc="Running Experiments"))
+        results = list(executor.map(run_experiment, tasks))
 
-    all_training_results, all_testing_results = zip(*results)
-    avg_training_rewards = align_training_rewards(all_training_results)
-    avg_testing_rewards = np.mean(all_testing_results)
+    # Group results by experiment group
+    group_results = {group["group_name"]: [] for group in experiment_groups}
+    for task, result in zip(tasks, results):
+        _, _, _, _, _, _, _, group_name, run_id, _ = task
+        group_results[group_name].append(result)
 
-    return avg_training_rewards, avg_testing_rewards
+    # Aggregate results for each group
+    aggregated_results = {}
+    for group_name, results in group_results.items():
+        all_training_results, all_testing_results = zip(*results)
+        avg_training_rewards = align_training_rewards(all_training_results)
+        avg_testing_rewards = np.mean(all_testing_results)
+        aggregated_results[group_name] = (avg_training_rewards, avg_testing_rewards)
+
+    return aggregated_results
 
 
 if __name__ == '__main__':
@@ -236,24 +246,30 @@ if __name__ == '__main__':
         (0, (5, 5, 1, 5)),  # Dash-dot pattern with shorter gaps
         (0, (2, 2, 1, 2)),  # Short dash-dot pattern
     ]
-    for i, group in enumerate(experiment_groups):
-        avg_training_rewards, avg_testing_rewards = run_experiment_group(group, save_dir)
 
-        steps = np.linspace(1, group["total_steps"], len(avg_training_rewards))
+    # Run all experiments
+    max_workers = 12  # Number of parallel processes
+    aggregated_results = run_all_experiments(experiment_groups, save_dir, max_workers)
+
+    # Plot results
+    linestyles = ['-', '--', '-.', ':']
+    plt.figure(figsize=(12, 8))
+    for i, (group_name, (avg_training_rewards, avg_testing_rewards)) in enumerate(aggregated_results.items()):
+        steps = np.linspace(1, len(avg_training_rewards), len(avg_training_rewards))
         window_size = 25
         training_rewards_smoothed = pd.Series(avg_training_rewards).rolling(window=window_size, min_periods=1).mean()
         training_rewards_std = pd.Series(avg_training_rewards).rolling(window=window_size, min_periods=1).std()
 
         color = plt.cm.tab10(i % 10)
         plt.plot(steps, training_rewards_smoothed, color=color, linestyle='-', alpha=0.8,
-                 label=f'{group["group_name"]} Smoothed Training Avg')
+                 label=f'{group_name} Smoothed Training Avg')
         plt.fill_between(steps,
                          training_rewards_smoothed - training_rewards_std,
                          training_rewards_smoothed + training_rewards_std,
-                         color=color, alpha=0.25, label=f'{group["group_name"]} Training Std Dev')
+                         color=color, alpha=0.25, label=f'{group_name} Training Std Dev')
         plt.axhline(avg_testing_rewards, color="black", linestyle=linestyles[i % len(linestyles)],
-                    label=f'{group["group_name"]} Test Avg', alpha=0.9)
-        plt.text(group["total_steps"] * 0.98, avg_testing_rewards + 2,
+                    label=f'{group_name} Test Avg', alpha=0.9)
+        plt.text(len(avg_training_rewards) * 0.98, avg_testing_rewards + 2,
                  f'{avg_testing_rewards:.2f}', color="black", fontsize=10,
                  horizontalalignment='right', verticalalignment='bottom')
 
