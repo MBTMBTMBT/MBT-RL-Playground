@@ -171,8 +171,8 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.001,
-            "total_steps": int(50e6),
-            "runs": 4,
+            "total_steps": int(25e6),
+            "runs": 8,
         },
         {
             "group_name": "12_bins",
@@ -189,8 +189,8 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.001,
-            "total_steps": int(50e6),
-            "runs": 4,
+            "total_steps": int(25e6),
+            "runs": 8,
         },
         {
             "group_name": "8_bins",
@@ -207,8 +207,8 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.001,
-            "total_steps": int(50e6),
-            "runs": 4,
+            "total_steps": int(25e6),
+            "runs": 8,
         },
         {
             "group_name": "4_bins",
@@ -225,8 +225,8 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.001,
-            "total_steps": int(50e6),
-            "runs": 4,
+            "total_steps": int(25e6),
+            "runs": 8,
         },
     ]
 
