@@ -167,12 +167,12 @@ if __name__ == '__main__':
                 {'type': 'continuous', 'range': (-12.0, 12.0), 'bins': 16}  # Angular velocity of link 2
             ],
             "action_space": [{'type': 'discrete', 'bins': 3}],
-            "alpha": 0.25,
+            "alpha": 0.1,
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.001,
-            "total_steps": int(25e6),
-            "runs": 4,
+            "total_steps": int(30e6),
+            "runs": 6,
         },
         {
             "group_name": "12_bins",
@@ -185,12 +185,12 @@ if __name__ == '__main__':
                 {'type': 'continuous', 'range': (-12.0, 12.0), 'bins': 12}  # Angular velocity of link 2
             ],
             "action_space": [{'type': 'discrete', 'bins': 3}],
-            "alpha": 0.25,
+            "alpha": 0.1,
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.001,
-            "total_steps": int(25e6),
-            "runs": 4,
+            "total_steps": int(30e6),
+            "runs": 6,
         },
         {
             "group_name": "8_bins",
@@ -203,12 +203,12 @@ if __name__ == '__main__':
                 {'type': 'continuous', 'range': (-12.0, 12.0), 'bins': 8}  # Angular velocity of link 2
             ],
             "action_space": [{'type': 'discrete', 'bins': 3}],
-            "alpha": 0.25,
+            "alpha": 0.1,
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.001,
-            "total_steps": int(25e6),
-            "runs": 4,
+            "total_steps": int(30e6),
+            "runs": 6,
         },
         {
             "group_name": "4_bins",
@@ -221,12 +221,12 @@ if __name__ == '__main__':
                 {'type': 'continuous', 'range': (-12.0, 12.0), 'bins': 4}  # Angular velocity of link 2
             ],
             "action_space": [{'type': 'discrete', 'bins': 3}],
-            "alpha": 0.25,
+            "alpha": 0.1,
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.001,
-            "total_steps": int(25e6),
-            "runs": 4,
+            "total_steps": int(30e6),
+            "runs": 6,
         },
     ]
 
@@ -248,7 +248,7 @@ if __name__ == '__main__':
     ]
 
     # Run all experiments
-    max_workers = 8  # Number of parallel processes
+    max_workers = 12  # Number of parallel processes
     aggregated_results = run_all_experiments(experiment_groups, save_dir, max_workers)
 
     # Plot results
