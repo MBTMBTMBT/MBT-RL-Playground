@@ -157,7 +157,7 @@ if __name__ == '__main__':
                 {'type': 'continuous', 'range': (-12.0, 12.0), 'bins': 16}  # Angular velocity of link 2
             ],
             "action_space": [{'type': 'discrete', 'bins': 3}],
-            "alpha": 0.1,
+            "alpha": 0.25,
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.001,
@@ -175,7 +175,7 @@ if __name__ == '__main__':
                 {'type': 'continuous', 'range': (-12.0, 12.0), 'bins': 12}  # Angular velocity of link 2
             ],
             "action_space": [{'type': 'discrete', 'bins': 3}],
-            "alpha": 0.1,
+            "alpha": 0.25,
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.001,
@@ -193,7 +193,7 @@ if __name__ == '__main__':
                 {'type': 'continuous', 'range': (-12.0, 12.0), 'bins': 8}  # Angular velocity of link 2
             ],
             "action_space": [{'type': 'discrete', 'bins': 3}],
-            "alpha": 0.1,
+            "alpha": 0.25,
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.001,
@@ -211,7 +211,7 @@ if __name__ == '__main__':
                 {'type': 'continuous', 'range': (-12.0, 12.0), 'bins': 4}  # Angular velocity of link 2
             ],
             "action_space": [{'type': 'discrete', 'bins': 3}],
-            "alpha": 0.1,
+            "alpha": 0.25,
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.001,
@@ -222,7 +222,20 @@ if __name__ == '__main__':
 
     # Run all experiment groups
     plt.figure(figsize=(12, 8))
-    linestyles = ['--', '-.', ':']
+    linestyles = [
+        '-',  # Solid line
+        '--',  # Dashed line
+        '-.',  # Dash-dot line
+        ':',  # Dotted line
+        (0, (1, 1)),  # Dotted line with tighter dots
+        (0, (5, 1)),  # Long dash with short gap
+        (0, (3, 1, 1, 1)),  # Dash-dot-dot pattern
+        (0, (3, 5, 1, 5)),  # Dash-dot with longer gaps
+        (0, (5, 10)),  # Long dash with longer gap
+        (0, (1, 10)),  # Very tight dots with longer gap
+        (0, (5, 5, 1, 5)),  # Dash-dot pattern with shorter gaps
+        (0, (2, 2, 1, 2)),  # Short dash-dot pattern
+    ]
     for i, group in enumerate(experiment_groups):
         avg_training_rewards, avg_testing_rewards = run_experiment_group(group, save_dir)
 
@@ -238,10 +251,10 @@ if __name__ == '__main__':
                          training_rewards_smoothed - training_rewards_std,
                          training_rewards_smoothed + training_rewards_std,
                          color=color, alpha=0.25, label=f'{group["group_name"]} Training Std Dev')
-        plt.axhline(avg_testing_rewards, color=color, linestyle=linestyles[i % len(linestyles)],
+        plt.axhline(avg_testing_rewards, color="black", linestyle=linestyles[i % len(linestyles)],
                     label=f'{group["group_name"]} Test Avg', alpha=0.9)
         plt.text(group["total_steps"] * 0.98, avg_testing_rewards + 2,
-                 f'{avg_testing_rewards:.2f}', color=color, fontsize=10,
+                 f'{avg_testing_rewards:.2f}', color="black", fontsize=10,
                  horizontalalignment='right', verticalalignment='bottom')
 
     plt.title("Training Results Across Experiment Groups")
