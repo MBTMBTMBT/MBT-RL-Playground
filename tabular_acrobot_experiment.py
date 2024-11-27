@@ -171,8 +171,8 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.001,
-            "total_steps": int(15e6),
-            "runs": 8,
+            "total_steps": int(50e6),
+            "runs": 4,
         },
         {
             "group_name": "12_bins",
@@ -189,8 +189,8 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.001,
-            "total_steps": int(15e6),
-            "runs": 8,
+            "total_steps": int(50e6),
+            "runs": 4,
         },
         {
             "group_name": "8_bins",
@@ -207,8 +207,8 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.001,
-            "total_steps": int(15e6),
-            "runs": 8,
+            "total_steps": int(50e6),
+            "runs": 4,
         },
         {
             "group_name": "4_bins",
@@ -225,8 +225,8 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.001,
-            "total_steps": int(15e6),
-            "runs": 8,
+            "total_steps": int(50e6),
+            "runs": 4,
         },
     ]
 
@@ -248,7 +248,7 @@ if __name__ == '__main__':
     ]
 
     # Run all experiments
-    max_workers = 12  # Number of parallel processes
+    max_workers = 16  # Number of parallel processes
     aggregated_results = run_all_experiments(experiment_groups, save_dir, max_workers)
 
     # Plot results
