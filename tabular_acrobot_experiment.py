@@ -74,7 +74,7 @@ def run_experiment(args):
                 if np.random.random() < epsilon:
                     action = [np.random.choice([0, 1])]
                 else:
-                    probabilities = agent.get_action_probabilities(state, strategy="greedy")
+                    probabilities = agent.get_action_probabilities(state, strategy="softmax")
                     action = [np.argmax(probabilities)]
 
                 next_state, reward, done, truncated, _ = env.step(action[0])
@@ -192,7 +192,7 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
-            "total_steps": int(75e6),
+            "total_steps": int(100e6),
             "runs": 3,
         },
         {
@@ -210,7 +210,7 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
-            "total_steps": int(75e6),
+            "total_steps": int(100e6),
             "runs": 3,
         },
         {
@@ -228,7 +228,7 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
-            "total_steps": int(75e6),
+            "total_steps": int(100e6),
             "runs": 3,
         },
         {
@@ -246,7 +246,7 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
-            "total_steps": int(75e6),
+            "total_steps": int(100e6),
             "runs": 3,
         },
     ]
