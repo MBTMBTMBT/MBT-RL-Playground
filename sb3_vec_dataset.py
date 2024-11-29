@@ -86,3 +86,35 @@ class GymDataset(Dataset):
         original_idx = idx % self.data_size
         item = self.data[original_idx]
         return item['obs'], item['action'], item['next_obs'], item['reward'], item['done']
+
+
+if __name__ == "__main__":
+    import gymnasium as gym
+    def make_env(env_id, rank, seed=0):
+        """Helper function to create a new environment instance."""
+        def _init():
+            env = gym.make(env_id)
+            env.reset(seed=seed + rank)
+            return env
+        return _init
+
+    # Create SubprocVecEnv with 4 parallel environments
+    env_id = "CartPole-v1"
+    num_envs = 4
+    envs = SubprocVecEnv([make_env(env_id, i) for i in range(num_envs)])
+
+    # Initialize GymDataset
+    dataset = GymDataset(env=envs, data_size=10000, repeat=10, movement_augmentation=0)
+
+    # Resample data
+    dataset.resample()
+
+    # Access and print some samples
+    for i in range(5):
+        obs, action, next_obs, reward, done = dataset[i]
+        print(f"Sample {i}:")
+        print(f"  Observation: {obs}")
+        print(f"  Action: {action}")
+        print(f"  Next Observation: {next_obs}")
+        print(f"  Reward: {reward}")
+        print(f"  Done: {done}")
