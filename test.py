@@ -9,11 +9,27 @@ import pandas as pd
 from q_table_agent import QTableAgent
 
 
-# Helper function to align training rewards with truncation
-def align_training_rewards(all_training_results):
-    min_steps = min(len(res) for res in all_training_results)
-    aligned_rewards = [np.array([r for _, r in res[:min_steps]]) for res in all_training_results]
-    return np.mean(aligned_rewards, axis=0)
+# Helper function to align training rewards using step
+def align_training_rewards_with_steps(all_training_results, total_steps):
+    """
+    Align training rewards to a fixed number of steps for consistent plotting.
+
+    :param all_training_results: List of step-reward tuples for all runs.
+    :param total_steps: The total number of steps in the experiment.
+    :return: A numpy array of aligned rewards averaged across all runs.
+    """
+    aligned_rewards = []
+    for step_rewards in all_training_results:
+        steps, rewards = zip(*step_rewards)
+        # Interpolate rewards to align with total_steps
+        interpolated_rewards = np.interp(
+            np.linspace(1, total_steps, total_steps),
+            steps,
+            rewards
+        )
+        aligned_rewards.append(interpolated_rewards)
+    return np.mean(aligned_rewards, axis=0), np.std(aligned_rewards, axis=0)  # Return mean and std
+
 
 
 # Generate GIF for the final test episode
@@ -45,7 +61,7 @@ def run_experiment(args):
     agent = QTableAgent(state_space, action_space)
 
     # Initialize CartPole environment
-    env = gym.make('Acrobot-v1')
+    env = gym.make('LunarLander-v3')
 
     # Training
     with tqdm(total=total_steps, desc=f"[{group_name}] Run {run_id + 1}", leave=False) as pbar:
@@ -58,7 +74,7 @@ def run_experiment(args):
                 if np.random.random() < epsilon:
                     action = [np.random.choice([0, 1])]
                 else:
-                    probabilities = agent.get_action_probabilities(state, strategy="greedy")
+                    probabilities = agent.get_action_probabilities(state, strategy="softmax")
                     action = [np.argmax(probabilities)]
 
                 next_state, reward, done, truncated, _ = env.step(action[0])
@@ -85,7 +101,7 @@ def run_experiment(args):
     pd.DataFrame(step_rewards, columns=["Step", "Reward"]).to_csv(training_data_path, index=False)
 
     # Testing and GIF generation
-    env = gym.make('Acrobot-v1', render_mode="rgb_array")
+    env = gym.make('LunarLander-v3', render_mode="rgb_array")
     frames = []
     for episode in range(20):
         state, _ = env.reset()
@@ -113,9 +129,8 @@ def run_experiment(args):
     return step_rewards, np.mean(test_rewards)
 
 
-# Parallel experiment runner for all tasks
+# Aggregating results for consistent step-based plotting
 def run_all_experiments(experiment_groups, save_dir, max_workers):
-    # Create a list of all tasks
     tasks = []
     for group in experiment_groups:
         for run_id in range(group["runs"]):
@@ -128,7 +143,6 @@ def run_all_experiments(experiment_groups, save_dir, max_workers):
 
     # Execute tasks in parallel
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
-        # results = list(tqdm(executor.map(run_experiment, tasks), total=len(tasks), desc="Running Experiments"))
         results = list(executor.map(run_experiment, tasks))
 
     # Group results by experiment group
@@ -139,18 +153,25 @@ def run_all_experiments(experiment_groups, save_dir, max_workers):
 
     # Aggregate results for each group
     aggregated_results = {}
-    for group_name, results in group_results.items():
-        all_training_results, all_testing_results = zip(*results)
-        avg_training_rewards = align_training_rewards(all_training_results)
+    for group in experiment_groups:
+        group_name = group["group_name"]
+        total_steps = group["total_steps"]
+        all_training_results, all_testing_results = zip(*group_results[group_name])
+
+        # Align rewards with steps and compute mean and std
+        avg_training_rewards, std_training_rewards = align_training_rewards_with_steps(
+            all_training_results, total_steps
+        )
         avg_testing_rewards = np.mean(all_testing_results)
-        aggregated_results[group_name] = (avg_training_rewards, avg_testing_rewards)
+
+        aggregated_results[group_name] = (avg_training_rewards, std_training_rewards, avg_testing_rewards)
 
     return aggregated_results
 
 
 if __name__ == '__main__':
     # General experiment parameters
-    experiment_name = "Acrobot_Experiments"
+    experiment_name = "LunarLander_Experiments"
     save_dir = f"./experiments/{experiment_name}/"
     os.makedirs(save_dir, exist_ok=True)
 
@@ -159,76 +180,48 @@ if __name__ == '__main__':
         {
             "group_name": "16_bins",
             "state_space": [
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 16},  # Cosine of theta1
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 16},  # Sine of theta1
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 16},  # Cosine of theta2
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 16},  # Sine of theta2
-                {'type': 'continuous', 'range': (-6.0, 6.0), 'bins': 16},  # Angular velocity of link 1
-                {'type': 'continuous', 'range': (-12.0, 12.0), 'bins': 16}  # Angular velocity of link 2
+                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 16},  # Horizontal coordinate
+                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 16},  # Vertical coordinate
+                {'type': 'continuous', 'range': (-1.5, 1.5), 'bins': 16},  # Horizontal speed
+                {'type': 'continuous', 'range': (-2.0, 0.5), 'bins': 16},  # Vertical speed
+                {'type': 'continuous', 'range': (-np.pi, np.pi), 'bins': 16},  # Angle
+                {'type': 'continuous', 'range': (-2.0, 2.0), 'bins': 16},  # Angular speed
+                {'type': 'continuous', 'range': (0.0, 1.0), 'bins': 2},  # Left leg contact
+                {'type': 'continuous', 'range': (0.0, 1.0), 'bins': 2}  # Right leg contact
             ],
-            "action_space": [{'type': 'discrete', 'bins': 3}],
-            "alpha": 0.25,
+            "action_space": [{'type': 'discrete', 'bins': 4}],
+            "alpha": 0.1,
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.001,
-            "total_steps": int(15e6),
+            "total_steps": int(0.1e6),
             "runs": 8,
         },
         {
             "group_name": "12_bins",
             "state_space": [
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 12},  # Cosine of theta1
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 12},  # Sine of theta1
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 12},  # Cosine of theta2
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 12},  # Sine of theta2
-                {'type': 'continuous', 'range': (-6.0, 6.0), 'bins': 12},  # Angular velocity of link 1
-                {'type': 'continuous', 'range': (-12.0, 12.0), 'bins': 12}  # Angular velocity of link 2
+                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 12},  # Horizontal coordinate
+                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 12},  # Vertical coordinate
+                {'type': 'continuous', 'range': (-1.5, 1.5), 'bins': 12},  # Horizontal speed
+                {'type': 'continuous', 'range': (-2.0, 0.5), 'bins': 12},  # Vertical speed
+                {'type': 'continuous', 'range': (-np.pi, np.pi), 'bins': 12},  # Angle
+                {'type': 'continuous', 'range': (-2.0, 2.0), 'bins': 12},  # Angular speed
+                {'type': 'continuous', 'range': (0.0, 1.0), 'bins': 2},  # Left leg contact
+                {'type': 'continuous', 'range': (0.0, 1.0), 'bins': 2}  # Right leg contact
             ],
-            "action_space": [{'type': 'discrete', 'bins': 3}],
-            "alpha": 0.25,
+            "action_space": [{'type': 'discrete', 'bins': 4}],
+            "alpha": 0.1,
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.001,
-            "total_steps": int(15e6),
-            "runs": 8,
-        },
-        {
-            "group_name": "8_bins",
-            "state_space": [
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 8},  # Cosine of theta1
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 8},  # Sine of theta1
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 8},  # Cosine of theta2
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 8},  # Sine of theta2
-                {'type': 'continuous', 'range': (-6.0, 6.0), 'bins': 8},  # Angular velocity of link 1
-                {'type': 'continuous', 'range': (-12.0, 12.0), 'bins': 8}  # Angular velocity of link 2
-            ],
-            "action_space": [{'type': 'discrete', 'bins': 3}],
-            "alpha": 0.25,
-            "gamma": 0.99,
-            "epsilon_start": 0.25,
-            "epsilon_end": 0.001,
-            "total_steps": int(15e6),
-            "runs": 8,
-        },
-        {
-            "group_name": "4_bins",
-            "state_space": [
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 4},  # Cosine of theta1
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 4},  # Sine of theta1
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 4},  # Cosine of theta2
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 4},  # Sine of theta2
-                {'type': 'continuous', 'range': (-6.0, 6.0), 'bins': 4},  # Angular velocity of link 1
-                {'type': 'continuous', 'range': (-12.0, 12.0), 'bins': 4}  # Angular velocity of link 2
-            ],
-            "action_space": [{'type': 'discrete', 'bins': 3}],
-            "alpha": 0.25,
-            "gamma": 0.99,
-            "epsilon_start": 0.25,
-            "epsilon_end": 0.001,
-            "total_steps": int(15e6),
+            "total_steps": int(0.1e6),
             "runs": 8,
         },
     ]
+
+    # Run all experiments
+    max_workers = 12  # Number of parallel processes
+    aggregated_results = run_all_experiments(experiment_groups, save_dir, max_workers)
 
     # Run all experiment groups
     plt.figure(figsize=(12, 8))
@@ -247,30 +240,32 @@ if __name__ == '__main__':
         (0, (2, 2, 1, 2)),  # Short dash-dot pattern
     ]
 
-    # Run all experiments
-    max_workers = 7  # Number of parallel processes
-    aggregated_results = run_all_experiments(experiment_groups, save_dir, max_workers)
-
-    # Plot results
-    linestyles = ['-', '--', '-.', ':']
-    plt.figure(figsize=(12, 8))
-    for i, (group_name, (avg_training_rewards, avg_testing_rewards)) in enumerate(aggregated_results.items()):
-        steps = np.linspace(1, len(avg_training_rewards), len(avg_training_rewards))
-        window_size = 25
-        training_rewards_smoothed = pd.Series(avg_training_rewards).rolling(window=window_size, min_periods=1).mean()
-        training_rewards_std = pd.Series(avg_training_rewards).rolling(window=window_size, min_periods=1).std()
+    for i, (group_name, (avg_rewards, std_rewards, avg_test_reward)) in enumerate(aggregated_results.items()):
+        total_steps = experiment_groups[i]["total_steps"]
+        steps = np.linspace(1, total_steps, len(avg_rewards))
 
         color = plt.cm.tab10(i % 10)
-        plt.plot(steps, training_rewards_smoothed, color=color, linestyle='-', alpha=0.8,
+
+        # Set smoothing factor (adjust this value to control smoothing level)
+        smooth_factor = 0.001  # Smaller values result in less smoothing, larger values result in more smoothing
+
+        # Calculate the window size for rolling operations based on the smoothing factor
+        window_size = int(len(avg_rewards) * smooth_factor)
+        window_size = max(1, window_size)  # Ensure the window size is at least 1
+
+        smoothed_rewards = pd.Series(avg_rewards).rolling(window=window_size, min_periods=1).mean()
+        smoothed_std = pd.Series(std_rewards).rolling(window=window_size, min_periods=1).mean()
+
+        plt.plot(steps, smoothed_rewards, color=color, linestyle='-', alpha=0.8,
                  label=f'{group_name} Smoothed Training Avg')
         plt.fill_between(steps,
-                         training_rewards_smoothed - training_rewards_std,
-                         training_rewards_smoothed + training_rewards_std,
+                         smoothed_rewards - smoothed_std,
+                         smoothed_rewards + smoothed_std,
                          color=color, alpha=0.25, label=f'{group_name} Training Std Dev')
-        plt.axhline(avg_testing_rewards, color="black", linestyle=linestyles[i % len(linestyles)],
+        plt.axhline(avg_test_reward, color="black", linestyle=linestyles[i % len(linestyles)],
                     label=f'{group_name} Test Avg', alpha=0.9)
-        plt.text(len(avg_training_rewards) * 0.98, avg_testing_rewards + 2,
-                 f'{avg_testing_rewards:.2f}', color="black", fontsize=10,
+        plt.text(total_steps * 0.98, avg_test_reward + 2,
+                 f'{avg_test_reward:.2f}', color="black", fontsize=10,
                  horizontalalignment='right', verticalalignment='bottom')
 
     plt.title("Training Results Across Experiment Groups")
