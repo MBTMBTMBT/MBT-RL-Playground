@@ -7,7 +7,7 @@ import torch.optim as optim
 
 # Define the encoder class
 class Encoder(nn.Module):
-    def __init__(self, num_input_values, latent_dim, net_arch):
+    def __init__(self, num_input_values: int, latent_dim: int, net_arch: list[int]):
         super(Encoder, self).__init__()
         layers = []
         input_dim = num_input_values
@@ -22,17 +22,17 @@ class Encoder(nn.Module):
         self.fc2_logvar = nn.Linear(input_dim, latent_dim)  # Log variance layer
         self.net = nn.Sequential(*layers)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         # Encoder forward pass
         h = self.net(x)
         mu = torch.tanh(self.fc2_mu(h))  # Mean of latent distribution, activation range: -1 to 1
-        logvar = self.fc2_logvar(h)  # Log variance of latent distribution, activation range: -1 to 1
+        logvar = self.fc2_logvar(h)  # Log variance of latent distribution
         return mu, logvar
 
 
 # Define the decoder class
 class Decoder(nn.Module):
-    def __init__(self, latent_dim, num_input_values, net_arch):
+    def __init__(self, latent_dim: int, num_input_values: int, net_arch: list[int]):
         super(Decoder, self).__init__()
         layers = []
         input_dim = latent_dim
@@ -45,7 +45,7 @@ class Decoder(nn.Module):
         layers.append(nn.Linear(input_dim, num_input_values))
         self.net = nn.Sequential(*layers)
 
-    def forward(self, z):
+    def forward(self, z: torch.Tensor) -> torch.Tensor:
         # Decoder forward pass
         x_recon = self.net(z)
         return x_recon
@@ -53,18 +53,18 @@ class Decoder(nn.Module):
 
 # Define the VAE class
 class BetaVAE(nn.Module):
-    def __init__(self, num_input_values, latent_dim, net_arch,):
+    def __init__(self, num_input_values: int, latent_dim: int, net_arch: list[int]):
         super(BetaVAE, self).__init__()
         self.encoder = Encoder(num_input_values, latent_dim, net_arch)
         self.decoder = Decoder(latent_dim, num_input_values, net_arch)
 
-    def reparameterize(self, mu, logvar):
+    def reparameterize(self, mu: torch.Tensor, logvar: torch.Tensor) -> torch.Tensor:
         # Reparameterization trick
         std = torch.exp(0.5 * logvar)
         eps = torch.randn_like(std)
         return mu + eps * std
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         # Encoder step
         mu, logvar = self.encoder(x)
         # Reparameterization step
@@ -75,11 +75,32 @@ class BetaVAE(nn.Module):
 
 
 # Define the loss function
-def beta_vae_loss(recon_x, x, mu, logvar, beta):
+def beta_vae_loss(
+        recon_x: torch.Tensor,
+        x: torch.Tensor,
+        mu: torch.Tensor,
+        logvar: torch.Tensor,
+        beta: float,
+        target_variance_scaling: float = 1.0,
+) -> tuple[torch.Tensor, float, float]:
+    """
+    Compute the Beta VAE loss, including reconstruction loss and KL divergence.
+
+    Parameters:
+    - recon_x (torch.Tensor): Reconstructed input.
+    - x (torch.Tensor): Original input.
+    - mu (torch.Tensor): Mean of latent distribution.
+    - logvar (torch.Tensor): Log variance of latent distribution.
+    - beta (float): Weight for KL divergence.
+    - target_variance_scaling (float): Scaling factor to control target variance (1/n).
+
+    Returns:
+    - tuple[torch.Tensor, float, float]: Total loss, reconstruction loss, and KL divergence.
+    """
     # Reconstruction loss (Mean Squared Error)
     recon_loss = nn.functional.mse_loss(recon_x, x, reduction='sum')
-    # KL divergence
-    kl_divergence = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+    # KL divergence with controlled variance
+    kl_divergence = -0.5 * torch.sum(1 + logvar - mu.pow(2) - (torch.exp(logvar) / (1 / target_variance_scaling)))
     # Total loss
     return recon_loss + beta * kl_divergence, recon_loss.item(), kl_divergence.item()
 
