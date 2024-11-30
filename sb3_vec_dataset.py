@@ -38,26 +38,25 @@ class GymDataset(Dataset):
                 self.full = True
 
 
+def make_env(env_id: str, seed: int, rank: int):
+    """Helper function to create a new environment instance."""
+    def _init():
+        env = gym.make(env_id)
+        env.reset(seed=seed + rank)
+        return env
+    return _init
+
+
 if __name__ == "__main__":
     import gymnasium as gym
     from stable_baselines3.common.vec_env import SubprocVecEnv
     from tqdm import tqdm
     import numpy as np
 
-    def make_env(env_id, rank, seed=0):
-        """Helper function to create a new environment instance."""
-
-        def _init():
-            env = gym.make(env_id)
-            env.reset(seed=seed + rank)
-            return env
-
-        return _init
-
     # Create SubprocVecEnv with 4 parallel environments
     env_id = "CartPole-v1"
     num_envs = 4
-    envs = SubprocVecEnv([make_env(env_id, i) for i in range(num_envs)])
+    envs = SubprocVecEnv([make_env(env_id, 0, i) for i in range(num_envs)])
 
     # Simulation parameters
     data_size = 100
