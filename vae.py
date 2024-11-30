@@ -25,7 +25,7 @@ class Encoder(nn.Module):
     def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         # Encoder forward pass
         h = self.net(x)
-        mu = torch.tanh(self.fc2_mu(h))  # Mean of latent distribution, activation range: -1 to 1
+        mu = self.fc2_mu(h)  # Mean of latent distribution
         logvar = self.fc2_logvar(h)  # Log variance of latent distribution
         return mu, logvar
 
@@ -75,14 +75,7 @@ class BetaVAE(nn.Module):
 
 
 # Define the loss function
-def beta_vae_loss(
-        recon_x: torch.Tensor,
-        x: torch.Tensor,
-        mu: torch.Tensor,
-        logvar: torch.Tensor,
-        beta: float,
-        target_variance_scaling: float = 1.0,
-) -> tuple[torch.Tensor, float, float]:
+def beta_vae_loss(recon_x: torch.Tensor, x: torch.Tensor, mu: torch.Tensor, logvar: torch.Tensor, beta: float) -> tuple[torch.Tensor, float, float]:
     """
     Compute the Beta VAE loss, including reconstruction loss and KL divergence.
 
@@ -92,20 +85,19 @@ def beta_vae_loss(
     - mu (torch.Tensor): Mean of latent distribution.
     - logvar (torch.Tensor): Log variance of latent distribution.
     - beta (float): Weight for KL divergence.
-    - target_variance_scaling (float): Scaling factor to control target variance (1/n).
 
     Returns:
     - tuple[torch.Tensor, float, float]: Total loss, reconstruction loss, and KL divergence.
     """
     # Reconstruction loss (Mean Squared Error)
     recon_loss = nn.functional.mse_loss(recon_x, x, reduction='sum')
-    # KL divergence with controlled variance
-    kl_divergence = -0.5 * torch.sum(1 + logvar - mu.pow(2) - (torch.exp(logvar) / (1 / target_variance_scaling)))
+    # KL divergence
+    kl_divergence = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
     # Total loss
     return recon_loss + beta * kl_divergence, recon_loss.item(), kl_divergence.item()
 
 
-def main():
+def main() -> None:
     # Hyperparameters
     num_input_values = 784  # Input dimension (e.g., 28x28 images for MNIST)
     latent_dim = 20  # Latent dimension
@@ -115,7 +107,7 @@ def main():
     epochs = 10  # Number of epochs
 
     # Model, optimizer, and data
-    model = BetaVAE(num_input_values, latent_dim, net_arch,)
+    model = BetaVAE(num_input_values, latent_dim, net_arch)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     data = torch.randn(64, num_input_values)  # Random data to simulate training (batch_size=64)
 
