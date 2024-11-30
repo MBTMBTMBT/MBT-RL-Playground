@@ -86,6 +86,9 @@ class VAEWrapper(gym.Wrapper):
         self.step_counter = 0
 
         self.previous_obs = None
+        self.total_loss = 0.0
+        self.reconstruction_loss = 0.0
+        self.kl_divergence = 0.0
 
     def reset(self, **kwargs):
         """

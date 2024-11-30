@@ -118,9 +118,18 @@ def run_experiment(args):
                 if done or truncated:
                     step_rewards.append((current_steps, total_reward))
                     recent_avg = np.mean([r for _, r in step_rewards[-10:]])
-                    pbar.set_description(f"[{group_name}] Run {run_id + 1} | "
-                                         f"Epsilon: {epsilon:.4f} | "
-                                         f"Recent Avg Reward: {recent_avg:.2f}")
+                    if "wrapper_args" in group.keys():
+                        pbar.set_description(f"[{group_name}] Run {run_id + 1} | "
+                                             f"Epsilon: {epsilon:.4f} | "
+                                             f"Recent Avg Reward: {recent_avg:.2f} | "
+                                             f"Total Loss: {env.total_loss:.2f} | "
+                                             f"Reconstruction Loss: {env.reconstruction_loss:.2f} | "
+                                             f"KL Divergence: {env.kl_divergence:.2f} | "
+                                             )
+                    else:
+                        pbar.set_description(f"[{group_name}] Run {run_id + 1} | "
+                                             f"Epsilon: {epsilon:.4f} | "
+                                             f"Recent Avg Reward: {recent_avg:.2f}")
                     break
 
     # Save Q-Table and training data
