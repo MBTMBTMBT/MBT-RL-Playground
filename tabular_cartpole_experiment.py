@@ -203,23 +203,23 @@ if __name__ == '__main__':
 
     # Define experiment groups
     experiment_groups = [
-        {
-            "group_name": "direct_input_8",
-            "state_space": [
-                {'type': 'continuous', 'range': (-2.4, 2.4), 'bins': 8},
-                {'type': 'continuous', 'range': (-2, 2), 'bins': 8},
-                {'type': 'continuous', 'range': (-0.25, 0.25), 'bins': 8},
-                {'type': 'continuous', 'range': (-2, 2), 'bins': 8},
-            ],
-            "action_space": [{'type': 'discrete', 'bins': 2}],
-            "normal_partition_state": False,
-            "alpha": 0.25,
-            "gamma": 0.99,
-            "epsilon_start": 0.25,
-            "epsilon_end": 0.05,
-            "total_steps": int(15e6),
-            "runs": 4,
-        },
+        # {
+        #     "group_name": "direct_input_8",
+        #     "state_space": [
+        #         {'type': 'continuous', 'range': (-2.4, 2.4), 'bins': 8},
+        #         {'type': 'continuous', 'range': (-2, 2), 'bins': 8},
+        #         {'type': 'continuous', 'range': (-0.25, 0.25), 'bins': 8},
+        #         {'type': 'continuous', 'range': (-2, 2), 'bins': 8},
+        #     ],
+        #     "action_space": [{'type': 'discrete', 'bins': 2}],
+        #     "normal_partition_state": False,
+        #     "alpha": 0.25,
+        #     "gamma": 0.99,
+        #     "epsilon_start": 0.25,
+        #     "epsilon_end": 0.05,
+        #     "total_steps": int(15e6),
+        #     "runs": 4,
+        # },
         {
             "group_name": "normal_distribution_8",
             "state_space": [
@@ -239,11 +239,12 @@ if __name__ == '__main__':
             "wrapper_args": {
                 "num_hidden_values": 4,
                 "net_arch": [32, 32,],
-                "buffer_size": int(1e5),
-                "iterations": 10,
-                "batch_size": 32,
+                # "buffer_size": int(1e5),
+                "buffer_size": 64,
+                "iterations": 1,
+                "batch_size": 1,
                 "beta": 1.0,
-                "lr": 1e-3,
+                "lr": 1e-4,
             }
         },
     ]

@@ -131,7 +131,7 @@ class VAEWrapper(gym.Wrapper):
                     }
                 ])
             if self.dataset.full:
-                print(f"Step {self.step_counter}, start training...")
+                # print(f"Step {self.step_counter}, start training...")
                 self._train()
                 self.dataset.clear()
         self.previous_obs = next_obs
@@ -183,7 +183,7 @@ class VAEWrapper(gym.Wrapper):
                 self.optimizer.step()
 
         # Print all recorded losses
-        print("Training Complete. Final Losses:")
-        print(f"Total Loss: {sum(total_losses) / len(total_losses):.4f}")
-        print(f"Reconstruction Loss: {sum(recon_losses) / len(recon_losses):.4f}")
-        print(f"KL Divergence: {sum(kl_divergences) / len(kl_divergences):.4f}")
+        # print("Training Complete. Final Losses:")
+        # print(f"Total Loss: {sum(total_losses) / len(total_losses):.4f}")
+        # print(f"Reconstruction Loss: {sum(recon_losses) / len(recon_losses):.4f}")
+        # print(f"KL Divergence: {sum(kl_divergences) / len(kl_divergences):.4f}")
