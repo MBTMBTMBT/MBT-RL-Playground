@@ -82,8 +82,60 @@ class VAEWrapper(gym.Wrapper):
         self.optimizer = optim.Adam(self.vae_model.parameters(), lr=self.lr)
         self.device = device
         self.vae_model = self.vae_model.to(self.device)
-
         self.do_training = do_training
+        self.step_counter = 0
+
+        self.previous_obs = None
+
+    def reset(self, **kwargs):
+        """
+        Resets the environment and adds the noise dimension to the observation.
+
+        Returns:
+            np.ndarray: The modified observation with the noise dimension.
+        """
+        obs, info = self.env.reset(**kwargs)
+        self.previous_obs = obs
+        return obs, info
+
+    def step(self, action):
+        """
+        Steps the environment and adds the noise dimension to the observation.
+
+        Args:
+            action: The action to take in the environment.
+
+        Returns:
+            tuple: The modified observation with noise, reward, done flag, and additional info.
+        """
+        next_obs, reward, done, truncated, info = self.env.step(action)
+        self.step_counter += 1
+        if self.do_training:
+            self.dataset.add_samples([
+                {
+                    'obs': self.previous_obs,
+                    'action': action,
+                    'next_obs': next_obs,
+                    'reward': reward,
+                    'done': done
+                }
+            ])
+            if done:
+                self.dataset.add_samples([
+                    {
+                        'obs': next_obs,
+                        'action': action,
+                        'next_obs': next_obs,
+                        'reward': 0.0,
+                        'done': done
+                    }
+                ])
+            if self.dataset.full:
+                print(f"Step {self.step_counter}, start training...")
+                self._train()
+                self.dataset.clear()
+        self.previous_obs = next_obs
+        return next_obs, reward, done, truncated, info
 
     def save_model(self, path):
         # Create directory if it doesn't exist
