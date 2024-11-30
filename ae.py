@@ -17,6 +17,31 @@ class Encoder(nn.Module):
             layers.append(nn.LeakyReLU())  # Use leaky ReLU activation
             input_dim = hidden_units
         self.net = nn.Sequential(*layers)
+        # Final layer for latent representation
+        self.fc_latent = nn.Sequential(
+            nn.Linear(net_arch[-1], latent_dim),
+            nn.Tanh()  # Use tanh activation to constrain output to (-1, 1)
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # Encoder forward pass
+        h = self.net(x)
+        z = self.fc_latent(h)  # Latent representation with tanh activation
+        return z
+
+
+# Define the encoder class
+class VAEEncoder(nn.Module):
+    def __init__(self, num_input_values: int, latent_dim: int, net_arch: list[int]):
+        super(VAEEncoder, self).__init__()
+        layers = []
+        input_dim = num_input_values
+        # Construct hidden layers based on net_arch
+        for hidden_units in net_arch:
+            layers.append(nn.Linear(input_dim, hidden_units))
+            layers.append(nn.LeakyReLU())  # Use leaky ReLU activation
+            input_dim = hidden_units
+        self.net = nn.Sequential(*layers)
         # Final layers for mean and log variance
         self.fc2_mu = nn.Linear(net_arch[-1], latent_dim)  # Mean layer
         self.fc2_logvar = nn.Linear(net_arch[-1], latent_dim)  # Log variance layer
@@ -41,7 +66,7 @@ class Decoder(nn.Module):
             layers.append(nn.LeakyReLU())  # Use leaky ReLU activation
             input_dim = hidden_units
         # Final layer to reconstruct the input
-        layers.append(nn.Linear(input_dim, num_input_values))
+        layers.append(nn.Linear(net_arch[0], num_input_values))
         self.net = nn.Sequential(*layers)
 
     def forward(self, z: torch.Tensor) -> torch.Tensor:
@@ -49,12 +74,51 @@ class Decoder(nn.Module):
         x_recon = self.net(z)
         return x_recon
 
+# Define the Deterministic Autoencoder class
+class DeterministicAE(nn.Module):
+    def __init__(self, num_input_values: int, latent_dim: int, net_arch: list[int]):
+        super(DeterministicAE, self).__init__()
+        self.encoder = Encoder(num_input_values, latent_dim, net_arch)
+        self.decoder = Decoder(latent_dim, num_input_values, net_arch)
+
+    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        # Encoder step
+        z = self.encoder(x)
+        # Decoder step
+        x_recon = self.decoder(z)
+        return x_recon, z
+
+
+# Define the loss function
+def ae_total_correlation_loss(recon_x: torch.Tensor, x: torch.Tensor, z: torch.Tensor, beta: float) -> tuple[torch.Tensor, float, float]:
+    """
+    Compute the Deterministic AE loss with Total Correlation regularization.
+
+    Parameters:
+    - recon_x (torch.Tensor): Reconstructed input.
+    - x (torch.Tensor): Original input.
+    - z (torch.Tensor): Latent representation.
+    - beta (float): Weight for Total Correlation.
+
+    Returns:
+    - tuple[torch.Tensor, float, float]: Total loss, reconstruction loss, and Total Correlation.
+    """
+    # Reconstruction loss (Mean Squared Error)
+    recon_loss = nn.functional.mse_loss(recon_x, x, reduction='mean')
+    # Total Correlation (using variance of z as a proxy for dependence)
+    batch_size, latent_dim = z.size()
+    mean_z = torch.mean(z, dim=0)
+    var_z = torch.mean((z - mean_z) ** 2, dim=0)
+    total_correlation = torch.sum(var_z)
+    # Total loss
+    return recon_loss + beta * total_correlation, recon_loss.item(), total_correlation.item()
+
 
 # Define the VAE class
 class BetaVAE(nn.Module):
     def __init__(self, num_input_values: int, latent_dim: int, net_arch: list[int]):
         super(BetaVAE, self).__init__()
-        self.encoder = Encoder(num_input_values, latent_dim, net_arch)
+        self.encoder = VAEEncoder(num_input_values, latent_dim, net_arch)
         self.decoder = Decoder(latent_dim, num_input_values, net_arch)
 
     def reparameterize(self, mu: torch.Tensor, logvar: torch.Tensor) -> torch.Tensor:
@@ -89,7 +153,7 @@ def beta_vae_loss(recon_x: torch.Tensor, x: torch.Tensor, mu: torch.Tensor, logv
     - tuple[torch.Tensor, float, float]: Total loss, reconstruction loss, and KL divergence.
     """
     # Reconstruction loss (Mean Squared Error)
-    recon_loss = nn.functional.mse_loss(recon_x, x)
+    recon_loss = nn.functional.l1_loss(recon_x, x)
     # KL divergence
     kl_divergence = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
     # Total loss

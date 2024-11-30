@@ -6,7 +6,7 @@ import torch
 from torch import optim
 
 from sb3_vec_dataset import GymDataset
-from vae import BetaVAE, beta_vae_loss
+from ae import DeterministicAE, ae_total_correlation_loss
 
 
 class AddNoiseDimensionWrapper(gym.Wrapper):
@@ -56,7 +56,7 @@ class AddNoiseDimensionWrapper(gym.Wrapper):
         return obs, reward, done, truncated, info
 
 
-class VAEWrapper(gym.Wrapper):
+class AEWrapper(gym.Wrapper):
     def __init__(
             self,
             env: gym.Env,
@@ -78,12 +78,12 @@ class VAEWrapper(gym.Wrapper):
         self.dataset = GymDataset(buffer_size)
         self.iterations = iterations
         self.batch_size = batch_size
-        self.vae_model = BetaVAE(self.observation_space.shape[0], num_hidden_values, net_arch,)
+        self.ae_model = DeterministicAE(self.observation_space.shape[0], num_hidden_values, net_arch, )
         self.beta = beta
         self.lr = lr
-        self.optimizer = optim.Adam(self.vae_model.parameters(), lr=self.lr)
+        self.optimizer = optim.Adam(self.ae_model.parameters(), lr=self.lr)
         self.device = device
-        self.vae_model = self.vae_model.to(self.device)
+        self.ae_model = self.ae_model.to(self.device)
         if state_min is not None and state_max is not None:
             self.do_normalize = True
             self.state_min = torch.tensor(state_min, dtype=torch.float32)
@@ -151,7 +151,7 @@ class VAEWrapper(gym.Wrapper):
             next_obs = self.normalize_state(next_obs)
         next_obs = next_obs.to(self.device)
         with torch.no_grad():
-            next_obs, _ = self.vae_model.encoder(next_obs)
+            next_obs = self.ae_model.encoder(next_obs)
         # if self.do_normalize:
         #     next_obs = self.denormalize_state(next_obs)
         next_obs = next_obs.cpu().squeeze().numpy()
@@ -162,14 +162,14 @@ class VAEWrapper(gym.Wrapper):
         os.makedirs(os.path.dirname(path), exist_ok=True)
         # Save model and optimizer state dicts
         torch.save({
-            'model_state_dict': self.vae_model.state_dict(),
+            'model_state_dict': self.ae_model.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict()
         }, path)
 
     def load_model(self, path):
         # Load model and optimizer state dicts
         checkpoint = torch.load(path, map_location=self.device)
-        self.vae_model.load_state_dict(checkpoint['model_state_dict'])
+        self.ae_model.load_state_dict(checkpoint['model_state_dict'])
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
     def normalize_state(self, state):
@@ -187,7 +187,7 @@ class VAEWrapper(gym.Wrapper):
                                                  drop_last=False)
         total_losses = []
         recon_losses = []
-        kl_divergences = []
+        total_correlations = []
 
         for _ in range(self.iterations):
             for batch in dataloader:
@@ -200,15 +200,15 @@ class VAEWrapper(gym.Wrapper):
                 # rewards = rewards.to(self.device)
                 # dones = dones.to(self.device)
 
-                fake_obss, mu, logvar = self.vae_model(obss)
-                loss, recon_loss_val, kl_divergence_val = beta_vae_loss(
-                    fake_obss, obss, mu, logvar, self.beta,
+                fake_obss, z = self.ae_model(obss)
+                loss, recon_loss_val, total_correlation = ae_total_correlation_loss(
+                    fake_obss, obss, z, self.beta,
                 )
 
                 # Record the loss value for each batch
                 total_losses.append(loss.item())
                 recon_losses.append(recon_loss_val)
-                kl_divergences.append(kl_divergence_val)
+                total_correlations.append(total_correlation)
 
                 self.optimizer.zero_grad()
                 loss.backward()
@@ -218,7 +218,7 @@ class VAEWrapper(gym.Wrapper):
         # print("Training Complete. Final Losses:")
         # print(f"Total Loss: {sum(total_losses) / len(total_losses):.4f}")
         # print(f"Reconstruction Loss: {sum(recon_losses) / len(recon_losses):.4f}")
-        # print(f"KL Divergence: {sum(kl_divergences) / len(kl_divergences):.4f}")
+        # print(f"KL Divergence: {sum(total_correlations) / len(total_correlations):.4f}")
         self.total_loss = sum(total_losses) / len(total_losses)
         self.reconstruction_loss = sum(recon_losses) / len(recon_losses)
-        self.kl_divergence = sum(kl_divergences) / len(kl_divergences)
+        self.kl_divergence = sum(total_correlations) / len(total_correlations)

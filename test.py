@@ -8,7 +8,7 @@ from concurrent.futures import ProcessPoolExecutor
 import os
 import pandas as pd
 from q_table_agent import QTableAgent
-from wrappers import VAEWrapper
+from wrappers import AEWrapper
 
 
 # Helper function to align training rewards using step
@@ -79,7 +79,7 @@ def run_experiment(args):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         # device = torch.device("cpu")
         print(f"Using {device} device")
-        env = VAEWrapper(
+        env = AEWrapper(
             env,
             num_hidden_values=wrapper_args["num_hidden_values"],
             net_arch=wrapper_args["net_arch"],

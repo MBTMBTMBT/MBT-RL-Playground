@@ -8,7 +8,9 @@ from concurrent.futures import ProcessPoolExecutor
 import os
 import pandas as pd
 from q_table_agent import QTableAgent
-from wrappers import VAEWrapper
+from wrappers import AEWrapper
+
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 
 # Helper function to align training rewards using step
@@ -79,7 +81,7 @@ def run_experiment(args):
         # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         device = torch.device("cpu")
         print(f"Using {device} device")
-        env = VAEWrapper(
+        env = AEWrapper(
             env,
             num_hidden_values=wrapper_args["num_hidden_values"],
             net_arch=wrapper_args["net_arch"],
@@ -126,7 +128,7 @@ def run_experiment(args):
                                              f"Recent Avg Reward: {recent_avg:.2f} | "
                                              f"Total Loss: {env.total_loss:.3f} | "
                                              f"Reconstruction Loss: {env.reconstruction_loss:.3f} | "
-                                             f"KL Divergence: {env.kl_divergence:.3f} | "
+                                             f"Correlation: {env.kl_divergence:.3f} | "
                                              )
                     else:
                         pbar.set_description(f"[{group_name}] Run {run_id + 1} | "
@@ -185,7 +187,8 @@ def run_all_experiments(experiment_groups, save_dir, max_workers):
     # Group results by experiment group
     group_results = {group["group_name"]: [] for group in experiment_groups}
     for task, result in zip(tasks, results):
-        _, _, _, _, _, _, _, group_name, run_id, _ = task
+        group, run_id, save_dir, = task
+        group_name = group["group_name"]
         group_results[group_name].append(result)
 
     # Aggregate results for each group
@@ -214,51 +217,47 @@ if __name__ == '__main__':
 
     # Define experiment groups
     experiment_groups = [
-        # {
-        #     "group_name": "d16^4",
-        #     "state_space": [
-        #         {'type': 'continuous', 'range': (-2.4, 2.4), 'bins': 16},
-        #         {'type': 'continuous', 'range': (-2, 2), 'bins': 16},
-        #         {'type': 'continuous', 'range': (-0.25, 0.25), 'bins': 16},
-        #         {'type': 'continuous', 'range': (-2, 2), 'bins': 16},
-        #     ],
-        #     "action_space": [{'type': 'discrete', 'bins': 2}],
-        #     "normal_partition_state": False,
-        #     "alpha": 0.25,
-        #     "gamma": 0.99,
-        #     "epsilon_start": 0.25,
-        #     "epsilon_end": 0.05,
-        #     "total_steps": int(15e6),
-        #     "runs": 4,
-        # },
         {
-            "group_name": "nd4^8",
+            "group_name": "tb8",
             "state_space": [
-                {'type': 'continuous', 'bins': 4},
-                {'type': 'continuous', 'bins': 4},
-                {'type': 'continuous', 'bins': 4},
-                {'type': 'continuous', 'bins': 4},
-                {'type': 'continuous', 'bins': 4},
-                {'type': 'continuous', 'bins': 4},
-                {'type': 'continuous', 'bins': 4},
-                {'type': 'continuous', 'bins': 4},
+                {'type': 'continuous', 'range': (-2.4, 2.4), 'bins': 8},
+                {'type': 'continuous', 'range': (-2, 2), 'bins': 8},
+                {'type': 'continuous', 'range': (-0.25, 0.25), 'bins': 8},
+                {'type': 'continuous', 'range': (-2, 2), 'bins': 8},
             ],
             "action_space": [{'type': 'discrete', 'bins': 2}],
-            "normal_partition_state": True,
+            "normal_partition_state": False,
             "alpha": 0.25,
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
-            "total_steps": int(15e6),
+            "total_steps": int(10e6),
+            "runs": 4,
+        },
+        {
+            "group_name": "ae8",
+            "state_space": [
+                {'type': 'continuous', 'range': (-1, 1), 'bins': 8},
+                {'type': 'continuous', 'range': (-1, 1), 'bins': 8},
+                {'type': 'continuous', 'range': (-1, 1), 'bins': 8},
+                {'type': 'continuous', 'range': (-1, 1), 'bins': 8},
+            ],
+            "action_space": [{'type': 'discrete', 'bins': 2}],
+            "normal_partition_state": False,
+            "alpha": 0.25,
+            "gamma": 0.99,
+            "epsilon_start": 0.25,
+            "epsilon_end": 0.05,
+            "total_steps": int(10e6),
             "runs": 4,
             "wrapper_args": {
-                "num_hidden_values": 8,
+                "num_hidden_values": 4,
                 "net_arch": [32, 32,],
                 # "buffer_size": int(1e5),
-                "buffer_size": 64,
-                "iterations": 1,
-                "batch_size": 32,
-                "beta": 1.0,
+                "buffer_size": 16384,
+                "iterations": 5,
+                "batch_size": 64,
+                "beta": 0.0,
                 "lr": 1e-4,
                 "state_min": np.array([-2.4, -2.0, -0.25, -2.0]),
                 "state_max": np.array([2.4, 2.0, 0.25, 2.0]),
