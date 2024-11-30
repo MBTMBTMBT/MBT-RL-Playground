@@ -215,10 +215,10 @@ if __name__ == '__main__':
         {
             "group_name": "di8",
             "state_space": [
-                {'type': 'continuous', 'range': (-2.4, 2.4), 'bins': 8},
-                {'type': 'continuous', 'range': (-2, 2), 'bins': 8},
-                {'type': 'continuous', 'range': (-0.25, 0.25), 'bins': 8},
-                {'type': 'continuous', 'range': (-2, 2), 'bins': 8},
+                {'type': 'continuous', 'range': (-2.4, 2.4), 'bins': 12},
+                {'type': 'continuous', 'range': (-2, 2), 'bins': 12},
+                {'type': 'continuous', 'range': (-0.25, 0.25), 'bins': 12},
+                {'type': 'continuous', 'range': (-2, 2), 'bins': 12},
             ],
             "action_space": [{'type': 'discrete', 'bins': 2}],
             "normal_partition_state": False,
@@ -232,10 +232,10 @@ if __name__ == '__main__':
         {
             "group_name": "nd8",
             "state_space": [
-                {'type': 'continuous', 'bins': 8},
-                {'type': 'continuous', 'bins': 8},
-                {'type': 'continuous', 'bins': 8},
-                {'type': 'continuous', 'bins': 8},
+                {'type': 'continuous', 'bins': 12},
+                {'type': 'continuous', 'bins': 12},
+                {'type': 'continuous', 'bins': 12},
+                {'type': 'continuous', 'bins': 12},
             ],
             "action_space": [{'type': 'discrete', 'bins': 2}],
             "normal_partition_state": True,
