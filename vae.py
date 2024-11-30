@@ -89,7 +89,7 @@ def beta_vae_loss(recon_x: torch.Tensor, x: torch.Tensor, mu: torch.Tensor, logv
     - tuple[torch.Tensor, float, float]: Total loss, reconstruction loss, and KL divergence.
     """
     # Reconstruction loss (Mean Squared Error)
-    recon_loss = nn.functional.mse_loss(recon_x, x, reduction='sum')
+    recon_loss = nn.functional.mse_loss(recon_x, x)
     # KL divergence
     kl_divergence = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
     # Total loss
