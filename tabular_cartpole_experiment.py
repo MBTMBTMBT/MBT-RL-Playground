@@ -238,7 +238,7 @@ if __name__ == '__main__':
             "runs": 4,
             "wrapper_args": {
                 "num_hidden_values": 4,
-                "net_arch": [32, 32, 32],
+                "net_arch": [32, 32,],
                 "buffer_size": int(1e5),
                 "iterations": 10,
                 "batch_size": 32,
