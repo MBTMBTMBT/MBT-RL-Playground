@@ -213,12 +213,12 @@ if __name__ == '__main__':
     # Define experiment groups
     experiment_groups = [
         {
-            "group_name": "di8",
+            "group_name": "d16^4",
             "state_space": [
-                {'type': 'continuous', 'range': (-2.4, 2.4), 'bins': 8},
-                {'type': 'continuous', 'range': (-2, 2), 'bins': 8},
-                {'type': 'continuous', 'range': (-0.25, 0.25), 'bins': 8},
-                {'type': 'continuous', 'range': (-2, 2), 'bins': 8},
+                {'type': 'continuous', 'range': (-2.4, 2.4), 'bins': 16},
+                {'type': 'continuous', 'range': (-2, 2), 'bins': 16},
+                {'type': 'continuous', 'range': (-0.25, 0.25), 'bins': 16},
+                {'type': 'continuous', 'range': (-2, 2), 'bins': 16},
             ],
             "action_space": [{'type': 'discrete', 'bins': 2}],
             "normal_partition_state": False,
@@ -230,12 +230,16 @@ if __name__ == '__main__':
             "runs": 4,
         },
         {
-            "group_name": "nd8",
+            "group_name": "nd4^8",
             "state_space": [
-                {'type': 'continuous', 'bins': 8},
-                {'type': 'continuous', 'bins': 8},
-                {'type': 'continuous', 'bins': 8},
-                {'type': 'continuous', 'bins': 8},
+                {'type': 'continuous', 'bins': 4},
+                {'type': 'continuous', 'bins': 4},
+                {'type': 'continuous', 'bins': 4},
+                {'type': 'continuous', 'bins': 4},
+                {'type': 'continuous', 'bins': 4},
+                {'type': 'continuous', 'bins': 4},
+                {'type': 'continuous', 'bins': 4},
+                {'type': 'continuous', 'bins': 4},
             ],
             "action_space": [{'type': 'discrete', 'bins': 2}],
             "normal_partition_state": True,
@@ -246,7 +250,7 @@ if __name__ == '__main__':
             "total_steps": int(15e6),
             "runs": 4,
             "wrapper_args": {
-                "num_hidden_values": 4,
+                "num_hidden_values": 8,
                 "net_arch": [32, 32,],
                 # "buffer_size": int(1e5),
                 "buffer_size": 64,
