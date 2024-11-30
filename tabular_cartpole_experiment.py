@@ -76,8 +76,8 @@ def run_experiment(args):
 
     if "wrapper_args" in group.keys():
         wrapper_args = group["wrapper_args"]
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        # device = torch.device("cpu")
+        # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        device = torch.device("cpu")
         print(f"Using {device} device")
         env = VAEWrapper(
             env,
