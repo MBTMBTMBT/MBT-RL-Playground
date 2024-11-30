@@ -251,7 +251,7 @@ if __name__ == '__main__':
                 # "buffer_size": int(1e5),
                 "buffer_size": 64,
                 "iterations": 1,
-                "batch_size": 1,
+                "batch_size": 32,
                 "beta": 1.0,
                 "lr": 1e-4,
             }
