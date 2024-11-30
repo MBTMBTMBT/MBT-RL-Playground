@@ -68,6 +68,8 @@ class VAEWrapper(gym.Wrapper):
             batch_size: int,
             beta: float = 1.0,
             lr: float = 1e-4,
+            state_min: np.ndarray = None,
+            state_max: np.ndarray = None,
             device: torch.device = torch.device("cpu"),
     ):
         super().__init__(env)
@@ -82,6 +84,12 @@ class VAEWrapper(gym.Wrapper):
         self.optimizer = optim.Adam(self.vae_model.parameters(), lr=self.lr)
         self.device = device
         self.vae_model = self.vae_model.to(self.device)
+        if state_min is not None and state_max is not None:
+            self.do_normalize = True
+            self.state_min = torch.tensor(state_min, dtype=torch.float32)
+            self.state_max = torch.tensor(state_max, dtype=torch.float32)
+        else:
+            self.do_normalize = False
         self.do_training = do_training
         self.step_counter = 0
 
@@ -138,6 +146,15 @@ class VAEWrapper(gym.Wrapper):
                 self._train()
                 self.dataset.clear()
         self.previous_obs = next_obs
+        next_obs = torch.tensor(next_obs, dtype=torch.float32).unsqueeze(0)
+        if self.do_normalize:
+            next_obs = self.normalize_state(next_obs)
+        next_obs = next_obs.to(self.device)
+        with torch.no_grad():
+            next_obs, _ = self.vae_model.encoder(next_obs)
+        # if self.do_normalize:
+        #     next_obs = self.denormalize_state(next_obs)
+        next_obs = next_obs.cpu().squeeze().numpy()
         return next_obs, reward, done, truncated, info
 
     def save_model(self, path):
@@ -155,6 +172,16 @@ class VAEWrapper(gym.Wrapper):
         self.vae_model.load_state_dict(checkpoint['model_state_dict'])
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
+    def normalize_state(self, state):
+        normalized_state = (state - self.state_min) / (self.state_max - self.state_min)
+        normalized_state = torch.clamp(normalized_state, 0, 1)
+        return normalized_state
+
+    def denormalize_state(self, normalized_state):
+        normalized_state = torch.clamp(normalized_state, 0, 1)
+        state = normalized_state * (self.state_max - self.state_min) + self.state_min
+        return state
+
     def _train(self):
         dataloader = torch.utils.data.DataLoader(self.dataset, batch_size=self.batch_size, shuffle=True,
                                                  drop_last=False)
@@ -165,6 +192,8 @@ class VAEWrapper(gym.Wrapper):
         for _ in range(self.iterations):
             for batch in dataloader:
                 obss, actions, final_next_obss, rewards, dones = batch
+                if self.do_normalize:
+                    obss = self.normalize_state(obss)
                 obss = obss.to(self.device)
                 # actions = actions.to(self.device)
                 # final_next_obss = final_next_obss.to(self.device)
