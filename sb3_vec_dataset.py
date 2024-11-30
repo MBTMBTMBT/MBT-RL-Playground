@@ -1,5 +1,8 @@
 from torch.utils.data import Dataset
 import torch
+import gymnasium as gym
+from tqdm import tqdm
+import numpy as np
 
 
 class GymDataset(Dataset):
@@ -38,25 +41,11 @@ class GymDataset(Dataset):
                 self.full = True
 
 
-def make_env(env_id: str, seed: int, rank: int):
-    """Helper function to create a new environment instance."""
-    def _init():
-        env = gym.make(env_id)
-        env.reset(seed=seed + rank)
-        return env
-    return _init
-
-
 if __name__ == "__main__":
-    import gymnasium as gym
-    from stable_baselines3.common.vec_env import SubprocVecEnv
-    from tqdm import tqdm
-    import numpy as np
-
-    # Create SubprocVecEnv with 4 parallel environments
+    # Create a single Gymnasium environment
     env_id = "CartPole-v1"
-    num_envs = 4
-    envs = SubprocVecEnv([make_env(env_id, 0, i) for i in range(num_envs)])
+    env = gym.make(env_id)
+    env.reset(seed=0)
 
     # Simulation parameters
     data_size = 100
@@ -66,44 +55,46 @@ if __name__ == "__main__":
     augmented = 0
 
     # Start sampling
-    obs, _ = envs.reset()
+    obs, _ = env.reset()
     with tqdm(total=total_samples, desc="Sampling Data", unit="sample") as pbar:
         while len(dataset.data) < total_samples:
-            actions = np.array([envs.action_space.sample() for _ in range(num_envs)])
-            next_obs, rewards, dones, infos = envs.step(actions)
+            # Generate an action
+            action = env.action_space.sample()
+            next_obs, reward, done, _, info = env.step(action)
 
             final_next_obs = np.copy(next_obs)  # Copy next_obs to avoid overwriting
             samples = []
 
             # Ensure termination states are correctly handled
-            for idx, done in enumerate(dones):
-                if done:
-                    final_next_obs[idx] = infos[idx]["terminal_observation"]
+            # if done:
+            #     final_next_obs = info["terminal_observation"]
 
-            # Prepare data for each environment
-            for env_idx in range(num_envs):
-                repeat = 0
-                if movement_augmentation > 0:
-                    repeat = 0 if np.allclose(
-                        obs[env_idx], final_next_obs[env_idx], rtol=1e-5, atol=1e-8
-                    ) else movement_augmentation
+            # Prepare data
+            repeat = 0
+            if movement_augmentation > 0:
+                repeat = 0 if np.allclose(
+                    obs, final_next_obs, rtol=1e-5, atol=1e-8
+                ) else movement_augmentation
 
-                for _ in range(1 + repeat):
-                    samples.append({
-                        'obs': obs[env_idx],
-                        'action': actions[env_idx],
-                        'next_obs': final_next_obs[env_idx],
-                        'reward': rewards[env_idx],
-                        'done': dones[env_idx]
-                    })
-                augmented += repeat
+            for _ in range(1 + repeat):
+                samples.append({
+                    'obs': obs,
+                    'action': action,
+                    'next_obs': final_next_obs,
+                    'reward': reward,
+                    'done': done
+                })
+            augmented += repeat
 
             # Add the batch of samples to the dataset
             dataset.add_samples(samples)
             pbar.update(len(samples))
 
             # Update the observation for the next step
-            obs = next_obs
+            if done:
+                obs, _ = env.reset()
+            else:
+                obs = next_obs
 
     # Print summary
     print(f"{total_samples} samples collected, including {augmented} augmented.")
