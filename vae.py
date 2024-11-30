@@ -81,7 +81,7 @@ def beta_vae_loss(recon_x, x, mu, logvar, beta):
     # KL divergence
     kl_divergence = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
     # Total loss
-    return recon_loss + beta * kl_divergence
+    return recon_loss + beta * kl_divergence, recon_loss.item(), kl_divergence.item()
 
 
 def main():
@@ -107,7 +107,7 @@ def main():
         recon_batch, mu, logvar = model(data)
 
         # Calculate loss
-        loss = beta_vae_loss(recon_batch, data, mu, logvar, beta)
+        loss, _, _ = beta_vae_loss(recon_batch, data, mu, logvar, beta)
 
         # Backpropagation
         loss.backward()
