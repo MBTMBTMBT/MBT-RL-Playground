@@ -67,6 +67,7 @@ class VAEWrapper(gym.Wrapper):
             iterations: int,
             batch_size: int,
             beta: float = 1.0,
+            target_variance_scaling: float = 10,
             lr: float = 1e-4,
             device: torch.device = torch.device("cpu"),
     ):
@@ -76,8 +77,9 @@ class VAEWrapper(gym.Wrapper):
         self.dataset = GymDataset(buffer_size)
         self.iterations = iterations
         self.batch_size = batch_size
-        self.vae_model = BetaVAE(self.observation_space.shape, num_hidden_values, net_arch,)
+        self.vae_model = BetaVAE(self.observation_space.shape[0], num_hidden_values, net_arch,)
         self.beta = beta
+        self.target_variance_scaling = target_variance_scaling
         self.lr = lr
         self.optimizer = optim.Adam(self.vae_model.parameters(), lr=self.lr)
         self.device = device
@@ -117,7 +119,9 @@ class VAEWrapper(gym.Wrapper):
                 # dones = dones.to(self.device)
 
                 fake_obss, mu, logvar = self.vae_model(obss)
-                loss, recon_loss_val, kl_divergence_val = beta_vae_loss(fake_obss, obss, mu, logvar, self.beta)
+                loss, recon_loss_val, kl_divergence_val = beta_vae_loss(
+                    fake_obss, obss, mu, logvar, self.beta, self.target_variance_scaling
+                )
 
                 # Record the loss value for each batch
                 total_losses.append(loss.item())
