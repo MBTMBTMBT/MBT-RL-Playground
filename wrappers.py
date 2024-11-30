@@ -1,6 +1,7 @@
 import gymnasium as gym
 import numpy as np
 
+
 class AddNoiseDimensionWrapper(gym.Wrapper):
     """
     A wrapper for gymnasium environments that adds an extra observation dimension

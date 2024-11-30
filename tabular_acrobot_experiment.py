@@ -192,7 +192,7 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
-            "total_steps": int(0.1e6),
+            "total_steps": int(100e6),
             "runs": 3,
         },
         {
@@ -210,7 +210,7 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
-            "total_steps": int(0.1e6),
+            "total_steps": int(100e6),
             "runs": 3,
         },
         {
@@ -228,7 +228,7 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
-            "total_steps": int(0.1e6),
+            "total_steps": int(100e6),
             "runs": 3,
         },
         {
@@ -246,7 +246,7 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
-            "total_steps": int(0.1e6),
+            "total_steps": int(100e6),
             "runs": 3,
         },
     ]
@@ -255,38 +255,33 @@ if __name__ == '__main__':
     max_workers = 12  # Number of parallel processes
     aggregated_results = run_all_experiments(experiment_groups, save_dir, max_workers)
 
-    # Run all experiment groups
     plt.figure(figsize=(12, 8))
     linestyles = [
-        '-',  # Solid line
-        '--',  # Dashed line
-        '-.',  # Dash-dot line
-        ':',  # Dotted line
-        (0, (1, 1)),  # Dotted line with tighter dots
-        (0, (5, 1)),  # Long dash with short gap
-        (0, (3, 1, 1, 1)),  # Dash-dot-dot pattern
-        (0, (3, 5, 1, 5)),  # Dash-dot with longer gaps
-        (0, (5, 10)),  # Long dash with longer gap
-        (0, (1, 10)),  # Very tight dots with longer gap
-        (0, (5, 5, 1, 5)),  # Dash-dot pattern with shorter gaps
-        (0, (2, 2, 1, 2)),  # Short dash-dot pattern
+        '-', '--', '-.', ':', (0, (1, 1)), (0, (5, 1)),
+        (0, (3, 1, 1, 1)), (0, (3, 5, 1, 5)), (0, (5, 10)),
+        (0, (1, 10)), (0, (5, 5, 1, 5)), (0, (2, 2, 1, 2))
     ]
+
+    # Target number of points for the plot
+    target_points = 8192
 
     for i, (group_name, (avg_rewards, std_rewards, avg_test_reward)) in enumerate(aggregated_results.items()):
         total_steps = experiment_groups[i]["total_steps"]
-        steps = np.linspace(1, total_steps, len(avg_rewards))
+        total_points = len(avg_rewards)
+        downsample_rate = max(1, total_points // target_points)
+
+        # Combine smoothing and downsampling using a rolling average
+        avg_rewards_array = np.array(avg_rewards)
+        std_rewards_array = np.array(std_rewards)
+
+        kernel_size = downsample_rate
+        kernel = np.ones(kernel_size) / kernel_size
+
+        smoothed_rewards = np.convolve(avg_rewards_array, kernel, mode='valid')[::downsample_rate]
+        smoothed_std = np.convolve(std_rewards_array, kernel, mode='valid')[::downsample_rate]
+        steps = np.linspace(1, total_steps, len(smoothed_rewards))
 
         color = plt.cm.tab10(i % 10)
-
-        # Set smoothing factor (adjust this value to control smoothing level)
-        smooth_factor = 0.001  # Smaller values result in less smoothing, larger values result in more smoothing
-
-        # Calculate the window size for rolling operations based on the smoothing factor
-        window_size = int(len(avg_rewards) * smooth_factor)
-        window_size = max(1, window_size)  # Ensure the window size is at least 1
-
-        smoothed_rewards = pd.Series(avg_rewards).rolling(window=window_size, min_periods=1).mean()
-        smoothed_std = pd.Series(std_rewards).rolling(window=window_size, min_periods=1).mean()
 
         plt.plot(steps, smoothed_rewards, color=color, linestyle='-', alpha=0.8,
                  label=f'{group_name} Smoothed Training Avg')
