@@ -190,3 +190,6 @@ class VAEWrapper(gym.Wrapper):
         # print(f"Total Loss: {sum(total_losses) / len(total_losses):.4f}")
         # print(f"Reconstruction Loss: {sum(recon_losses) / len(recon_losses):.4f}")
         # print(f"KL Divergence: {sum(kl_divergences) / len(kl_divergences):.4f}")
+        self.total_loss = sum(total_losses) / len(total_losses)
+        self.reconstruction_loss = sum(recon_losses) / len(recon_losses)
+        self.kl_divergence = sum(kl_divergences) / len(kl_divergences)

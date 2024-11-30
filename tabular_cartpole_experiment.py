@@ -122,9 +122,9 @@ def run_experiment(args):
                         pbar.set_description(f"[{group_name}] Run {run_id + 1} | "
                                              f"Epsilon: {epsilon:.4f} | "
                                              f"Recent Avg Reward: {recent_avg:.2f} | "
-                                             f"Total Loss: {env.total_loss:.2f} | "
-                                             f"Reconstruction Loss: {env.reconstruction_loss:.2f} | "
-                                             f"KL Divergence: {env.kl_divergence:.2f} | "
+                                             f"Total Loss: {env.total_loss:.3f} | "
+                                             f"Reconstruction Loss: {env.reconstruction_loss:.3f} | "
+                                             f"KL Divergence: {env.kl_divergence:.3f} | "
                                              )
                     else:
                         pbar.set_description(f"[{group_name}] Run {run_id + 1} | "
