@@ -1,5 +1,6 @@
 import numpy as np
 import gymnasium as gym
+import torch
 from matplotlib import pyplot as plt
 from matplotlib.animation import FuncAnimation
 from tqdm import tqdm
@@ -7,6 +8,7 @@ from concurrent.futures import ProcessPoolExecutor
 import os
 import pandas as pd
 from q_table_agent import QTableAgent
+from wrappers import VAEWrapper
 
 
 # Helper function to align training rewards using step
@@ -50,7 +52,16 @@ def generate_test_gif(frames, gif_path):
 
 # Single experiment runner
 def run_experiment(args):
-    total_steps, alpha, gamma, epsilon_start, epsilon_end, state_space, action_space, group_name, run_id, save_dir = args
+    group, run_id, save_dir = args
+    total_steps = group["total_steps"]
+    alpha = group["alpha"]
+    gamma = group["gamma"]
+    epsilon_start = group["epsilon_start"]
+    epsilon_end = group["epsilon_end"]
+    state_space = group["state_space"]
+    action_space = group["action_space"]
+    group_name = group["group_name"]
+    use_normal_partition_state = group["normal_partition_state"]
     epsilon_decay = (epsilon_start - epsilon_end) / total_steps
     step_rewards = []
     test_rewards = []
@@ -58,10 +69,28 @@ def run_experiment(args):
     epsilon = epsilon_start
 
     # Create QTableAgent
-    agent = QTableAgent(state_space, action_space)
+    agent = QTableAgent(state_space, action_space, normal_partition_state=use_normal_partition_state)
 
     # Initialize CartPole environment
-    env = gym.make('LunarLander-v3')
+    env = gym.make('CartPole-v1')
+
+    if "wrapper_args" in group.keys():
+        wrapper_args = group["wrapper_args"]
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        # device = torch.device("cpu")
+        print(f"Using {device} device")
+        env = VAEWrapper(
+            env,
+            num_hidden_values=wrapper_args["num_hidden_values"],
+            net_arch=wrapper_args["net_arch"],
+            do_training=True,
+            buffer_size=wrapper_args["buffer_size"],
+            iterations=wrapper_args["iterations"],
+            batch_size=wrapper_args["batch_size"],
+            beta=wrapper_args["beta"],
+            lr=wrapper_args["lr"],
+            device=device,
+        )
 
     # Training
     with tqdm(total=total_steps, desc=f"[{group_name}] Run {run_id + 1}", leave=False) as pbar:
@@ -101,7 +130,7 @@ def run_experiment(args):
     pd.DataFrame(step_rewards, columns=["Step", "Reward"]).to_csv(training_data_path, index=False)
 
     # Testing and GIF generation
-    env = gym.make('LunarLander-v3', render_mode="rgb_array")
+    env = gym.make('CartPole-v1', render_mode="rgb_array")
     frames = []
     for episode in range(20):
         state, _ = env.reset()
@@ -135,10 +164,7 @@ def run_all_experiments(experiment_groups, save_dir, max_workers):
     for group in experiment_groups:
         for run_id in range(group["runs"]):
             tasks.append((
-                group["total_steps"], group["alpha"], group["gamma"],
-                group["epsilon_start"], group["epsilon_end"],
-                group["state_space"], group["action_space"],
-                group["group_name"], run_id, save_dir
+                group, run_id, save_dir,
             ))
 
     # Execute tasks in parallel
@@ -171,51 +197,54 @@ def run_all_experiments(experiment_groups, save_dir, max_workers):
 
 if __name__ == '__main__':
     # General experiment parameters
-    experiment_name = "LunarLander_Experiments"
+    experiment_name = "CartPole_VAE_Experiments"
     save_dir = f"./experiments/{experiment_name}/"
     os.makedirs(save_dir, exist_ok=True)
 
     # Define experiment groups
     experiment_groups = [
         {
-            "group_name": "16_bins",
+            "group_name": "direct_input_8",
             "state_space": [
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 16},  # Horizontal coordinate
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 16},  # Vertical coordinate
-                {'type': 'continuous', 'range': (-1.5, 1.5), 'bins': 16},  # Horizontal speed
-                {'type': 'continuous', 'range': (-2.0, 0.5), 'bins': 16},  # Vertical speed
-                {'type': 'continuous', 'range': (-np.pi, np.pi), 'bins': 16},  # Angle
-                {'type': 'continuous', 'range': (-2.0, 2.0), 'bins': 16},  # Angular speed
-                {'type': 'continuous', 'range': (0.0, 1.0), 'bins': 2},  # Left leg contact
-                {'type': 'continuous', 'range': (0.0, 1.0), 'bins': 2}  # Right leg contact
+                {'type': 'continuous', 'range': (-2.4, 2.4), 'bins': 8},
+                {'type': 'continuous', 'range': (-2, 2), 'bins': 8},
+                {'type': 'continuous', 'range': (-0.25, 0.25), 'bins': 8},
+                {'type': 'continuous', 'range': (-2, 2), 'bins': 8},
             ],
-            "action_space": [{'type': 'discrete', 'bins': 4}],
-            "alpha": 0.1,
+            "action_space": [{'type': 'discrete', 'bins': 2}],
+            "normal_partition_state": False,
+            "alpha": 0.25,
             "gamma": 0.99,
-            "epsilon_start": 0.25,
-            "epsilon_end": 0.001,
-            "total_steps": int(0.1e6),
-            "runs": 8,
+            "epsilon_start": 0.5,
+            "epsilon_end": 0.05,
+            "total_steps": int(15e6),
+            "runs": 4,
         },
         {
-            "group_name": "12_bins",
+            "group_name": "normal_distribution_8",
             "state_space": [
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 12},  # Horizontal coordinate
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 12},  # Vertical coordinate
-                {'type': 'continuous', 'range': (-1.5, 1.5), 'bins': 12},  # Horizontal speed
-                {'type': 'continuous', 'range': (-2.0, 0.5), 'bins': 12},  # Vertical speed
-                {'type': 'continuous', 'range': (-np.pi, np.pi), 'bins': 12},  # Angle
-                {'type': 'continuous', 'range': (-2.0, 2.0), 'bins': 12},  # Angular speed
-                {'type': 'continuous', 'range': (0.0, 1.0), 'bins': 2},  # Left leg contact
-                {'type': 'continuous', 'range': (0.0, 1.0), 'bins': 2}  # Right leg contact
+                {'type': 'continuous', 'bins': 8},
+                {'type': 'continuous', 'bins': 8},
+                {'type': 'continuous', 'bins': 8},
+                {'type': 'continuous', 'bins': 8},
             ],
-            "action_space": [{'type': 'discrete', 'bins': 4}],
-            "alpha": 0.1,
+            "action_space": [{'type': 'discrete', 'bins': 2}],
+            "normal_partition_state": True,
+            "alpha": 0.25,
             "gamma": 0.99,
-            "epsilon_start": 0.25,
-            "epsilon_end": 0.001,
-            "total_steps": int(0.1e6),
-            "runs": 8,
+            "epsilon_start": 0.5,
+            "epsilon_end": 0.05,
+            "total_steps": int(15e6),
+            "runs": 4,
+            "wrapper_args": {
+                "num_hidden_values": 4,
+                "net_arch": [32, 32, 32],
+                "buffer_size": int(1e5),
+                "iterations": 20,
+                "batch_size": 64,
+                "beta": 1.0,
+                "lr": 1e-3,
+            }
         },
     ]
 
@@ -223,38 +252,33 @@ if __name__ == '__main__':
     max_workers = 12  # Number of parallel processes
     aggregated_results = run_all_experiments(experiment_groups, save_dir, max_workers)
 
-    # Run all experiment groups
     plt.figure(figsize=(12, 8))
     linestyles = [
-        '-',  # Solid line
-        '--',  # Dashed line
-        '-.',  # Dash-dot line
-        ':',  # Dotted line
-        (0, (1, 1)),  # Dotted line with tighter dots
-        (0, (5, 1)),  # Long dash with short gap
-        (0, (3, 1, 1, 1)),  # Dash-dot-dot pattern
-        (0, (3, 5, 1, 5)),  # Dash-dot with longer gaps
-        (0, (5, 10)),  # Long dash with longer gap
-        (0, (1, 10)),  # Very tight dots with longer gap
-        (0, (5, 5, 1, 5)),  # Dash-dot pattern with shorter gaps
-        (0, (2, 2, 1, 2)),  # Short dash-dot pattern
+        '-', '--', '-.', ':', (0, (1, 1)), (0, (5, 1)),
+        (0, (3, 1, 1, 1)), (0, (3, 5, 1, 5)), (0, (5, 10)),
+        (0, (1, 10)), (0, (5, 5, 1, 5)), (0, (2, 2, 1, 2))
     ]
+
+    # Target number of points for the plot
+    target_points = 8192
 
     for i, (group_name, (avg_rewards, std_rewards, avg_test_reward)) in enumerate(aggregated_results.items()):
         total_steps = experiment_groups[i]["total_steps"]
-        steps = np.linspace(1, total_steps, len(avg_rewards))
+        total_points = len(avg_rewards)
+        downsample_rate = max(1, total_points // target_points)
+
+        # Combine smoothing and downsampling using a rolling average
+        avg_rewards_array = np.array(avg_rewards)
+        std_rewards_array = np.array(std_rewards)
+
+        kernel_size = downsample_rate
+        kernel = np.ones(kernel_size) / kernel_size
+
+        smoothed_rewards = np.convolve(avg_rewards_array, kernel, mode='valid')[::downsample_rate]
+        smoothed_std = np.convolve(std_rewards_array, kernel, mode='valid')[::downsample_rate]
+        steps = np.linspace(1, total_steps, len(smoothed_rewards))
 
         color = plt.cm.tab10(i % 10)
-
-        # Set smoothing factor (adjust this value to control smoothing level)
-        smooth_factor = 0.001  # Smaller values result in less smoothing, larger values result in more smoothing
-
-        # Calculate the window size for rolling operations based on the smoothing factor
-        window_size = int(len(avg_rewards) * smooth_factor)
-        window_size = max(1, window_size)  # Ensure the window size is at least 1
-
-        smoothed_rewards = pd.Series(avg_rewards).rolling(window=window_size, min_periods=1).mean()
-        smoothed_std = pd.Series(std_rewards).rolling(window=window_size, min_periods=1).mean()
 
         plt.plot(steps, smoothed_rewards, color=color, linestyle='-', alpha=0.8,
                  label=f'{group_name} Smoothed Training Avg')

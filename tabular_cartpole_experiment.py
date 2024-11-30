@@ -4,19 +4,34 @@ import torch
 from matplotlib import pyplot as plt
 from matplotlib.animation import FuncAnimation
 from tqdm import tqdm
-from tqdm.contrib.concurrent import process_map  # For parallel progress bar
-from q_table_agent import QTableAgent
+from concurrent.futures import ProcessPoolExecutor
 import os
 import pandas as pd
-from concurrent.futures import ProcessPoolExecutor
+from q_table_agent import QTableAgent
 from wrappers import VAEWrapper
 
 
-# Helper function to align training rewards with truncation
-def align_training_rewards(all_training_results):
-    min_steps = min(len(res) for res in all_training_results)
-    aligned_rewards = [np.array([r for _, r in res[:min_steps]]) for res in all_training_results]
-    return np.mean(aligned_rewards, axis=0)
+# Helper function to align training rewards using step
+def align_training_rewards_with_steps(all_training_results, total_steps):
+    """
+    Align training rewards to a fixed number of steps for consistent plotting.
+
+    :param all_training_results: List of step-reward tuples for all runs.
+    :param total_steps: The total number of steps in the experiment.
+    :return: A numpy array of aligned rewards averaged across all runs.
+    """
+    aligned_rewards = []
+    for step_rewards in all_training_results:
+        steps, rewards = zip(*step_rewards)
+        # Interpolate rewards to align with total_steps
+        interpolated_rewards = np.interp(
+            np.linspace(1, total_steps, total_steps),
+            steps,
+            rewards
+        )
+        aligned_rewards.append(interpolated_rewards)
+    return np.mean(aligned_rewards, axis=0), np.std(aligned_rewards, axis=0)  # Return mean and std
+
 
 
 # Generate GIF for the final test episode
@@ -36,7 +51,7 @@ def generate_test_gif(frames, gif_path):
 
 
 # Single experiment runner
-def run_experiment_for_group(args):
+def run_experiment(args):
     group, run_id, save_dir = args
     total_steps = group["total_steps"]
     alpha = group["alpha"]
@@ -58,7 +73,7 @@ def run_experiment_for_group(args):
 
     # Initialize CartPole environment
     env = gym.make('CartPole-v1')
-    # env = AddNoiseDimensionWrapper(env)
+
     if "wrapper_args" in group.keys():
         wrapper_args = group["wrapper_args"]
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -78,7 +93,7 @@ def run_experiment_for_group(args):
         )
 
     # Training
-    with tqdm(total=total_steps, desc=f"[{group_name}] Run {run_id + 1}", leave=True) as pbar:
+    with tqdm(total=total_steps, desc=f"[{group_name}] Run {run_id + 1}", leave=False) as pbar:
         while current_steps < total_steps:
             state, _ = env.reset()
             total_reward = 0
@@ -88,7 +103,7 @@ def run_experiment_for_group(args):
                 if np.random.random() < epsilon:
                     action = [np.random.choice([0, 1])]
                 else:
-                    probabilities = agent.get_action_probabilities(state, strategy="greedy")
+                    probabilities = agent.get_action_probabilities(state, strategy="softmax")
                     action = [np.argmax(probabilities)]
 
                 next_state, reward, done, truncated, _ = env.step(action[0])
@@ -116,7 +131,6 @@ def run_experiment_for_group(args):
 
     # Testing and GIF generation
     env = gym.make('CartPole-v1', render_mode="rgb_array")
-    #  = AddNoiseDimensionWrapper(env)
     frames = []
     for episode in range(20):
         state, _ = env.reset()
@@ -144,21 +158,41 @@ def run_experiment_for_group(args):
     return step_rewards, np.mean(test_rewards)
 
 
-# Parallel experiment runner for each group
-def run_experiment_group(group, save_dir):
-    args_list = [
-        (group, run_id, save_dir)
-        for run_id in range(group["runs"])
-    ]
+# Aggregating results for consistent step-based plotting
+def run_all_experiments(experiment_groups, save_dir, max_workers):
+    tasks = []
+    for group in experiment_groups:
+        for run_id in range(group["runs"]):
+            tasks.append((
+                group, run_id, save_dir,
+            ))
 
-    with ProcessPoolExecutor() as executor:
-        results = process_map(run_experiment_for_group, args_list, chunksize=1)
+    # Execute tasks in parallel
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        results = list(executor.map(run_experiment, tasks))
 
-    all_training_results, all_testing_results = zip(*results)
-    avg_training_rewards = align_training_rewards(all_training_results)
-    avg_testing_rewards = np.mean(all_testing_results)
+    # Group results by experiment group
+    group_results = {group["group_name"]: [] for group in experiment_groups}
+    for task, result in zip(tasks, results):
+        _, _, _, _, _, _, _, group_name, run_id, _ = task
+        group_results[group_name].append(result)
 
-    return avg_training_rewards, avg_testing_rewards
+    # Aggregate results for each group
+    aggregated_results = {}
+    for group in experiment_groups:
+        group_name = group["group_name"]
+        total_steps = group["total_steps"]
+        all_training_results, all_testing_results = zip(*group_results[group_name])
+
+        # Align rewards with steps and compute mean and std
+        avg_training_rewards, std_training_rewards = align_training_rewards_with_steps(
+            all_training_results, total_steps
+        )
+        avg_testing_rewards = np.mean(all_testing_results)
+
+        aggregated_results[group_name] = (avg_training_rewards, std_training_rewards, avg_testing_rewards)
+
+    return aggregated_results
 
 
 if __name__ == '__main__':
@@ -201,7 +235,7 @@ if __name__ == '__main__':
             "epsilon_start": 0.5,
             "epsilon_end": 0.05,
             "total_steps": int(15e6),
-            "runs": 1,
+            "runs": 4,
             "wrapper_args": {
                 "num_hidden_values": 4,
                 "net_arch": [32, 32, 32],
@@ -209,46 +243,53 @@ if __name__ == '__main__':
                 "iterations": 20,
                 "batch_size": 64,
                 "beta": 1.0,
-                "lr": 5e-4,
+                "lr": 1e-3,
             }
         },
     ]
 
-    # Run all experiment groups
+    # Run all experiments
+    max_workers = 12  # Number of parallel processes
+    aggregated_results = run_all_experiments(experiment_groups, save_dir, max_workers)
+
     plt.figure(figsize=(12, 8))
     linestyles = [
-        '-',  # Solid line
-        '--',  # Dashed line
-        '-.',  # Dash-dot line
-        ':',  # Dotted line
-        (0, (1, 1)),  # Dotted line with tighter dots
-        (0, (5, 1)),  # Long dash with short gap
-        (0, (3, 1, 1, 1)),  # Dash-dot-dot pattern
-        (0, (3, 5, 1, 5)),  # Dash-dot with longer gaps
-        (0, (5, 10)),  # Long dash with longer gap
-        (0, (1, 10)),  # Very tight dots with longer gap
-        (0, (5, 5, 1, 5)),  # Dash-dot pattern with shorter gaps
-        (0, (2, 2, 1, 2)),  # Short dash-dot pattern
+        '-', '--', '-.', ':', (0, (1, 1)), (0, (5, 1)),
+        (0, (3, 1, 1, 1)), (0, (3, 5, 1, 5)), (0, (5, 10)),
+        (0, (1, 10)), (0, (5, 5, 1, 5)), (0, (2, 2, 1, 2))
     ]
-    for i, group in enumerate(experiment_groups):
-        avg_training_rewards, avg_testing_rewards = run_experiment_group(group, save_dir)
 
-        steps = np.linspace(1, group["total_steps"], len(avg_training_rewards))
-        window_size = 25
-        training_rewards_smoothed = pd.Series(avg_training_rewards).rolling(window=window_size, min_periods=1).mean()
-        training_rewards_std = pd.Series(avg_training_rewards).rolling(window=window_size, min_periods=1).std()
+    # Target number of points for the plot
+    target_points = 8192
+
+    for i, (group_name, (avg_rewards, std_rewards, avg_test_reward)) in enumerate(aggregated_results.items()):
+        total_steps = experiment_groups[i]["total_steps"]
+        total_points = len(avg_rewards)
+        downsample_rate = max(1, total_points // target_points)
+
+        # Combine smoothing and downsampling using a rolling average
+        avg_rewards_array = np.array(avg_rewards)
+        std_rewards_array = np.array(std_rewards)
+
+        kernel_size = downsample_rate
+        kernel = np.ones(kernel_size) / kernel_size
+
+        smoothed_rewards = np.convolve(avg_rewards_array, kernel, mode='valid')[::downsample_rate]
+        smoothed_std = np.convolve(std_rewards_array, kernel, mode='valid')[::downsample_rate]
+        steps = np.linspace(1, total_steps, len(smoothed_rewards))
 
         color = plt.cm.tab10(i % 10)
-        plt.plot(steps, training_rewards_smoothed, color=color, linestyle='-', alpha=0.8,
-                 label=f'{group["group_name"]} Smoothed Training Avg')
+
+        plt.plot(steps, smoothed_rewards, color=color, linestyle='-', alpha=0.8,
+                 label=f'{group_name} Smoothed Training Avg')
         plt.fill_between(steps,
-                         training_rewards_smoothed - training_rewards_std,
-                         training_rewards_smoothed + training_rewards_std,
-                         color=color, alpha=0.25, label=f'{group["group_name"]} Training Std Dev')
-        plt.axhline(avg_testing_rewards, color="black", linestyle=linestyles[i % len(linestyles)],
-                    label=f'{group["group_name"]} Test Avg', alpha=0.9)
-        plt.text(group["total_steps"] * 0.98, avg_testing_rewards + 2,
-                 f'{avg_testing_rewards:.2f}', color="black", fontsize=10,
+                         smoothed_rewards - smoothed_std,
+                         smoothed_rewards + smoothed_std,
+                         color=color, alpha=0.25, label=f'{group_name} Training Std Dev')
+        plt.axhline(avg_test_reward, color="black", linestyle=linestyles[i % len(linestyles)],
+                    label=f'{group_name} Test Avg', alpha=0.9)
+        plt.text(total_steps * 0.98, avg_test_reward + 2,
+                 f'{avg_test_reward:.2f}', color="black", fontsize=10,
                  horizontalalignment='right', verticalalignment='bottom')
 
     plt.title("Training Results Across Experiment Groups")
