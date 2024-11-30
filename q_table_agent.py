@@ -5,6 +5,7 @@ import os
 from typing import List, Dict, Union, Tuple, Any, Optional
 import numpy as np
 import pandas as pd
+from scipy.stats import norm
 
 
 """
@@ -68,14 +69,27 @@ action_space = [
 ]
 # Enable action combinations (both agents act simultaneously)
 agent = QTableAgent(state_space, action_space, action_combination=True)
+
+# Example 6: For using normal distribution to partition state and action spaces
+# Continuous state or action spaces are divided using a standard normal distribution N(0, 1).
+state_space = [
+    {'type': 'continuous', 'bins': 5}  # Partition state space using normal distribution into 5 bins
+]
+action_space = [
+    {'type': 'continuous', 'bins': 3}  # Partition action space using normal distribution into 3 bins
+]
+agent = QTableAgent(state_space, action_space, normal_partition_state=True, normal_partition_action=True)
 """
+
 
 
 class QTableAgent:
     def __init__(self,
                  state_space: List[Dict[str, Union[str, Tuple[float, float], int]]],
                  action_space: List[Dict[str, Union[str, Tuple[float, float], int]]],
-                 action_combination: bool = False):
+                 action_combination: bool = False,
+                 normal_partition_state: bool = False,
+                 normal_partition_action: bool = False):
         """
         Initialize the Q-Table Agent.
 
@@ -84,16 +98,22 @@ class QTableAgent:
                             - 'type': 'discrete' or 'continuous'
                             - 'bins': Number of bins for discrete space
                             - 'range': (low, high) for continuous space
+                            - If normal_partition_state is True, 'range' is not required for continuous space.
         :param action_space: A list of dictionaries defining the action space.
                              Format is similar to `state_space`.
+                             - If normal_partition_action is True, 'range' is not required for continuous space.
         :param action_combination: Whether actions can be combined into groups (True or False).
+        :param normal_partition_state: Whether to use normal distribution to partition continuous state spaces.
+        :param normal_partition_action: Whether to use normal distribution to partition continuous action spaces.
         """
         self.state_space: List[Dict[str, Any]] = state_space
         self.action_space: List[Dict[str, Any]] = action_space
         self.action_combination: bool = action_combination
+        self.normal_partition_state: bool = normal_partition_state
+        self.normal_partition_action: bool = normal_partition_action
 
         # Discretize the state space and create a mapping to their original values
-        self.state_bins: List[np.ndarray] = [self._discretize_space(dim) for dim in state_space]
+        self.state_bins: List[np.ndarray] = [self._discretize_space(dim, normal_partition_state) for dim in state_space]
         self.state_value_map: List[np.ndarray] = self.state_bins  # Save the bin edges as the mapping
 
         # Discretize the action space and create a mapping
@@ -101,7 +121,7 @@ class QTableAgent:
             self.action_bins: np.ndarray = self._generate_action_combinations(action_space)
             self.action_value_map: np.ndarray = self.action_bins
         else:
-            self.action_bins: List[np.ndarray] = [self._discretize_space(dim) for dim in action_space]
+            self.action_bins: List[np.ndarray] = [self._discretize_space(dim, normal_partition_action) for dim in action_space]
             self.action_value_map: List[np.ndarray] = self.action_bins
 
         # Initialize Q-Table and visit counts as defaultdicts
@@ -111,15 +131,24 @@ class QTableAgent:
         # Print Q-table size and dimension details
         self.print_q_table_info()
 
-    def _discretize_space(self, space: Dict[str, Any]) -> np.ndarray:
+    def _discretize_space(self, space: Dict[str, Any], normal_partition: bool) -> np.ndarray:
         """Discretize a single state or action dimension."""
         if space['type'] == 'discrete':
             return np.arange(space['bins'])
         elif space['type'] == 'continuous':
-            low, high = space['range']
-            return np.linspace(low, high, space['bins'])
+            if normal_partition:
+                return self._discretize_normal(space['bins'])
+            else:
+                low, high = space['range']
+                return np.linspace(low, high, space['bins'])
         else:
             raise ValueError("Invalid space type. Use 'discrete' or 'continuous'.")
+
+    def _discretize_normal(self, bins: int) -> np.ndarray:
+        """Discretize a continuous space using normal distribution N(0, 1)."""
+        # Use percent point function (inverse of CDF) to get equal probability bins
+        bin_edges = [norm.ppf((i + 1) / (bins + 1)) for i in range(bins)]
+        return np.array(bin_edges)
 
     def _generate_action_combinations(self, action_space: List[Dict[str, Any]]) -> np.ndarray:
         """Generate all possible combinations of actions when action combination is enabled."""
