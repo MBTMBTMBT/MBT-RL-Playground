@@ -39,6 +39,35 @@ class GymDataset(Dataset):
             self.current_size += 1
             if self.current_size >= self.data_size:
                 self.full = True
+            else:
+                self.full = False
+
+    def clear(self):
+        """
+        Clear all data in the dataset and reset counters.
+        """
+        self.data.clear()
+        self.current_size = 0
+        self.full = False
+
+    def __len__(self):
+        """
+        Return the number of stored samples in the dataset.
+        """
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        """
+        Retrieve a sample by index.
+
+        Args:
+            idx: The index of the desired sample.
+
+        Returns:
+            A tuple containing (obs, action, next_obs, reward, done).
+        """
+        item = self.data[idx]
+        return item['obs'], item['action'], item['next_obs'], item['reward'], item['done']
 
 
 if __name__ == "__main__":

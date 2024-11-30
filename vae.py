@@ -1,3 +1,5 @@
+import os
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -51,11 +53,10 @@ class Decoder(nn.Module):
 
 # Define the VAE class
 class BetaVAE(nn.Module):
-    def __init__(self, num_input_values, latent_dim, net_arch, beta=1.0):
+    def __init__(self, num_input_values, latent_dim, net_arch,):
         super(BetaVAE, self).__init__()
         self.encoder = Encoder(num_input_values, latent_dim, net_arch)
         self.decoder = Decoder(latent_dim, num_input_values, net_arch)
-        self.beta = beta  # Beta value to control KL-divergence weight
 
     def reparameterize(self, mu, logvar):
         # Reparameterization trick
@@ -93,7 +94,7 @@ def main():
     epochs = 10  # Number of epochs
 
     # Model, optimizer, and data
-    model = BetaVAE(num_input_values, latent_dim, net_arch, beta)
+    model = BetaVAE(num_input_values, latent_dim, net_arch,)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     data = torch.randn(64, num_input_values)  # Random data to simulate training (batch_size=64)
 
