@@ -203,25 +203,25 @@ if __name__ == '__main__':
 
     # Define experiment groups
     experiment_groups = [
-        # {
-        #     "group_name": "direct_input_8",
-        #     "state_space": [
-        #         {'type': 'continuous', 'range': (-2.4, 2.4), 'bins': 8},
-        #         {'type': 'continuous', 'range': (-2, 2), 'bins': 8},
-        #         {'type': 'continuous', 'range': (-0.25, 0.25), 'bins': 8},
-        #         {'type': 'continuous', 'range': (-2, 2), 'bins': 8},
-        #     ],
-        #     "action_space": [{'type': 'discrete', 'bins': 2}],
-        #     "normal_partition_state": False,
-        #     "alpha": 0.25,
-        #     "gamma": 0.99,
-        #     "epsilon_start": 0.25,
-        #     "epsilon_end": 0.05,
-        #     "total_steps": int(15e6),
-        #     "runs": 4,
-        # },
         {
-            "group_name": "normal_distribution_8",
+            "group_name": "di8",
+            "state_space": [
+                {'type': 'continuous', 'range': (-2.4, 2.4), 'bins': 8},
+                {'type': 'continuous', 'range': (-2, 2), 'bins': 8},
+                {'type': 'continuous', 'range': (-0.25, 0.25), 'bins': 8},
+                {'type': 'continuous', 'range': (-2, 2), 'bins': 8},
+            ],
+            "action_space": [{'type': 'discrete', 'bins': 2}],
+            "normal_partition_state": False,
+            "alpha": 0.25,
+            "gamma": 0.99,
+            "epsilon_start": 0.25,
+            "epsilon_end": 0.05,
+            "total_steps": int(15e6),
+            "runs": 4,
+        },
+        {
+            "group_name": "nd8",
             "state_space": [
                 {'type': 'continuous', 'bins': 8},
                 {'type': 'continuous', 'bins': 8},
