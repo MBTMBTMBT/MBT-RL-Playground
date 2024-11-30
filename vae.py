@@ -16,11 +16,10 @@ class Encoder(nn.Module):
             layers.append(nn.Linear(input_dim, hidden_units))
             layers.append(nn.LeakyReLU())  # Use leaky ReLU activation
             input_dim = hidden_units
-        # Final layers for mean and log variance
-        layers.append(nn.Linear(input_dim, latent_dim))
-        self.fc2_mu = nn.Linear(input_dim, latent_dim)  # Mean layer
-        self.fc2_logvar = nn.Linear(input_dim, latent_dim)  # Log variance layer
         self.net = nn.Sequential(*layers)
+        # Final layers for mean and log variance
+        self.fc2_mu = nn.Linear(net_arch[-1], latent_dim)  # Mean layer
+        self.fc2_logvar = nn.Linear(net_arch[-1], latent_dim)  # Log variance layer
 
     def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         # Encoder forward pass

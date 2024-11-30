@@ -1,5 +1,6 @@
 import numpy as np
 import gymnasium as gym
+import torch
 from matplotlib import pyplot as plt
 from matplotlib.animation import FuncAnimation
 from tqdm import tqdm
@@ -8,7 +9,7 @@ from q_table_agent import QTableAgent
 import os
 import pandas as pd
 from concurrent.futures import ProcessPoolExecutor
-from wrappers import AddNoiseDimensionWrapper
+from wrappers import VAEWrapper
 
 
 # Helper function to align training rewards with truncation
@@ -36,7 +37,16 @@ def generate_test_gif(frames, gif_path):
 
 # Single experiment runner
 def run_experiment_for_group(args):
-    total_steps, alpha, gamma, epsilon_start, epsilon_end, state_space, action_space, group_name, run_id, save_dir = args
+    group, run_id, save_dir = args
+    total_steps = group["total_steps"]
+    alpha = group["alpha"]
+    gamma = group["gamma"]
+    epsilon_start = group["epsilon_start"]
+    epsilon_end = group["epsilon_end"]
+    state_space = group["state_space"]
+    action_space = group["action_space"]
+    group_name = group["group_name"]
+    use_normal_partition_state = group["normal_partition_state"]
     epsilon_decay = (epsilon_start - epsilon_end) / total_steps
     step_rewards = []
     test_rewards = []
@@ -44,11 +54,28 @@ def run_experiment_for_group(args):
     epsilon = epsilon_start
 
     # Create QTableAgent
-    agent = QTableAgent(state_space, action_space)
+    agent = QTableAgent(state_space, action_space, normal_partition_state=use_normal_partition_state)
 
     # Initialize CartPole environment
     env = gym.make('CartPole-v1')
-    env = AddNoiseDimensionWrapper(env)
+    # env = AddNoiseDimensionWrapper(env)
+    if "wrapper_args" in group.keys():
+        wrapper_args = group["wrapper_args"]
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        # device = torch.device("cpu")
+        print(f"Using {device} device")
+        env = VAEWrapper(
+            env,
+            num_hidden_values=wrapper_args["num_hidden_values"],
+            net_arch=wrapper_args["net_arch"],
+            do_training=True,
+            buffer_size=wrapper_args["buffer_size"],
+            iterations=wrapper_args["iterations"],
+            batch_size=wrapper_args["batch_size"],
+            beta=wrapper_args["beta"],
+            lr=wrapper_args["lr"],
+            device=device,
+        )
 
     # Training
     with tqdm(total=total_steps, desc=f"[{group_name}] Run {run_id + 1}", leave=True) as pbar:
@@ -89,7 +116,7 @@ def run_experiment_for_group(args):
 
     # Testing and GIF generation
     env = gym.make('CartPole-v1', render_mode="rgb_array")
-    env = AddNoiseDimensionWrapper(env)
+    #  = AddNoiseDimensionWrapper(env)
     frames = []
     for episode in range(20):
         state, _ = env.reset()
@@ -120,12 +147,7 @@ def run_experiment_for_group(args):
 # Parallel experiment runner for each group
 def run_experiment_group(group, save_dir):
     args_list = [
-        (
-            group["total_steps"], group["alpha"], group["gamma"],
-            group["epsilon_start"], group["epsilon_end"],
-            group["state_space"], group["action_space"],
-            group["group_name"], run_id, save_dir
-        )
+        (group, run_id, save_dir)
         for run_id in range(group["runs"])
     ]
 
@@ -141,62 +163,54 @@ def run_experiment_group(group, save_dir):
 
 if __name__ == '__main__':
     # General experiment parameters
-    experiment_name = "CartPole_Noised_Experiments"
+    experiment_name = "CartPole_VAE_Experiments"
     save_dir = f"./experiments/{experiment_name}/"
     os.makedirs(save_dir, exist_ok=True)
 
     # Define experiment groups
     experiment_groups = [
         {
-            "group_name": "2_bins_noise",
+            "group_name": "direct_input_8",
             "state_space": [
-                {'type': 'continuous', 'range': (-2.4, 2.4), 'bins': 12},
-                {'type': 'continuous', 'range': (-2, 2), 'bins': 16},
-                {'type': 'continuous', 'range': (-0.25, 0.25), 'bins': 16},
-                {'type': 'continuous', 'range': (-2, 2), 'bins': 16},
-                {'type': 'continuous', 'range': (-1, 1), 'bins': 2},
+                {'type': 'continuous', 'range': (-2.4, 2.4), 'bins': 8},
+                {'type': 'continuous', 'range': (-2, 2), 'bins': 8},
+                {'type': 'continuous', 'range': (-0.25, 0.25), 'bins': 8},
+                {'type': 'continuous', 'range': (-2, 2), 'bins': 8},
             ],
             "action_space": [{'type': 'discrete', 'bins': 2}],
-            "alpha": 0.1,
+            "normal_partition_state": False,
+            "alpha": 0.25,
             "gamma": 0.99,
-            "epsilon_start": 0.25,
-            "epsilon_end": 0.001,
+            "epsilon_start": 0.5,
+            "epsilon_end": 0.05,
             "total_steps": int(15e6),
-            "runs": 8
+            "runs": 4,
         },
         {
-            "group_name": "4_bins_noise",
+            "group_name": "normal_distribution_8",
             "state_space": [
-                {'type': 'continuous', 'range': (-2.4, 2.4), 'bins': 12},
-                {'type': 'continuous', 'range': (-2, 2), 'bins': 16},
-                {'type': 'continuous', 'range': (-0.25, 0.25), 'bins': 16},
-                {'type': 'continuous', 'range': (-2, 2), 'bins': 16},
-                {'type': 'continuous', 'range': (-1, 1), 'bins': 4},
+                {'type': 'continuous', 'bins': 8},
+                {'type': 'continuous', 'bins': 8},
+                {'type': 'continuous', 'bins': 8},
+                {'type': 'continuous', 'bins': 8},
             ],
             "action_space": [{'type': 'discrete', 'bins': 2}],
-            "alpha": 0.1,
+            "normal_partition_state": True,
+            "alpha": 0.25,
             "gamma": 0.99,
-            "epsilon_start": 0.25,
-            "epsilon_end": 0.001,
+            "epsilon_start": 0.5,
+            "epsilon_end": 0.05,
             "total_steps": int(15e6),
-            "runs": 8
-        },
-        {
-            "group_name": "8_bins_noise",
-            "state_space": [
-                {'type': 'continuous', 'range': (-2.4, 2.4), 'bins': 12},
-                {'type': 'continuous', 'range': (-2, 2), 'bins': 16},
-                {'type': 'continuous', 'range': (-0.25, 0.25), 'bins': 16},
-                {'type': 'continuous', 'range': (-2, 2), 'bins': 16},
-                {'type': 'continuous', 'range': (-1, 1), 'bins': 8},
-            ],
-            "action_space": [{'type': 'discrete', 'bins': 2}],
-            "alpha": 0.1,
-            "gamma": 0.99,
-            "epsilon_start": 0.25,
-            "epsilon_end": 0.001,
-            "total_steps": int(15e6),
-            "runs": 8
+            "runs": 1,
+            "wrapper_args": {
+                "num_hidden_values": 4,
+                "net_arch": [32, 32, 32],
+                "buffer_size": int(1e5),
+                "iterations": 20,
+                "batch_size": 64,
+                "beta": 1.0,
+                "lr": 5e-4,
+            }
         },
     ]
 
