@@ -449,6 +449,9 @@ class QTableAgent:
         # Update visit counts
         self.visit_counts[key] = self.visit_counts.get(key, 0) + 1
 
+        for k in self.q_table.keys():
+            self.q_table[k] *= 0.95
+
     def query_q_table(
             self,
             filters: List[Dict[str, Union[str, Any]]] = None,
