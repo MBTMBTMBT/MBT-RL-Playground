@@ -16,7 +16,7 @@ if __name__ == '__main__':
     # Define MountainCar state and action spaces
     state_space = [
         {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 32},  # Position
-        {'type': 'continuous', 'range': (-0.07, 0.07), 'bins': 32}  # Velocity
+        {'type': 'continuous', 'range': (-0.07, 0.07), 'bins': 16}  # Velocity
     ]
 
     action_space = [
@@ -28,14 +28,14 @@ if __name__ == '__main__':
 
     # Initialize MountainCar environment
     # env = gym.make('MountainCar-v0')
-    env = CustomMountainCarEnv(custom_gravity=0.0025, max_episode_steps=500, reward_type='progress')
+    env = CustomMountainCarEnv(custom_gravity=0.0025, max_episode_steps=200, reward_type='progress')
 
     # Training parameters
-    total_steps = int(5e6)       # Total steps
-    alpha = 0.025                 # Learning rate
+    total_steps = int(2.5e6)       # Total steps
+    alpha = 0.25                 # Learning rate
     gamma = 0.99                # Discount factor
-    epsilon_start = 0.25        # Starting exploration rate
-    epsilon_end = 0.01          # Minimum exploration rate
+    epsilon_start = 0.5        # Starting exploration rate
+    epsilon_end = 0.1          # Minimum exploration rate
     epsilon_decay = (epsilon_start - epsilon_end) / total_steps  # Linear decay rate
     epsilon = epsilon_start     # Initial exploration rate
 
@@ -69,7 +69,7 @@ if __name__ == '__main__':
                 if np.random.random() < epsilon:
                     action = [np.random.choice([0, 1, 2])]  # Random action
                 else:
-                    probabilities = agent.get_action_probabilities(state, strategy="greedy")
+                    probabilities = agent.get_action_probabilities(state, strategy="softmax")
                     action = [np.argmax(probabilities)]  # Exploit the best action
 
                 # Perform action in the environment
@@ -138,7 +138,7 @@ if __name__ == '__main__':
 
     ani = FuncAnimation(fig, update, frames=frames, interval=50, blit=True)
     gif_path = os.path.join(save_dir, "mountaincar_test.gif")
-    ani.save(gif_path, dpi=300, writer="pillow")
+    ani.save(gif_path, dpi=150, writer="pillow")
     print(f"Animation saved to {gif_path}")
 
     # Test the trained agent
