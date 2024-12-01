@@ -77,12 +77,17 @@ def run_experiment(args):
 
     # Initialize CartPole environment
     if env_id in CUSTOM_ENVS:
-        env = CUSTOM_ENVS[env_id](**group["env_params"])
+        env = CUSTOM_ENVS[env_id](**group["train_env_params"])
+        test_env = CUSTOM_ENVS[env_id](**group["test_env_params"])
     else:
         env = gym.make(env_id, render_mode="rgb_array")
+        test_env = gym.make(env_id, render_mode="rgb_array")
+    test_per_num_steps = group["test_per_num_steps"]
+    test_runs = group["test_runs"]
 
     # Training
     with tqdm(total=total_steps, desc=f"[{group_name}] Run {run_id + 1}", leave=False) as pbar:
+        avg_test_reward = 0.0  # Initialize avg_test_reward to avoid UnboundLocalError
         while current_steps < total_steps:
             state, _ = env.reset()
             total_reward = 0
@@ -104,41 +109,60 @@ def run_experiment(args):
                 epsilon = max(epsilon_end, epsilon - epsilon_decay)
                 pbar.update(1)
 
+                # Periodic testing
+                if current_steps % test_per_num_steps == 0:
+                    test_rewards = []
+                    for _ in range(test_runs):
+                        test_state, _ = test_env.reset()
+                        test_total_reward = 0
+                        test_done = False
+                        while not test_done:
+                            test_action = [np.argmax(agent.get_action_probabilities(test_state, strategy="softmax"))]
+                            test_next_state, test_reward, test_done, test_truncated, _ = test_env.step(test_action[0])
+                            test_state = test_next_state
+                            test_total_reward += test_reward
+                            if test_done or test_truncated:
+                                break
+                        test_rewards.append(test_total_reward)
+                    avg_test_reward = np.mean(test_rewards)
+                    recent_avg = np.mean([r for _, r in step_rewards[-10:]])
+                    pbar.set_description(f"[{group_name}] Run {run_id + 1} | "
+                                         f"Epsilon: {epsilon:.4f} | "
+                                         f"Recent Avg Reward: {recent_avg:.2f} | "
+                                         f"Avg Test Reward: {avg_test_reward:.2f}")
+                    step_rewards.append((current_steps, avg_test_reward))
+
                 if done or truncated:
                     step_rewards.append((current_steps, total_reward))
                     recent_avg = np.mean([r for _, r in step_rewards[-10:]])
                     pbar.set_description(f"[{group_name}] Run {run_id + 1} | "
                                          f"Epsilon: {epsilon:.4f} | "
-                                         f"Recent Avg Reward: {recent_avg:.2f}")
+                                         f"Recent Avg Reward: {recent_avg:.2f} | "
+                                         f"Avg Test Reward: {avg_test_reward:.2f}")
                     break
 
     # Save Q-Table and training data
     q_table_path = os.path.join(save_dir, f"{group_name}_run_{run_id + 1}_q_table.csv")
     agent.save_q_table(q_table_path)
     training_data_path = os.path.join(save_dir, f"{group_name}_run_{run_id + 1}_training_data.csv")
-    pd.DataFrame(step_rewards, columns=["Step", "Reward"]).to_csv(training_data_path, index=False)
+    pd.DataFrame(step_rewards, columns=["Step", "Avg Test Reward"]).to_csv(training_data_path, index=False)
 
-    # Testing and GIF generation
-    if env_id in CUSTOM_ENVS:
-        env = CUSTOM_ENVS[env_id](**group["env_params"])
-    else:
-        env = gym.make(env_id, render_mode="rgb_array")
-
+    # Final Testing and GIF generation
     frames = []
-    for episode in range(20):
-        state, _ = env.reset()
+    for episode in range(test_runs):
+        state, _ = test_env.reset()
         total_reward = 0
         done = False
 
         while not done:
             probabilities = agent.get_action_probabilities(state, strategy="greedy")
             action = [np.argmax(probabilities)]
-            state, reward, done, truncated, _ = env.step(action[0])
+            state, reward, done, truncated, _ = test_env.step(action[0])
             total_reward += reward
 
             # Collect frames for the final test episode
             if episode == 0:
-                frames.append(env.render())
+                frames.append(test_env.render())
 
             if done or truncated:
                 break
@@ -200,7 +224,16 @@ if __name__ == '__main__':
         {
             "group_name": "MC-25",
             "env_id": "Custom-MountainCar",
-            "env_params": {
+            "train_env_params": {
+                "render_mode": "rgb_array",
+                "goal_velocity": 0,
+                "custom_gravity": 0.0025,
+                "max_episode_steps": 200,
+                "reward_type": 'progress',
+            },
+            "test_per_num_steps": int(0.1e6),
+            "test_runs": 10,
+            "test_env_params": {
                 "render_mode": "rgb_array",
                 "goal_velocity": 0,
                 "custom_gravity": 0.0025,
@@ -220,12 +253,21 @@ if __name__ == '__main__':
             "runs": 3,
         },
         {
-            "group_name": "MC-10",
+            "group_name": "MC-20",
             "env_id": "Custom-MountainCar",
-            "env_params": {
+            "train_env_params": {
                 "render_mode": "rgb_array",
                 "goal_velocity": 0,
-                "custom_gravity": 0.0010,
+                "custom_gravity": 0.0020,
+                "max_episode_steps": 200,
+                "reward_type": 'progress',
+            },
+            "test_per_num_steps": int(0.1e6),
+            "test_runs": 10,
+            "test_env_params": {
+                "render_mode": "rgb_array",
+                "goal_velocity": 0,
+                "custom_gravity": 0.0025,
                 "max_episode_steps": 200,
                 "reward_type": 'progress',
             },
