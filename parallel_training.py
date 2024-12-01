@@ -6,7 +6,23 @@ from tqdm import tqdm
 from concurrent.futures import ProcessPoolExecutor
 import os
 import pandas as pd
+
+from custom_mountain_car import CustomMountainCarEnv
 from q_table_agent import QTableAgent
+
+
+CUSTOM_ENVS = {
+    "Custom-MountainCar": (
+        CustomMountainCarEnv,
+        {
+            "render_mode",
+            "goal_velocity",
+            "custom_gravity",
+            "max_episode_steps",
+            "reward_type",
+        }
+    ),
+}
 
 
 # Helper function to align training rewards using step
@@ -69,7 +85,10 @@ def run_experiment(args):
     agent = QTableAgent(state_space, action_space)
 
     # Initialize CartPole environment
-    env = gym.make(env_id)
+    if env_id in CUSTOM_ENVS:
+        pass
+    else:
+        env = gym.make(env_id)
 
     # Training
     with tqdm(total=total_steps, desc=f"[{group_name}] Run {run_id + 1}", leave=False) as pbar:
@@ -109,7 +128,11 @@ def run_experiment(args):
     pd.DataFrame(step_rewards, columns=["Step", "Reward"]).to_csv(training_data_path, index=False)
 
     # Testing and GIF generation
-    env = gym.make(env_id, render_mode="rgb_array")
+    if env_id in CUSTOM_ENVS:
+        pass
+    else:
+        env = gym.make(env_id, render_mode="rgb_array")
+
     frames = []
     for episode in range(20):
         state, _ = env.reset()
