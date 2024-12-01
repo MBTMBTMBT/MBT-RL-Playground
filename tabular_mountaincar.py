@@ -31,7 +31,7 @@ if __name__ == '__main__':
     env = CustomMountainCarEnv(custom_gravity=0.0025, max_episode_steps=200, reward_type='progress')
 
     # Training parameters
-    total_steps = int(2.5e6)       # Total steps
+    total_steps = int(10e6)       # Total steps
     alpha = 0.25                 # Learning rate
     gamma = 0.99                # Discount factor
     epsilon_start = 0.25        # Starting exploration rate

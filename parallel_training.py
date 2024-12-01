@@ -31,7 +31,6 @@ def align_training_rewards_with_steps(all_training_results, total_steps):
     return np.mean(aligned_rewards, axis=0), np.std(aligned_rewards, axis=0)  # Return mean and std
 
 
-
 # Generate GIF for the final test episode
 def generate_test_gif(frames, gif_path):
     fig, ax = plt.subplots()
@@ -51,6 +50,7 @@ def generate_test_gif(frames, gif_path):
 # Single experiment runner
 def run_experiment(args):
     group, run_id, save_dir = args
+    env_id = group['env_id']
     total_steps = group["total_steps"]
     alpha = group["alpha"]
     gamma = group["gamma"]
@@ -69,7 +69,7 @@ def run_experiment(args):
     agent = QTableAgent(state_space, action_space)
 
     # Initialize CartPole environment
-    env = gym.make('Acrobot-v1')
+    env = gym.make(env_id)
 
     # Training
     with tqdm(total=total_steps, desc=f"[{group_name}] Run {run_id + 1}", leave=False) as pbar:
@@ -109,7 +109,7 @@ def run_experiment(args):
     pd.DataFrame(step_rewards, columns=["Step", "Reward"]).to_csv(training_data_path, index=False)
 
     # Testing and GIF generation
-    env = gym.make('Acrobot-v1', render_mode="rgb_array")
+    env = gym.make(env_id, render_mode="rgb_array")
     frames = []
     for episode in range(20):
         state, _ = env.reset()
@@ -184,43 +184,8 @@ if __name__ == '__main__':
     # Define experiment groups
     experiment_groups = [
         {
-            "group_name": "16_bins",
-            "state_space": [
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 16},  # Cosine of theta1
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 16},  # Sine of theta1
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 16},  # Cosine of theta2
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 16},  # Sine of theta2
-                {'type': 'continuous', 'range': (-6.0, 6.0), 'bins': 16},  # Angular velocity of link 1
-                {'type': 'continuous', 'range': (-12.0, 12.0), 'bins': 16}  # Angular velocity of link 2
-            ],
-            "action_space": [{'type': 'discrete', 'bins': 3}],
-            "alpha": 0.1,
-            "gamma": 0.99,
-            "epsilon_start": 0.25,
-            "epsilon_end": 0.05,
-            "total_steps": int(100e6),
-            "runs": 3,
-        },
-        {
-            "group_name": "12_bins",
-            "state_space": [
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 12},  # Cosine of theta1
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 12},  # Sine of theta1
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 12},  # Cosine of theta2
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 12},  # Sine of theta2
-                {'type': 'continuous', 'range': (-6.0, 6.0), 'bins': 12},  # Angular velocity of link 1
-                {'type': 'continuous', 'range': (-12.0, 12.0), 'bins': 12}  # Angular velocity of link 2
-            ],
-            "action_space": [{'type': 'discrete', 'bins': 3}],
-            "alpha": 0.1,
-            "gamma": 0.99,
-            "epsilon_start": 0.25,
-            "epsilon_end": 0.05,
-            "total_steps": int(100e6),
-            "runs": 3,
-        },
-        {
             "group_name": "8_bins",
+            "env_id": "Acrobot-v1",
             "state_space": [
                 {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 8},  # Cosine of theta1
                 {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 8},  # Sine of theta1
@@ -234,11 +199,12 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
-            "total_steps": int(100e6),
+            "total_steps": int(0.1e6),
             "runs": 3,
         },
         {
             "group_name": "4_bins",
+            "env_id": "Acrobot-v1",
             "state_space": [
                 {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 4},  # Cosine of theta1
                 {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 4},  # Sine of theta1
@@ -252,7 +218,7 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
-            "total_steps": int(100e6),
+            "total_steps": int(0.1e6),
             "runs": 3,
         },
     ]
