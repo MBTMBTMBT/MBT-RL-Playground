@@ -12,16 +12,7 @@ from q_table_agent import QTableAgent
 
 
 CUSTOM_ENVS = {
-    "Custom-MountainCar": (
-        CustomMountainCarEnv,
-        {
-            "render_mode",
-            "goal_velocity",
-            "custom_gravity",
-            "max_episode_steps",
-            "reward_type",
-        }
-    ),
+    "Custom-MountainCar": CustomMountainCarEnv,
 }
 
 
@@ -86,9 +77,9 @@ def run_experiment(args):
 
     # Initialize CartPole environment
     if env_id in CUSTOM_ENVS:
-        pass
+        env = CUSTOM_ENVS[env_id](**group["env_params"])
     else:
-        env = gym.make(env_id)
+        env = gym.make(env_id, render_mode="rgb_array")
 
     # Training
     with tqdm(total=total_steps, desc=f"[{group_name}] Run {run_id + 1}", leave=False) as pbar:
@@ -129,7 +120,7 @@ def run_experiment(args):
 
     # Testing and GIF generation
     if env_id in CUSTOM_ENVS:
-        pass
+        env = CUSTOM_ENVS[env_id](**group["env_params"])
     else:
         env = gym.make(env_id, render_mode="rgb_array")
 
@@ -200,48 +191,54 @@ def run_all_experiments(experiment_groups, save_dir, max_workers):
 
 if __name__ == '__main__':
     # General experiment parameters
-    experiment_name = "Acrobot_Experiments"
+    experiment_name = "MountainCar_Experiments"
     save_dir = f"./experiments/{experiment_name}/"
     os.makedirs(save_dir, exist_ok=True)
 
     # Define experiment groups
     experiment_groups = [
         {
-            "group_name": "8_bins",
-            "env_id": "Acrobot-v1",
+            "group_name": "MC-25",
+            "env_id": "Custom-MountainCar",
+            "env_params": {
+                "render_mode": "rgb_array",
+                "goal_velocity": 0,
+                "custom_gravity": 0.0025,
+                "max_episode_steps": 200,
+                "reward_type": 'progress',
+            },
             "state_space": [
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 8},  # Cosine of theta1
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 8},  # Sine of theta1
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 8},  # Cosine of theta2
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 8},  # Sine of theta2
-                {'type': 'continuous', 'range': (-6.0, 6.0), 'bins': 8},  # Angular velocity of link 1
-                {'type': 'continuous', 'range': (-12.0, 12.0), 'bins': 8}  # Angular velocity of link 2
+                {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 16},  # Position
+                {'type': 'continuous', 'range': (-0.07, 0.07), 'bins': 16}  # Velocity
             ],
             "action_space": [{'type': 'discrete', 'bins': 3}],
             "alpha": 0.1,
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
-            "total_steps": int(0.1e6),
+            "total_steps": int(5e6),
             "runs": 3,
         },
         {
-            "group_name": "4_bins",
-            "env_id": "Acrobot-v1",
+            "group_name": "MC-10",
+            "env_id": "Custom-MountainCar",
+            "env_params": {
+                "render_mode": "rgb_array",
+                "goal_velocity": 0,
+                "custom_gravity": 0.0010,
+                "max_episode_steps": 200,
+                "reward_type": 'progress',
+            },
             "state_space": [
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 4},  # Cosine of theta1
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 4},  # Sine of theta1
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 4},  # Cosine of theta2
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 4},  # Sine of theta2
-                {'type': 'continuous', 'range': (-6.0, 6.0), 'bins': 4},  # Angular velocity of link 1
-                {'type': 'continuous', 'range': (-12.0, 12.0), 'bins': 4}  # Angular velocity of link 2
+                {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 16},  # Position
+                {'type': 'continuous', 'range': (-0.07, 0.07), 'bins': 16}  # Velocity
             ],
             "action_space": [{'type': 'discrete', 'bins': 3}],
             "alpha": 0.1,
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
-            "total_steps": int(0.1e6),
+            "total_steps": int(5e6),
             "runs": 3,
         },
     ]
