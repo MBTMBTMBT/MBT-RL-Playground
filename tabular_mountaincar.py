@@ -1,3 +1,5 @@
+from custom_mountain_car import CustomMountainCarEnv
+
 if __name__ == '__main__':
     import numpy as np
     import gymnasium as gym
@@ -13,8 +15,8 @@ if __name__ == '__main__':
 
     # Define MountainCar state and action spaces
     state_space = [
-        {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 128},  # Position
-        {'type': 'continuous', 'range': (-0.07, 0.07), 'bins': 128}  # Velocity
+        {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 32},  # Position
+        {'type': 'continuous', 'range': (-0.07, 0.07), 'bins': 32}  # Velocity
     ]
 
     action_space = [
@@ -25,10 +27,11 @@ if __name__ == '__main__':
     agent = QTableAgent(state_space, action_space)
 
     # Initialize MountainCar environment
-    env = gym.make('MountainCar-v0')
+    # env = gym.make('MountainCar-v0')
+    env = CustomMountainCarEnv(custom_gravity=0.0025, max_episode_steps=500, reward_type='progress')
 
     # Training parameters
-    total_steps = int(100e6)       # Total steps
+    total_steps = int(5e6)       # Total steps
     alpha = 0.025                 # Learning rate
     gamma = 0.99                # Discount factor
     epsilon_start = 0.25        # Starting exploration rate
@@ -42,21 +45,21 @@ if __name__ == '__main__':
     current_steps = 0            # Track total steps so far
 
     # Define custom initialization ranges for each state variable
-    custom_state_range = {
-        "position": (-1.2, 0.4),  # Position
-        "velocity": (-0.07, 0.07)  # Velocity
-    }
+    # custom_state_range = {
+    #     "position": (-1.2, 0.4),  # Position
+    #     "velocity": (-0.07, 0.07)  # Velocity
+    # }
 
     with tqdm(total=total_steps, desc="Training Progress") as pbar:
         while current_steps < total_steps:
             # Reset environment and sample a random initial state
             state, _ = env.reset()
-            low = np.array([v[0] for v in custom_state_range.values()])
-            high = np.array([v[1] for v in custom_state_range.values()])
-            random_state = np.random.uniform(low, high)  # Randomly sample initial state
-
-            # Manually set the environment's state to the sampled random state
-            env.unwrapped.state = random_state
+            # low = np.array([v[0] for v in custom_state_range.values()])
+            # high = np.array([v[1] for v in custom_state_range.values()])
+            # random_state = np.random.uniform(low, high)  # Randomly sample initial state
+            #
+            # # Manually set the environment's state to the sampled random state
+            # env.unwrapped.state = random_state
 
             total_reward = 0
             done = False
@@ -140,7 +143,7 @@ if __name__ == '__main__':
 
     # Test the trained agent
     test_rewards = []
-    for _ in range(20):  # Perform 20 test episodes
+    for _ in range(10):  # Perform 20 test episodes
         state, _ = env.reset()
         total_reward = 0
         done = False

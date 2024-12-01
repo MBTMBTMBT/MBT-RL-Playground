@@ -6,7 +6,7 @@ import torch
 from torch import optim
 
 from sb3_vec_dataset import GymDataset
-from ae import DeterministicAE, ae_total_correlation_uniform_loss
+from ae import DeterministicAE, ae_total_correlation_uniform_loss, contrastive_loss_v2
 
 
 class AddNoiseDimensionWrapper(gym.Wrapper):
@@ -100,6 +100,7 @@ class AEWrapper(gym.Wrapper):
         self.reconstruction_loss = 0.0
         self.kl_divergence = 0.0
         self.total_uniform_loss = 0.0
+        self.contrastive_loss = 0.0
 
     def reset(self, **kwargs):
         """
@@ -196,31 +197,50 @@ class AEWrapper(gym.Wrapper):
         recon_losses = []
         total_correlations = []
         total_uniform_losses = []
+        contrastive_losses = []
 
         for _ in range(self.iterations):
             for batch in dataloader:
-                obss, actions, final_next_obss, rewards, dones = batch
+                obss, actions, next_obss, rewards, dones = batch
                 if self.do_normalize:
                     obss = self.normalize_state(obss)
                 obss = obss.to(self.device)
-                # actions = actions.to(self.device)
-                # final_next_obss = final_next_obss.to(self.device)
-                # rewards = rewards.to(self.device)
-                # dones = dones.to(self.device)
+                actions = actions.to(self.device)
+                next_obss = next_obss.to(self.device)
+                rewards = rewards.to(self.device)
+                dones = dones.to(self.device)
 
-                fake_obss, z = self.ae_model(obss)
-                loss, recon_loss_val, total_correlation, uniform_loss_val = ae_total_correlation_uniform_loss(
-                    fake_obss, obss, z, self.beta, self.gamma,
+                # fake_obss, z = self.ae_model(obss)
+                # loss, recon_loss_val, total_correlation, uniform_loss_val = ae_total_correlation_uniform_loss(
+                #     fake_obss, obss, z, self.beta, self.gamma,
+                # )
+
+                # Forward pass for obss and next_obss
+                fake_obss, z_obss = self.ae_model(obss)
+                _, z_next_obss = self.ae_model(next_obss)
+
+                # Calculate AE loss
+                ae_loss, recon_loss_val, total_correlation, uniform_loss_val = ae_total_correlation_uniform_loss(
+                    fake_obss, obss, z_obss, self.beta, self.gamma
                 )
 
+                # Contrastive loss
+                negative_indices = torch.randperm(z_obss.size(0)).tolist()
+                z_negative = z_obss[negative_indices]
+                contrastive_loss = contrastive_loss_v2(z_obss, z_next_obss, z_negative)
+
+                # Total loss
+                total_loss = ae_loss + 0.1 * contrastive_loss
+
                 # Record the loss value for each batch
-                total_losses.append(loss.item())
+                total_losses.append(total_loss.item())
                 recon_losses.append(recon_loss_val)
                 total_correlations.append(total_correlation)
                 total_uniform_losses.append(uniform_loss_val)
+                contrastive_losses.append(contrastive_loss.item())
 
                 self.optimizer.zero_grad()
-                loss.backward()
+                total_loss.backward()
                 self.optimizer.step()
 
         # Print all recorded losses
@@ -232,3 +252,4 @@ class AEWrapper(gym.Wrapper):
         self.reconstruction_loss = sum(recon_losses) / len(recon_losses)
         self.kl_divergence = sum(total_correlations) / len(total_correlations)
         self.total_uniform_loss = sum(total_uniform_losses) / len(total_uniform_losses)
+        self.contrastive_loss = sum(contrastive_losses) / len(contrastive_losses)

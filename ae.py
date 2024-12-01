@@ -164,6 +164,25 @@ def beta_vae_loss(recon_x: torch.Tensor, x: torch.Tensor, mu: torch.Tensor, logv
     return recon_loss + beta * kl_divergence, recon_loss.item(), kl_divergence.item()
 
 
+def contrastive_loss_v2(z_anchor: torch.Tensor, z_positive: torch.Tensor, z_negative: torch.Tensor) -> torch.Tensor:
+    """
+    Compute the contrastive loss for the given anchor, positive, and negative samples.
+
+    Parameters:
+    - z_anchor (torch.Tensor): Anchor latent representation.
+    - z_positive (torch.Tensor): Positive latent representation (similar sample).
+    - z_negative (torch.Tensor): Negative latent representation (dissimilar sample).
+
+    Returns:
+    - torch.Tensor: Contrastive loss value.
+    """
+    positive_dist = nn.functional.pairwise_distance(z_anchor, z_positive)
+    negative_dist = nn.functional.pairwise_distance(z_anchor, z_negative)
+    loss = torch.mean(positive_dist) - torch.mean(negative_dist)
+    loss = nn.functional.relu(loss)
+    return loss
+
+
 def main() -> None:
     # Hyperparameters
     num_input_values = 784  # Input dimension (e.g., 28x28 images for MNIST)
