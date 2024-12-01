@@ -449,19 +449,6 @@ class QTableAgent:
         # Update visit counts
         self.visit_counts[key] = self.visit_counts.get(key, 0) + 1
 
-        # values = np.array(list(self.q_table.values()))
-        #
-        # min_value, max_value = values.min(), values.max()
-        # if max_value - min_value > 0:
-        #     normalized_values = (values - min_value) / (max_value - min_value)
-        # else:
-        #     normalized_values = np.zeros_like(values)
-        #
-        # reduction_factors = 1 - (0.01 * normalized_values)
-        #
-        # for i, key in enumerate(self.q_table.keys()):
-        #     self.q_table[key] *= reduction_factors[i]
-
     def query_q_table(
             self,
             filters: List[Dict[str, Union[str, Any]]] = None,

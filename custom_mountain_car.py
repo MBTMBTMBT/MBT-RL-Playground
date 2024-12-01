@@ -1,8 +1,6 @@
 import numpy as np
 import math
 from typing import Optional
-
-import gymnasium as gym
 from gymnasium.envs.classic_control.mountain_car import MountainCarEnv
 
 
@@ -48,7 +46,8 @@ class CustomMountainCarEnv(MountainCarEnv):
             reward += -1.0 if not terminated else 0.0
         elif self.reward_type == 'progress':
             # Reward based on progress towards the goal, incentivizing movement to the right and higher speed
-            reward = (position - self.min_position) + velocity
+            reward = (position - self.min_position) if position >= 0.0 else 0.0
+            reward += velocity if velocity >= self.goal_velocity else 0.0
             reward += -1.0 if not terminated else 0.0
         else:
             raise ValueError(f"Unknown reward_type: {self.reward_type}")

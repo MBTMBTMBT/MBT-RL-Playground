@@ -15,7 +15,7 @@ if __name__ == '__main__':
 
     # Define MountainCar state and action spaces
     state_space = [
-        {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 32},  # Position
+        {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 24},  # Position
         {'type': 'continuous', 'range': (-0.07, 0.07), 'bins': 16}  # Velocity
     ]
 
@@ -34,8 +34,8 @@ if __name__ == '__main__':
     total_steps = int(2.5e6)       # Total steps
     alpha = 0.25                 # Learning rate
     gamma = 0.99                # Discount factor
-    epsilon_start = 0.5        # Starting exploration rate
-    epsilon_end = 0.1          # Minimum exploration rate
+    epsilon_start = 0.25        # Starting exploration rate
+    epsilon_end = 0.0          # Minimum exploration rate
     epsilon_decay = (epsilon_start - epsilon_end) / total_steps  # Linear decay rate
     epsilon = epsilon_start     # Initial exploration rate
 
