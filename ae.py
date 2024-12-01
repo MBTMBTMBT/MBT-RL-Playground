@@ -14,7 +14,7 @@ class Encoder(nn.Module):
         # Construct hidden layers based on net_arch
         for hidden_units in net_arch:
             layers.append(nn.Linear(input_dim, hidden_units))
-            layers.append(nn.LeakyReLU())  # Use leaky ReLU activation
+            layers.append(nn.ReLU())  # Use leaky ReLU activation
             input_dim = hidden_units
         self.net = nn.Sequential(*layers)
         # Final layer for latent representation
@@ -39,7 +39,7 @@ class VAEEncoder(nn.Module):
         # Construct hidden layers based on net_arch
         for hidden_units in net_arch:
             layers.append(nn.Linear(input_dim, hidden_units))
-            layers.append(nn.LeakyReLU())  # Use leaky ReLU activation
+            layers.append(nn.ReLU())  # Use leaky ReLU activation
             input_dim = hidden_units
         self.net = nn.Sequential(*layers)
         # Final layers for mean and log variance
@@ -63,7 +63,7 @@ class Decoder(nn.Module):
         # Construct hidden layers based on net_arch
         for hidden_units in reversed(net_arch):
             layers.append(nn.Linear(input_dim, hidden_units))
-            layers.append(nn.LeakyReLU())  # Use leaky ReLU activation
+            layers.append(nn.ReLU())  # Use leaky ReLU activation
             input_dim = hidden_units
         # Final layer to reconstruct the input
         layers.append(nn.Linear(net_arch[0], num_input_values))
@@ -90,28 +90,32 @@ class DeterministicAE(nn.Module):
 
 
 # Define the loss function
-def ae_total_correlation_loss(recon_x: torch.Tensor, x: torch.Tensor, z: torch.Tensor, beta: float) -> tuple[torch.Tensor, float, float]:
+def ae_total_correlation_uniform_loss(recon_x: torch.Tensor, x: torch.Tensor, z: torch.Tensor, beta: float, gamma: float) -> tuple[torch.Tensor, float, float, float]:
     """
-    Compute the Deterministic AE loss with Total Correlation regularization.
+    Compute the Deterministic AE loss with Total Correlation and Uniform regularization.
 
     Parameters:
     - recon_x (torch.Tensor): Reconstructed input.
     - x (torch.Tensor): Original input.
     - z (torch.Tensor): Latent representation.
     - beta (float): Weight for Total Correlation.
+    - gamma (float): Weight for Uniform Loss regularization.
 
     Returns:
-    - tuple[torch.Tensor, float, float]: Total loss, reconstruction loss, and Total Correlation.
+    - tuple[torch.Tensor, float, float, float]: Total loss, reconstruction loss, Total Correlation, and Uniform Loss.
     """
     # Reconstruction loss (Mean Squared Error)
-    recon_loss = nn.functional.mse_loss(recon_x, x, reduction='mean')
+    recon_loss = nn.functional.l1_loss(recon_x, x, reduction='mean')
     # Total Correlation (using variance of z as a proxy for dependence)
-    batch_size, latent_dim = z.size()
+    # batch_size, latent_dim = z.size()
     mean_z = torch.mean(z, dim=0)
     var_z = torch.mean((z - mean_z) ** 2, dim=0)
     total_correlation = torch.sum(var_z)
+    # Uniform Loss (encourage z to be uniformly distributed)
+    uniform_loss = torch.mean((z + 1) * (1 - z))  # Encouraging z values to be close to -1 or 1
     # Total loss
-    return recon_loss + beta * total_correlation, recon_loss.item(), total_correlation.item()
+    total_loss = recon_loss + beta * total_correlation + gamma * uniform_loss
+    return total_loss, recon_loss.item(), total_correlation.item(), uniform_loss.item()
 
 
 # Define the VAE class
@@ -153,7 +157,7 @@ def beta_vae_loss(recon_x: torch.Tensor, x: torch.Tensor, mu: torch.Tensor, logv
     - tuple[torch.Tensor, float, float]: Total loss, reconstruction loss, and KL divergence.
     """
     # Reconstruction loss (Mean Squared Error)
-    recon_loss = nn.functional.l1_loss(recon_x, x)
+    recon_loss = nn.functional.l1(recon_x, x)
     # KL divergence
     kl_divergence = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
     # Total loss

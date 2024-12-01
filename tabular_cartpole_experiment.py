@@ -90,6 +90,7 @@ def run_experiment(args):
             iterations=wrapper_args["iterations"],
             batch_size=wrapper_args["batch_size"],
             beta=wrapper_args["beta"],
+            gamma=wrapper_args["gamma"],
             lr=wrapper_args["lr"],
             state_min=wrapper_args["state_min"],
             state_max=wrapper_args["state_max"],
@@ -129,6 +130,7 @@ def run_experiment(args):
                                              f"Total Loss: {env.total_loss:.3f} | "
                                              f"Reconstruction Loss: {env.reconstruction_loss:.3f} | "
                                              f"Correlation: {env.kl_divergence:.3f} | "
+                                             f"Uniform Loss: {env.total_uniform_loss:.3f}"
                                              )
                     else:
                         pbar.set_description(f"[{group_name}] Run {run_id + 1} | "
@@ -217,13 +219,30 @@ if __name__ == '__main__':
 
     # Define experiment groups
     experiment_groups = [
+        # {
+        #     "group_name": "tb8",
+        #     "state_space": [
+        #         {'type': 'continuous', 'range': (-2.4, 2.4), 'bins': 8},
+        #         {'type': 'continuous', 'range': (-2, 2), 'bins': 8},
+        #         {'type': 'continuous', 'range': (-0.25, 0.25), 'bins': 8},
+        #         {'type': 'continuous', 'range': (-2, 2), 'bins': 8},
+        #     ],
+        #     "action_space": [{'type': 'discrete', 'bins': 2}],
+        #     "normal_partition_state": False,
+        #     "alpha": 0.25,
+        #     "gamma": 0.99,
+        #     "epsilon_start": 0.25,
+        #     "epsilon_end": 0.05,
+        #     "total_steps": int(0.5e6),
+        #     "runs": 4,
+        # },
         {
-            "group_name": "tb8",
+            "group_name": "ae16u",
             "state_space": [
-                {'type': 'continuous', 'range': (-2.4, 2.4), 'bins': 8},
-                {'type': 'continuous', 'range': (-2, 2), 'bins': 8},
-                {'type': 'continuous', 'range': (-0.25, 0.25), 'bins': 8},
-                {'type': 'continuous', 'range': (-2, 2), 'bins': 8},
+                {'type': 'continuous', 'range': (-1, 1), 'bins': 16},
+                {'type': 'continuous', 'range': (-1, 1), 'bins': 16},
+                {'type': 'continuous', 'range': (-1, 1), 'bins': 16},
+                {'type': 'continuous', 'range': (-1, 1), 'bins': 16},
             ],
             "action_space": [{'type': 'discrete', 'bins': 2}],
             "normal_partition_state": False,
@@ -231,33 +250,47 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
-            "total_steps": int(10e6),
-            "runs": 4,
-        },
-        {
-            "group_name": "ae8",
-            "state_space": [
-                {'type': 'continuous', 'range': (-1, 1), 'bins': 8},
-                {'type': 'continuous', 'range': (-1, 1), 'bins': 8},
-                {'type': 'continuous', 'range': (-1, 1), 'bins': 8},
-                {'type': 'continuous', 'range': (-1, 1), 'bins': 8},
-            ],
-            "action_space": [{'type': 'discrete', 'bins': 2}],
-            "normal_partition_state": False,
-            "alpha": 0.25,
-            "gamma": 0.99,
-            "epsilon_start": 0.25,
-            "epsilon_end": 0.05,
-            "total_steps": int(10e6),
-            "runs": 4,
+            "total_steps": int(15e6),
+            "runs": 1,
             "wrapper_args": {
                 "num_hidden_values": 4,
-                "net_arch": [32, 32,],
+                "net_arch": [64, 64, 64,],
                 # "buffer_size": int(1e5),
                 "buffer_size": 16384,
-                "iterations": 10,
+                "iterations": 1,
+                "batch_size": 32,
+                "beta": 0.01,
+                "gamma": 0.01,
+                "lr": 1e-4,
+                "state_min": np.array([-2.4, -2.0, -0.25, -2.0]),
+                "state_max": np.array([2.4, 2.0, 0.25, 2.0]),
+            }
+        },
+        {
+            "group_name": "ae16n",
+            "state_space": [
+                {'type': 'continuous', 'range': (-1, 1), 'bins': 16},
+                {'type': 'continuous', 'range': (-1, 1), 'bins': 16},
+                {'type': 'continuous', 'range': (-1, 1), 'bins': 16},
+                {'type': 'continuous', 'range': (-1, 1), 'bins': 16},
+            ],
+            "action_space": [{'type': 'discrete', 'bins': 2}],
+            "normal_partition_state": True,
+            "alpha": 0.25,
+            "gamma": 0.99,
+            "epsilon_start": 0.25,
+            "epsilon_end": 0.05,
+            "total_steps": int(15e6),
+            "runs": 1,
+            "wrapper_args": {
+                "num_hidden_values": 4,
+                "net_arch": [64, 64, 64, ],
+                # "buffer_size": int(1e5),
+                "buffer_size": 16384,
+                "iterations": 1,
                 "batch_size": 64,
-                "beta": 1.0,
+                "beta": 0.01,
+                "gamma": 0.01,
                 "lr": 1e-4,
                 "state_min": np.array([-2.4, -2.0, -0.25, -2.0]),
                 "state_max": np.array([2.4, 2.0, 0.25, 2.0]),

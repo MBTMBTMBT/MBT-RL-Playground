@@ -6,7 +6,7 @@ import torch
 from torch import optim
 
 from sb3_vec_dataset import GymDataset
-from ae import DeterministicAE, ae_total_correlation_loss
+from ae import DeterministicAE, ae_total_correlation_uniform_loss
 
 
 class AddNoiseDimensionWrapper(gym.Wrapper):
@@ -67,6 +67,7 @@ class AEWrapper(gym.Wrapper):
             iterations: int,
             batch_size: int,
             beta: float = 1.0,
+            gamma: float = 1.0,
             lr: float = 1e-4,
             state_min: np.ndarray = None,
             state_max: np.ndarray = None,
@@ -80,6 +81,7 @@ class AEWrapper(gym.Wrapper):
         self.batch_size = batch_size
         self.ae_model = DeterministicAE(self.observation_space.shape[0], num_hidden_values, net_arch, )
         self.beta = beta
+        self.gamma = gamma
         self.lr = lr
         self.optimizer = optim.Adam(self.ae_model.parameters(), lr=self.lr)
         self.device = device
@@ -97,6 +99,7 @@ class AEWrapper(gym.Wrapper):
         self.total_loss = 0.0
         self.reconstruction_loss = 0.0
         self.kl_divergence = 0.0
+        self.total_uniform_loss = 0.0
 
     def reset(self, **kwargs):
         """
@@ -152,9 +155,13 @@ class AEWrapper(gym.Wrapper):
         next_obs = next_obs.to(self.device)
         with torch.no_grad():
             next_obs = self.ae_model.encoder(next_obs)
-        # if self.do_normalize:
-        #     next_obs = self.denormalize_state(next_obs)
-        next_obs = next_obs.cpu().squeeze().numpy()
+            # if self.do_normalize:
+            #     _next_obs = self.denormalize_state(self.ae_model.decoder(next_obs)).cpu().squeeze().numpy()
+            #     next_obs = next_obs.cpu().squeeze().numpy()
+            #     print("Original Obs: ", self.previous_obs, "Reconstructed Obs: ", _next_obs)
+            # else:
+            #     next_obs = next_obs.cpu().squeeze().numpy()
+            next_obs = next_obs.cpu().squeeze().numpy()
         return next_obs, reward, done, truncated, info
 
     def save_model(self, path):
@@ -188,6 +195,7 @@ class AEWrapper(gym.Wrapper):
         total_losses = []
         recon_losses = []
         total_correlations = []
+        total_uniform_losses = []
 
         for _ in range(self.iterations):
             for batch in dataloader:
@@ -201,14 +209,15 @@ class AEWrapper(gym.Wrapper):
                 # dones = dones.to(self.device)
 
                 fake_obss, z = self.ae_model(obss)
-                loss, recon_loss_val, total_correlation = ae_total_correlation_loss(
-                    fake_obss, obss, z, self.beta,
+                loss, recon_loss_val, total_correlation, uniform_loss_val = ae_total_correlation_uniform_loss(
+                    fake_obss, obss, z, self.beta, self.gamma,
                 )
 
                 # Record the loss value for each batch
                 total_losses.append(loss.item())
                 recon_losses.append(recon_loss_val)
                 total_correlations.append(total_correlation)
+                total_uniform_losses.append(uniform_loss_val)
 
                 self.optimizer.zero_grad()
                 loss.backward()
@@ -222,3 +231,4 @@ class AEWrapper(gym.Wrapper):
         self.total_loss = sum(total_losses) / len(total_losses)
         self.reconstruction_loss = sum(recon_losses) / len(recon_losses)
         self.kl_divergence = sum(total_correlations) / len(total_correlations)
+        self.total_uniform_loss = sum(total_uniform_losses) / len(total_uniform_losses)
