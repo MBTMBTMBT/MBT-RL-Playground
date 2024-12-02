@@ -12,52 +12,24 @@ if __name__ == '__main__':
     # Define experiment groups
     experiment_groups = [
         {
-            "group_name": "MC-25-5",
+            "group_name": "MC-50-16",
             "env_id": "Custom-MountainCar",
             "train_env_params": [
                 {
                     "render_mode": "rgb_array",
                     "goal_velocity": 0,
-                    "custom_gravity": 0.0005,
-                    "max_episode_steps": 200,
+                    "custom_gravity": g,
+                    "max_episode_steps": 800,
                     "reward_type": 'default',
-                },
-                {
-                    "render_mode": "rgb_array",
-                    "goal_velocity": 0,
-                    "custom_gravity": 0.0010,
-                    "max_episode_steps": 200,
-                    "reward_type": 'default',
-                },
-                {
-                    "render_mode": "rgb_array",
-                    "goal_velocity": 0,
-                    "custom_gravity": 0.0015,
-                    "max_episode_steps": 200,
-                    "reward_type": 'default',
-                },
-                {
-                    "render_mode": "rgb_array",
-                    "goal_velocity": 0,
-                    "custom_gravity": 0.0020,
-                    "max_episode_steps": 200,
-                    "reward_type": 'default',
-                },
-                {
-                    "render_mode": "rgb_array",
-                    "goal_velocity": 0,
-                    "custom_gravity": 0.0025,
-                    "max_episode_steps": 200,
-                    "reward_type": 'default',
-                },
+                } for g in np.linspace(0.0005, 0.0050, 16)
             ],
             "test_per_num_steps": int(0.1e6),
             "test_runs": 10,
             "test_env_params": {
                 "render_mode": "rgb_array",
                 "goal_velocity": 0,
-                "custom_gravity": 0.0025,
-                "max_episode_steps": 200,
+                "custom_gravity": 0.0050,
+                "max_episode_steps": 800,
                 "reward_type": 'default',
             },
             "state_space": [
@@ -73,45 +45,24 @@ if __name__ == '__main__':
             "runs": 3,
         },
         {
-            "group_name": "MC-25-4",
+            "group_name": "MC-50-12",
             "env_id": "Custom-MountainCar",
             "train_env_params": [
                 {
                     "render_mode": "rgb_array",
                     "goal_velocity": 0,
-                    "custom_gravity": 0.0005,
-                    "max_episode_steps": 200,
+                    "custom_gravity": g,
+                    "max_episode_steps": 800,
                     "reward_type": 'default',
-                },
-                {
-                    "render_mode": "rgb_array",
-                    "goal_velocity": 0,
-                    "custom_gravity": 0.0012,
-                    "max_episode_steps": 200,
-                    "reward_type": 'default',
-                },
-                {
-                    "render_mode": "rgb_array",
-                    "goal_velocity": 0,
-                    "custom_gravity": 0.0018,
-                    "max_episode_steps": 200,
-                    "reward_type": 'default',
-                },
-                {
-                    "render_mode": "rgb_array",
-                    "goal_velocity": 0,
-                    "custom_gravity": 0.0025,
-                    "max_episode_steps": 200,
-                    "reward_type": 'default',
-                },
+                } for g in np.linspace(0.0005, 0.0050, 12)
             ],
             "test_per_num_steps": int(0.1e6),
             "test_runs": 10,
             "test_env_params": {
                 "render_mode": "rgb_array",
                 "goal_velocity": 0,
-                "custom_gravity": 0.0025,
-                "max_episode_steps": 200,
+                "custom_gravity": 0.0050,
+                "max_episode_steps": 800,
                 "reward_type": 'default',
             },
             "state_space": [
@@ -127,38 +78,24 @@ if __name__ == '__main__':
             "runs": 3,
         },
         {
-            "group_name": "MC-25-3",
+            "group_name": "MC-50-8",
             "env_id": "Custom-MountainCar",
             "train_env_params": [
                 {
                     "render_mode": "rgb_array",
                     "goal_velocity": 0,
-                    "custom_gravity": 0.0005,
-                    "max_episode_steps": 200,
+                    "custom_gravity": g,
+                    "max_episode_steps": 800,
                     "reward_type": 'default',
-                },
-                {
-                    "render_mode": "rgb_array",
-                    "goal_velocity": 0,
-                    "custom_gravity": 0.0015,
-                    "max_episode_steps": 200,
-                    "reward_type": 'default',
-                },
-                {
-                    "render_mode": "rgb_array",
-                    "goal_velocity": 0,
-                    "custom_gravity": 0.0025,
-                    "max_episode_steps": 200,
-                    "reward_type": 'default',
-                },
+                } for g in np.linspace(0.0005, 0.0050, 8)
             ],
             "test_per_num_steps": int(0.1e6),
             "test_runs": 10,
             "test_env_params": {
                 "render_mode": "rgb_array",
                 "goal_velocity": 0,
-                "custom_gravity": 0.0025,
-                "max_episode_steps": 200,
+                "custom_gravity": 0.0050,
+                "max_episode_steps": 800,
                 "reward_type": 'default',
             },
             "state_space": [
