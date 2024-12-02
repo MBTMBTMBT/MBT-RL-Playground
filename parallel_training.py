@@ -255,7 +255,7 @@ if __name__ == '__main__':
                 },
             ],
             "test_per_num_steps": int(0.001e6),
-            "test_runs": 10,
+            "test_runs": 1,
             "test_env_params": {
                 "render_mode": "rgb_array",
                 "goal_velocity": 0,
@@ -288,7 +288,7 @@ if __name__ == '__main__':
                 },
             ],
             "test_per_num_steps": int(0.001e6),
-            "test_runs": 10,
+            "test_runs": 1,
             "test_env_params": {
                 "render_mode": "rgb_array",
                 "goal_velocity": 0,
@@ -319,7 +319,7 @@ if __name__ == '__main__':
 
     for i, (group_name, (avg_rewards, std_rewards, steps, avg_test_reward)) in enumerate(aggregated_results.items()):
         # Plot training curve
-        sigma = 1  # Standard deviation for Gaussian kernel
+        sigma = 3  # Standard deviation for Gaussian kernel
         avg_rewards = gaussian_filter1d(avg_rewards, sigma=sigma)
         std_rewards = gaussian_filter1d(std_rewards, sigma=sigma)
 
@@ -379,5 +379,5 @@ if __name__ == '__main__':
     print("Saving training curve...")
     # Display figure and save as PNG
     plotly_png_path = os.path.join(save_dir, "aggregated_training_results_plotly.png")
-    pio.write_image(fig, plotly_png_path, format='png', scale=3, width=1600, height=900)
+    pio.write_image(fig, plotly_png_path, format='png', scale=3, width=1200, height=675)
     print(f"Aggregated training results saved to {plotly_png_path}")
