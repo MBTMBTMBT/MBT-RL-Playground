@@ -21,7 +21,7 @@ if __name__ == '__main__':
                     "custom_gravity": g,
                     "max_episode_steps": 200,
                     "reward_type": 'default',
-                } for g in np.linspace(0.0005, 0.0025, 5)
+                } for g in np.linspace(0.0005, 0.0025, 3)
             ],
             "test_per_num_steps": int(0.1e6),
             "test_runs": 10,
@@ -41,7 +41,7 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
-            "total_steps": int(50e6),
+            "total_steps": int(30e6),
             "runs": 3,
         },
         {
@@ -54,7 +54,7 @@ if __name__ == '__main__':
                     "custom_gravity": g,
                     "max_episode_steps": 200,
                     "reward_type": 'default',
-                } for g in np.linspace(0.0010, 0.0025, 5)
+                } for g in np.linspace(0.0010, 0.0025, 3)
             ],
             "test_per_num_steps": int(0.1e6),
             "test_runs": 10,
@@ -74,7 +74,7 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
-            "total_steps": int(50e6),
+            "total_steps": int(30e6),
             "runs": 3,
         },
         {
@@ -87,7 +87,7 @@ if __name__ == '__main__':
                     "custom_gravity": g,
                     "max_episode_steps": 200,
                     "reward_type": 'default',
-                } for g in np.linspace(0.0015, 0.0025, 5)
+                } for g in np.linspace(0.0015, 0.0025, 3)
             ],
             "test_per_num_steps": int(0.1e6),
             "test_runs": 10,
@@ -107,7 +107,7 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
-            "total_steps": int(50e6),
+            "total_steps": int(30e6),
             "runs": 3,
         },
         {
@@ -140,7 +140,7 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
-            "total_steps": int(50e6),
+            "total_steps": int(30e6),
             "runs": 3,
         },
     ]
@@ -157,7 +157,7 @@ if __name__ == '__main__':
     ]
 
     # Target number of points for the plot
-    target_points = 8192
+    target_points = 2048
 
     for i, (group_name, (avg_rewards, std_rewards, avg_test_reward)) in enumerate(aggregated_results.items()):
         total_steps = experiment_groups[i]["total_steps"]
