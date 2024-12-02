@@ -86,7 +86,6 @@ def run_experiment(args):
     test_runs = group["test_runs"]
 
     curriculum_steps = total_steps // len(envs)
-    print(f"Curriculum stage: {curriculum_steps}")
     # Training
     with tqdm(total=total_steps, desc=f"[{group_name}] Run {run_id}", leave=False) as pbar:
         avg_test_reward = 0.0  # Initialize avg_test_reward to avoid UnboundLocalError
