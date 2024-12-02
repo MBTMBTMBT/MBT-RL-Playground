@@ -77,23 +77,35 @@ def run_experiment(args):
 
     # Initialize CartPole environment
     if env_id in CUSTOM_ENVS:
-        env = CUSTOM_ENVS[env_id](**group["train_env_params"])
+        envs = [CUSTOM_ENVS[env_id](**(group["train_env_params"][i])) for i in range(len(group["train_env_params"]))]
         test_env = CUSTOM_ENVS[env_id](**group["test_env_params"])
     else:
-        env = gym.make(env_id, render_mode="rgb_array")
+        envs = [gym.make(env_id, render_mode="rgb_array")]
         test_env = gym.make(env_id, render_mode="rgb_array")
     test_per_num_steps = group["test_per_num_steps"]
     test_runs = group["test_runs"]
 
+    curriculum_steps = total_steps // len(envs)
+    print(f"Curriculum stage: {curriculum_steps}")
     # Training
     with tqdm(total=total_steps, desc=f"[{group_name}] Run {run_id + 1}", leave=False) as pbar:
         avg_test_reward = 0.0  # Initialize avg_test_reward to avoid UnboundLocalError
+        env = envs[0]
         while current_steps < total_steps:
             state, _ = env.reset()
             total_reward = 0
             done = False
 
             while not done:
+                if current_steps % curriculum_steps == 0 and current_steps > 0:
+                    env = envs[current_steps // curriculum_steps]
+                    state, _ = env.reset()
+                    q_table_path = os.path.join(
+                        save_dir,
+                        f"{group_name}_run_{run_id + 1}_q_table_{current_steps // curriculum_steps}.csv",
+                    )
+                    agent.save_q_table(q_table_path)
+
                 if np.random.random() < epsilon:
                     action = [np.random.choice([0, 1])]
                 else:
@@ -142,7 +154,7 @@ def run_experiment(args):
                     break
 
     # Save Q-Table and training data
-    q_table_path = os.path.join(save_dir, f"{group_name}_run_{run_id + 1}_q_table.csv")
+    q_table_path = os.path.join(save_dir, f"{group_name}_run_{run_id + 1}_q_table_final.csv")
     agent.save_q_table(q_table_path)
     training_data_path = os.path.join(save_dir, f"{group_name}_run_{run_id + 1}_training_data.csv")
     pd.DataFrame(test_rewards, columns=["Step", "Avg Test Reward"]).to_csv(training_data_path, index=False)
@@ -228,21 +240,37 @@ if __name__ == '__main__':
     # Define experiment groups
     experiment_groups = [
         {
-            "group_name": "MC-25",
+            "group_name": "MC-15-3",
             "env_id": "Custom-MountainCar",
-            "train_env_params": {
-                "render_mode": "rgb_array",
-                "goal_velocity": 0,
-                "custom_gravity": 0.0025,
-                "max_episode_steps": 200,
-                "reward_type": 'progress',
-            },
+            "train_env_params": [
+                {
+                    "render_mode": "rgb_array",
+                    "goal_velocity": 0,
+                    "custom_gravity": 0.0005,
+                    "max_episode_steps": 200,
+                    "reward_type": 'progress',
+                },
+                {
+                    "render_mode": "rgb_array",
+                    "goal_velocity": 0,
+                    "custom_gravity": 0.0010,
+                    "max_episode_steps": 200,
+                    "reward_type": 'progress',
+                },
+                {
+                    "render_mode": "rgb_array",
+                    "goal_velocity": 0,
+                    "custom_gravity": 0.0015,
+                    "max_episode_steps": 200,
+                    "reward_type": 'progress',
+                },
+            ],
             "test_per_num_steps": int(0.1e6),
             "test_runs": 10,
             "test_env_params": {
                 "render_mode": "rgb_array",
                 "goal_velocity": 0,
-                "custom_gravity": 0.0025,
+                "custom_gravity": 0.0015,
                 "max_episode_steps": 200,
                 "reward_type": 'progress',
             },
@@ -255,25 +283,34 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
-            "total_steps": int(5e6),
+            "total_steps": int(25e6),
             "runs": 3,
         },
         {
-            "group_name": "MC-20",
+            "group_name": "MC-15-2",
             "env_id": "Custom-MountainCar",
-            "train_env_params": {
-                "render_mode": "rgb_array",
-                "goal_velocity": 0,
-                "custom_gravity": 0.0020,
-                "max_episode_steps": 200,
-                "reward_type": 'progress',
-            },
+            "train_env_params": [
+                {
+                    "render_mode": "rgb_array",
+                    "goal_velocity": 0,
+                    "custom_gravity": 0.0010,
+                    "max_episode_steps": 200,
+                    "reward_type": 'progress',
+                },
+                {
+                    "render_mode": "rgb_array",
+                    "goal_velocity": 0,
+                    "custom_gravity": 0.0015,
+                    "max_episode_steps": 200,
+                    "reward_type": 'progress',
+                },
+            ],
             "test_per_num_steps": int(0.1e6),
             "test_runs": 10,
             "test_env_params": {
                 "render_mode": "rgb_array",
                 "goal_velocity": 0,
-                "custom_gravity": 0.0025,
+                "custom_gravity": 0.0015,
                 "max_episode_steps": 200,
                 "reward_type": 'progress',
             },
@@ -286,7 +323,40 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
-            "total_steps": int(5e6),
+            "total_steps": int(25e6),
+            "runs": 3,
+        },
+        {
+            "group_name": "MC-15-1",
+            "env_id": "Custom-MountainCar",
+            "train_env_params": [
+                {
+                    "render_mode": "rgb_array",
+                    "goal_velocity": 0,
+                    "custom_gravity": 0.0015,
+                    "max_episode_steps": 200,
+                    "reward_type": 'progress',
+                },
+            ],
+            "test_per_num_steps": int(0.1e6),
+            "test_runs": 10,
+            "test_env_params": {
+                "render_mode": "rgb_array",
+                "goal_velocity": 0,
+                "custom_gravity": 0.0015,
+                "max_episode_steps": 200,
+                "reward_type": 'progress',
+            },
+            "state_space": [
+                {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 16},  # Position
+                {'type': 'continuous', 'range': (-0.07, 0.07), 'bins': 16}  # Velocity
+            ],
+            "action_space": [{'type': 'discrete', 'bins': 3}],
+            "alpha": 0.1,
+            "gamma": 0.99,
+            "epsilon_start": 0.25,
+            "epsilon_end": 0.05,
+            "total_steps": int(25e6),
             "runs": 3,
         },
     ]
