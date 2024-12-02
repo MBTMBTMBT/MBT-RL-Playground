@@ -2,7 +2,9 @@ import numpy as np
 import gymnasium as gym
 from matplotlib import pyplot as plt
 from matplotlib.animation import FuncAnimation
-from scipy.ndimage import gaussian_filter1d
+import plotly.graph_objs as go
+import plotly.subplots as sp
+import plotly.io as pio
 from tqdm import tqdm
 from concurrent.futures import ProcessPoolExecutor
 import os
@@ -15,28 +17,6 @@ from q_table_agent import QTableAgent
 CUSTOM_ENVS = {
     "Custom-MountainCar": CustomMountainCarEnv,
 }
-
-
-# Helper function to align training rewards using step
-def align_training_rewards_with_steps(all_training_results, total_steps):
-    """
-    Align training rewards to a fixed number of steps for consistent plotting.
-
-    :param all_training_results: List of step-reward tuples for all runs.
-    :param total_steps: The total number of steps in the experiment.
-    :return: A numpy array of aligned rewards averaged across all runs.
-    """
-    aligned_rewards = []
-    for step_rewards in all_training_results:
-        steps, rewards = zip(*step_rewards)
-        # Interpolate rewards to align with total_steps
-        interpolated_rewards = np.interp(
-            np.linspace(1, total_steps, total_steps),
-            steps,
-            rewards
-        )
-        aligned_rewards.append(interpolated_rewards)
-    return np.mean(aligned_rewards, axis=0), np.std(aligned_rewards, axis=0)  # Return mean and std
 
 
 # Generate GIF for the final test episode
@@ -182,7 +162,8 @@ def run_experiment(args):
             if done or truncated:
                 break
         final_test_rewards.append(total_reward)
-    test_rewards.append((current_steps, np.mean(final_test_rewards)))  # Append the final test result to test_rewards
+    if current_steps % test_per_num_steps >= test_per_num_steps // 2:
+        test_rewards.append((current_steps, np.mean(final_test_rewards)))  # Append the final test result to test_rewards
 
     # Save GIF for the first test episode
     gif_path = os.path.join(save_dir, f"{group_name}_run_{run_id}_test.gif")
@@ -222,13 +203,18 @@ def run_all_experiments(experiment_groups, save_dir, max_workers):
         total_steps = group["total_steps"]
         all_training_results, all_testing_results = zip(*group_results[group_name])
 
-        # Align rewards with steps and compute mean and std
-        avg_training_rewards, std_training_rewards = align_training_rewards_with_steps(
-            all_training_results, total_steps
-        )
+        steps, rewards = [], []
+        for step_rewards in all_training_results:
+            step, reward = zip(*step_rewards)
+            steps.append(step)
+            rewards.append(reward)
+        avg_rewards = np.mean(rewards, axis=0)
+        std_rewards = np.std(rewards, axis=0)
+        steps = np.array(steps[0])
+
         avg_testing_rewards = np.mean(all_testing_results)
 
-        aggregated_results[group_name] = (avg_training_rewards, std_training_rewards, avg_testing_rewards)
+        aggregated_results[group_name] = (avg_rewards, std_rewards, steps, avg_testing_rewards)
 
     return aggregated_results
 
@@ -242,7 +228,7 @@ if __name__ == '__main__':
     # Define experiment groups
     experiment_groups = [
         {
-            "group_name": "MC-15-3",
+            "group_name": "MC-test-1",
             "env_id": "Custom-MountainCar",
             "train_env_params": [
                 {
@@ -267,7 +253,7 @@ if __name__ == '__main__':
                     "reward_type": 'progress',
                 },
             ],
-            "test_per_num_steps": int(0.1e6),
+            "test_per_num_steps": int(0.01e6),
             "test_runs": 10,
             "test_env_params": {
                 "render_mode": "rgb_array",
@@ -285,51 +271,11 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
-            "total_steps": int(1e6),
+            "total_steps": int(0.1e6),
             "runs": 3,
         },
         {
-            "group_name": "MC-15-2",
-            "env_id": "Custom-MountainCar",
-            "train_env_params": [
-                {
-                    "render_mode": "rgb_array",
-                    "goal_velocity": 0,
-                    "custom_gravity": 0.0010,
-                    "max_episode_steps": 200,
-                    "reward_type": 'progress',
-                },
-                {
-                    "render_mode": "rgb_array",
-                    "goal_velocity": 0,
-                    "custom_gravity": 0.0015,
-                    "max_episode_steps": 200,
-                    "reward_type": 'progress',
-                },
-            ],
-            "test_per_num_steps": int(0.1e6),
-            "test_runs": 10,
-            "test_env_params": {
-                "render_mode": "rgb_array",
-                "goal_velocity": 0,
-                "custom_gravity": 0.0015,
-                "max_episode_steps": 200,
-                "reward_type": 'progress',
-            },
-            "state_space": [
-                {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 16},  # Position
-                {'type': 'continuous', 'range': (-0.07, 0.07), 'bins': 16}  # Velocity
-            ],
-            "action_space": [{'type': 'discrete', 'bins': 3}],
-            "alpha": 0.1,
-            "gamma": 0.99,
-            "epsilon_start": 0.25,
-            "epsilon_end": 0.05,
-            "total_steps": int(1e6),
-            "runs": 3,
-        },
-        {
-            "group_name": "MC-15-1",
+            "group_name": "MC-test-2",
             "env_id": "Custom-MountainCar",
             "train_env_params": [
                 {
@@ -340,7 +286,7 @@ if __name__ == '__main__':
                     "reward_type": 'progress',
                 },
             ],
-            "test_per_num_steps": int(0.1e6),
+            "test_per_num_steps": int(0.01e6),
             "test_runs": 10,
             "test_env_params": {
                 "render_mode": "rgb_array",
@@ -358,7 +304,7 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
-            "total_steps": int(1e6),
+            "total_steps": int(0.1e6),
             "runs": 3,
         },
     ]
@@ -367,60 +313,66 @@ if __name__ == '__main__':
     max_workers = 12  # Number of parallel processes
     aggregated_results = run_all_experiments(experiment_groups, save_dir, max_workers)
 
-    plt.figure(figsize=(12, 8))
-    linestyles = [
-        '-', '--', '-.', ':', (0, (1, 1)), (0, (5, 1)),
-        (0, (3, 1, 1, 1)), (0, (3, 5, 1, 5)), (0, (5, 10)),
-        (0, (1, 10)), (0, (5, 5, 1, 5)), (0, (2, 2, 1, 2))
-    ]
+    # Create a figure object
+    fig = sp.make_subplots(rows=1, cols=1, subplot_titles=["Training Results Across Experiment Groups"])
 
-    # Target number of points for the plot
-    target_points = 2048
+    for i, (group_name, (avg_rewards, std_rewards, steps, avg_test_reward)) in enumerate(aggregated_results.items()):
+        # Plot training curve
+        trace = go.Scatter(
+            x=steps,
+            y=avg_rewards,
+            mode='lines+markers',
+            name=f'{group_name} Smoothed Training Avg',
+            line_shape='spline'  # Smooth curve
+        )
 
-    for i, (group_name, (avg_rewards, std_rewards, avg_test_reward)) in enumerate(aggregated_results.items()):
-        total_steps = experiment_groups[i]["total_steps"]
-        total_points = len(avg_rewards)
-        downsample_rate = max(1, total_points // target_points)
+        # Plot standard deviation area
+        trace_std = go.Scatter(
+            x=list(steps) + list(steps)[::-1],
+            y=[v + s for v, s in zip(avg_rewards, std_rewards)] + [v - s for v, s in zip(avg_rewards, std_rewards)][
+                                                                  ::-1],
+            fill='toself',
+            fillcolor='rgba(0,100,80,0.2)',
+            line=dict(color='rgba(255,255,255,0)'),
+            name=f'{group_name} Training Std Dev',
+            showlegend=False
+        )
 
-        # Step 1: Apply Gaussian smoothing for anti-aliasing
-        avg_rewards_array = np.array(avg_rewards)
-        std_rewards_array = np.array(std_rewards)
-        sigma = downsample_rate / 2  # Adjust sigma to reduce high-frequency noise
-        smoothed_rewards = gaussian_filter1d(avg_rewards_array, sigma=sigma)
-        smoothed_std = gaussian_filter1d(std_rewards_array, sigma=sigma)
+        # Plot test average line
+        trace_test = go.Scatter(
+            x=[min(steps), max(steps)],
+            y=[avg_test_reward, avg_test_reward],
+            mode='lines',
+            name=f'{group_name} Test Avg',
+            line=dict(dash='dash', color='black')
+        )
 
-        # Step 2: Downsample the smoothed data with averaging
-        avg_rewards_downsampled = [np.mean(smoothed_rewards[i:i + downsample_rate]) for i in
-                                   range(0, len(smoothed_rewards), downsample_rate)]
-        std_rewards_downsampled = [np.mean(smoothed_std[i:i + downsample_rate]) for i in
-                                   range(0, len(smoothed_std), downsample_rate)]
-        steps = np.linspace(1, total_steps, len(avg_rewards_downsampled))
+        # Add traces to the figure
+        fig.add_trace(trace, row=1, col=1)
+        fig.add_trace(trace_std, row=1, col=1)
+        fig.add_trace(trace_test, row=1, col=1)
 
-        # Step 3: Apply Gaussian smoothing after downsampling
-        final_sigma = 5  # Separate sigma for post-downsampling smoothing
-        final_smoothed_rewards = gaussian_filter1d(avg_rewards_downsampled, sigma=final_sigma)
-        final_smoothed_std = gaussian_filter1d(std_rewards_downsampled, sigma=final_sigma)
+        # Add annotation for test average
+        fig.add_annotation(
+            x=max(steps) * 0.98,
+            y=avg_test_reward,
+            text=f'{avg_test_reward:.2f}',
+            showarrow=False,
+            xanchor='right',
+            yanchor='bottom'
+        )
 
-        # Plotting
-        color = plt.cm.tab10(i % 10)
+    # Update figure layout
+    fig.update_layout(
+        title="Training Results Across Experiment Groups",
+        xaxis_title="Steps",
+        yaxis_title="Average Reward",
+        legend_title="Groups",
+        template="plotly_white"
+    )
 
-        plt.plot(steps, final_smoothed_rewards, color=color, linestyle='-', alpha=0.8,
-                 label=f'{group_name} Smoothed Training Avg')
-        plt.fill_between(steps,
-                         np.array(final_smoothed_rewards) - np.array(final_smoothed_std),
-                         np.array(final_smoothed_rewards) + np.array(final_smoothed_std),
-                         color=color, alpha=0.25, label=f'{group_name} Training Std Dev')
-        plt.axhline(avg_test_reward, color="black", linestyle=linestyles[i % len(linestyles)],
-                    label=f'{group_name} Test Avg', alpha=0.9)
-        plt.text(total_steps * 0.98, avg_test_reward + 2,
-                 f'{avg_test_reward:.2f}', color="black", fontsize=10,
-                 horizontalalignment='right', verticalalignment='bottom')
-
-    plt.title("Training Results Across Experiment Groups")
-    plt.xlabel("Steps")
-    plt.ylabel("Average Reward")
-    plt.legend()
-    plt.grid()
-    plot_path = os.path.join(save_dir, "aggregated_training_results.png")
-    plt.savefig(plot_path, dpi=300, bbox_inches="tight")
-    print(f"Aggregated training results saved to {plot_path}")
+    print("saving...")
+    # Display figure and save as PNG
+    plotly_png_path = os.path.join(save_dir, "aggregated_training_results_plotly.png")
+    pio.write_image(fig, plotly_png_path, format='png', scale=3, width=3840, height=2160)
+    print(f"Aggregated training results saved to {plotly_png_path}")
