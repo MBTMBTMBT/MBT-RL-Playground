@@ -106,7 +106,7 @@ def run_experiment(args):
                     state, _ = env.reset()
                     q_table_path = os.path.join(
                         save_dir,
-                        f"{group_name}_run_{run_id + 1}_q_table_{current_steps // curriculum_steps}.csv",
+                        f"{group_name}_run_{run_id}_q_table_{current_steps // curriculum_steps}.csv",
                     )
                     agent.save_q_table(q_table_path)
 
