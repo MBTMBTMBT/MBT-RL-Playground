@@ -1,14 +1,19 @@
 import numpy as np
 import gymnasium as gym
-import torch
 from matplotlib import pyplot as plt
 from matplotlib.animation import FuncAnimation
 from tqdm import tqdm
 from concurrent.futures import ProcessPoolExecutor
 import os
 import pandas as pd
+
+from custom_mountain_car import CustomMountainCarEnv
 from q_table_agent import QTableAgent
-from wrappers import AEWrapper
+
+
+CUSTOM_ENVS = {
+    "Custom-MountainCar": CustomMountainCarEnv,
+}
 
 
 # Helper function to align training rewards using step
@@ -33,7 +38,6 @@ def align_training_rewards_with_steps(all_training_results, total_steps):
     return np.mean(aligned_rewards, axis=0), np.std(aligned_rewards, axis=0)  # Return mean and std
 
 
-
 # Generate GIF for the final test episode
 def generate_test_gif(frames, gif_path):
     fig, ax = plt.subplots()
@@ -53,6 +57,7 @@ def generate_test_gif(frames, gif_path):
 # Single experiment runner
 def run_experiment(args):
     group, run_id, save_dir = args
+    env_id = group['env_id']
     total_steps = group["total_steps"]
     alpha = group["alpha"]
     gamma = group["gamma"]
@@ -61,39 +66,28 @@ def run_experiment(args):
     state_space = group["state_space"]
     action_space = group["action_space"]
     group_name = group["group_name"]
-    use_normal_partition_state = group["normal_partition_state"]
     epsilon_decay = (epsilon_start - epsilon_end) / total_steps
-    step_rewards = []
+    training_rewards = []
     test_rewards = []
     current_steps = 0
     epsilon = epsilon_start
 
     # Create QTableAgent
-    agent = QTableAgent(state_space, action_space, normal_partition_state=use_normal_partition_state)
+    agent = QTableAgent(state_space, action_space)
 
     # Initialize CartPole environment
-    env = gym.make('CartPole-v1')
-
-    if "wrapper_args" in group.keys():
-        wrapper_args = group["wrapper_args"]
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        # device = torch.device("cpu")
-        print(f"Using {device} device")
-        env = AEWrapper(
-            env,
-            num_hidden_values=wrapper_args["num_hidden_values"],
-            net_arch=wrapper_args["net_arch"],
-            do_training=True,
-            buffer_size=wrapper_args["buffer_size"],
-            iterations=wrapper_args["iterations"],
-            batch_size=wrapper_args["batch_size"],
-            beta=wrapper_args["beta"],
-            lr=wrapper_args["lr"],
-            device=device,
-        )
+    if env_id in CUSTOM_ENVS:
+        env = CUSTOM_ENVS[env_id](**group["train_env_params"])
+        test_env = CUSTOM_ENVS[env_id](**group["test_env_params"])
+    else:
+        env = gym.make(env_id, render_mode="rgb_array")
+        test_env = gym.make(env_id, render_mode="rgb_array")
+    test_per_num_steps = group["test_per_num_steps"]
+    test_runs = group["test_runs"]
 
     # Training
     with tqdm(total=total_steps, desc=f"[{group_name}] Run {run_id + 1}", leave=False) as pbar:
+        avg_test_reward = 0.0  # Initialize avg_test_reward to avoid UnboundLocalError
         while current_steps < total_steps:
             state, _ = env.reset()
             total_reward = 0
@@ -115,47 +109,76 @@ def run_experiment(args):
                 epsilon = max(epsilon_end, epsilon - epsilon_decay)
                 pbar.update(1)
 
-                if done or truncated:
-                    step_rewards.append((current_steps, total_reward))
-                    recent_avg = np.mean([r for _, r in step_rewards[-10:]])
+                # Periodic testing
+                if current_steps % test_per_num_steps == 0:
+                    periodic_test_rewards = []
+                    for _ in range(test_runs):
+                        test_state, _ = test_env.reset()
+                        test_total_reward = 0
+                        test_done = False
+                        while not test_done:
+                            test_action = [np.argmax(agent.get_action_probabilities(test_state, strategy="softmax"))]
+                            test_next_state, test_reward, test_done, test_truncated, _ = test_env.step(test_action[0])
+                            test_state = test_next_state
+                            test_total_reward += test_reward
+                            if test_done or test_truncated:
+                                break
+                        periodic_test_rewards.append(test_total_reward)
+                    avg_test_reward = np.mean(periodic_test_rewards)
+                    recent_avg = np.mean([r for _, r in training_rewards[-10:]])
                     pbar.set_description(f"[{group_name}] Run {run_id + 1} | "
                                          f"Epsilon: {epsilon:.4f} | "
-                                         f"Recent Avg Reward: {recent_avg:.2f}")
+                                         f"Recent Avg Reward: {recent_avg:.2f} | "
+                                         f"Avg Test Reward: {avg_test_reward:.2f}")
+                    test_rewards.append((current_steps, avg_test_reward))
+
+                if done or truncated:
+                    training_rewards.append((current_steps, total_reward))
+                    recent_avg = np.mean([r for _, r in training_rewards[-10:]])
+                    pbar.set_description(f"[{group_name}] Run {run_id + 1} | "
+                                         f"Epsilon: {epsilon:.4f} | "
+                                         f"Recent Avg Reward: {recent_avg:.2f} | "
+                                         f"Avg Test Reward: {avg_test_reward:.2f}")
                     break
 
     # Save Q-Table and training data
     q_table_path = os.path.join(save_dir, f"{group_name}_run_{run_id + 1}_q_table.csv")
     agent.save_q_table(q_table_path)
     training_data_path = os.path.join(save_dir, f"{group_name}_run_{run_id + 1}_training_data.csv")
-    pd.DataFrame(step_rewards, columns=["Step", "Reward"]).to_csv(training_data_path, index=False)
+    pd.DataFrame(test_rewards, columns=["Step", "Avg Test Reward"]).to_csv(training_data_path, index=False)
 
-    # Testing and GIF generation
-    env = gym.make('CartPole-v1', render_mode="rgb_array")
+    # Final Testing and GIF generation
     frames = []
-    for episode in range(20):
-        state, _ = env.reset()
+    final_test_rewards = []  # Initialize final_test_rewards to store final test results
+    for episode in range(test_runs):
+        state, _ = test_env.reset()
         total_reward = 0
         done = False
 
         while not done:
             probabilities = agent.get_action_probabilities(state, strategy="greedy")
             action = [np.argmax(probabilities)]
-            state, reward, done, truncated, _ = env.step(action[0])
+            state, reward, done, truncated, _ = test_env.step(action[0])
             total_reward += reward
 
             # Collect frames for the final test episode
             if episode == 0:
-                frames.append(env.render())
+                frames.append(test_env.render())
 
             if done or truncated:
                 break
-        test_rewards.append(total_reward)
+        final_test_rewards.append(total_reward)
+        test_rewards.append((current_steps, total_reward))  # Append the final test result to test_rewards
 
     # Save GIF for the first test episode
     gif_path = os.path.join(save_dir, f"{group_name}_run_{run_id + 1}_test.gif")
     generate_test_gif(frames, gif_path)
 
-    return step_rewards, np.mean(test_rewards)
+    # Save updated training data with final test results
+    training_data_path = os.path.join(save_dir, f"{group_name}_run_{run_id + 1}_training_data.csv")
+    pd.DataFrame(test_rewards, columns=["Step", "Avg Test Reward"]).to_csv(training_data_path, index=False)
+
+    return test_rewards, np.mean(final_test_rewards)
 
 
 # Aggregating results for consistent step-based plotting
@@ -174,7 +197,8 @@ def run_all_experiments(experiment_groups, save_dir, max_workers):
     # Group results by experiment group
     group_results = {group["group_name"]: [] for group in experiment_groups}
     for task, result in zip(tasks, results):
-        _, _, _, _, _, _, _, group_name, run_id, _ = task
+        group, run_id, save_dir, = task
+        group_name = group["group_name"]
         group_results[group_name].append(result)
 
     # Aggregate results for each group
@@ -197,54 +221,73 @@ def run_all_experiments(experiment_groups, save_dir, max_workers):
 
 if __name__ == '__main__':
     # General experiment parameters
-    experiment_name = "CartPole_VAE_Experiments"
+    experiment_name = "MountainCar_Experiments"
     save_dir = f"./experiments/{experiment_name}/"
     os.makedirs(save_dir, exist_ok=True)
 
     # Define experiment groups
     experiment_groups = [
         {
-            "group_name": "direct_input_8",
+            "group_name": "MC-25",
+            "env_id": "Custom-MountainCar",
+            "train_env_params": {
+                "render_mode": "rgb_array",
+                "goal_velocity": 0,
+                "custom_gravity": 0.0025,
+                "max_episode_steps": 200,
+                "reward_type": 'progress',
+            },
+            "test_per_num_steps": int(0.1e6),
+            "test_runs": 10,
+            "test_env_params": {
+                "render_mode": "rgb_array",
+                "goal_velocity": 0,
+                "custom_gravity": 0.0025,
+                "max_episode_steps": 200,
+                "reward_type": 'progress',
+            },
             "state_space": [
-                {'type': 'continuous', 'range': (-2.4, 2.4), 'bins': 8},
-                {'type': 'continuous', 'range': (-2, 2), 'bins': 8},
-                {'type': 'continuous', 'range': (-0.25, 0.25), 'bins': 8},
-                {'type': 'continuous', 'range': (-2, 2), 'bins': 8},
+                {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 16},  # Position
+                {'type': 'continuous', 'range': (-0.07, 0.07), 'bins': 16}  # Velocity
             ],
-            "action_space": [{'type': 'discrete', 'bins': 2}],
-            "normal_partition_state": False,
-            "alpha": 0.25,
+            "action_space": [{'type': 'discrete', 'bins': 3}],
+            "alpha": 0.1,
             "gamma": 0.99,
-            "epsilon_start": 0.5,
+            "epsilon_start": 0.25,
             "epsilon_end": 0.05,
-            "total_steps": int(15e6),
-            "runs": 4,
+            "total_steps": int(5e6),
+            "runs": 3,
         },
         {
-            "group_name": "normal_distribution_8",
+            "group_name": "MC-20",
+            "env_id": "Custom-MountainCar",
+            "train_env_params": {
+                "render_mode": "rgb_array",
+                "goal_velocity": 0,
+                "custom_gravity": 0.0020,
+                "max_episode_steps": 200,
+                "reward_type": 'progress',
+            },
+            "test_per_num_steps": int(0.1e6),
+            "test_runs": 10,
+            "test_env_params": {
+                "render_mode": "rgb_array",
+                "goal_velocity": 0,
+                "custom_gravity": 0.0025,
+                "max_episode_steps": 200,
+                "reward_type": 'progress',
+            },
             "state_space": [
-                {'type': 'continuous', 'bins': 8},
-                {'type': 'continuous', 'bins': 8},
-                {'type': 'continuous', 'bins': 8},
-                {'type': 'continuous', 'bins': 8},
+                {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 16},  # Position
+                {'type': 'continuous', 'range': (-0.07, 0.07), 'bins': 16}  # Velocity
             ],
-            "action_space": [{'type': 'discrete', 'bins': 2}],
-            "normal_partition_state": True,
-            "alpha": 0.25,
+            "action_space": [{'type': 'discrete', 'bins': 3}],
+            "alpha": 0.1,
             "gamma": 0.99,
-            "epsilon_start": 0.5,
+            "epsilon_start": 0.25,
             "epsilon_end": 0.05,
-            "total_steps": int(15e6),
-            "runs": 4,
-            "wrapper_args": {
-                "num_hidden_values": 4,
-                "net_arch": [32, 32,],
-                "buffer_size": int(1e5),
-                "iterations": 20,
-                "batch_size": 64,
-                "beta": 1.0,
-                "lr": 1e-3,
-            }
+            "total_steps": int(5e6),
+            "runs": 3,
         },
     ]
 
