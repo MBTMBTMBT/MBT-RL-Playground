@@ -88,7 +88,7 @@ def run_experiment(args):
     curriculum_steps = total_steps // len(envs)
     print(f"Curriculum stage: {curriculum_steps}")
     # Training
-    with tqdm(total=total_steps, desc=f"[{group_name}] Run {run_id + 1}", leave=False) as pbar:
+    with tqdm(total=total_steps, desc=f"[{group_name}] Run {run_id}", leave=False) as pbar:
         avg_test_reward = 0.0  # Initialize avg_test_reward to avoid UnboundLocalError
         env = envs[0]
         while current_steps < total_steps:
@@ -142,7 +142,7 @@ def run_experiment(args):
                         periodic_test_rewards.append(test_total_reward)
                     avg_test_reward = np.mean(periodic_test_rewards)
                     recent_avg = np.mean([r for _, r in training_rewards[-10:]])
-                    pbar.set_description(f"[{group_name}] Run {run_id + 1} | "
+                    pbar.set_description(f"[{group_name}] Run {run_id} | "
                                          f"Epsilon: {epsilon:.4f} | "
                                          f"Recent Avg Reward: {recent_avg:.2f} | "
                                          f"Avg Test Reward: {avg_test_reward:.2f}")
@@ -151,16 +151,16 @@ def run_experiment(args):
                 if done or truncated:
                     training_rewards.append((current_steps, total_reward))
                     recent_avg = np.mean([r for _, r in training_rewards[-10:]])
-                    pbar.set_description(f"[{group_name}] Run {run_id + 1} | "
+                    pbar.set_description(f"[{group_name}] Run {run_id} | "
                                          f"Epsilon: {epsilon:.4f} | "
                                          f"Recent Avg Reward: {recent_avg:.2f} | "
                                          f"Avg Test Reward: {avg_test_reward:.2f}")
                     break
 
     # Save Q-Table and training data
-    q_table_path = os.path.join(save_dir, f"{group_name}_run_{run_id + 1}_q_table_final.csv")
+    q_table_path = os.path.join(save_dir, f"{group_name}_run_{run_id}_q_table_final.csv")
     agent.save_q_table(q_table_path)
-    training_data_path = os.path.join(save_dir, f"{group_name}_run_{run_id + 1}_training_data.csv")
+    training_data_path = os.path.join(save_dir, f"{group_name}_run_{run_id}_training_data.csv")
     pd.DataFrame(test_rewards, columns=["Step", "Avg Test Reward"]).to_csv(training_data_path, index=False)
 
     # Final Testing and GIF generation
@@ -187,11 +187,11 @@ def run_experiment(args):
         test_rewards.append((current_steps, total_reward))  # Append the final test result to test_rewards
 
     # Save GIF for the first test episode
-    gif_path = os.path.join(save_dir, f"{group_name}_run_{run_id + 1}_test.gif")
+    gif_path = os.path.join(save_dir, f"{group_name}_run_{run_id}_test.gif")
     generate_test_gif(frames, gif_path)
 
     # Save updated training data with final test results
-    training_data_path = os.path.join(save_dir, f"{group_name}_run_{run_id + 1}_training_data.csv")
+    training_data_path = os.path.join(save_dir, f"{group_name}_run_{run_id}_training_data.csv")
     pd.DataFrame(test_rewards, columns=["Step", "Avg Test Reward"]).to_csv(training_data_path, index=False)
 
     return test_rewards, np.mean(final_test_rewards)
