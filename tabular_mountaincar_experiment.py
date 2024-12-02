@@ -42,7 +42,7 @@ if __name__ == '__main__':
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
             "total_steps": int(50e6),
-            "runs": 3,
+            "runs": 10,
         },
         {
             "group_name": "MC-50-20",
@@ -75,7 +75,7 @@ if __name__ == '__main__':
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
             "total_steps": int(50e6),
-            "runs": 3,
+            "runs": 10,
         },
         {
             "group_name": "MC-50-10",
@@ -108,12 +108,12 @@ if __name__ == '__main__':
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
             "total_steps": int(50e6),
-            "runs": 3,
+            "runs": 10,
         },
     ]
 
     # Run all experiments
-    max_workers = 12  # Number of parallel processes
+    max_workers = 15  # Number of parallel processes
     aggregated_results = run_all_experiments(experiment_groups, save_dir, max_workers)
 
     plt.figure(figsize=(12, 8))
