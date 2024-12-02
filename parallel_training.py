@@ -67,7 +67,7 @@ def run_experiment(args):
     action_space = group["action_space"]
     group_name = group["group_name"]
     epsilon_decay = (epsilon_start - epsilon_end) / total_steps
-    step_rewards = []
+    training_rewards = []
     test_rewards = []
     current_steps = 0
     epsilon = epsilon_start
@@ -111,7 +111,7 @@ def run_experiment(args):
 
                 # Periodic testing
                 if current_steps % test_per_num_steps == 0:
-                    test_rewards = []
+                    periodic_test_rewards = []
                     for _ in range(test_runs):
                         test_state, _ = test_env.reset()
                         test_total_reward = 0
@@ -123,18 +123,18 @@ def run_experiment(args):
                             test_total_reward += test_reward
                             if test_done or test_truncated:
                                 break
-                        test_rewards.append(test_total_reward)
-                    avg_test_reward = np.mean(test_rewards)
-                    recent_avg = np.mean([r for _, r in step_rewards[-10:]])
+                        periodic_test_rewards.append(test_total_reward)
+                    avg_test_reward = np.mean(periodic_test_rewards)
+                    recent_avg = np.mean([r for _, r in training_rewards[-10:]])
                     pbar.set_description(f"[{group_name}] Run {run_id + 1} | "
                                          f"Epsilon: {epsilon:.4f} | "
                                          f"Recent Avg Reward: {recent_avg:.2f} | "
                                          f"Avg Test Reward: {avg_test_reward:.2f}")
-                    step_rewards.append((current_steps, avg_test_reward))
+                    test_rewards.append((current_steps, avg_test_reward))
 
                 if done or truncated:
-                    step_rewards.append((current_steps, total_reward))
-                    recent_avg = np.mean([r for _, r in step_rewards[-10:]])
+                    training_rewards.append((current_steps, total_reward))
+                    recent_avg = np.mean([r for _, r in training_rewards[-10:]])
                     pbar.set_description(f"[{group_name}] Run {run_id + 1} | "
                                          f"Epsilon: {epsilon:.4f} | "
                                          f"Recent Avg Reward: {recent_avg:.2f} | "
@@ -145,10 +145,11 @@ def run_experiment(args):
     q_table_path = os.path.join(save_dir, f"{group_name}_run_{run_id + 1}_q_table.csv")
     agent.save_q_table(q_table_path)
     training_data_path = os.path.join(save_dir, f"{group_name}_run_{run_id + 1}_training_data.csv")
-    pd.DataFrame(step_rewards, columns=["Step", "Avg Test Reward"]).to_csv(training_data_path, index=False)
+    pd.DataFrame(test_rewards, columns=["Step", "Avg Test Reward"]).to_csv(training_data_path, index=False)
 
     # Final Testing and GIF generation
     frames = []
+    final_test_rewards = []  # Initialize final_test_rewards to store final test results
     for episode in range(test_runs):
         state, _ = test_env.reset()
         total_reward = 0
@@ -166,13 +167,18 @@ def run_experiment(args):
 
             if done or truncated:
                 break
-        test_rewards.append(total_reward)
+        final_test_rewards.append(total_reward)
+        test_rewards.append((current_steps, total_reward))  # Append the final test result to test_rewards
 
     # Save GIF for the first test episode
     gif_path = os.path.join(save_dir, f"{group_name}_run_{run_id + 1}_test.gif")
     generate_test_gif(frames, gif_path)
 
-    return step_rewards, np.mean(test_rewards)
+    # Save updated training data with final test results
+    training_data_path = os.path.join(save_dir, f"{group_name}_run_{run_id + 1}_training_data.csv")
+    pd.DataFrame(test_rewards, columns=["Step", "Avg Test Reward"]).to_csv(training_data_path, index=False)
+
+    return test_rewards, np.mean(final_test_rewards)
 
 
 # Aggregating results for consistent step-based plotting
