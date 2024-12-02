@@ -66,10 +66,10 @@ def run_experiment(args):
     state_space = group["state_space"]
     action_space = group["action_space"]
     group_name = group["group_name"]
-    epsilon_decay = (epsilon_start - epsilon_end) / total_steps
     training_rewards = []
     test_rewards = []
     current_steps = 0
+    epsilon_decay = (epsilon_start - epsilon_end) / total_steps
     epsilon = epsilon_start
 
     # Create QTableAgent
@@ -97,6 +97,9 @@ def run_experiment(args):
             done = False
 
             while not done:
+                if current_steps % curriculum_steps == 0:
+                    epsilon_decay = (epsilon_start - epsilon_end) / curriculum_steps
+                    epsilon = epsilon_start
                 if current_steps % curriculum_steps == 0 and current_steps > 0 and len(envs) > 1:
                     if current_steps // curriculum_steps <= len(envs) - 1:
                         env = envs[current_steps // curriculum_steps]
