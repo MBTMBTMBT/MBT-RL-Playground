@@ -155,13 +155,6 @@ class QTableAgent:
         action_bins: List[np.ndarray] = [self._discretize_space(dim) for dim in action_space]
         return np.array(np.meshgrid(*action_bins)).T.reshape(-1, len(action_space))
 
-    def _initialize_q_table(self) -> np.ndarray:
-        """Initialize the Q-Table with zeros based on state and action space sizes."""
-        state_sizes: List[int] = [len(bins) for bins in self.state_bins]
-        action_size: int = len(self.action_bins) if self.action_combination else np.prod(
-            [len(bins) for bins in self.action_bins])
-        return np.zeros(state_sizes + [action_size])
-
     def print_q_table_info(self) -> None:
         """Print detailed information about the sparse Q-Table."""
         state_sizes = [len(bins) for bins in self.state_bins]
