@@ -1,3 +1,5 @@
+from scipy.ndimage import gaussian_filter1d
+
 if __name__ == '__main__':
     import numpy as np
     from matplotlib import pyplot as plt
@@ -164,24 +166,33 @@ if __name__ == '__main__':
         total_points = len(avg_rewards)
         downsample_rate = max(1, total_points // target_points)
 
-        # Combine smoothing and downsampling using a rolling average
+        # Step 1: Apply Gaussian smoothing for anti-aliasing
         avg_rewards_array = np.array(avg_rewards)
         std_rewards_array = np.array(std_rewards)
+        sigma = downsample_rate / 2  # Adjust sigma to reduce high-frequency noise
+        smoothed_rewards = gaussian_filter1d(avg_rewards_array, sigma=sigma)
+        smoothed_std = gaussian_filter1d(std_rewards_array, sigma=sigma)
 
-        kernel_size = downsample_rate
-        kernel = np.ones(kernel_size) / kernel_size
+        # Step 2: Downsample the smoothed data with averaging
+        avg_rewards_downsampled = [np.mean(smoothed_rewards[i:i + downsample_rate]) for i in
+                                   range(0, len(smoothed_rewards), downsample_rate)]
+        std_rewards_downsampled = [np.mean(smoothed_std[i:i + downsample_rate]) for i in
+                                   range(0, len(smoothed_std), downsample_rate)]
+        steps = np.linspace(1, total_steps, len(avg_rewards_downsampled))
 
-        smoothed_rewards = np.convolve(avg_rewards_array, kernel, mode='valid')[::downsample_rate]
-        smoothed_std = np.convolve(std_rewards_array, kernel, mode='valid')[::downsample_rate]
-        steps = np.linspace(1, total_steps, len(smoothed_rewards))
+        # Step 3: Apply Gaussian smoothing after downsampling
+        final_sigma = 5  # Separate sigma for post-downsampling smoothing
+        final_smoothed_rewards = gaussian_filter1d(avg_rewards_downsampled, sigma=final_sigma)
+        final_smoothed_std = gaussian_filter1d(std_rewards_downsampled, sigma=final_sigma)
 
+        # Plotting
         color = plt.cm.tab10(i % 10)
 
-        plt.plot(steps, smoothed_rewards, color=color, linestyle='-', alpha=0.8,
+        plt.plot(steps, final_smoothed_rewards, color=color, linestyle='-', alpha=0.8,
                  label=f'{group_name} Smoothed Training Avg')
         plt.fill_between(steps,
-                         smoothed_rewards - smoothed_std,
-                         smoothed_rewards + smoothed_std,
+                         np.array(final_smoothed_rewards) - np.array(final_smoothed_std),
+                         np.array(final_smoothed_rewards) + np.array(final_smoothed_std),
                          color=color, alpha=0.25, label=f'{group_name} Training Std Dev')
         plt.axhline(avg_test_reward, color="black", linestyle=linestyles[i % len(linestyles)],
                     label=f'{group_name} Test Avg', alpha=0.9)

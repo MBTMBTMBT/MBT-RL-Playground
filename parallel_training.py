@@ -2,6 +2,7 @@ import numpy as np
 import gymnasium as gym
 from matplotlib import pyplot as plt
 from matplotlib.animation import FuncAnimation
+from scipy.ndimage import gaussian_filter1d
 from tqdm import tqdm
 from concurrent.futures import ProcessPoolExecutor
 import os
@@ -159,8 +160,6 @@ def run_experiment(args):
     # Save Q-Table and training data
     q_table_path = os.path.join(save_dir, f"{group_name}_run_{run_id}_q_table_final.csv")
     agent.save_q_table(q_table_path)
-    training_data_path = os.path.join(save_dir, f"{group_name}_run_{run_id}_training_data.csv")
-    pd.DataFrame(test_rewards, columns=["Step", "Avg Test Reward"]).to_csv(training_data_path, index=False)
 
     # Final Testing and GIF generation
     frames = []
@@ -183,7 +182,7 @@ def run_experiment(args):
             if done or truncated:
                 break
         final_test_rewards.append(total_reward)
-        test_rewards.append((current_steps, total_reward))  # Append the final test result to test_rewards
+    test_rewards.append((current_steps, np.mean(final_test_rewards)))  # Append the final test result to test_rewards
 
     # Save GIF for the first test episode
     gif_path = os.path.join(save_dir, f"{group_name}_run_{run_id}_test.gif")
@@ -236,7 +235,7 @@ def run_all_experiments(experiment_groups, save_dir, max_workers):
 
 if __name__ == '__main__':
     # General experiment parameters
-    experiment_name = "MountainCar_Experiments"
+    experiment_name = "_MountainCar_Experiments"
     save_dir = f"./experiments/{experiment_name}/"
     os.makedirs(save_dir, exist_ok=True)
 
@@ -286,7 +285,7 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
-            "total_steps": int(5e6),
+            "total_steps": int(1e6),
             "runs": 3,
         },
         {
@@ -326,7 +325,7 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
-            "total_steps": int(5e6),
+            "total_steps": int(1e6),
             "runs": 3,
         },
         {
@@ -359,7 +358,7 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
-            "total_steps": int(5e6),
+            "total_steps": int(1e6),
             "runs": 3,
         },
     ]
@@ -376,31 +375,40 @@ if __name__ == '__main__':
     ]
 
     # Target number of points for the plot
-    target_points = 8192
+    target_points = 2048
 
     for i, (group_name, (avg_rewards, std_rewards, avg_test_reward)) in enumerate(aggregated_results.items()):
         total_steps = experiment_groups[i]["total_steps"]
         total_points = len(avg_rewards)
         downsample_rate = max(1, total_points // target_points)
 
-        # Combine smoothing and downsampling using a rolling average
+        # Step 1: Apply Gaussian smoothing for anti-aliasing
         avg_rewards_array = np.array(avg_rewards)
         std_rewards_array = np.array(std_rewards)
+        sigma = downsample_rate / 2  # Adjust sigma to reduce high-frequency noise
+        smoothed_rewards = gaussian_filter1d(avg_rewards_array, sigma=sigma)
+        smoothed_std = gaussian_filter1d(std_rewards_array, sigma=sigma)
 
-        kernel_size = downsample_rate
-        kernel = np.ones(kernel_size) / kernel_size
+        # Step 2: Downsample the smoothed data with averaging
+        avg_rewards_downsampled = [np.mean(smoothed_rewards[i:i + downsample_rate]) for i in
+                                   range(0, len(smoothed_rewards), downsample_rate)]
+        std_rewards_downsampled = [np.mean(smoothed_std[i:i + downsample_rate]) for i in
+                                   range(0, len(smoothed_std), downsample_rate)]
+        steps = np.linspace(1, total_steps, len(avg_rewards_downsampled))
 
-        smoothed_rewards = np.convolve(avg_rewards_array, kernel, mode='valid')[::downsample_rate]
-        smoothed_std = np.convolve(std_rewards_array, kernel, mode='valid')[::downsample_rate]
-        steps = np.linspace(1, total_steps, len(smoothed_rewards))
+        # Step 3: Apply Gaussian smoothing after downsampling
+        final_sigma = 5  # Separate sigma for post-downsampling smoothing
+        final_smoothed_rewards = gaussian_filter1d(avg_rewards_downsampled, sigma=final_sigma)
+        final_smoothed_std = gaussian_filter1d(std_rewards_downsampled, sigma=final_sigma)
 
+        # Plotting
         color = plt.cm.tab10(i % 10)
 
-        plt.plot(steps, smoothed_rewards, color=color, linestyle='-', alpha=0.8,
+        plt.plot(steps, final_smoothed_rewards, color=color, linestyle='-', alpha=0.8,
                  label=f'{group_name} Smoothed Training Avg')
         plt.fill_between(steps,
-                         smoothed_rewards - smoothed_std,
-                         smoothed_rewards + smoothed_std,
+                         np.array(final_smoothed_rewards) - np.array(final_smoothed_std),
+                         np.array(final_smoothed_rewards) + np.array(final_smoothed_std),
                          color=color, alpha=0.25, label=f'{group_name} Training Std Dev')
         plt.axhline(avg_test_reward, color="black", linestyle=linestyles[i % len(linestyles)],
                     label=f'{group_name} Test Avg', alpha=0.9)
