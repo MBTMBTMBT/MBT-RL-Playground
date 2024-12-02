@@ -46,7 +46,7 @@ if __name__ == '__main__':
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
             "total_steps": int(100e6),
-            "runs": 3,
+            "runs": 5,
         },
         {
             "group_name": "MC-30-10",
@@ -79,7 +79,7 @@ if __name__ == '__main__':
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
             "total_steps": int(100e6),
-            "runs": 3,
+            "runs": 5,
         },
         {
             "group_name": "MC-30-15",
@@ -112,7 +112,7 @@ if __name__ == '__main__':
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
             "total_steps": int(100e6),
-            "runs": 3,
+            "runs": 5,
         },
         {
             "group_name": "MC-30-nc",
@@ -145,12 +145,12 @@ if __name__ == '__main__':
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
             "total_steps": int(100e6),
-            "runs": 3,
+            "runs": 5,
         },
     ]
 
     # Run all experiments
-    max_workers = 12  # Number of parallel processes
+    max_workers = 20  # Number of parallel processes
     aggregated_results = run_all_experiments(experiment_groups, save_dir, max_workers)
 
     # Create a figure object
@@ -218,5 +218,5 @@ if __name__ == '__main__':
     print("Saving training curve...")
     # Display figure and save as PNG
     plotly_png_path = os.path.join(save_dir, "aggregated_training_results_plotly.png")
-    pio.write_image(fig, plotly_png_path, format='png', scale=3, width=1200, height=675)
+    pio.write_image(fig, plotly_png_path, format='png', scale=5, width=1200, height=675)
     print(f"Aggregated training results saved to {plotly_png_path}")

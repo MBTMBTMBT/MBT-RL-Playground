@@ -379,5 +379,5 @@ if __name__ == '__main__':
     print("Saving training curve...")
     # Display figure and save as PNG
     plotly_png_path = os.path.join(save_dir, "aggregated_training_results_plotly.png")
-    pio.write_image(fig, plotly_png_path, format='png', scale=3, width=1200, height=675)
+    pio.write_image(fig, plotly_png_path, format='png', scale=5, width=1200, height=675)
     print(f"Aggregated training results saved to {plotly_png_path}")
