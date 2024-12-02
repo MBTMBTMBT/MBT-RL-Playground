@@ -21,14 +21,14 @@ if __name__ == '__main__':
                     "custom_gravity": g,
                     "max_episode_steps": 200,
                     "reward_type": 'default',
-                } for g in np.linspace(0.0005, 0.0050, 30)
+                } for g in np.linspace(0.0005, 0.0025, 30)
             ],
             "test_per_num_steps": int(0.1e6),
             "test_runs": 10,
             "test_env_params": {
                 "render_mode": "rgb_array",
                 "goal_velocity": 0,
-                "custom_gravity": 0.0050,
+                "custom_gravity": 0.0025,
                 "max_episode_steps": 200,
                 "reward_type": 'default',
             },
@@ -54,14 +54,14 @@ if __name__ == '__main__':
                     "custom_gravity": g,
                     "max_episode_steps": 200,
                     "reward_type": 'default',
-                } for g in np.linspace(0.0005, 0.0050, 20)
+                } for g in np.linspace(0.0005, 0.0025, 20)
             ],
             "test_per_num_steps": int(0.1e6),
             "test_runs": 10,
             "test_env_params": {
                 "render_mode": "rgb_array",
                 "goal_velocity": 0,
-                "custom_gravity": 0.0050,
+                "custom_gravity": 0.0025,
                 "max_episode_steps": 200,
                 "reward_type": 'default',
             },
@@ -87,7 +87,7 @@ if __name__ == '__main__':
                     "custom_gravity": g,
                     "max_episode_steps": 200,
                     "reward_type": 'default',
-                } for g in np.linspace(0.0005, 0.0050, 10)
+                } for g in np.linspace(0.0005, 0.0025, 10)
             ],
             "test_per_num_steps": int(0.1e6),
             "test_runs": 10,
