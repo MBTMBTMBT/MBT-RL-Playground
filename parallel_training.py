@@ -5,6 +5,7 @@ from matplotlib.animation import FuncAnimation
 import plotly.graph_objs as go
 import plotly.subplots as sp
 import plotly.io as pio
+from scipy.ndimage import gaussian_filter1d
 from tqdm import tqdm
 from concurrent.futures import ProcessPoolExecutor
 import os
@@ -253,7 +254,7 @@ if __name__ == '__main__':
                     "reward_type": 'progress',
                 },
             ],
-            "test_per_num_steps": int(0.01e6),
+            "test_per_num_steps": int(0.001e6),
             "test_runs": 10,
             "test_env_params": {
                 "render_mode": "rgb_array",
@@ -271,7 +272,7 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
-            "total_steps": int(0.1e6),
+            "total_steps": int(1e6),
             "runs": 3,
         },
         {
@@ -286,7 +287,7 @@ if __name__ == '__main__':
                     "reward_type": 'progress',
                 },
             ],
-            "test_per_num_steps": int(0.01e6),
+            "test_per_num_steps": int(0.001e6),
             "test_runs": 10,
             "test_env_params": {
                 "render_mode": "rgb_array",
@@ -304,7 +305,7 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
-            "total_steps": int(0.1e6),
+            "total_steps": int(1e6),
             "runs": 3,
         },
     ]
@@ -318,6 +319,10 @@ if __name__ == '__main__':
 
     for i, (group_name, (avg_rewards, std_rewards, steps, avg_test_reward)) in enumerate(aggregated_results.items()):
         # Plot training curve
+        sigma = 1  # Standard deviation for Gaussian kernel
+        avg_rewards = gaussian_filter1d(avg_rewards, sigma=sigma)
+        std_rewards = gaussian_filter1d(std_rewards, sigma=sigma)
+
         trace = go.Scatter(
             x=steps,
             y=avg_rewards,
@@ -344,7 +349,7 @@ if __name__ == '__main__':
             y=[avg_test_reward, avg_test_reward],
             mode='lines',
             name=f'{group_name} Test Avg',
-            line=dict(dash='dash', color='black')
+            line=dict(dash=['dash', 'dot', 'dashdot', 'longdash'][i % 4], color='black')
         )
 
         # Add traces to the figure
@@ -364,15 +369,15 @@ if __name__ == '__main__':
 
     # Update figure layout
     fig.update_layout(
-        title="Training Results Across Experiment Groups",
+        # title="Training Results Across Experiment Groups",
         xaxis_title="Steps",
         yaxis_title="Average Reward",
         legend_title="Groups",
         template="plotly_white"
     )
 
-    print("saving...")
+    print("Saving training curve...")
     # Display figure and save as PNG
     plotly_png_path = os.path.join(save_dir, "aggregated_training_results_plotly.png")
-    pio.write_image(fig, plotly_png_path, format='png', scale=3, width=3840, height=2160)
+    pio.write_image(fig, plotly_png_path, format='png', scale=3, width=1600, height=900)
     print(f"Aggregated training results saved to {plotly_png_path}")
