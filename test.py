@@ -97,7 +97,7 @@ def run_experiment(args):
             done = False
 
             while not done:
-                if current_steps % curriculum_steps == 0 and current_steps > 0:
+                if current_steps % curriculum_steps == 0 and current_steps > 0 and len(envs) > 1:
                     env = envs[current_steps // curriculum_steps]
                     state, _ = env.reset()
                     q_table_path = os.path.join(
