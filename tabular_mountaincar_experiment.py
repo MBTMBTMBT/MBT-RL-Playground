@@ -56,9 +56,9 @@ if __name__ == '__main__':
             "test_env_params": {
                 "render_mode": "rgb_array",
                 "goal_velocity": 0,
-                "custom_gravity": 0.0015,
+                "custom_gravity": 0.0025,
                 "max_episode_steps": 200,
-                "reward_type": 'progress',
+                "reward_type": 'default',
             },
             "state_space": [
                 {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 16},  # Position
@@ -110,9 +110,9 @@ if __name__ == '__main__':
             "test_env_params": {
                 "render_mode": "rgb_array",
                 "goal_velocity": 0,
-                "custom_gravity": 0.0015,
+                "custom_gravity": 0.0025,
                 "max_episode_steps": 200,
-                "reward_type": 'progress',
+                "reward_type": 'default',
             },
             "state_space": [
                 {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 16},  # Position
@@ -157,9 +157,9 @@ if __name__ == '__main__':
             "test_env_params": {
                 "render_mode": "rgb_array",
                 "goal_velocity": 0,
-                "custom_gravity": 0.0015,
+                "custom_gravity": 0.0025,
                 "max_episode_steps": 200,
-                "reward_type": 'progress',
+                "reward_type": 'default',
             },
             "state_space": [
                 {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 16},  # Position
