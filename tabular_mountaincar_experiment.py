@@ -32,7 +32,7 @@ if __name__ == '__main__':
             "test_env_params": {
                 "render_mode": "rgb_array",
                 "goal_velocity": 0,
-                "custom_gravity": 0.0025,
+                "custom_gravity": 0.0050,
                 "max_episode_steps": 500,
                 "reward_type": 'default',
             },
@@ -65,7 +65,7 @@ if __name__ == '__main__':
             "test_env_params": {
                 "render_mode": "rgb_array",
                 "goal_velocity": 0,
-                "custom_gravity": 0.0025,
+                "custom_gravity": 0.0050,
                 "max_episode_steps": 500,
                 "reward_type": 'default',
             },
@@ -98,7 +98,7 @@ if __name__ == '__main__':
             "test_env_params": {
                 "render_mode": "rgb_array",
                 "goal_velocity": 0,
-                "custom_gravity": 0.0025,
+                "custom_gravity": 0.0050,
                 "max_episode_steps": 500,
                 "reward_type": 'default',
             },
@@ -131,7 +131,7 @@ if __name__ == '__main__':
             "test_env_params": {
                 "render_mode": "rgb_array",
                 "goal_velocity": 0,
-                "custom_gravity": 0.0025,
+                "custom_gravity": 0.0050,
                 "max_episode_steps": 500,
                 "reward_type": 'default',
             },
