@@ -16,16 +16,16 @@ if __name__ == '__main__':
     # Define experiment groups
     experiment_groups = [
         {
-            "group_name": "MC-25-05",
+            "group_name": "MC-50-10",
             "env_id": "Custom-MountainCar",
             "train_env_params": [
                 {
                     "render_mode": "rgb_array",
                     "goal_velocity": 0,
                     "custom_gravity": g,
-                    "max_episode_steps": 200,
+                    "max_episode_steps": 500,
                     "reward_type": 'default',
-                } for g in np.linspace(0.0005, 0.0025, 5)
+                } for g in np.linspace(0.0010, 0.0050, 5)
             ],
             "test_per_num_steps": int(0.1e6),
             "test_runs": 10,
@@ -45,20 +45,20 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
-            "total_steps": int(100e6),
+            "total_steps": int(10e6),
             "runs": 5,
         },
         {
-            "group_name": "MC-25-10",
+            "group_name": "MC-50-15",
             "env_id": "Custom-MountainCar",
             "train_env_params": [
                 {
                     "render_mode": "rgb_array",
                     "goal_velocity": 0,
                     "custom_gravity": g,
-                    "max_episode_steps": 200,
+                    "max_episode_steps": 500,
                     "reward_type": 'default',
-                } for g in np.linspace(0.0010, 0.0025, 5)
+                } for g in np.linspace(0.0015, 0.0050, 5)
             ],
             "test_per_num_steps": int(0.1e6),
             "test_runs": 10,
@@ -78,20 +78,20 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
-            "total_steps": int(100e6),
+            "total_steps": int(10e6),
             "runs": 5,
         },
         {
-            "group_name": "MC-25-15",
+            "group_name": "MC-50-25",
             "env_id": "Custom-MountainCar",
             "train_env_params": [
                 {
                     "render_mode": "rgb_array",
                     "goal_velocity": 0,
                     "custom_gravity": g,
-                    "max_episode_steps": 200,
+                    "max_episode_steps": 500,
                     "reward_type": 'default',
-                } for g in np.linspace(0.0015, 0.0025, 5)
+                } for g in np.linspace(0.0025, 0.0050, 5)
             ],
             "test_per_num_steps": int(0.1e6),
             "test_runs": 10,
@@ -111,20 +111,20 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
-            "total_steps": int(100e6),
+            "total_steps": int(10e6),
             "runs": 5,
         },
         {
-            "group_name": "MC-25-nc",
+            "group_name": "MC-50-nc",
             "env_id": "Custom-MountainCar",
             "train_env_params": [
                 {
                     "render_mode": "rgb_array",
                     "goal_velocity": 0,
                     "custom_gravity": g,
-                    "max_episode_steps": 200,
+                    "max_episode_steps": 500,
                     "reward_type": 'default',
-                } for g in np.linspace(0.0025, 0.0025, 1)
+                } for g in np.linspace(0.0050, 0.0050, 1)
             ],
             "test_per_num_steps": int(0.1e6),
             "test_runs": 10,
@@ -144,7 +144,7 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
-            "total_steps": int(100e6),
+            "total_steps": int(10e6),
             "runs": 5,
         },
     ]
