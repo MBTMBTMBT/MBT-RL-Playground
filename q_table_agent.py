@@ -739,3 +739,71 @@ class QTableAgent:
                     mi += p_group1_group2 * np.log2(p_group1_group2 / (px * py))
 
         return mi
+
+    @staticmethod
+    def compute_average_kl_divergence_between_dfs(
+            df1: pd.DataFrame,
+            df2: pd.DataFrame,
+            visit_threshold: int = 0
+    ) -> float:
+        """
+        Compute the average KL divergence between action distributions in two DataFrames for shared states.
+
+        :param df1: The first DataFrame, generated using `compute_action_probabilities`.
+        :param df2: The second DataFrame, generated using `compute_action_probabilities`.
+        :param visit_threshold: Minimum visit count required for states to be considered. Default is 0.
+        :return: The average KL divergence for shared states based on action distributions.
+        """
+        # Identify the state columns
+        state_columns = [col for col in df1.columns if col.startswith("State_") and "Index" in col]
+
+        # Identify action probability columns in both DataFrames
+        action_prob_columns_df1 = [col for col in df1.columns if col.endswith("_Probability")]
+        action_prob_columns_df2 = [col for col in df2.columns if col.endswith("_Probability")]
+
+        # Ensure the action columns match between the two DataFrames
+        if set(action_prob_columns_df1) != set(action_prob_columns_df2):
+            raise ValueError("Action probability columns do not match between the two DataFrames.")
+
+        # Merge the two DataFrames on state columns
+        merged_df = pd.merge(
+            df1[state_columns + action_prob_columns_df1 + ["Visit_Count"]],
+            df2[state_columns + action_prob_columns_df2 + ["Visit_Count"]],
+            on=state_columns,
+            suffixes=("_df1", "_df2")
+        )
+
+        # Apply visit threshold filter if specified
+        if visit_threshold > 0:
+            merged_df = merged_df[
+                (merged_df["Visit_Count_df1"] > visit_threshold) &
+                (merged_df["Visit_Count_df2"] > visit_threshold)
+                ]
+
+        # If no states meet the threshold, return 0 to avoid division by zero
+        if merged_df.empty:
+            return 0.0
+
+        # Compute KL divergence for each shared state
+        kl_divergences = []
+        for _, row in merged_df.iterrows():
+            # Adjust the column names to include suffixes
+            p = row[[f"{col}_df1" for col in action_prob_columns_df1]].values
+            q = row[[f"{col}_df2" for col in action_prob_columns_df2]].values
+
+            # Avoid division by zero and log(0) by adding a small epsilon
+            epsilon = 1e-10
+            p = np.clip(p, epsilon, 1.0)
+            q = np.clip(q, epsilon, 1.0)
+
+            # Normalize the distributions to ensure they sum to 1
+            p /= p.sum()
+            q /= q.sum()
+
+            # Compute the KL divergence for this state
+            kl_divergence = np.sum(p * np.log(p / q))
+            kl_divergences.append(kl_divergence)
+
+        # Compute and return the average KL divergence
+        average_kl_divergence = np.mean(kl_divergences)
+        return average_kl_divergence
