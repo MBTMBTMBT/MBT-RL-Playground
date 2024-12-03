@@ -153,30 +153,45 @@ if __name__ == '__main__':
     max_workers = 20  # Number of parallel processes
     aggregated_results = run_all_experiments(experiment_groups, save_dir, max_workers)
 
-    # Create a figure object
+    # Define color map to ensure consistent colors across figures
+    color_map = {}
+    colors = ['rgba(31, 119, 180, 1)', 'rgba(255, 127, 14, 1)', 'rgba(44, 160, 44, 1)', 'rgba(214, 39, 40, 1)',
+              'rgba(148, 103, 189, 1)', 'rgba(140, 86, 75, 1)', 'rgba(227, 119, 194, 1)', 'rgba(127, 127, 127, 1)',
+              'rgba(188, 189, 34, 1)', 'rgba(23, 190, 207, 1)']
+
+    # Create a figure object for average rewards
     fig = sp.make_subplots(rows=1, cols=1, subplot_titles=["Training Results Across Experiment Groups"])
 
-    for i, (group_name, (avg_rewards, std_rewards, avg_kls, std_kls, steps, avg_test_reward)) in enumerate(aggregated_results.items()):
-        # Plot training curve
-        sigma = 1  # Standard deviation for Gaussian kernel
-        avg_rewards = gaussian_filter1d(avg_rewards, sigma=sigma)
-        std_rewards = gaussian_filter1d(std_rewards, sigma=sigma)
+    for i, (group_name, (avg_rewards, std_rewards, avg_kls, std_kls, steps, avg_test_reward)) in enumerate(
+            aggregated_results.items()):
+        # Assign color for each group
+        if group_name not in color_map:
+            color_map[group_name] = colors[i % len(colors)]
+        color = color_map[group_name]
 
+        # Apply Gaussian smoothing
+        sigma = 1  # Standard deviation for Gaussian kernel
+        avg_rewards_smoothed = gaussian_filter1d(avg_rewards, sigma=sigma)
+        std_rewards_smoothed = gaussian_filter1d(std_rewards, sigma=sigma)
+
+        # Plot training curve
         trace = go.Scatter(
             x=steps,
-            y=avg_rewards,
+            y=avg_rewards_smoothed,
             mode='lines+markers',
             name=f'{group_name} Smoothed Training Avg',
-            line_shape='spline'  # Smooth curve
+            line_shape='spline',  # Smooth curve
+            line=dict(color=color)
         )
 
         # Plot standard deviation area
         trace_std = go.Scatter(
             x=list(steps) + list(steps)[::-1],
-            y=[v + s for v, s in zip(avg_rewards, std_rewards)] + [v - s for v, s in zip(avg_rewards, std_rewards)][
-                                                                  ::-1],
+            y=[v + s for v, s in zip(avg_rewards_smoothed, std_rewards_smoothed)] + [v - s for v, s in
+                                                                                     zip(avg_rewards_smoothed,
+                                                                                         std_rewards_smoothed)][::-1],
             fill='toself',
-            fillcolor='rgba(0,100,80,0.2)',
+            fillcolor=color.replace('1)', '0.2)'),  # Adjust alpha for fill color
             line=dict(color='rgba(255,255,255,0)'),
             name=f'{group_name} Training Std Dev',
             showlegend=False
@@ -208,7 +223,6 @@ if __name__ == '__main__':
 
     # Update figure layout
     fig.update_layout(
-        # title="Training Results Across Experiment Groups",
         xaxis_title="Steps",
         yaxis_title="Average Reward",
         legend_title="Groups",
@@ -226,6 +240,9 @@ if __name__ == '__main__':
 
     for i, (group_name, (avg_rewards, std_rewards, avg_kls, std_kls, steps, avg_test_reward)) in enumerate(
             aggregated_results.items()):
+        # Use the same color as the rewards plot
+        color = color_map[group_name]
+
         # Apply Gaussian smoothing
         sigma = 1  # Standard deviation for Gaussian kernel
         avg_kls_smoothed = gaussian_filter1d(avg_kls, sigma=sigma)
@@ -237,7 +254,8 @@ if __name__ == '__main__':
             y=avg_kls_smoothed,
             mode='lines+markers',
             name=f'{group_name} Smoothed KL Avg',
-            line_shape='spline'  # Smooth curve
+            line_shape='spline',  # Smooth curve
+            line=dict(color=color)
         )
 
         # Plot standard deviation area for KL
@@ -247,7 +265,7 @@ if __name__ == '__main__':
                                                                              zip(avg_kls_smoothed, std_kls_smoothed)][
                                                                             ::-1],
             fill='toself',
-            fillcolor='rgba(100,80,0,0.2)',
+            fillcolor=color.replace('1)', '0.2)'),  # Adjust alpha for fill color
             line=dict(color='rgba(255,255,255,0)'),
             name=f'{group_name} KL Std Dev',
             showlegend=False
@@ -270,4 +288,3 @@ if __name__ == '__main__':
     plotly_kl_png_path = os.path.join(save_dir, "aggregated_kl_results_plotly.png")
     pio.write_image(fig_kl, plotly_kl_png_path, format='png', scale=5, width=1200, height=675)
     print(f"Aggregated KL divergence results saved to {plotly_kl_png_path}")
-
