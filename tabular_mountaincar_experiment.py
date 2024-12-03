@@ -25,7 +25,7 @@ if __name__ == '__main__':
                     "custom_gravity": g,
                     "max_episode_steps": 200,
                     "reward_type": 'default',
-                } for g in np.linspace(0.0005, 0.0025, 2)
+                } for g in np.linspace(0.0005, 0.0025, 5)
             ],
             "test_per_num_steps": int(0.1e6),
             "test_runs": 10,
@@ -37,8 +37,8 @@ if __name__ == '__main__':
                 "reward_type": 'default',
             },
             "state_space": [
-                {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 12},  # Position
-                {'type': 'continuous', 'range': (-0.07, 0.07), 'bins': 12}  # Velocity
+                {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 64},  # Position
+                {'type': 'continuous', 'range': (-0.07, 0.07), 'bins': 64}  # Velocity
             ],
             "action_space": [{'type': 'discrete', 'bins': 3}],
             "alpha": 0.1,
@@ -58,7 +58,7 @@ if __name__ == '__main__':
                     "custom_gravity": g,
                     "max_episode_steps": 200,
                     "reward_type": 'default',
-                } for g in np.linspace(0.0010, 0.0025, 2)
+                } for g in np.linspace(0.0010, 0.0025, 5)
             ],
             "test_per_num_steps": int(0.1e6),
             "test_runs": 10,
@@ -70,8 +70,8 @@ if __name__ == '__main__':
                 "reward_type": 'default',
             },
             "state_space": [
-                {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 12},  # Position
-                {'type': 'continuous', 'range': (-0.07, 0.07), 'bins': 12}  # Velocity
+                {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 64},  # Position
+                {'type': 'continuous', 'range': (-0.07, 0.07), 'bins': 64}  # Velocity
             ],
             "action_space": [{'type': 'discrete', 'bins': 3}],
             "alpha": 0.1,
@@ -91,7 +91,7 @@ if __name__ == '__main__':
                     "custom_gravity": g,
                     "max_episode_steps": 200,
                     "reward_type": 'default',
-                } for g in np.linspace(0.0015, 0.0025, 2)
+                } for g in np.linspace(0.0015, 0.0025, 5)
             ],
             "test_per_num_steps": int(0.1e6),
             "test_runs": 10,
@@ -103,8 +103,8 @@ if __name__ == '__main__':
                 "reward_type": 'default',
             },
             "state_space": [
-                {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 12},  # Position
-                {'type': 'continuous', 'range': (-0.07, 0.07), 'bins': 12}  # Velocity
+                {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 64},  # Position
+                {'type': 'continuous', 'range': (-0.07, 0.07), 'bins': 64}  # Velocity
             ],
             "action_space": [{'type': 'discrete', 'bins': 3}],
             "alpha": 0.1,
@@ -136,8 +136,8 @@ if __name__ == '__main__':
                 "reward_type": 'default',
             },
             "state_space": [
-                {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 12},  # Position
-                {'type': 'continuous', 'range': (-0.07, 0.07), 'bins': 12}  # Velocity
+                {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 64},  # Position
+                {'type': 'continuous', 'range': (-0.07, 0.07), 'bins': 64}  # Velocity
             ],
             "action_space": [{'type': 'discrete', 'bins': 3}],
             "alpha": 0.1,
