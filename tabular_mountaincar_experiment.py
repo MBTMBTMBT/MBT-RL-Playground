@@ -45,7 +45,7 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
-            "total_steps": int(10e6),
+            "total_steps": int(25e6),
             "runs": 5,
         },
         {
@@ -78,7 +78,7 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
-            "total_steps": int(10e6),
+            "total_steps": int(25e6),
             "runs": 5,
         },
         {
@@ -111,7 +111,7 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
-            "total_steps": int(10e6),
+            "total_steps": int(25e6),
             "runs": 5,
         },
         {
@@ -144,7 +144,7 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
-            "total_steps": int(10e6),
+            "total_steps": int(25e6),
             "runs": 5,
         },
     ]
@@ -156,7 +156,7 @@ if __name__ == '__main__':
     # Create a figure object
     fig = sp.make_subplots(rows=1, cols=1, subplot_titles=["Training Results Across Experiment Groups"])
 
-    for i, (group_name, (avg_rewards, std_rewards, steps, avg_test_reward)) in enumerate(aggregated_results.items()):
+    for i, (group_name, (avg_rewards, std_rewards, avg_kls, std_kls, steps, avg_test_reward)) in enumerate(aggregated_results.items()):
         # Plot training curve
         sigma = 1  # Standard deviation for Gaussian kernel
         avg_rewards = gaussian_filter1d(avg_rewards, sigma=sigma)
@@ -220,3 +220,54 @@ if __name__ == '__main__':
     plotly_png_path = os.path.join(save_dir, "aggregated_training_results_plotly.png")
     pio.write_image(fig, plotly_png_path, format='png', scale=5, width=1200, height=675)
     print(f"Aggregated training results saved to {plotly_png_path}")
+
+    # Create a figure object for KL divergence
+    fig_kl = sp.make_subplots(rows=1, cols=1, subplot_titles=["KL Divergence Across Experiment Groups"])
+
+    for i, (group_name, (avg_rewards, std_rewards, avg_kls, std_kls, steps, avg_test_reward)) in enumerate(
+            aggregated_results.items()):
+        # Apply Gaussian smoothing
+        sigma = 1  # Standard deviation for Gaussian kernel
+        avg_kls_smoothed = gaussian_filter1d(avg_kls, sigma=sigma)
+        std_kls_smoothed = gaussian_filter1d(std_kls, sigma=sigma)
+
+        # Plot KL divergence curve
+        trace_kl = go.Scatter(
+            x=steps,
+            y=avg_kls_smoothed,
+            mode='lines+markers',
+            name=f'{group_name} Smoothed KL Avg',
+            line_shape='spline'  # Smooth curve
+        )
+
+        # Plot standard deviation area for KL
+        trace_kl_std = go.Scatter(
+            x=list(steps) + list(steps)[::-1],
+            y=[v + s for v, s in zip(avg_kls_smoothed, std_kls_smoothed)] + [v - s for v, s in
+                                                                             zip(avg_kls_smoothed, std_kls_smoothed)][
+                                                                            ::-1],
+            fill='toself',
+            fillcolor='rgba(100,80,0,0.2)',
+            line=dict(color='rgba(255,255,255,0)'),
+            name=f'{group_name} KL Std Dev',
+            showlegend=False
+        )
+
+        # Add traces to the figure
+        fig_kl.add_trace(trace_kl, row=1, col=1)
+        fig_kl.add_trace(trace_kl_std, row=1, col=1)
+
+    # Update KL figure layout
+    fig_kl.update_layout(
+        xaxis_title="Steps",
+        yaxis_title="KL Divergence",
+        legend_title="Groups",
+        template="plotly_white"
+    )
+
+    print("Saving KL divergence curve...")
+    # Display figure and save as PNG
+    plotly_kl_png_path = os.path.join(save_dir, "aggregated_kl_results_plotly.png")
+    pio.write_image(fig_kl, plotly_kl_png_path, format='png', scale=5, width=1200, height=675)
+    print(f"Aggregated KL divergence results saved to {plotly_kl_png_path}")
+

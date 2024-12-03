@@ -131,6 +131,42 @@ class QTableAgent:
         # Print Q-table size and dimension details
         self.print_q_table_info()
 
+    def clone(self) -> 'QTableAgent':
+        """
+        Create a new QTableAgent object that is an identical but independent copy of the current agent.
+
+        :return: A new QTableAgent object.
+        """
+        # Create a new instance with the same initialization parameters
+        new_agent = QTableAgent(
+            state_space=[dim.copy() for dim in self.state_space],  # Copy each state space definition
+            action_space=[dim.copy() for dim in self.action_space],  # Copy each action space definition
+            action_combination=self.action_combination,
+            normal_partition_state=self.normal_partition_state,
+            normal_partition_action=self.normal_partition_action
+        )
+
+        # Manually copy over attributes that are generated during initialization
+        new_agent.state_bins = [np.copy(bin_edges) for bin_edges in self.state_bins]
+        new_agent.state_value_map = [np.copy(bin_edges) for bin_edges in self.state_value_map]
+
+        if self.action_combination:
+            new_agent.action_bins = np.copy(self.action_bins)
+            new_agent.action_value_map = np.copy(self.action_value_map)
+        else:
+            new_agent.action_bins = [np.copy(bin_edges) for bin_edges in self.action_bins]
+            new_agent.action_value_map = [np.copy(bin_edges) for bin_edges in self.action_value_map]
+
+        # Copy the Q-table and visit counts
+        new_agent.q_table = defaultdict(
+            lambda: 0.0, {key: value for key, value in self.q_table.items()}
+        )
+        new_agent.visit_counts = defaultdict(
+            lambda: 0, {key: value for key, value in self.visit_counts.items()}
+        )
+
+        return new_agent
+
     def _discretize_space(self, space: Dict[str, Any], normal_partition: bool) -> np.ndarray:
         """Discretize a single state or action dimension."""
         if space['type'] == 'discrete':
@@ -792,7 +828,7 @@ class QTableAgent:
             q = row[[f"{col}_df2" for col in action_prob_columns_df2]].values
 
             # Avoid division by zero and log(0) by adding a small epsilon
-            epsilon = 1e-10
+            epsilon = 1e-20
             p = np.clip(p, epsilon, 1.0)
             q = np.clip(q, epsilon, 1.0)
 

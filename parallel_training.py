@@ -50,12 +50,14 @@ def run_experiment(args):
     group_name = group["group_name"]
     training_rewards = []
     test_rewards = []
+    kl_divergences = []
     current_steps = 0
     epsilon_decay = (epsilon_start - epsilon_end) / total_steps
     epsilon = epsilon_start
 
     # Create QTableAgent
     agent = QTableAgent(state_space, action_space)
+    old_agent = None
 
     # Initialize CartPole environment
     if env_id in CUSTOM_ENVS:
@@ -71,6 +73,7 @@ def run_experiment(args):
     # Training
     with tqdm(total=total_steps, desc=f"[{group_name}] Run {run_id}", leave=False) as pbar:
         avg_test_reward = 0.0  # Initialize avg_test_reward to avoid UnboundLocalError
+        average_kl = 0.0
         env = envs[0]
         while current_steps < total_steps:
             state, _ = env.reset()
@@ -90,6 +93,7 @@ def run_experiment(args):
                         f"{group_name}_run_{run_id}_q_table_{current_steps // curriculum_steps}.csv",
                     )
                     agent.save_q_table(q_table_path)
+                    old_agent = agent.clone()
 
                 if np.random.random() < epsilon:
                     action = [np.random.choice([0, 1])]
@@ -105,6 +109,9 @@ def run_experiment(args):
                 current_steps += 1
                 epsilon = max(epsilon_end, epsilon - epsilon_decay)
                 pbar.update(1)
+
+                if old_agent is None and current_steps >= 100:
+                    old_agent = agent.clone()
 
                 # Periodic testing
                 if current_steps % test_per_num_steps == 0:
@@ -123,11 +130,19 @@ def run_experiment(args):
                         periodic_test_rewards.append(test_total_reward)
                     avg_test_reward = np.mean(periodic_test_rewards)
                     recent_avg = np.mean([r for _, r in training_rewards[-10:]])
+                    try:
+                        policy = QTableAgent.compute_action_probabilities(agent.query_q_table([]), strategy="softmax")
+                        old_policy = QTableAgent.compute_action_probabilities(old_agent.query_q_table([]), strategy="softmax")
+                        average_kl = QTableAgent.compute_average_kl_divergence_between_dfs(policy, old_policy, visit_threshold=0)
+                    except ValueError:
+                        average_kl = 0.0
                     pbar.set_description(f"[{group_name}] Run {run_id} | "
                                          f"Epsilon: {epsilon:.4f} | "
                                          f"Recent Avg Reward: {recent_avg:.2f} | "
+                                         f"Stage KL Divergence: {average_kl:.2f} | "
                                          f"Avg Test Reward: {avg_test_reward:.2f}")
                     test_rewards.append((current_steps, avg_test_reward))
+                    kl_divergences.append((current_steps, average_kl))
 
                 if done or truncated:
                     training_rewards.append((current_steps, total_reward))
@@ -135,6 +150,7 @@ def run_experiment(args):
                     pbar.set_description(f"[{group_name}] Run {run_id} | "
                                          f"Epsilon: {epsilon:.4f} | "
                                          f"Recent Avg Reward: {recent_avg:.2f} | "
+                                         f"Stage KL Divergence: {average_kl:.2f} | "
                                          f"Avg Test Reward: {avg_test_reward:.2f}")
                     break
 
@@ -165,6 +181,13 @@ def run_experiment(args):
         final_test_rewards.append(total_reward)
     if current_steps % test_per_num_steps >= test_per_num_steps // 2:
         test_rewards.append((current_steps, np.mean(final_test_rewards)))  # Append the final test result to test_rewards
+        try:
+            policy = QTableAgent.compute_action_probabilities(agent.query_q_table([]), strategy="softmax")
+            old_policy = QTableAgent.compute_action_probabilities(old_agent.query_q_table([]), strategy="softmax")
+            average_kl = QTableAgent.compute_average_kl_divergence_between_dfs(policy, old_policy, visit_threshold=0)
+        except ValueError:
+            average_kl = 0.0
+        kl_divergences.append((current_steps, average_kl))
 
     # Save GIF for the first test episode
     gif_path = os.path.join(save_dir, f"{group_name}_run_{run_id}_test.gif")
@@ -174,7 +197,7 @@ def run_experiment(args):
     training_data_path = os.path.join(save_dir, f"{group_name}_run_{run_id}_training_data.csv")
     pd.DataFrame(test_rewards, columns=["Step", "Avg Test Reward"]).to_csv(training_data_path, index=False)
 
-    return test_rewards, np.mean(final_test_rewards)
+    return test_rewards, kl_divergences, np.mean(final_test_rewards)
 
 
 # Aggregating results for consistent step-based plotting
@@ -203,9 +226,9 @@ def run_all_experiments(experiment_groups, save_dir, max_workers):
     for group in experiment_groups:
         group_name = group["group_name"]
         total_steps = group["total_steps"]
-        all_training_results, all_testing_results = zip(*group_results[group_name])
+        all_training_results, all_kl_divergences, all_testing_results = zip(*group_results[group_name])
 
-        steps, rewards = [], []
+        steps, rewards, kls = [], [], []
         for step_rewards in all_training_results:
             step, reward = zip(*step_rewards)
             steps.append(step)
@@ -213,10 +236,15 @@ def run_all_experiments(experiment_groups, save_dir, max_workers):
         avg_rewards = np.mean(rewards, axis=0)
         std_rewards = np.std(rewards, axis=0)
         steps = np.array(steps[0])
+        for step_rewards in all_kl_divergences:
+            step, reward = zip(*step_rewards)
+            kls.append(reward)
+        avg_kls = np.mean(kls, axis=0)
+        std_kls = np.std(kls, axis=0)
 
         avg_testing_rewards = np.mean(all_testing_results)
 
-        aggregated_results[group_name] = (avg_rewards, std_rewards, steps, avg_testing_rewards)
+        aggregated_results[group_name] = (avg_rewards, std_rewards, avg_kls, std_kls, steps, avg_testing_rewards)
 
     return aggregated_results
 
@@ -318,7 +346,7 @@ if __name__ == '__main__':
     # Create a figure object
     fig = sp.make_subplots(rows=1, cols=1, subplot_titles=["Training Results Across Experiment Groups"])
 
-    for i, (group_name, (avg_rewards, std_rewards, steps, avg_test_reward)) in enumerate(aggregated_results.items()):
+    for i, (group_name, (avg_rewards, std_rewards, avg_kls, std_kls, steps, avg_test_reward)) in enumerate(aggregated_results.items()):
         # Plot training curve
         sigma = 3  # Standard deviation for Gaussian kernel
         avg_rewards = gaussian_filter1d(avg_rewards, sigma=sigma)
