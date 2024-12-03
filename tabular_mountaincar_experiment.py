@@ -38,14 +38,14 @@ if __name__ == '__main__':
             },
             "state_space": [
                 {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 64},  # Position
-                {'type': 'continuous', 'range': (-0.07, 0.07), 'bins': 64}  # Velocity
+                {'type': 'continuous', 'range': (-0.14, 0.14), 'bins': 64}  # Velocity
             ],
             "action_space": [{'type': 'discrete', 'bins': 3}],
             "alpha": 0.1,
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
-            "total_steps": int(25e6),
+            "total_steps": int(10e6),
             "runs": 5,
         },
         {
@@ -71,14 +71,14 @@ if __name__ == '__main__':
             },
             "state_space": [
                 {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 64},  # Position
-                {'type': 'continuous', 'range': (-0.07, 0.07), 'bins': 64}  # Velocity
+                {'type': 'continuous', 'range': (-0.14, 0.14), 'bins': 64}  # Velocity
             ],
             "action_space": [{'type': 'discrete', 'bins': 3}],
             "alpha": 0.1,
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
-            "total_steps": int(25e6),
+            "total_steps": int(10e6),
             "runs": 5,
         },
         {
@@ -104,14 +104,14 @@ if __name__ == '__main__':
             },
             "state_space": [
                 {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 64},  # Position
-                {'type': 'continuous', 'range': (-0.07, 0.07), 'bins': 64}  # Velocity
+                {'type': 'continuous', 'range': (-0.14, 0.14), 'bins': 64}  # Velocity
             ],
             "action_space": [{'type': 'discrete', 'bins': 3}],
             "alpha": 0.1,
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
-            "total_steps": int(25e6),
+            "total_steps": int(10e6),
             "runs": 5,
         },
         {
@@ -137,14 +137,14 @@ if __name__ == '__main__':
             },
             "state_space": [
                 {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 64},  # Position
-                {'type': 'continuous', 'range': (-0.07, 0.07), 'bins': 64}  # Velocity
+                {'type': 'continuous', 'range': (-0.14, 0.14), 'bins': 64}  # Velocity
             ],
             "action_space": [{'type': 'discrete', 'bins': 3}],
             "alpha": 0.1,
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
-            "total_steps": int(25e6),
+            "total_steps": int(10e6),
             "runs": 5,
         },
     ]
@@ -158,7 +158,7 @@ if __name__ == '__main__':
 
     for i, (group_name, (avg_rewards, std_rewards, steps, avg_test_reward)) in enumerate(aggregated_results.items()):
         # Plot training curve
-        sigma = 3  # Standard deviation for Gaussian kernel
+        sigma = 1  # Standard deviation for Gaussian kernel
         avg_rewards = gaussian_filter1d(avg_rewards, sigma=sigma)
         std_rewards = gaussian_filter1d(std_rewards, sigma=sigma)
 

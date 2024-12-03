@@ -181,6 +181,7 @@ def run_experiment(args):
 def run_all_experiments(experiment_groups, save_dir, max_workers):
     tasks = []
     for group in experiment_groups:
+        print(group)
         for run_id in range(group["runs"]):
             tasks.append((
                 group, run_id, save_dir,
