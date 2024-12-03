@@ -16,29 +16,29 @@ if __name__ == '__main__':
     # Define experiment groups
     experiment_groups = [
         {
-            "group_name": "MC-30-05",
+            "group_name": "MC-25-05",
             "env_id": "Custom-MountainCar",
             "train_env_params": [
                 {
                     "render_mode": "rgb_array",
                     "goal_velocity": 0,
                     "custom_gravity": g,
-                    "max_episode_steps": 500,
+                    "max_episode_steps": 200,
                     "reward_type": 'default',
-                } for g in np.linspace(0.0005, 0.0030, 3)
+                } for g in np.linspace(0.0005, 0.0025, 2)
             ],
             "test_per_num_steps": int(0.1e6),
             "test_runs": 10,
             "test_env_params": {
                 "render_mode": "rgb_array",
                 "goal_velocity": 0,
-                "custom_gravity": 0.0030,
+                "custom_gravity": 0.0025,
                 "max_episode_steps": 500,
                 "reward_type": 'default',
             },
             "state_space": [
-                {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 24},  # Position
-                {'type': 'continuous', 'range': (-0.07, 0.07), 'bins': 24}  # Velocity
+                {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 12},  # Position
+                {'type': 'continuous', 'range': (-0.07, 0.07), 'bins': 12}  # Velocity
             ],
             "action_space": [{'type': 'discrete', 'bins': 3}],
             "alpha": 0.1,
@@ -49,29 +49,29 @@ if __name__ == '__main__':
             "runs": 5,
         },
         {
-            "group_name": "MC-30-10",
+            "group_name": "MC-25-10",
             "env_id": "Custom-MountainCar",
             "train_env_params": [
                 {
                     "render_mode": "rgb_array",
                     "goal_velocity": 0,
                     "custom_gravity": g,
-                    "max_episode_steps": 500,
+                    "max_episode_steps": 200,
                     "reward_type": 'default',
-                } for g in np.linspace(0.0010, 0.0030, 3)
+                } for g in np.linspace(0.0010, 0.0025, 2)
             ],
             "test_per_num_steps": int(0.1e6),
             "test_runs": 10,
             "test_env_params": {
                 "render_mode": "rgb_array",
                 "goal_velocity": 0,
-                "custom_gravity": 0.0030,
+                "custom_gravity": 0.0025,
                 "max_episode_steps": 500,
                 "reward_type": 'default',
             },
             "state_space": [
-                {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 24},  # Position
-                {'type': 'continuous', 'range': (-0.07, 0.07), 'bins': 24}  # Velocity
+                {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 12},  # Position
+                {'type': 'continuous', 'range': (-0.07, 0.07), 'bins': 12}  # Velocity
             ],
             "action_space": [{'type': 'discrete', 'bins': 3}],
             "alpha": 0.1,
@@ -82,29 +82,29 @@ if __name__ == '__main__':
             "runs": 5,
         },
         {
-            "group_name": "MC-30-15",
+            "group_name": "MC-25-15",
             "env_id": "Custom-MountainCar",
             "train_env_params": [
                 {
                     "render_mode": "rgb_array",
                     "goal_velocity": 0,
                     "custom_gravity": g,
-                    "max_episode_steps": 500,
+                    "max_episode_steps": 200,
                     "reward_type": 'default',
-                } for g in np.linspace(0.0015, 0.0030, 3)
+                } for g in np.linspace(0.0015, 0.0025, 2)
             ],
             "test_per_num_steps": int(0.1e6),
             "test_runs": 10,
             "test_env_params": {
                 "render_mode": "rgb_array",
                 "goal_velocity": 0,
-                "custom_gravity": 0.0030,
+                "custom_gravity": 0.0025,
                 "max_episode_steps": 500,
                 "reward_type": 'default',
             },
             "state_space": [
-                {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 24},  # Position
-                {'type': 'continuous', 'range': (-0.07, 0.07), 'bins': 24}  # Velocity
+                {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 12},  # Position
+                {'type': 'continuous', 'range': (-0.07, 0.07), 'bins': 12}  # Velocity
             ],
             "action_space": [{'type': 'discrete', 'bins': 3}],
             "alpha": 0.1,
@@ -115,36 +115,36 @@ if __name__ == '__main__':
             "runs": 5,
         },
         {
-            "group_name": "MC-30-nc",
+            "group_name": "MC-25-nc",
             "env_id": "Custom-MountainCar",
             "train_env_params": [
                 {
                     "render_mode": "rgb_array",
                     "goal_velocity": 0,
                     "custom_gravity": g,
-                    "max_episode_steps": 500,
+                    "max_episode_steps": 200,
                     "reward_type": 'default',
-                } for g in np.linspace(0.0030, 0.0030, 1)
+                } for g in np.linspace(0.0025, 0.0025, 1)
             ],
             "test_per_num_steps": int(0.1e6),
             "test_runs": 10,
             "test_env_params": {
                 "render_mode": "rgb_array",
                 "goal_velocity": 0,
-                "custom_gravity": 0.0030,
+                "custom_gravity": 0.0025,
                 "max_episode_steps": 500,
                 "reward_type": 'default',
             },
             "state_space": [
-                {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 24},  # Position
-                {'type': 'continuous', 'range': (-0.07, 0.07), 'bins': 24}  # Velocity
+                {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 12},  # Position
+                {'type': 'continuous', 'range': (-0.07, 0.07), 'bins': 12}  # Velocity
             ],
             "action_space": [{'type': 'discrete', 'bins': 3}],
             "alpha": 0.1,
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
-            "total_steps": int(100e6),
+            "total_steps": int(50e6),
             "runs": 5,
         },
     ]
