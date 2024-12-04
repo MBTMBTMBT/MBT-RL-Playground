@@ -23,7 +23,7 @@ if __name__ == '__main__':
                     "render_mode": "rgb_array",
                     "goal_velocity": 0,
                     "custom_gravity": g,
-                    "max_episode_steps": 200,
+                    "max_episode_steps": 250,
                     "reward_type": 'default',
                 } for g in np.linspace(0.0010, 0.0050, 5)
             ],
@@ -33,7 +33,7 @@ if __name__ == '__main__':
                 "render_mode": "rgb_array",
                 "goal_velocity": 0,
                 "custom_gravity": 0.0050,
-                "max_episode_steps": 200,
+                "max_episode_steps": 250,
                 "reward_type": 'default',
             },
             "state_space": [
@@ -46,7 +46,7 @@ if __name__ == '__main__':
             "epsilon_start": 0.25,
             "epsilon_end": 0.25,
             "total_steps": int(5e6),
-            "runs": 5,
+            "runs": 4,
         },
         {
             "group_name": "MC-50-15",
@@ -56,7 +56,7 @@ if __name__ == '__main__':
                     "render_mode": "rgb_array",
                     "goal_velocity": 0,
                     "custom_gravity": g,
-                    "max_episode_steps": 200,
+                    "max_episode_steps": 250,
                     "reward_type": 'default',
                 } for g in np.linspace(0.0015, 0.0050, 5)
             ],
@@ -66,7 +66,7 @@ if __name__ == '__main__':
                 "render_mode": "rgb_array",
                 "goal_velocity": 0,
                 "custom_gravity": 0.0050,
-                "max_episode_steps": 200,
+                "max_episode_steps": 250,
                 "reward_type": 'default',
             },
             "state_space": [
@@ -79,7 +79,7 @@ if __name__ == '__main__':
             "epsilon_start": 0.25,
             "epsilon_end": 0.25,
             "total_steps": int(5e6),
-            "runs": 5,
+            "runs": 4,
         },
         {
             "group_name": "MC-50-25",
@@ -89,7 +89,7 @@ if __name__ == '__main__':
                     "render_mode": "rgb_array",
                     "goal_velocity": 0,
                     "custom_gravity": g,
-                    "max_episode_steps": 200,
+                    "max_episode_steps": 250,
                     "reward_type": 'default',
                 } for g in np.linspace(0.0025, 0.0050, 5)
             ],
@@ -99,7 +99,7 @@ if __name__ == '__main__':
                 "render_mode": "rgb_array",
                 "goal_velocity": 0,
                 "custom_gravity": 0.0050,
-                "max_episode_steps": 200,
+                "max_episode_steps": 250,
                 "reward_type": 'default',
             },
             "state_space": [
@@ -112,7 +112,7 @@ if __name__ == '__main__':
             "epsilon_start": 0.25,
             "epsilon_end": 0.25,
             "total_steps": int(5e6),
-            "runs": 5,
+            "runs": 4,
         },
         {
             "group_name": "MC-50-nc",
@@ -122,7 +122,7 @@ if __name__ == '__main__':
                     "render_mode": "rgb_array",
                     "goal_velocity": 0,
                     "custom_gravity": g,
-                    "max_episode_steps": 200,
+                    "max_episode_steps": 250,
                     "reward_type": 'default',
                 } for g in np.linspace(0.0050, 0.0050, 1)
             ],
@@ -132,7 +132,7 @@ if __name__ == '__main__':
                 "render_mode": "rgb_array",
                 "goal_velocity": 0,
                 "custom_gravity": 0.0050,
-                "max_episode_steps": 200,
+                "max_episode_steps": 250,
                 "reward_type": 'default',
             },
             "state_space": [
@@ -145,12 +145,12 @@ if __name__ == '__main__':
             "epsilon_start": 0.25,
             "epsilon_end": 0.25,
             "total_steps": int(5e6),
-            "runs": 5,
+            "runs": 4,
         },
     ]
 
     # Run all experiments
-    max_workers = 20  # Number of parallel processes
+    max_workers = 16  # Number of parallel processes
     aggregated_results = run_all_experiments(experiment_groups, save_dir, max_workers)
 
     # Define color map to ensure consistent colors across figures
