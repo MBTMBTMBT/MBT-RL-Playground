@@ -121,7 +121,7 @@ def run_experiment(args):
                         test_total_reward = 0
                         test_done = False
                         while not test_done:
-                            test_action = [np.argmax(agent.get_action_probabilities(test_state, strategy="softmax"))]
+                            test_action = [np.argmax(agent.get_action_probabilities(test_state, strategy="greedy"))]
                             test_next_state, test_reward, test_done, test_truncated, _ = test_env.step(test_action[0])
                             test_state = test_next_state
                             test_total_reward += test_reward
