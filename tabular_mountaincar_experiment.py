@@ -46,7 +46,7 @@ if __name__ == '__main__':
             "epsilon_start": 0.25,
             "epsilon_end": 0.25,
             "total_steps": int(5e6),
-            "runs": 4,
+            "runs": 8,
         },
         {
             "group_name": "MC-50-15",
@@ -79,7 +79,7 @@ if __name__ == '__main__':
             "epsilon_start": 0.25,
             "epsilon_end": 0.25,
             "total_steps": int(5e6),
-            "runs": 4,
+            "runs": 8,
         },
         {
             "group_name": "MC-50-25",
@@ -112,7 +112,7 @@ if __name__ == '__main__':
             "epsilon_start": 0.25,
             "epsilon_end": 0.25,
             "total_steps": int(5e6),
-            "runs": 4,
+            "runs": 8,
         },
         {
             "group_name": "MC-50-nc",
@@ -145,12 +145,12 @@ if __name__ == '__main__':
             "epsilon_start": 0.25,
             "epsilon_end": 0.25,
             "total_steps": int(5e6),
-            "runs": 4,
+            "runs": 8,
         },
     ]
 
     # Run all experiments
-    max_workers = 16  # Number of parallel processes
+    max_workers = 8  # Number of parallel processes
     aggregated_results = run_all_experiments(experiment_groups, save_dir, max_workers)
 
     # Define color map to ensure consistent colors across figures
