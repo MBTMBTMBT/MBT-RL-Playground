@@ -10,9 +10,10 @@ class CustomMountainCarEnv(MountainCarEnv):
     """
 
     def __init__(self, render_mode: Optional[str] = None, goal_velocity=0, custom_gravity=0.0025, max_episode_steps=200,
-                 reward_type='default'):
+                 goal_position=0.5, reward_type='default'):
         super().__init__(render_mode=render_mode, goal_velocity=goal_velocity)
         # Override gravity and max_episode_steps with custom values
+        self.goal_position = goal_position
         if custom_gravity >= self.gravity:
             self.max_speed = custom_gravity / self.gravity * self.max_speed
         self.gravity = custom_gravity

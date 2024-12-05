@@ -22,10 +22,11 @@ if __name__ == '__main__':
                 {
                     "render_mode": "rgb_array",
                     "goal_velocity": 0,
-                    "custom_gravity": g,
+                    "custom_gravity": 0.0050,
                     "max_episode_steps": 200,
+                    "goal_position": g,
                     "reward_type": 'default',
-                } for g in np.linspace(0.0010, 0.0050, 5)
+                } for g in np.linspace(0.1, 0.5, 5)
             ],
             "test_per_num_steps": int(0.1e6),
             "test_runs": 10,
@@ -37,7 +38,7 @@ if __name__ == '__main__':
                 "reward_type": 'default',
             },
             "state_space": [
-                {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 128},  # Position
+                {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 256},  # Position
                 {'type': 'continuous', 'range': (-0.14, 0.14), 'bins': 128}  # Velocity
             ],
             "action_space": [{'type': 'discrete', 'bins': 3}],
@@ -45,8 +46,8 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.25,
-            "total_steps": int(10e6),
-            "runs": 8,
+            "total_steps": int(25e6),
+            "runs": 2,
         },
         {
             "group_name": "MC-50-15",
@@ -55,10 +56,11 @@ if __name__ == '__main__':
                 {
                     "render_mode": "rgb_array",
                     "goal_velocity": 0,
-                    "custom_gravity": g,
+                    "custom_gravity": 0.0050,
                     "max_episode_steps": 200,
+                    "goal_position": g,
                     "reward_type": 'default',
-                } for g in np.linspace(0.0015, 0.0050, 5)
+                } for g in np.linspace(0.15, 0.5, 5)
             ],
             "test_per_num_steps": int(0.1e6),
             "test_runs": 10,
@@ -70,7 +72,7 @@ if __name__ == '__main__':
                 "reward_type": 'default',
             },
             "state_space": [
-                {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 128},  # Position
+                {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 256},  # Position
                 {'type': 'continuous', 'range': (-0.14, 0.14), 'bins': 128}  # Velocity
             ],
             "action_space": [{'type': 'discrete', 'bins': 3}],
@@ -78,8 +80,8 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.25,
-            "total_steps": int(10e6),
-            "runs": 8,
+            "total_steps": int(25e6),
+            "runs": 2,
         },
         {
             "group_name": "MC-50-25",
@@ -88,10 +90,11 @@ if __name__ == '__main__':
                 {
                     "render_mode": "rgb_array",
                     "goal_velocity": 0,
-                    "custom_gravity": g,
+                    "custom_gravity": 0.0050,
                     "max_episode_steps": 200,
+                    "goal_position": g,
                     "reward_type": 'default',
-                } for g in np.linspace(0.0025, 0.0050, 5)
+                } for g in np.linspace(0.25, 0.5, 5)
             ],
             "test_per_num_steps": int(0.1e6),
             "test_runs": 10,
@@ -103,7 +106,7 @@ if __name__ == '__main__':
                 "reward_type": 'default',
             },
             "state_space": [
-                {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 128},  # Position
+                {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 256},  # Position
                 {'type': 'continuous', 'range': (-0.14, 0.14), 'bins': 128}  # Velocity
             ],
             "action_space": [{'type': 'discrete', 'bins': 3}],
@@ -111,8 +114,8 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.25,
-            "total_steps": int(10e6),
-            "runs": 8,
+            "total_steps": int(25e6),
+            "runs": 2,
         },
         {
             "group_name": "MC-50-nc",
@@ -121,10 +124,11 @@ if __name__ == '__main__':
                 {
                     "render_mode": "rgb_array",
                     "goal_velocity": 0,
-                    "custom_gravity": g,
+                    "custom_gravity": 0.0050,
                     "max_episode_steps": 200,
+                    "goal_position": g,
                     "reward_type": 'default',
-                } for g in np.linspace(0.0050, 0.0050, 1)
+                } for g in np.linspace(0.5, 0.5, 1)
             ],
             "test_per_num_steps": int(0.1e6),
             "test_runs": 10,
@@ -136,7 +140,7 @@ if __name__ == '__main__':
                 "reward_type": 'default',
             },
             "state_space": [
-                {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 128},  # Position
+                {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 256},  # Position
                 {'type': 'continuous', 'range': (-0.14, 0.14), 'bins': 128}  # Velocity
             ],
             "action_space": [{'type': 'discrete', 'bins': 3}],
@@ -144,8 +148,8 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.25,
-            "total_steps": int(10e6),
-            "runs": 8,
+            "total_steps": int(25e6),
+            "runs": 2,
         },
     ]
 
