@@ -73,7 +73,7 @@ class CustomMountainCarEnv(MountainCarEnv):
 
 if __name__ == "__main__":
     # Example of how to create and use the custom environment
-    env = CustomMountainCarEnv(custom_gravity=0.003, max_episode_steps=300, reward_type='progress')
+    env = CustomMountainCarEnv(custom_gravity=0.003, max_episode_steps=300, goal_position=-0.25, reward_type='progress', render_mode="human")
     obs, _ = env.reset()
     done = False
 

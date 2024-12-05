@@ -16,7 +16,7 @@ if __name__ == '__main__':
     # Define experiment groups
     experiment_groups = [
         {
-            "group_name": "MC-50-10",
+            "group_name": "MC-50-00",
             "env_id": "Custom-MountainCar",
             "train_env_params": [
                 {
@@ -26,7 +26,7 @@ if __name__ == '__main__':
                     "max_episode_steps": 200,
                     "goal_position": g,
                     "reward_type": 'default',
-                } for g in np.linspace(0.1, 0.5, 5)
+                } for g in np.linspace(-0.0, 0.5, 5)
             ],
             "test_per_num_steps": int(0.1e6),
             "test_runs": 10,
@@ -50,7 +50,7 @@ if __name__ == '__main__':
             "runs": 2,
         },
         {
-            "group_name": "MC-50-15",
+            "group_name": "MC-50-12",
             "env_id": "Custom-MountainCar",
             "train_env_params": [
                 {
@@ -60,7 +60,7 @@ if __name__ == '__main__':
                     "max_episode_steps": 200,
                     "goal_position": g,
                     "reward_type": 'default',
-                } for g in np.linspace(0.15, 0.5, 5)
+                } for g in np.linspace(-0.125, 0.5, 5)
             ],
             "test_per_num_steps": int(0.1e6),
             "test_runs": 10,
@@ -94,7 +94,7 @@ if __name__ == '__main__':
                     "max_episode_steps": 200,
                     "goal_position": g,
                     "reward_type": 'default',
-                } for g in np.linspace(0.25, 0.5, 5)
+                } for g in np.linspace(-0.25, 0.5, 5)
             ],
             "test_per_num_steps": int(0.1e6),
             "test_runs": 10,
