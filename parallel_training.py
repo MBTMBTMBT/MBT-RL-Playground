@@ -48,6 +48,10 @@ def run_experiment(args):
     state_space = group["state_space"]
     action_space = group["action_space"]
     group_name = group["group_name"]
+    if "reset_kls" in group.keys():
+        reset_kls = group["reset_kls"]
+    else:
+        reset_kls = [False * len(group["train_env_params"])]
     training_rewards = []
     test_rewards = []
     kl_divergences = []
@@ -75,6 +79,7 @@ def run_experiment(args):
         avg_test_reward = 0.0  # Initialize avg_test_reward to avoid UnboundLocalError
         average_kl = 0.0
         env = envs[0]
+        reset_kl = reset_kls[0]
         while current_steps < total_steps:
             state, _ = env.reset()
             total_reward = 0
@@ -87,13 +92,15 @@ def run_experiment(args):
                 if current_steps % curriculum_steps == 0 and current_steps > 0 and len(envs) > 1:
                     if current_steps // curriculum_steps <= len(envs) - 1:
                         env = envs[current_steps // curriculum_steps]
+                        reset_kl = reset_kls[current_steps // curriculum_steps]
                     state, _ = env.reset()
                     q_table_path = os.path.join(
                         save_dir,
                         f"{group_name}_run_{run_id}_q_table_{current_steps // curriculum_steps}.csv",
                     )
                     agent.save_q_table(q_table_path)
-                    old_agent = agent.clone()
+                    if reset_kl:
+                        old_agent = agent.clone()
 
                 if np.random.random() < epsilon:
                     action = [np.random.choice([0, 1])]

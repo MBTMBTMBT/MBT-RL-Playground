@@ -37,6 +37,7 @@ if __name__ == '__main__':
                     "reward_type": 'default',
                 } for g in np.linspace(0.5, 0.5, 14)
             ],
+            "reset_kls": [True * 5, False * 15],
             "test_per_num_steps": int(0.1e6),
             "test_runs": 10,
             "test_env_params": {
@@ -114,6 +115,7 @@ if __name__ == '__main__':
                     "reward_type": 'default',
                 } for g in np.linspace(0.5, 0.5, 14)
             ],
+            "reset_kls": [True * 5, False * 15],
             "test_per_num_steps": int(0.1e6),
             "test_runs": 10,
             "test_env_params": {
@@ -266,9 +268,11 @@ if __name__ == '__main__':
         color = color_map[group_name]
 
         # Apply Gaussian smoothing
-        sigma = 1  # Standard deviation for Gaussian kernel
-        avg_kls_smoothed = gaussian_filter1d(avg_kls, sigma=sigma)
-        std_kls_smoothed = gaussian_filter1d(std_kls, sigma=sigma)
+        # sigma = 1  # Standard deviation for Gaussian kernel
+        # avg_kls_smoothed = gaussian_filter1d(avg_kls, sigma=sigma)
+        # std_kls_smoothed = gaussian_filter1d(std_kls, sigma=sigma)
+        avg_kls_smoothed = avg_kls
+        std_kls_smoothed = std_kls
 
         # Plot KL divergence curve
         trace_kl = go.Scatter(
