@@ -26,7 +26,16 @@ if __name__ == '__main__':
                     "max_episode_steps": 200,
                     "goal_position": g,
                     "reward_type": 'default',
-                } for g in np.linspace(-0.0, 0.5, 5)
+                } for g in np.linspace(-0.0, 0.5, 6)
+            ] + [
+                {
+                    "render_mode": "rgb_array",
+                    "goal_velocity": 0,
+                    "custom_gravity": 0.0050,
+                    "max_episode_steps": 200,
+                    "goal_position": g,
+                    "reward_type": 'default',
+                } for g in np.linspace(0.5, 0.5, 9)
             ],
             "test_per_num_steps": int(0.1e6),
             "test_runs": 10,
@@ -94,7 +103,16 @@ if __name__ == '__main__':
                     "max_episode_steps": 200,
                     "goal_position": g,
                     "reward_type": 'default',
-                } for g in np.linspace(-0.25, 0.5, 5)
+                } for g in np.linspace(-0.25, 0.5, 6)
+            ] + [
+                {
+                    "render_mode": "rgb_array",
+                    "goal_velocity": 0,
+                    "custom_gravity": 0.0050,
+                    "max_episode_steps": 200,
+                    "goal_position": g,
+                    "reward_type": 'default',
+                } for g in np.linspace(0.5, 0.5, 9)
             ],
             "test_per_num_steps": int(0.1e6),
             "test_runs": 10,
