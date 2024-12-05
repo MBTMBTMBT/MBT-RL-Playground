@@ -131,10 +131,12 @@ class QTableAgent:
         # Print Q-table size and dimension details
         self.print_q_table_info()
 
-    def clone(self) -> 'QTableAgent':
+    def clone(self, retain_visit_counts: bool = True) -> 'QTableAgent':
         """
         Create a new QTableAgent object that is an identical but independent copy of the current agent.
+        Optionally clear visit counts in the cloned agent.
 
+        :param retain_visit_counts: Whether to retain the visit counts in the cloned agent. Default is True.
         :return: A new QTableAgent object.
         """
         # Create a new instance with the same initialization parameters
@@ -157,13 +159,18 @@ class QTableAgent:
             new_agent.action_bins = [np.copy(bin_edges) for bin_edges in self.action_bins]
             new_agent.action_value_map = [np.copy(bin_edges) for bin_edges in self.action_value_map]
 
-        # Copy the Q-table and visit counts
+        # Copy the Q-table
         new_agent.q_table = defaultdict(
             lambda: 0.0, {key: value for key, value in self.q_table.items()}
         )
-        new_agent.visit_counts = defaultdict(
-            lambda: 0, {key: value for key, value in self.visit_counts.items()}
-        )
+
+        # Copy or clear visit counts based on the retain_visit_counts flag
+        if retain_visit_counts:
+            new_agent.visit_counts = defaultdict(
+                lambda: 0, {key: value for key, value in self.visit_counts.items()}
+            )
+        else:
+            new_agent.visit_counts = defaultdict(lambda: 0)  # Initialize all visit counts to 0
 
         return new_agent
 
