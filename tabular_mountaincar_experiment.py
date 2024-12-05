@@ -35,7 +35,7 @@ if __name__ == '__main__':
                     "max_episode_steps": 200,
                     "goal_position": g,
                     "reward_type": 'default',
-                } for g in np.linspace(0.5, 0.5, 9)
+                } for g in np.linspace(0.5, 0.5, 14)
             ],
             "test_per_num_steps": int(0.1e6),
             "test_runs": 10,
@@ -112,7 +112,7 @@ if __name__ == '__main__':
                     "max_episode_steps": 200,
                     "goal_position": g,
                     "reward_type": 'default',
-                } for g in np.linspace(0.5, 0.5, 9)
+                } for g in np.linspace(0.5, 0.5, 14)
             ],
             "test_per_num_steps": int(0.1e6),
             "test_runs": 10,
