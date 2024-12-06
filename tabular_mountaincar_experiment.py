@@ -37,7 +37,7 @@ if __name__ == '__main__':
                     "reward_type": 'default',
                 } for g in np.linspace(0.5, 0.5, 14)
             ],
-            "reset_kls": [True * 5, False * 15],
+            "reset_kls": [True for _ in range(5)] + [False for _ in range(15)],
             "test_per_num_steps": int(0.1e6),
             "test_runs": 10,
             "test_env_params": {
@@ -115,7 +115,7 @@ if __name__ == '__main__':
                     "reward_type": 'default',
                 } for g in np.linspace(0.5, 0.5, 14)
             ],
-            "reset_kls": [True * 5, False * 15],
+            "reset_kls": [True for _ in range(5)] + [False for _ in range(15)],
             "test_per_num_steps": int(0.1e6),
             "test_runs": 10,
             "test_env_params": {
