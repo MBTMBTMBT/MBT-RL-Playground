@@ -52,6 +52,10 @@ def run_experiment(args):
         reset_kls = group["reset_kls"]
     else:
         reset_kls = [False * len(group["train_env_params"])]
+    if "prior_agent_path" in group.keys():
+        prior_agent_path = group["prior_agent_path"]
+    else:
+        prior_agent_path = None
     training_rewards = []
     test_rewards = []
     kl_divergences = []
@@ -60,7 +64,10 @@ def run_experiment(args):
     epsilon = epsilon_start
 
     # Create QTableAgent
-    agent = QTableAgent(state_space, action_space)
+    if prior_agent_path is not None:
+        agent = QTableAgent.load_q_table(prior_agent_path)
+    else:
+        agent = QTableAgent(state_space, action_space)
     old_agent = None
 
     # Initialize CartPole environment
