@@ -25,7 +25,7 @@ if __name__ == '__main__':
                     "goal_velocity": 0,
                     "custom_gravity": 0.0050,
                     "max_episode_steps": 200,
-                    "goal_position": 0.5,
+                    "goal_position": 0.0,
                     "reward_type": 'default',
                 }
             ],
@@ -62,7 +62,7 @@ if __name__ == '__main__':
                     "goal_velocity": 0,
                     "custom_gravity": 0.0050,
                     "max_episode_steps": 200,
-                    "goal_position": 0.5,
+                    "goal_position": 0.25,
                     "reward_type": 'default',
                 }
             ],
