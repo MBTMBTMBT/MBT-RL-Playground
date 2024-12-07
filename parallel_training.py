@@ -201,7 +201,7 @@ def run_experiment(args):
             policy = QTableAgent.compute_action_probabilities(agent.query_q_table([]), strategy="softmax")
             old_policy = QTableAgent.compute_action_probabilities(old_agent.query_q_table([]), strategy="softmax")
             average_kl = QTableAgent.compute_average_kl_divergence_between_dfs(
-                policy, old_policy, visit_threshold=100, weighted_by_visitation=True
+                policy, old_policy, visit_threshold=0, weighted_by_visitation=True
             )
         except ValueError:
             average_kl = 0.0
