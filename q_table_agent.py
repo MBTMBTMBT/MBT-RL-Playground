@@ -140,6 +140,7 @@ class QTableAgent:
         :return: A new QTableAgent object.
         """
         # Create a new instance with the same initialization parameters
+        print("Cloning agent...")
         new_agent = QTableAgent(
             state_space=[dim.copy() for dim in self.state_space],  # Copy each state space definition
             action_space=[dim.copy() for dim in self.action_space],  # Copy each action space definition

@@ -1,6 +1,5 @@
-from scipy.ndimage import gaussian_filter1d
-
 if __name__ == '__main__':
+    from scipy.ndimage import gaussian_filter1d
     import plotly.graph_objs as go
     import plotly.subplots as sp
     import plotly.io as pio
