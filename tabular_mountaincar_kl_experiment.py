@@ -88,7 +88,7 @@ if __name__ == '__main__':
         {
             "group_name": "MC-50-nc",
             "env_id": "Custom-MountainCar",
-            # "prior_agent_path": "./experiments/MountainCar_Experiments/MC-50-nc_run_0_q_table_final.csv",
+            "prior_agent_path": "./experiments/MountainCar_Experiments/MC-50-nc_run_0_q_table_final.csv",
             "train_env_params": [
                 {
                     "render_mode": "rgb_array",
