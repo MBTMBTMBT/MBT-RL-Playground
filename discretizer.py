@@ -20,7 +20,7 @@ class Discretizer:
         for (min_val, max_val), buckets in zip(ranges, num_buckets):
             if buckets > 1:
                 step = (max_val - min_val) / buckets
-                midpoints = [min_val + (i + 0.5) * step for i in range(buckets)]
+                midpoints = [round(min_val + (i + 0.5) * step, 6) for i in range(buckets)]  # Round to 6 decimal places
                 self.bucket_midpoints.append(midpoints)
             else:
                 self.bucket_midpoints.append([])
@@ -46,7 +46,7 @@ class Discretizer:
                 bucket_indices.append(-1)
             elif buckets == 1:
                 # Single bucket, always map to midpoint
-                midpoint = (min_val + max_val) / 2
+                midpoint = round((min_val + max_val) / 2, 6)
                 midpoints.append(midpoint)
                 bucket_indices.append(0)
             else:
@@ -63,18 +63,17 @@ class Discretizer:
         """
         Print all buckets and their corresponding ranges.
         """
-        print("\nBucket Ranges:")
         for i, ((min_val, max_val), buckets) in enumerate(zip(self.ranges, self.num_buckets)):
             if buckets == 0:
                 print(f"Dimension {i}: No discretization")
             elif buckets == 1:
-                midpoint = (min_val + max_val) / 2
+                midpoint = round((min_val + max_val) / 2, 6)
                 print(f"Dimension {i}: Single bucket at midpoint {midpoint}")
             else:
                 step = (max_val - min_val) / buckets
                 for j in range(buckets):
-                    bucket_min = min_val + j * step
-                    bucket_max = bucket_min + step
+                    bucket_min = round(min_val + j * step, 6)
+                    bucket_max = round(bucket_min + step, 6)
                     print(f"Dimension {i}, Bucket {j}: Range [{bucket_min}, {bucket_max})")
 
 # Example Usage

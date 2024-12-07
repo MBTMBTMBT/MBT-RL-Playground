@@ -1,10 +1,16 @@
 import os
+from collections import defaultdict
+import random
+from typing import Tuple, Union, List,  Any, SupportsFloat
 
 import gymnasium as gym
 import numpy as np
+import pandas as pd
 import torch
+from numpy import ndarray
 from torch import optim
 
+from discretizer import Discretizer
 from sb3_vec_dataset import GymDataset
 from ae import DeterministicAE, ae_total_correlation_uniform_loss, contrastive_loss_v2
 
@@ -253,3 +259,147 @@ class AEWrapper(gym.Wrapper):
         self.kl_divergence = sum(total_correlations) / len(total_correlations)
         self.total_uniform_loss = sum(total_uniform_losses) / len(total_uniform_losses)
         self.contrastive_loss = sum(contrastive_losses) / len(contrastive_losses)
+
+
+class DiscretizerWrapper(gym.Wrapper):
+    def __init__(self, env: gym.Env, state_discretizer: Discretizer, action_discretizer: Discretizer, enable_counting: bool = False):
+        """
+        Wrapper to apply state and action discretization with counting functionality.
+
+        :param env: The Gymnasium environment to wrap.
+        :param state_discretizer: A Discretizer instance for states.
+        :param action_discretizer: A Discretizer instance for actions.
+        :param enable_counting: Whether to enable state-action counting.
+        """
+        super().__init__(env)
+        self.state_discretizer = state_discretizer
+        self.action_discretizer = action_discretizer
+        self.enable_counting = enable_counting
+        self.state_action_counts = defaultdict(int) if enable_counting else None
+
+    def reset(self, **kwargs) -> Tuple[np.ndarray, dict]:
+        """
+        Reset the environment and discretize the initial state.
+
+        :param kwargs: Additional arguments for the environment's reset method.
+        :return: A tuple of the discretized state and additional info.
+        """
+        state, info = self.env.reset(**kwargs)
+        discretized_state, _ = self.state_discretizer.discretize(state)
+        return discretized_state, info
+
+    def step(self, action: Union[int, List[float]]) -> Tuple[np.ndarray, float, bool, bool, dict]:
+        """
+        Take a step in the environment using a discretized action.
+
+        :param action: The action to take (discretized bucket index or original action).
+        :return: A tuple containing the discretized next state, reward, done, truncated, and info.
+        """
+        if self.action_discretizer.num_buckets[0] == 0:  # Direct output for action
+            action_to_take = action
+        elif isinstance(action, int):  # Discrete action
+            action_to_take = self.action_discretizer.bucket_midpoints[0][action]
+        elif isinstance(action, list):  # Continuous action
+            action_to_take, _ = self.action_discretizer.discretize(action)
+        else:
+            raise ValueError("Invalid action type provided.")
+
+        state, reward, done, truncated, info = self.env.step(action_to_take)
+        discretized_state, bucket_indices = self.state_discretizer.discretize(state)
+
+        if self.enable_counting:
+            key = {f"state_dim_{i}_index": idx for i, idx in enumerate(bucket_indices)}
+            key.update({f"state_dim_{i}_value": val for i, val in enumerate(discretized_state)})
+            key["action"] = action
+            self.state_action_counts[tuple(key.items())] += 1
+
+        return discretized_state, reward, done, truncated, info
+
+    def export_counts(self, path: str = None) -> Union[pd.DataFrame, None]:
+        """
+        Export state-action counts to a DataFrame or save as a CSV file.
+
+        :param path: Optional file path to save the CSV.
+        :return: A DataFrame of the counts if no path is provided.
+        """
+        if not self.enable_counting or not self.state_action_counts:
+            return None
+
+        data = []
+        for key, count in self.state_action_counts.items():
+            row = dict(key)
+            row["count"] = count
+            data.append(row)
+
+        df = pd.DataFrame(data)
+
+        if path:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            df.to_csv(path, index=False)
+
+        return df
+
+    def import_counts(self, path: str):
+        """
+        Import state-action counts from a CSV file.
+
+        :param path: Path to the CSV file.
+        """
+        if not self.enable_counting:
+            raise ValueError("Counting is not enabled.")
+
+        df = pd.read_csv(path)
+        self.state_action_counts.clear()
+        for _, row in df.iterrows():
+            key = tuple((col, row[col]) for col in row.index if col != "count")
+            self.state_action_counts[key] = row["count"]
+
+    def clear_counts(self):
+        """
+        Clear all state-action counts.
+        """
+        if self.enable_counting:
+            self.state_action_counts.clear()
+
+
+# Example Usage
+if __name__ == "__main__":
+    # Define ranges and number of buckets for each dimension based on CartPole state space
+    state_ranges = [(-4.8, 4.8), (-3.4, 3.4), (-0.418, 0.418), (-3.4, 3.4)]  # CartPole observation ranges
+    action_ranges = [(0, 1)]  # Two discrete actions: 0 and 1
+
+    state_buckets = [5, 5, 5, 5]  # Discretize each state variable into 5 buckets
+    action_buckets = [0]  # No discretization for actions
+
+    state_discretizer = Discretizer(state_ranges, state_buckets)
+    action_discretizer = Discretizer(action_ranges, action_buckets)
+
+    env = gym.make("CartPole-v1")
+    wrapped_env = DiscretizerWrapper(env, state_discretizer, action_discretizer, enable_counting=True)
+
+    state, info = wrapped_env.reset()
+    print("Initial Discretized State:", state)
+
+    for step in range(1000):  # Perform 10 steps in the CartPole environment
+        action = random.randint(0, 1)  # Randomly choose between action 0 or 1
+        next_state, reward, done, truncated, info = wrapped_env.step(action)
+        print(f"Step {step + 1}: Action: {action}, Next Discretized State: {next_state}, Reward: {reward}, Done: {done}")
+        if done:
+            print("Episode finished. Resetting environment.")
+            state, info = wrapped_env.reset()
+
+    # Export and re-import counts to test functionality
+    export_path = "./state_action_counts.csv"
+    wrapped_env.export_counts(export_path)
+    print(f"Counts exported to {export_path}")
+
+    wrapped_env.clear_counts()
+    print("Counts cleared.")
+
+    wrapped_env.import_counts(export_path)
+    print(f"Counts re-imported from {export_path}")
+
+    # Compare exported and imported counts
+    df = wrapped_env.export_counts()
+    print("Re-imported State-Action Counts:")
+    print(df)
