@@ -1,7 +1,6 @@
 from scipy.ndimage import gaussian_filter1d
 
 if __name__ == '__main__':
-    import numpy as np
     import plotly.graph_objs as go
     import plotly.subplots as sp
     import plotly.io as pio
@@ -47,7 +46,7 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.25,
-            "total_steps": int(15e6),
+            "total_steps": int(5e6),
             "runs": 4,
         },
         {
@@ -82,7 +81,7 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.25,
-            "total_steps": int(15e6),
+            "total_steps": int(5e6),
             "runs": 4,
         },
         {
@@ -117,7 +116,7 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.25,
-            "total_steps": int(15e6),
+            "total_steps": int(5e6),
             "runs": 4,
         },
     ]
