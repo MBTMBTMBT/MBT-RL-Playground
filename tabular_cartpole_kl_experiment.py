@@ -7,15 +7,16 @@ if __name__ == '__main__':
     from parallel_training import run_all_experiments
 
     # General experiment parameters
-    experiment_name = "CartPole_Experiments"
+    experiment_name = "CartPole_Experiments_KL"
     save_dir = f"./experiments/{experiment_name}/"
     os.makedirs(save_dir, exist_ok=True)
 
     # Define experiment groups
     experiment_groups = [
         {
-            "group_name": "CP-98-nc",
+            "group_name": "CP-98-98",
             "env_id": "Custom-CartPole",
+            "prior_agent_path": "./experiments/CartPole_Experiments/CP-98-nc_run_0_q_table_final.csv",
             "train_env_params": [
                 {
                     "render_mode": "rgb_array",
@@ -39,23 +40,24 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.25,
-            "total_steps": int(1e6),
+            "total_steps": int(5e6),
             "runs": 4,
         },
         {
-            "group_name": "CP-75-nc",
+            "group_name": "CP-98-75",
             "env_id": "Custom-CartPole",
+            "prior_agent_path": "./experiments/CartPole_Experiments/CP-75-nc_run_0_q_table_final.csv",
             "train_env_params": [
                 {
                     "render_mode": "rgb_array",
-                    "gravity": 7.5,
+                    "gravity": 9.8,
                 }
             ],
             "test_per_num_steps": int(0.1e6),
             "test_runs": 10,
             "test_env_params": {
                 "render_mode": "rgb_array",
-                "gravity": 7.5,
+                "gravity": 9.8,
             },
             "state_space": [
                 {'type': 'continuous', 'range': (-2.4, 2.4), 'bins': 16},  # Cart position
@@ -68,23 +70,24 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.25,
-            "total_steps": int(1e6),
+            "total_steps": int(5e6),
             "runs": 4,
         },
         {
-            "group_name": "CP-50-nc",
+            "group_name": "CP-98-50",
             "env_id": "Custom-CartPole",
+            "prior_agent_path": "./experiments/CartPole_Experiments/CP-50-nc_run_0_q_table_final.csv",
             "train_env_params": [
                 {
                     "render_mode": "rgb_array",
-                    "gravity": 5.0,
+                    "gravity": 9.8,
                 }
             ],
             "test_per_num_steps": int(0.1e6),
             "test_runs": 10,
             "test_env_params": {
                 "render_mode": "rgb_array",
-                "gravity": 5.0,
+                "gravity": 9.8,
             },
             "state_space": [
                 {'type': 'continuous', 'range': (-2.4, 2.4), 'bins': 16},  # Cart position
@@ -97,23 +100,24 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.25,
-            "total_steps": int(1e6),
+            "total_steps": int(5e6),
             "runs": 4,
         },
         {
-            "group_name": "CP-25-nc",
+            "group_name": "CP-98-25",
             "env_id": "Custom-CartPole",
+            "prior_agent_path": "./experiments/CartPole_Experiments/CP-25-nc_run_0_q_table_final.csv",
             "train_env_params": [
                 {
                     "render_mode": "rgb_array",
-                    "gravity": 2.5,
+                    "gravity": 9.8,
                 }
             ],
             "test_per_num_steps": int(0.1e6),
             "test_runs": 10,
             "test_env_params": {
                 "render_mode": "rgb_array",
-                "gravity": 2.5,
+                "gravity": 9.8,
             },
             "state_space": [
                 {'type': 'continuous', 'range': (-2.4, 2.4), 'bins': 16},  # Cart position
@@ -126,7 +130,7 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.25,
-            "total_steps": int(1e6),
+            "total_steps": int(5e6),
             "runs": 4,
         },
     ]

@@ -12,11 +12,13 @@ import os
 import pandas as pd
 
 from custom_mountain_car import CustomMountainCarEnv
+from custom_cartpole import CustomCartPoleEnv
 from q_table_agent import QTableAgent
 
 
 CUSTOM_ENVS = {
     "Custom-MountainCar": CustomMountainCarEnv,
+    "Custom-CartPole": CustomCartPoleEnv,
 }
 
 
