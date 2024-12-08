@@ -125,6 +125,11 @@ def run_experiment(args):
                         f"{group_name}_run_{run_id}_q_table_{current_steps // curriculum_steps}.csv",
                     )
                     agent.save_q_table(q_table_path)
+                    count_path = os.path.join(
+                        save_dir,
+                        f"{group_name}_run_{run_id}_count_{current_steps // curriculum_steps}.csv",
+                    )
+                    env.export_counts(count_path)
                     if reset_kl:
                         old_agent = agent.clone()
 
@@ -199,6 +204,8 @@ def run_experiment(args):
     # Save Q-Table and training data
     q_table_path = os.path.join(save_dir, f"{group_name}_run_{run_id}_q_table_final.csv")
     agent.save_q_table(q_table_path)
+    count_path = os.path.join(save_dir, f"{group_name}_run_{run_id}_count_final.csv",)
+    env.export_counts(count_path)
 
     # Final Testing and GIF generation
     frames = []
