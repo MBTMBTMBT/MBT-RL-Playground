@@ -2,7 +2,7 @@ import ast
 import base64
 from collections import defaultdict
 import os
-from itertools import product
+from itertools import product, combinations
 from typing import List, Dict, Union, Tuple, Any, Optional
 import numpy as np
 import pandas as pd
@@ -705,7 +705,7 @@ class QTableAgent:
             group2_columns = [group2_columns]
 
         # Check if the second group contains actions
-        is_action_group = all(col.startswith("Action_") for col in group2_columns)
+        is_action_group = all(col.startswith("action_dim_") for col in group2_columns)
 
         if is_action_group:
             # If the group is actions, find corresponding probability columns
@@ -720,12 +720,12 @@ class QTableAgent:
             group2_columns = full_action_columns
 
         # Check for visit counts if `use_visit_count` is enabled
-        if use_visit_count and "Visit_Count" not in df.columns:
-            raise ValueError("Visit count column ('Visit_Count') is required when 'use_visit_count=True'.")
+        if use_visit_count and "count" not in df.columns:
+            raise ValueError("Visit count column ('count') is required when 'use_visit_count=True'.")
 
         # Normalize probabilities, optionally weighted by visit counts
         if use_visit_count:
-            df["Weighted_Visit_Count"] = df["Visit_Count"] / df["Visit_Count"].sum()
+            df["Weighted_Visit_Count"] = df["count"] / df["count"].sum()
             if is_action_group:
                 for col in group2_columns:
                     df[col] *= df["Weighted_Visit_Count"]
@@ -736,7 +736,7 @@ class QTableAgent:
             df[group2_columns] /= total_prob
         else:
             # For feature groups, normalize visit counts
-            df["Visit_Prob"] = df["Visit_Count"] / df["Visit_Count"].sum()
+            df["Visit_Prob"] = df["count"] / df["count"].sum()
 
         # Compute joint probability P(Group1, Group2)
         if is_action_group:
@@ -1130,6 +1130,25 @@ if __name__ == "__main__":
     merged_df = compute_action_probabilities(merged_df, "softmax")
     print("Action Probabilities:")
     print(merged_df.head())
+
+    # List of all state features
+    state_features = ["state_dim_0", "state_dim_1", "state_dim_2", "state_dim_3"]
+
+    # Iterate over all possible combinations of features
+    for r in range(1, len(state_features) + 1):  # r is the number of features in each combination
+        for feature_combination in combinations(state_features, r):
+            # Compute mutual information for the current feature combination
+            mi = QTableAgent.compute_mutual_information(
+                merged_df, list(feature_combination), "action_dim_0", use_visit_count=True
+            )
+            # Print the results with detailed explanation
+            print(f"Mutual Information for Features {feature_combination} with action_dim_0: {mi}")
+
+    # Compute mutual information for all features as values
+    mi = QTableAgent.compute_mutual_information(
+        merged_df, state_features, "action_dim_0", use_visit_count=True
+    )
+    print(f"Mutual Information for All Features as Values with action_dim_0: {mi}")
 
     # Load agent from merged DataFrame
     loaded_agent = _QTableAgent.load_q_table(df=q_table_df)
