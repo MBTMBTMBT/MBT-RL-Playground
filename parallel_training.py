@@ -13,8 +13,9 @@ import pandas as pd
 
 from custom_mountain_car import CustomMountainCarEnv
 from custom_cartpole import CustomCartPoleEnv
-from q_table_agent import QTableAgent
-
+from discretizer import Discretizer
+from q_table_agent import _QTableAgent
+from wrappers import DiscretizerWrapper
 
 CUSTOM_ENVS = {
     "Custom-MountainCar": CustomMountainCarEnv,
@@ -67,9 +68,9 @@ def run_experiment(args):
 
     # Create QTableAgent
     if prior_agent_path is not None:
-        agent = QTableAgent.load_q_table(prior_agent_path)
+        agent = _QTableAgent.load_q_table(prior_agent_path)
     else:
-        agent = QTableAgent(state_space, action_space)
+        agent = _QTableAgent(action_space["nums"])
     old_agent = None
 
     # Initialize CartPole environment
@@ -79,6 +80,19 @@ def run_experiment(args):
     else:
         envs = [gym.make(env_id, render_mode="rgb_array")]
         test_env = gym.make(env_id, render_mode="rgb_array")
+
+    # Put on wrappers
+    envs = [DiscretizerWrapper(
+        env,
+        Discretizer(state_space["ranges"], state_space["bins"]),
+        Discretizer(action_space["ranges"], action_space["bins"]),
+    ) for env in envs]
+    test_env = DiscretizerWrapper(
+        test_env,
+        Discretizer(state_space["ranges"], state_space["bins"]),
+        Discretizer(action_space["ranges"], action_space["bins"]),
+    )
+
     test_per_num_steps = group["test_per_num_steps"]
     test_runs = group["test_runs"]
 
@@ -312,11 +326,15 @@ if __name__ == '__main__':
                 "max_episode_steps": 200,
                 "reward_type": 'progress',
             },
-            "state_space": [
-                {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 16},  # Position
-                {'type': 'continuous', 'range': (-0.07, 0.07), 'bins': 16}  # Velocity
-            ],
-            "action_space": [{'type': 'discrete', 'bins': 3}],
+            "state_space": {
+                "ranges": [(-1.2, 0.6), (-0.07, 0.07),],
+                "bins": [16, 16],
+            },
+            "action_space": {
+                "ranges": [(0, 2),],
+                "bins": [0,],
+                "nums": [3,],
+            },
             "alpha": 0.1,
             "gamma": 0.99,
             "epsilon_start": 0.25,
@@ -345,11 +363,14 @@ if __name__ == '__main__':
                 "max_episode_steps": 200,
                 "reward_type": 'progress',
             },
-            "state_space": [
-                {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 16},  # Position
-                {'type': 'continuous', 'range': (-0.07, 0.07), 'bins': 16}  # Velocity
-            ],
-            "action_space": [{'type': 'discrete', 'bins': 3}],
+            "state_space": {
+                "ranges": [(-1.2, 0.6), (-0.07, 0.07),],
+                "bins": [16, 16],
+            },
+            "action_space": {
+                "ranges": [(0, 2),],
+                "bins": [0],
+            },
             "alpha": 0.1,
             "gamma": 0.99,
             "epsilon_start": 0.25,
