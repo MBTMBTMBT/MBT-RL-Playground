@@ -176,7 +176,7 @@ class DQNAgent:
         # Discard half of the replay buffer
         remaining_size = len(self.replay_buffer) // 2
         self.replay_buffer = deque(random.sample(self.replay_buffer, remaining_size), maxlen=self.replay_buffer.maxlen)
-        print("Loss:", losses / counter)
+        # print("Loss:", losses / counter)
 
     def update(self, state: np.ndarray, action: List[int], reward: float, next_state: np.ndarray, done: bool,
                alpha: float = 0.001, gamma: float = 0.99):

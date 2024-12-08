@@ -20,9 +20,9 @@ if __name__ == '__main__':
             "agent_params": {
                 "input_dims": 4,
                 "hidden_layers": [64, 64],
-                "replay_buffer_size": 16384,
+                "replay_buffer_size": 16384 * 4,
                 "batch_size": 32,
-                "train_epochs": 5,
+                "train_epochs": 10,
             },
             "train_env_params": [
                 {
@@ -52,127 +52,127 @@ if __name__ == '__main__':
             "total_steps": int(5e6),
             "runs": 1,
         },
-        # {
-        #     "group_name": "CP-75-nc",
-        #     "env_id": "Custom-CartPole",
-        #     "agent_type": "dqn",
-        #     "agent_params": {
-        #         "input_dims": 4,
-        #         "hidden_layers": [64, 64],
-        #         "replay_buffer_size": 16384,
-        #         "batch_size": 32,
-        #         "train_epochs": 5,
-        #     },
-        #     "train_env_params": [
-        #         {
-        #             "render_mode": "rgb_array",
-        #             "gravity": 7.5,
-        #         }
-        #     ],
-        #     "test_per_num_steps": int(0.1e6),
-        #     "test_runs": 10,
-        #     "test_env_params": {
-        #         "render_mode": "rgb_array",
-        #         "gravity": 7.5,
-        #     },
-        #     "state_space": {
-        #         "ranges": [(-2.4, 2.4), (-2, 2), (-0.25, 0.25), (-2, 2)],
-        #         "bins": [16, 16, 16, 16],
-        #     },
-        #     "action_space": {
-        #         "ranges": [(0, 1), ],
-        #         "bins": [0, ],
-        #         "nums": [2, ],
-        #     },
-        #     "alpha": 1e-5,
-        #     "gamma": 0.99,
-        #     "epsilon_start": 0.25,
-        #     "epsilon_end": 0.25,
-        #     "total_steps": int(5e6),
-        #     "runs": 1,
-        # },
-        # {
-        #     "group_name": "CP-50-nc",
-        #     "env_id": "Custom-CartPole",
-        #     "agent_type": "dqn",
-        #     "agent_params": {
-        #         "input_dims": 4,
-        #         "hidden_layers": [64, 64],
-        #         "replay_buffer_size": 16384,
-        #         "batch_size": 32,
-        #         "train_epochs": 5,
-        #     },
-        #     "train_env_params": [
-        #         {
-        #             "render_mode": "rgb_array",
-        #             "gravity": 5.0,
-        #         }
-        #     ],
-        #     "test_per_num_steps": int(0.1e6),
-        #     "test_runs": 10,
-        #     "test_env_params": {
-        #         "render_mode": "rgb_array",
-        #         "gravity": 5.0,
-        #     },
-        #     "state_space": {
-        #         "ranges": [(-2.4, 2.4), (-2, 2), (-0.25, 0.25), (-2, 2)],
-        #         "bins": [16, 16, 16, 16],
-        #     },
-        #     "action_space": {
-        #         "ranges": [(0, 1), ],
-        #         "bins": [0, ],
-        #         "nums": [2, ],
-        #     },
-        #     "alpha": 1e-5,
-        #     "gamma": 0.99,
-        #     "epsilon_start": 0.25,
-        #     "epsilon_end": 0.25,
-        #     "total_steps": int(5e6),
-        #     "runs": 1,
-        # },
-        # {
-        #     "group_name": "CP-25-nc",
-        #     "env_id": "Custom-CartPole",
-        #     "agent_type": "dqn",
-        #     "agent_params": {
-        #         "input_dims": 4,
-        #         "hidden_layers": [64, 64],
-        #         "replay_buffer_size": 16384,
-        #         "batch_size": 32,
-        #         "train_epochs": 5,
-        #     },
-        #     "train_env_params": [
-        #         {
-        #             "render_mode": "rgb_array",
-        #             "gravity": 2.5,
-        #         }
-        #     ],
-        #     "test_per_num_steps": int(0.1e6),
-        #     "test_runs": 10,
-        #     "test_env_params": {
-        #         "render_mode": "rgb_array",
-        #         "gravity": 2.5,
-        #     },
-        #     "state_space": {
-        #         "ranges": [(-2.4, 2.4), (-2, 2), (-0.25, 0.25), (-2, 2)],
-        #         "bins": [16, 16, 16, 16],
-        #     },
-        #     "action_space": {
-        #         "ranges": [(0, 1), ],
-        #         "bins": [0, ],
-        #         "nums": [2, ],
-        #     },
-        #     "alpha": 1e-5,
-        #     "gamma": 0.99,
-        #     "epsilon_start": 0.25,
-        #     "epsilon_end": 0.25,
-        #     "total_steps": int(5e6),
-        #     "runs": 1,
-        # },
+        {
+            "group_name": "CP-75-nc",
+            "env_id": "Custom-CartPole",
+            "agent_type": "dqn",
+            "agent_params": {
+                "input_dims": 4,
+                "hidden_layers": [64, 64],
+                "replay_buffer_size": 16384 * 4,
+                "batch_size": 32,
+                "train_epochs": 10,
+            },
+            "train_env_params": [
+                {
+                    "render_mode": "rgb_array",
+                    "gravity": 7.5,
+                }
+            ],
+            "test_per_num_steps": int(0.1e6),
+            "test_runs": 10,
+            "test_env_params": {
+                "render_mode": "rgb_array",
+                "gravity": 7.5,
+            },
+            "state_space": {
+                "ranges": [(-2.4, 2.4), (-2, 2), (-0.25, 0.25), (-2, 2)],
+                "bins": [16, 16, 16, 16],
+            },
+            "action_space": {
+                "ranges": [(0, 1), ],
+                "bins": [0, ],
+                "nums": [2, ],
+            },
+            "alpha": 1e-5,
+            "gamma": 0.99,
+            "epsilon_start": 0.25,
+            "epsilon_end": 0.25,
+            "total_steps": int(5e6),
+            "runs": 1,
+        },
+        {
+            "group_name": "CP-50-nc",
+            "env_id": "Custom-CartPole",
+            "agent_type": "dqn",
+            "agent_params": {
+                "input_dims": 4,
+                "hidden_layers": [64, 64],
+                "replay_buffer_size": 16384 * 4,
+                "batch_size": 32,
+                "train_epochs": 10,
+            },
+            "train_env_params": [
+                {
+                    "render_mode": "rgb_array",
+                    "gravity": 5.0,
+                }
+            ],
+            "test_per_num_steps": int(0.1e6),
+            "test_runs": 10,
+            "test_env_params": {
+                "render_mode": "rgb_array",
+                "gravity": 5.0,
+            },
+            "state_space": {
+                "ranges": [(-2.4, 2.4), (-2, 2), (-0.25, 0.25), (-2, 2)],
+                "bins": [16, 16, 16, 16],
+            },
+            "action_space": {
+                "ranges": [(0, 1), ],
+                "bins": [0, ],
+                "nums": [2, ],
+            },
+            "alpha": 1e-5,
+            "gamma": 0.99,
+            "epsilon_start": 0.25,
+            "epsilon_end": 0.25,
+            "total_steps": int(5e6),
+            "runs": 1,
+        },
+        {
+            "group_name": "CP-25-nc",
+            "env_id": "Custom-CartPole",
+            "agent_type": "dqn",
+            "agent_params": {
+                "input_dims": 4,
+                "hidden_layers": [64, 64],
+                "replay_buffer_size": 16384 * 4,
+                "batch_size": 32,
+                "train_epochs": 10,
+            },
+            "train_env_params": [
+                {
+                    "render_mode": "rgb_array",
+                    "gravity": 2.5,
+                }
+            ],
+            "test_per_num_steps": int(0.1e6),
+            "test_runs": 10,
+            "test_env_params": {
+                "render_mode": "rgb_array",
+                "gravity": 2.5,
+            },
+            "state_space": {
+                "ranges": [(-2.4, 2.4), (-2, 2), (-0.25, 0.25), (-2, 2)],
+                "bins": [16, 16, 16, 16],
+            },
+            "action_space": {
+                "ranges": [(0, 1), ],
+                "bins": [0, ],
+                "nums": [2, ],
+            },
+            "alpha": 1e-5,
+            "gamma": 0.99,
+            "epsilon_start": 0.25,
+            "epsilon_end": 0.25,
+            "total_steps": int(5e6),
+            "runs": 1,
+        },
     ]
 
     # Run all experiments
-    max_workers = 1  # Number of parallel processes
+    max_workers = 2  # Number of parallel processes
     aggregated_results = run_all_experiments(experiment_groups, save_dir, max_workers)
 
     # Define color map to ensure consistent colors across figures
