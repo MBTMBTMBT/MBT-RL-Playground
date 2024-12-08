@@ -4,7 +4,7 @@ if __name__ == '__main__':
     from matplotlib import pyplot as plt
     from matplotlib.animation import FuncAnimation
     from tqdm import tqdm
-    from q_table_agent import QTableAgent
+    from q_table_agent import __QTableAgent
     import os
 
     # Create save directory
@@ -26,7 +26,7 @@ if __name__ == '__main__':
     ]
 
     # Create QTableAgent instance
-    agent = QTableAgent(state_space, action_space)
+    agent = __QTableAgent(state_space, action_space)
 
     # Initialize Acrobot environment
     env = gym.make('Acrobot-v1')
@@ -113,7 +113,7 @@ if __name__ == '__main__':
     agent.save_q_table(os.path.join(save_dir, "q_table_agent.csv"))
 
     # Test loading the agent
-    agent = QTableAgent.load_q_table(os.path.join(save_dir, "q_table_agent.csv"))
+    agent = __QTableAgent.load_q_table(os.path.join(save_dir, "q_table_agent.csv"))
 
     # Initialize Acrobot environment for testing
     env = gym.make('Acrobot-v1', render_mode="rgb_array")

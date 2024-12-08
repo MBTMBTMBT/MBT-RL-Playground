@@ -14,7 +14,7 @@ import pandas as pd
 from custom_mountain_car import CustomMountainCarEnv
 from custom_cartpole import CustomCartPoleEnv
 from discretizer import Discretizer
-from q_table_agent import _QTableAgent
+from q_table_agent import Qtableagent
 from utils import compute_action_probabilities, merge_q_table_with_counts, compute_average_kl_divergence_between_dfs
 from wrappers import DiscretizerWrapper
 
@@ -69,9 +69,9 @@ def run_experiment(args):
 
     # Create QTableAgent
     if prior_agent_path is not None:
-        agent = _QTableAgent.load_q_table(prior_agent_path)
+        agent = Qtableagent.load_q_table(prior_agent_path)
     else:
-        agent = _QTableAgent(action_space["nums"])
+        agent = Qtableagent(action_space["nums"])
     old_agent = None
 
     # Initialize CartPole environment

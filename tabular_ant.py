@@ -4,7 +4,7 @@ if __name__ == '__main__':
     from matplotlib import pyplot as plt
     from matplotlib.animation import FuncAnimation
     from tqdm import tqdm
-    from q_table_agent import QTableAgent
+    from q_table_agent import __QTableAgent
     import os
 
     os.environ["MUJOCO_GL"] = "glfw"
@@ -22,7 +22,7 @@ if __name__ == '__main__':
     ]
 
     # Create QTableAgent instance
-    agent = QTableAgent(state_space, action_space, action_combination=True)
+    agent = __QTableAgent(state_space, action_space, action_combination=True)
 
     # Initialize Ant environment
     env = gym.make('Ant-v5')
@@ -112,7 +112,7 @@ if __name__ == '__main__':
     agent.save_q_table(os.path.join(save_dir, "q_table_agent.csv"))
 
     # Test loading the agent
-    agent = QTableAgent.load_q_table(os.path.join(save_dir, "q_table_agent.csv"))
+    agent = __QTableAgent.load_q_table(os.path.join(save_dir, "q_table_agent.csv"))
 
     # Initialize Ant environment for testing and rendering
     env = gym.make('Ant-v4', render_mode="rgb_array")

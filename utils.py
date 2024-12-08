@@ -126,107 +126,107 @@ def compute_mutual_information(
         group2_columns: Optional[Union[str, List[str]]] = None,
         use_visit_count: bool = False
     ) -> float:
-        """
-        Compute mutual information (MI) between two groups of features or between features and actions.
+    """
+    Compute mutual information (MI) between two groups of features or between features and actions.
 
-        :param df: A DataFrame containing the precomputed probability distributions and optionally visit counts.
-        :param group1_columns: A single column or a list of columns representing the first group (e.g., features).
-        :param group2_columns: A single column, a list of columns, or None. If None, computes self-MI for group1.
-                               If the group represents actions, provide the base names, e.g., "Action_0_Index".
-        :param use_visit_count: Whether to weight probabilities by visit counts. Default is False.
-        :return: The mutual information (MI) value between the two groups.
-        """
-        # Make a copy of the DataFrame to avoid modifying the original
-        df = df.copy()
+    :param df: A DataFrame containing the precomputed probability distributions and optionally visit counts.
+    :param group1_columns: A single column or a list of columns representing the first group (e.g., features).
+    :param group2_columns: A single column, a list of columns, or None. If None, computes self-MI for group1.
+                           If the group represents actions, provide the base names, e.g., "Action_0_Index".
+    :param use_visit_count: Whether to weight probabilities by visit counts. Default is False.
+    :return: The mutual information (MI) value between the two groups.
+    """
+    # Make a copy of the DataFrame to avoid modifying the original
+    df = df.copy()
 
-        # Ensure group1_columns is a list
-        if isinstance(group1_columns, str):
-            group1_columns = [group1_columns]
+    # Ensure group1_columns is a list
+    if isinstance(group1_columns, str):
+        group1_columns = [group1_columns]
 
-        # Process the second group (group2_columns)
-        if group2_columns is None:
-            group2_columns = group1_columns  # Compute self-MI within group1
-        elif isinstance(group2_columns, str):
-            group2_columns = [group2_columns]
+    # Process the second group (group2_columns)
+    if group2_columns is None:
+        group2_columns = group1_columns  # Compute self-MI within group1
+    elif isinstance(group2_columns, str):
+        group2_columns = [group2_columns]
 
-        # Check if the second group contains actions
-        is_action_group = all(col.startswith("Action_") for col in group2_columns)
+    # Check if the second group contains actions
+    is_action_group = all(col.startswith("action_dim_") for col in group2_columns)
 
+    if is_action_group:
+        # If the group is actions, find corresponding probability columns
+        full_action_columns = []
+        for base_col in group2_columns:
+            matching_columns = [
+                col for col in df.columns if col.startswith(base_col) and "_Probability" in col
+            ]
+            if not matching_columns:
+                raise ValueError(f"Invalid or missing action columns for base: {base_col}")
+            full_action_columns.extend(matching_columns)
+        group2_columns = full_action_columns
+
+    # Check for visit counts if `use_visit_count` is enabled
+    if use_visit_count and "count" not in df.columns:
+        raise ValueError("Visit count column ('count') is required when 'use_visit_count=True'.")
+
+    # Normalize probabilities, optionally weighted by visit counts
+    if use_visit_count:
+        df["Weighted_Visit_Count"] = df["count"] / df["count"].sum()
         if is_action_group:
-            # If the group is actions, find corresponding probability columns
-            full_action_columns = []
-            for base_col in group2_columns:
-                matching_columns = [
-                    col for col in df.columns if col.startswith(base_col) and "_Probability" in col
-                ]
-                if not matching_columns:
-                    raise ValueError(f"Invalid or missing action columns for base: {base_col}")
-                full_action_columns.extend(matching_columns)
-            group2_columns = full_action_columns
+            for col in group2_columns:
+                df[col] *= df["Weighted_Visit_Count"]
 
-        # Check for visit counts if `use_visit_count` is enabled
-        if use_visit_count and "count" not in df.columns:
-            raise ValueError("Visit count column ('count') is required when 'use_visit_count=True'.")
+    # Normalize the probabilities to ensure valid distribution
+    if is_action_group:
+        total_prob = df[group2_columns].sum().sum()
+        df[group2_columns] /= total_prob
+    else:
+        # For feature groups, normalize visit counts
+        df["Visit_Prob"] = df["count"] / df["count"].sum()
 
-        # Normalize probabilities, optionally weighted by visit counts
-        if use_visit_count:
-            df["Weighted_Visit_Count"] = df["count"] / df["count"].sum()
-            if is_action_group:
-                for col in group2_columns:
-                    df[col] *= df["Weighted_Visit_Count"]
+    # Compute joint probability P(Group1, Group2)
+    if is_action_group:
+        joint_prob = df.groupby(group1_columns, as_index=False)[group2_columns].sum()
+    else:
+        # For feature groups, compute joint probabilities using Visit_Prob
+        joint_prob = df.groupby(group1_columns + group2_columns)["Visit_Prob"].sum().reset_index()
+        joint_prob.rename(columns={"Visit_Prob": "P(Group1,Group2)"}, inplace=True)
 
-        # Normalize the probabilities to ensure valid distribution
-        if is_action_group:
-            total_prob = df[group2_columns].sum().sum()
-            df[group2_columns] /= total_prob
-        else:
-            # For feature groups, normalize visit counts
-            df["Visit_Prob"] = df["Visit_Count"] / df["Visit_Count"].sum()
+    # Compute marginal probabilities P(Group1) and P(Group2)
+    if is_action_group:
+        joint_prob["P(Group1)"] = joint_prob[group2_columns].sum(axis=1)
+        marginal_group2_prob = df[group2_columns].sum()
+    else:
+        # For feature groups, compute marginals
+        marginal_group1_prob = joint_prob.groupby(group1_columns)["P(Group1,Group2)"].sum().reset_index()
+        marginal_group1_prob.rename(columns={"P(Group1,Group2)": "P(Group1)"}, inplace=True)
 
-        # Compute joint probability P(Group1, Group2)
-        if is_action_group:
-            joint_prob = df.groupby(group1_columns, as_index=False)[group2_columns].sum()
-        else:
-            # For feature groups, compute joint probabilities using Visit_Prob
-            joint_prob = df.groupby(group1_columns + group2_columns)["Visit_Prob"].sum().reset_index()
-            joint_prob.rename(columns={"Visit_Prob": "P(Group1,Group2)"}, inplace=True)
+        marginal_group2_prob = joint_prob.groupby(group2_columns)["P(Group1,Group2)"].sum().reset_index()
+        marginal_group2_prob.rename(columns={"P(Group1,Group2)": "P(Group2)"}, inplace=True)
 
-        # Compute marginal probabilities P(Group1) and P(Group2)
-        if is_action_group:
-            joint_prob["P(Group1)"] = joint_prob[group2_columns].sum(axis=1)
-            marginal_group2_prob = df[group2_columns].sum()
-        else:
-            # For feature groups, compute marginals
-            marginal_group1_prob = joint_prob.groupby(group1_columns)["P(Group1,Group2)"].sum().reset_index()
-            marginal_group1_prob.rename(columns={"P(Group1,Group2)": "P(Group1)"}, inplace=True)
+    # Merge joint and marginal probabilities
+    if not is_action_group:
+        joint_prob = joint_prob.merge(marginal_group1_prob, on=group1_columns)
+        joint_prob = joint_prob.merge(marginal_group2_prob, on=group2_columns)
 
-            marginal_group2_prob = joint_prob.groupby(group2_columns)["P(Group1,Group2)"].sum().reset_index()
-            marginal_group2_prob.rename(columns={"P(Group1,Group2)": "P(Group2)"}, inplace=True)
-
-        # Merge joint and marginal probabilities
-        if not is_action_group:
-            joint_prob = joint_prob.merge(marginal_group1_prob, on=group1_columns)
-            joint_prob = joint_prob.merge(marginal_group2_prob, on=group2_columns)
-
-        # Calculate mutual information
-        mi = 0.0
-        if is_action_group:
-            for _, row in joint_prob.iterrows():
-                px = row["P(Group1)"]  # P(Group1)
-                for group2_col in group2_columns:
-                    pa = marginal_group2_prob[group2_col]  # P(Group2)
-                    p_group1_group2 = row[group2_col]  # P(Group1, Group2)
-                    if p_group1_group2 > 0:  # Avoid log(0)
-                        mi += p_group1_group2 * np.log2(p_group1_group2 / (px * pa))
-        else:
-            for _, row in joint_prob.iterrows():
-                p_group1_group2 = row["P(Group1,Group2)"]
-                px = row["P(Group1)"]
-                py = row["P(Group2)"]
+    # Calculate mutual information
+    mi = 0.0
+    if is_action_group:
+        for _, row in joint_prob.iterrows():
+            px = row["P(Group1)"]  # P(Group1)
+            for group2_col in group2_columns:
+                pa = marginal_group2_prob[group2_col]  # P(Group2)
+                p_group1_group2 = row[group2_col]  # P(Group1, Group2)
                 if p_group1_group2 > 0:  # Avoid log(0)
-                    mi += p_group1_group2 * np.log2(p_group1_group2 / (px * py))
+                    mi += p_group1_group2 * np.log2(p_group1_group2 / (px * pa))
+    else:
+        for _, row in joint_prob.iterrows():
+            p_group1_group2 = row["P(Group1,Group2)"]
+            px = row["P(Group1)"]
+            py = row["P(Group2)"]
+            if p_group1_group2 > 0:  # Avoid log(0)
+                mi += p_group1_group2 * np.log2(p_group1_group2 / (px * py))
 
-        return mi
+    return mi
 
 def compute_average_kl_divergence_between_dfs(
         df1: pd.DataFrame,

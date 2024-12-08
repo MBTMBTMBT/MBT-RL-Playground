@@ -8,7 +8,7 @@ import os
 import pandas as pd
 
 from custom_mountain_car import CustomMountainCarEnv
-from q_table_agent import QTableAgent
+from q_table_agent import __QTableAgent
 
 
 CUSTOM_ENVS = {
@@ -73,7 +73,7 @@ def run_experiment(args):
     epsilon = epsilon_start
 
     # Create QTableAgent
-    agent = QTableAgent(state_space, action_space)
+    agent = __QTableAgent(state_space, action_space)
 
     # Initialize CartPole environment
     if env_id in CUSTOM_ENVS:

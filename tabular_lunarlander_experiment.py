@@ -7,7 +7,7 @@ from tqdm import tqdm
 from concurrent.futures import ProcessPoolExecutor
 import os
 import pandas as pd
-from q_table_agent import QTableAgent
+from q_table_agent import __QTableAgent
 
 
 # Helper function to align training rewards using step
@@ -59,7 +59,7 @@ def run_experiment(args):
     epsilon = epsilon_start
 
     # Create QTableAgent
-    agent = QTableAgent(state_space, action_space)
+    agent = __QTableAgent(state_space, action_space)
 
     # Initialize CartPole environment
     env = gym.make('LunarLander-v3')
