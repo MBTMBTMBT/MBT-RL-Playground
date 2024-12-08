@@ -36,16 +36,20 @@ if __name__ == '__main__':
                 "goal_position": 0.5,
                 "reward_type": 'default',
             },
-            "state_space": [
-                {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 256},  # Position
-                {'type': 'continuous', 'range': (-0.14, 0.14), 'bins': 128}  # Velocity
-            ],
-            "action_space": [{'type': 'discrete', 'bins': 3}],
+            "state_space": {
+                "ranges": [(-1.2, 0.6), (-0.07, 0.07),],
+                "bins": [16, 16],
+            },
+            "action_space": {
+                "ranges": [(0, 2),],
+                "bins": [0,],
+                "nums": [3,],
+            },
             "alpha": 0.1,
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.25,
-            "total_steps": int(5e6),
+            "total_steps": int(15e6),
             "runs": 4,
         },
         {
@@ -71,16 +75,20 @@ if __name__ == '__main__':
                 "goal_position": 0.25,
                 "reward_type": 'default',
             },
-            "state_space": [
-                {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 256},  # Position
-                {'type': 'continuous', 'range': (-0.14, 0.14), 'bins': 128}  # Velocity
-            ],
-            "action_space": [{'type': 'discrete', 'bins': 3}],
+            "state_space": {
+                "ranges": [(-1.2, 0.6), (-0.07, 0.07),],
+                "bins": [16, 16],
+            },
+            "action_space": {
+                "ranges": [(0, 2),],
+                "bins": [0,],
+                "nums": [3,],
+            },
             "alpha": 0.1,
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.25,
-            "total_steps": int(5e6),
+            "total_steps": int(15e6),
             "runs": 4,
         },
         {
@@ -106,16 +114,20 @@ if __name__ == '__main__':
                 "goal_position": -0.0,
                 "reward_type": 'default',
             },
-            "state_space": [
-                {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 256},  # Position
-                {'type': 'continuous', 'range': (-0.14, 0.14), 'bins': 128}  # Velocity
-            ],
-            "action_space": [{'type': 'discrete', 'bins': 3}],
+            "state_space": {
+                "ranges": [(-1.2, 0.6), (-0.07, 0.07),],
+                "bins": [16, 16],
+            },
+            "action_space": {
+                "ranges": [(0, 2),],
+                "bins": [0,],
+                "nums": [3,],
+            },
             "alpha": 0.1,
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.25,
-            "total_steps": int(5e6),
+            "total_steps": int(15e6),
             "runs": 4,
         },
     ]
