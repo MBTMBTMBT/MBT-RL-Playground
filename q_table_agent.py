@@ -1083,7 +1083,7 @@ class _QTableAgent:
 if __name__ == "__main__":
     import random
     import gymnasium as gym
-    from utils import merge_q_table_with_counts, compute_action_probabilities
+    from utils import merge_q_table_with_counts, compute_action_probabilities, compute_average_kl_divergence_between_dfs
     from discretizer import Discretizer
     from wrappers import DiscretizerWrapper
 
@@ -1104,7 +1104,7 @@ if __name__ == "__main__":
 
     # Train the agent
     state, info = wrapped_env.reset()
-    for episode in range(10):
+    for episode in range(1000):
         done = False
         while not done:
             action = random.choice(agent._generate_all_possible_actions())  # Choose a random action
@@ -1116,6 +1116,22 @@ if __name__ == "__main__":
     q_table_df = agent.save_q_table("./q_table.csv")
     print("Saved Q-Table DataFrame:")
     print(q_table_df.head())
+
+    # Train the agent
+    state, info = wrapped_env.reset()
+    for episode in range(1000):
+        done = False
+        while not done:
+            action = random.choice(agent._generate_all_possible_actions())  # Choose a random action
+            next_state, reward, done, truncated, _ = wrapped_env.step(
+                action[0])  # Use the first action dimension for CartPole
+            agent.update(state, action, reward, next_state)
+            state = next_state if not done else wrapped_env.reset()[0]
+
+    # Save Q-table and simulate wrapper counts
+    q_table_df_ = agent.save_q_table("./q_table.csv")
+    print("Saved Q-Table DataFrame:")
+    print(q_table_df_.head())
 
     counts_df = wrapped_env.export_counts("./counts.csv")
     print("Exported Counts DataFrame:")
@@ -1130,6 +1146,15 @@ if __name__ == "__main__":
     merged_df = compute_action_probabilities(merged_df, "softmax")
     print("Action Probabilities:")
     print(merged_df.head())
+
+    merged_df_ = merge_q_table_with_counts(q_table_df_, counts_df)
+    merged_df_.to_csv("merged_test.csv", index=False)
+    print("Merged Q-Table with Counts:")
+    print(merged_df_.head())
+
+    merged_df_ = compute_action_probabilities(merged_df_, "softmax")
+    print("Action Probabilities:")
+    print(merged_df_.head())
 
     # List of all state features
     state_features = ["state_dim_0", "state_dim_1", "state_dim_2", "state_dim_3"]
@@ -1151,7 +1176,11 @@ if __name__ == "__main__":
     print(f"Mutual Information for All Features as Values with action_dim_0: {mi}")
 
     # Load agent from merged DataFrame
+    loaded_agent_ = _QTableAgent.load_q_table(df=q_table_df_)
     loaded_agent = _QTableAgent.load_q_table(df=q_table_df)
+
+    kl = compute_average_kl_divergence_between_dfs(merged_df_, merged_df, weighted_by_visitation=True)
+    print(f"KL Divergence: {kl}")
 
     # Print loaded Q-table for verification
     loaded_agent.print_q_table_info()
