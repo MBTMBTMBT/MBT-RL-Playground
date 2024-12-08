@@ -1004,7 +1004,8 @@ class _QTableAgent:
             action = tuple(row[col] for col in action_columns)
             q_value = float(row["q_value"])
             agent.q_table[(state, action)] = q_value
-        print(f"Q-Table loaded from {'file' if file_path else 'DataFrame'}.")
+        print(f"Q-Table loaded from {f'{file_path}' if file_path else 'DataFrame'}.")
+        agent.print_q_table_info()
         return agent
 
     def get_action_probabilities(self, state: np.ndarray, strategy: str = "greedy", temperature: float = 1.0) -> np.ndarray:
