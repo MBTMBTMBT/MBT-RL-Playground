@@ -597,7 +597,7 @@ class QTableAgent:
             cls,
             df: pd.DataFrame,
             strategy: str = "greedy",
-            epsilon: float = 0.1,
+            epsilon: float = 0.0,
             temperature: float = 1.0
     ) -> pd.DataFrame:
         """
@@ -1083,7 +1083,7 @@ class _QTableAgent:
 if __name__ == "__main__":
     import random
     import gymnasium as gym
-    from utils import merge_q_table_with_counts
+    from utils import merge_q_table_with_counts, compute_action_probabilities
     from discretizer import Discretizer
     from wrappers import DiscretizerWrapper
 
@@ -1125,6 +1125,10 @@ if __name__ == "__main__":
     merged_df = merge_q_table_with_counts(q_table_df, counts_df)
     merged_df.to_csv("merged_test.csv", index=False)
     print("Merged Q-Table with Counts:")
+    print(merged_df.head())
+
+    merged_df = compute_action_probabilities(merged_df, "softmax")
+    print("Action Probabilities:")
     print(merged_df.head())
 
     # Load agent from merged DataFrame
