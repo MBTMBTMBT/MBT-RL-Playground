@@ -352,7 +352,7 @@ if __name__ == '__main__':
             },
             "state_space": {
                 "ranges": [(-1.2, 0.6), (-0.07, 0.07),],
-                "bins": [16, 16],
+                "bins": [256, 64],
             },
             "action_space": {
                 "ranges": [(0, 2),],
@@ -389,7 +389,7 @@ if __name__ == '__main__':
         #     },
         #     "state_space": {
         #         "ranges": [(-1.2, 0.6), (-0.07, 0.07),],
-        #         "bins": [16, 16],
+        #         "bins": [256, 64],
         #     },
         #     "action_space": {
         #         "ranges": [(0, 2),],
