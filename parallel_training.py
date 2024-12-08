@@ -207,6 +207,7 @@ def run_experiment(args):
                         )
                         if np.isnan(average_kl):
                             average_kl = 0.0
+                            old_agent = agent.clone()
                     except ValueError:
                         average_kl = 0.0
 
