@@ -165,7 +165,7 @@ def run_experiment(args):
                     action = [np.argmax(probabilities)]
 
                 next_state, reward, done, truncated, _ = env.step(action[0])
-                agent.update(state, action, reward, next_state, alpha, gamma)
+                agent.update(state, action, reward, next_state, done, alpha=alpha, gamma=gamma)
 
                 state = next_state
                 total_reward += reward

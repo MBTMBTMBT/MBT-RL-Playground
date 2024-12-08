@@ -39,6 +39,7 @@ class DQNAgent:
 
         # Replay buffer to store experiences
         self.replay_buffer = deque(maxlen=replay_buffer_size)
+        self.replay_buffer_size = replay_buffer_size
 
         # Define the DQN model
         self.model = self._build_model().to(self.device)
@@ -56,7 +57,6 @@ class DQNAgent:
             layers.append(nn.Linear(input_size, hidden_size))
             layers.append(nn.LeakyReLU())
             input_size = hidden_size
-        a = np.prod(self.action_space)
         layers.append(nn.Linear(input_size, np.prod(self.action_space)))
         return nn.Sequential(*layers)
 
@@ -132,7 +132,7 @@ class DQNAgent:
         Train the model using samples from the replay buffer with given learning rate and discount factor.
         After training, randomly discard half of the replay buffer.
         """
-        if len(self.replay_buffer) < self.batch_size:
+        if len(self.replay_buffer) < self.replay_buffer_size:
             return
 
         # Prepare dataset and dataloader
@@ -150,6 +150,8 @@ class DQNAgent:
 
         optimizer = optim.SGD(self.model.parameters(), lr=alpha)
 
+        losses = 0.0
+        counter = 0
         for _ in range(self.train_epochs):
             for batch_states, batch_actions, batch_rewards, batch_next_states, batch_dones in dataloader:
                 q_values = self.model(batch_states)
@@ -157,10 +159,15 @@ class DQNAgent:
 
                 with torch.no_grad():
                     next_q_values = self.model(batch_next_states)
-                    max_next_q_value = torch.max(next_q_values, dim=1).values * (1 - batch_dones)
+                    max_next_q_value = torch.max(next_q_values, dim=1).values
 
-                target = batch_rewards + gamma * max_next_q_value
+                # Correctly handle the `done` flag
+                target = batch_rewards + gamma * max_next_q_value * (1 - batch_dones)
+                target[batch_dones.bool()] = batch_rewards[batch_dones.bool()]  # Override target for done states
+
                 loss = self.criterion(q_value, target)
+                losses += loss.item()
+                counter += 1
 
                 optimizer.zero_grad()
                 loss.backward()
@@ -169,6 +176,7 @@ class DQNAgent:
         # Discard half of the replay buffer
         remaining_size = len(self.replay_buffer) // 2
         self.replay_buffer = deque(random.sample(self.replay_buffer, remaining_size), maxlen=self.replay_buffer.maxlen)
+        print("Loss:", losses / counter)
 
     def update(self, state: np.ndarray, action: List[int], reward: float, next_state: np.ndarray, done: bool,
                alpha: float = 0.001, gamma: float = 0.99):

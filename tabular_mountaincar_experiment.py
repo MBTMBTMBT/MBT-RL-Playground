@@ -20,9 +20,9 @@ if __name__ == '__main__':
             "agent_params": {
                 "input_dims": 2,
                 "hidden_layers": [64, 64],
-                "replay_buffer_size": 8192,
+                "replay_buffer_size": 16384,
                 "batch_size": 32,
-                "train_epochs": 5,
+                "train_epochs": 10,
             },
             "train_env_params": [
                 {
@@ -53,7 +53,7 @@ if __name__ == '__main__':
                 "bins": [0,],
                 "nums": [3,],
             },
-            "alpha": 0.1,
+            "alpha": 1e-4,
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.25,
@@ -67,9 +67,9 @@ if __name__ == '__main__':
             "agent_params": {
                 "input_dims": 2,
                 "hidden_layers": [64, 64],
-                "replay_buffer_size": 8192,
+                "replay_buffer_size": 16384,
                 "batch_size": 32,
-                "train_epochs": 5,
+                "train_epochs": 10,
             },
             "train_env_params": [
                 {
@@ -100,7 +100,7 @@ if __name__ == '__main__':
                 "bins": [0,],
                 "nums": [3,],
             },
-            "alpha": 0.1,
+            "alpha": 1e-4,
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.25,
@@ -114,9 +114,9 @@ if __name__ == '__main__':
             "agent_params": {
                 "input_dims": 2,
                 "hidden_layers": [64, 64],
-                "replay_buffer_size": 8192,
+                "replay_buffer_size": 16384,
                 "batch_size": 32,
-                "train_epochs": 5,
+                "train_epochs": 10,
             },
             "train_env_params": [
                 {
@@ -147,7 +147,7 @@ if __name__ == '__main__':
                 "bins": [0,],
                 "nums": [3,],
             },
-            "alpha": 0.1,
+            "alpha": 1e-4,
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.25,

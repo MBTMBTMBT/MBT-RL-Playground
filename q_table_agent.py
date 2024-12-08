@@ -125,7 +125,7 @@ class Qtableagent:
             raise ValueError("Action space is not defined.")
         return [list(action) for action in product(*[range(dim) for dim in self.action_space])]
 
-    def update(self, state: np.ndarray, action: List[int], reward: float, next_state: np.ndarray, alpha: float = 0.1, gamma: float = 0.99) -> None:
+    def update(self, state: np.ndarray, action: List[int], reward: float, next_state: np.ndarray, done: bool, alpha: float = 0.1, gamma: float = 0.99) -> None:
         """
         Update the Q-Table using the Q-learning update rule.
 
@@ -133,23 +133,27 @@ class Qtableagent:
         :param action: The action taken (multi-dimensional).
         :param reward: The received reward.
         :param next_state: The next state.
+        :param done: Whether the episode is finished.
         :param alpha: Learning rate.
         :param gamma: Discount factor.
         """
         state_key = tuple(state)
         next_state_key = tuple(next_state)
 
-        # Generate all possible next actions
-        possible_actions = self._generate_all_possible_actions()
+        if done:
+            td_target = reward  # No future reward if the episode is done
+        else:
+            # Generate all possible next actions
+            possible_actions = self._generate_all_possible_actions()
 
-        # Compute the best next action's Q-value
-        best_next_action_value = max(
-            [self.q_table.get((next_state_key, tuple(a)), 0.0) for a in possible_actions],
-            default=0.0
-        )
+            # Compute the best next action's Q-value
+            best_next_action_value = max(
+                [self.q_table.get((next_state_key, tuple(a)), 0.0) for a in possible_actions],
+                default=0.0
+            )
+            td_target = reward + gamma * best_next_action_value
 
         # Update Q-value for the current state-action pair
-        td_target = reward + gamma * best_next_action_value
         td_error = td_target - self.q_table[(state_key, tuple(action))]
         self.q_table[(state_key, tuple(action))] += alpha * td_error
 
