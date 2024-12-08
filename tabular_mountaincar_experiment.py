@@ -60,104 +60,104 @@ if __name__ == '__main__':
             "total_steps": int(15e6),
             "runs": 1,
         },
-        # {
-        #     "group_name": "MC-25-nc",
-        #     "env_id": "Custom-MountainCar",
-        #     "agent_type": "dqn",
-        #     "agent_params": {
-        #         "input_dims": 2,
-        #         "hidden_layers": [32, 32],
-        #         "replay_buffer_size": 4096,
-        #         "batch_size": 32,
-        #         "train_epochs": 5,
-        #     },
-        #     "train_env_params": [
-        #         {
-        #             "render_mode": "rgb_array",
-        #             "goal_velocity": 0,
-        #             "custom_gravity": 0.0050,
-        #             "max_episode_steps": 200,
-        #             "goal_position": 0.25,
-        #             "reward_type": 'default',
-        #         }
-        #     ],
-        #     "test_per_num_steps": int(0.1e6),
-        #     "test_runs": 10,
-        #     "test_env_params": {
-        #         "render_mode": "rgb_array",
-        #         "goal_velocity": 0,
-        #         "custom_gravity": 0.0050,
-        #         "max_episode_steps": 200,
-        #         "goal_position": 0.25,
-        #         "reward_type": 'default',
-        #     },
-        #     "state_space": {
-        #         "ranges": [(-1.2, 0.6), (-0.07, 0.07),],
-        #         "bins": [256, 64],
-        #     },
-        #     "action_space": {
-        #         "ranges": [(0, 2),],
-        #         "bins": [0,],
-        #         "nums": [3,],
-        #     },
-        #     "alpha": 0.1,
-        #     "gamma": 0.99,
-        #     "epsilon_start": 0.25,
-        #     "epsilon_end": 0.25,
-        #     "total_steps": int(15e6),
-        #     "runs": 4,
-        # },
-        # {
-        #     "group_name": "MC-00-nc",
-        #     "env_id": "Custom-MountainCar",
-        #     "agent_type": "dqn",
-        #     "agent_params": {
-        #         "input_dims": 2,
-        #         "hidden_layers": [32, 32],
-        #         "replay_buffer_size": 4096,
-        #         "batch_size": 32,
-        #         "train_epochs": 5,
-        #     },
-        #     "train_env_params": [
-        #         {
-        #             "render_mode": "rgb_array",
-        #             "goal_velocity": 0,
-        #             "custom_gravity": 0.0050,
-        #             "max_episode_steps": 200,
-        #             "goal_position": 0.0,
-        #             "reward_type": 'default',
-        #         }
-        #     ],
-        #     "test_per_num_steps": int(0.1e6),
-        #     "test_runs": 10,
-        #     "test_env_params": {
-        #         "render_mode": "rgb_array",
-        #         "goal_velocity": 0,
-        #         "custom_gravity": 0.0050,
-        #         "max_episode_steps": 200,
-        #         "goal_position": 0.0,
-        #         "reward_type": 'default',
-        #     },
-        #     "state_space": {
-        #         "ranges": [(-1.2, 0.6), (-0.07, 0.07),],
-        #         "bins": [256, 64],
-        #     },
-        #     "action_space": {
-        #         "ranges": [(0, 2),],
-        #         "bins": [0,],
-        #         "nums": [3,],
-        #     },
-        #     "alpha": 0.1,
-        #     "gamma": 0.99,
-        #     "epsilon_start": 0.25,
-        #     "epsilon_end": 0.25,
-        #     "total_steps": int(15e6),
-        #     "runs": 4,
-        # },
+        {
+            "group_name": "MC-25-nc",
+            "env_id": "Custom-MountainCar",
+            "agent_type": "dqn",
+            "agent_params": {
+                "input_dims": 2,
+                "hidden_layers": [64, 64],
+                "replay_buffer_size": 8192,
+                "batch_size": 32,
+                "train_epochs": 5,
+            },
+            "train_env_params": [
+                {
+                    "render_mode": "rgb_array",
+                    "goal_velocity": 0,
+                    "custom_gravity": 0.0050,
+                    "max_episode_steps": 200,
+                    "goal_position": 0.25,
+                    "reward_type": 'default',
+                }
+            ],
+            "test_per_num_steps": int(0.1e6),
+            "test_runs": 10,
+            "test_env_params": {
+                "render_mode": "rgb_array",
+                "goal_velocity": 0,
+                "custom_gravity": 0.0050,
+                "max_episode_steps": 200,
+                "goal_position": 0.25,
+                "reward_type": 'default',
+            },
+            "state_space": {
+                "ranges": [(-1.2, 0.6), (-0.07, 0.07),],
+                "bins": [256, 64],
+            },
+            "action_space": {
+                "ranges": [(0, 2),],
+                "bins": [0,],
+                "nums": [3,],
+            },
+            "alpha": 0.1,
+            "gamma": 0.99,
+            "epsilon_start": 0.25,
+            "epsilon_end": 0.25,
+            "total_steps": int(15e6),
+            "runs": 1,
+        },
+        {
+            "group_name": "MC-00-nc",
+            "env_id": "Custom-MountainCar",
+            "agent_type": "dqn",
+            "agent_params": {
+                "input_dims": 2,
+                "hidden_layers": [64, 64],
+                "replay_buffer_size": 8192,
+                "batch_size": 32,
+                "train_epochs": 5,
+            },
+            "train_env_params": [
+                {
+                    "render_mode": "rgb_array",
+                    "goal_velocity": 0,
+                    "custom_gravity": 0.0050,
+                    "max_episode_steps": 200,
+                    "goal_position": 0.0,
+                    "reward_type": 'default',
+                }
+            ],
+            "test_per_num_steps": int(0.1e6),
+            "test_runs": 10,
+            "test_env_params": {
+                "render_mode": "rgb_array",
+                "goal_velocity": 0,
+                "custom_gravity": 0.0050,
+                "max_episode_steps": 200,
+                "goal_position": 0.0,
+                "reward_type": 'default',
+            },
+            "state_space": {
+                "ranges": [(-1.2, 0.6), (-0.07, 0.07),],
+                "bins": [256, 64],
+            },
+            "action_space": {
+                "ranges": [(0, 2),],
+                "bins": [0,],
+                "nums": [3,],
+            },
+            "alpha": 0.1,
+            "gamma": 0.99,
+            "epsilon_start": 0.25,
+            "epsilon_end": 0.25,
+            "total_steps": int(15e6),
+            "runs": 1,
+        },
     ]
 
     # Run all experiments
-    max_workers = 12  # Number of parallel processes
+    max_workers = 3  # Number of parallel processes
     aggregated_results = run_all_experiments(experiment_groups, save_dir, max_workers)
 
     # Define color map to ensure consistent colors across figures
