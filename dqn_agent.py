@@ -34,8 +34,8 @@ class DQNAgent:
 
         self.batch_size = batch_size
         self.train_epochs = train_epochs
-        # self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.device = torch.device("cpu")
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        # self.device = torch.device("cpu")
 
         # Replay buffer to store experiences
         self.replay_buffer = deque(maxlen=replay_buffer_size)

@@ -19,8 +19,8 @@ if __name__ == '__main__':
             "agent_type": "dqn",
             "agent_params": {
                 "input_dims": 2,
-                "hidden_layers": [32, 32],
-                "replay_buffer_size": 4096,
+                "hidden_layers": [64, 64],
+                "replay_buffer_size": 8192,
                 "batch_size": 32,
                 "train_epochs": 5,
             },
