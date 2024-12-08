@@ -14,6 +14,7 @@ import pandas as pd
 from custom_mountain_car import CustomMountainCarEnv
 from custom_cartpole import CustomCartPoleEnv
 from discretizer import Discretizer
+from dqn_agent import DQNAgent
 from q_table_agent import Qtableagent
 from utils import compute_action_probabilities, merge_q_table_with_counts, compute_average_kl_divergence_between_dfs
 from wrappers import DiscretizerWrapper
@@ -52,6 +53,10 @@ def run_experiment(args):
     state_space = group["state_space"]
     action_space = group["action_space"]
     group_name = group["group_name"]
+    agent_type = group["agent_type"]
+
+    assert agent_type in ["tabular", "dqn"]
+
     if "reset_kls" in group.keys():
         reset_kls = group["reset_kls"]
     else:
@@ -60,6 +65,12 @@ def run_experiment(args):
         prior_agent_path = group["prior_agent_path"]
     else:
         prior_agent_path = None
+    if "agent_params" in group.keys():
+        agent_params = group["agent_params"]
+        agent_params["action_space"] = action_space["nums"]
+    else:
+        agent_params = {}
+
     training_rewards = []
     test_rewards = []
     kl_divergences = []
@@ -68,10 +79,18 @@ def run_experiment(args):
     epsilon = epsilon_start
 
     # Create QTableAgent
-    if prior_agent_path is not None:
-        agent = Qtableagent.load_q_table(prior_agent_path)
+    if agent_type == "tabular":
+        if prior_agent_path is not None:
+            agent = Qtableagent.load_q_table(prior_agent_path)
+        else:
+            if agent_type == "tabular":
+                agent = Qtableagent(action_space["nums"])
+    elif agent_type == "dqn":
+        agent = DQNAgent(**agent_params)
+        if prior_agent_path is not None:
+            agent.load_model(prior_agent_path)
     else:
-        agent = Qtableagent(action_space["nums"])
+        agent = None
     old_agent = None
 
     # Initialize CartPole environment
@@ -125,6 +144,12 @@ def run_experiment(args):
                         f"{group_name}_run_{run_id}_q_table_{current_steps // curriculum_steps}.csv",
                     )
                     agent.save_q_table(q_table_path)
+                    if agent_type == "dqn":
+                        q_model_path = os.path.join(
+                            save_dir,
+                            f"{group_name}_run_{run_id}_q_model_{current_steps // curriculum_steps}.pkl",
+                        )
+                        agent.save_model(q_model_path)
                     count_path = os.path.join(
                         save_dir,
                         f"{group_name}_run_{run_id}_count_{current_steps // curriculum_steps}.csv",
@@ -180,6 +205,8 @@ def run_experiment(args):
                         average_kl = compute_average_kl_divergence_between_dfs(
                             policy, old_policy, visit_threshold=100, weighted_by_visitation=True
                         )
+                        if np.isnan(average_kl):
+                            average_kl = 0.0
                     except ValueError:
                         average_kl = 0.0
 
@@ -204,6 +231,12 @@ def run_experiment(args):
     # Save Q-Table and training data
     q_table_path = os.path.join(save_dir, f"{group_name}_run_{run_id}_q_table_final.csv")
     agent.save_q_table(q_table_path)
+    if agent_type == "dqn":
+        q_model_path = os.path.join(
+            save_dir,
+            f"{group_name}_run_{run_id}_q_model_final.pkl",
+        )
+        agent.save_model(q_model_path)
     count_path = os.path.join(save_dir, f"{group_name}_run_{run_id}_count_final.csv",)
     env.export_counts(count_path)
 
