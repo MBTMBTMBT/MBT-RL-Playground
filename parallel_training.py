@@ -15,6 +15,7 @@ from custom_mountain_car import CustomMountainCarEnv
 from custom_cartpole import CustomCartPoleEnv
 from discretizer import Discretizer
 from q_table_agent import _QTableAgent
+from utils import compute_action_probabilities, merge_q_table_with_counts, compute_average_kl_divergence_between_dfs
 from wrappers import DiscretizerWrapper
 
 CUSTOM_ENVS = {
@@ -86,11 +87,13 @@ def run_experiment(args):
         env,
         Discretizer(state_space["ranges"], state_space["bins"]),
         Discretizer(action_space["ranges"], action_space["bins"]),
+        enable_counting=True,
     ) for env in envs]
     test_env = DiscretizerWrapper(
         test_env,
         Discretizer(state_space["ranges"], state_space["bins"]),
         Discretizer(action_space["ranges"], action_space["bins"]),
+        enable_counting=True,
     )
 
     test_per_num_steps = group["test_per_num_steps"]
@@ -161,13 +164,20 @@ def run_experiment(args):
                     avg_test_reward = np.mean(periodic_test_rewards)
                     recent_avg = np.mean([r for _, r in training_rewards[-10:]])
                     try:
-                        policy = QTableAgent.compute_action_probabilities(agent.query_q_table([]), strategy="softmax")
-                        old_policy = QTableAgent.compute_action_probabilities(old_agent.query_q_table([]), strategy="softmax")
-                        average_kl = QTableAgent.compute_average_kl_divergence_between_dfs(
+                        policy = compute_action_probabilities(
+                            merge_q_table_with_counts(agent.save_q_table(), env.export_counts()),
+                            strategy="softmax",
+                        )
+                        old_policy = compute_action_probabilities(
+                            merge_q_table_with_counts(old_agent.save_q_table(), env.export_counts()),
+                            strategy="softmax",
+                        )
+                        average_kl = compute_average_kl_divergence_between_dfs(
                             policy, old_policy, visit_threshold=100, weighted_by_visitation=True
                         )
                     except ValueError:
                         average_kl = 0.0
+
                     pbar.set_description(f"[{group_name}] Run {run_id} | "
                                          f"Epsilon: {epsilon:.4f} | "
                                          f"Recent Avg Reward: {recent_avg:.2f} | "
@@ -214,10 +224,16 @@ def run_experiment(args):
     if current_steps % test_per_num_steps >= test_per_num_steps // 2:
         test_rewards.append((current_steps, np.mean(final_test_rewards)))  # Append the final test result to test_rewards
         try:
-            policy = QTableAgent.compute_action_probabilities(agent.query_q_table([]), strategy="softmax")
-            old_policy = QTableAgent.compute_action_probabilities(old_agent.query_q_table([]), strategy="softmax")
-            average_kl = QTableAgent.compute_average_kl_divergence_between_dfs(
-                policy, old_policy, visit_threshold=0, weighted_by_visitation=True
+            policy = compute_action_probabilities(
+                merge_q_table_with_counts(agent.save_q_table(), env.export_counts()),
+                strategy="softmax",
+            )
+            old_policy = compute_action_probabilities(
+                merge_q_table_with_counts(old_agent.save_q_table(), env.export_counts()),
+                strategy="softmax",
+            )
+            average_kl = compute_average_kl_divergence_between_dfs(
+                policy, old_policy, visit_threshold=100, weighted_by_visitation=True
             )
         except ValueError:
             average_kl = 0.0
@@ -317,6 +333,7 @@ if __name__ == '__main__':
                     "reward_type": 'progress',
                 },
             ],
+            "reset_kls": [True for _ in range(3)],
             "test_per_num_steps": int(0.001e6),
             "test_runs": 1,
             "test_env_params": {
@@ -340,44 +357,44 @@ if __name__ == '__main__':
             "epsilon_start": 0.25,
             "epsilon_end": 0.05,
             "total_steps": int(1e6),
-            "runs": 3,
+            "runs": 1,
         },
-        {
-            "group_name": "MC-test-2",
-            "env_id": "Custom-MountainCar",
-            "train_env_params": [
-                {
-                    "render_mode": "rgb_array",
-                    "goal_velocity": 0,
-                    "custom_gravity": 0.0015,
-                    "max_episode_steps": 200,
-                    "reward_type": 'progress',
-                },
-            ],
-            "test_per_num_steps": int(0.001e6),
-            "test_runs": 1,
-            "test_env_params": {
-                "render_mode": "rgb_array",
-                "goal_velocity": 0,
-                "custom_gravity": 0.0015,
-                "max_episode_steps": 200,
-                "reward_type": 'progress',
-            },
-            "state_space": {
-                "ranges": [(-1.2, 0.6), (-0.07, 0.07),],
-                "bins": [16, 16],
-            },
-            "action_space": {
-                "ranges": [(0, 2),],
-                "bins": [0],
-            },
-            "alpha": 0.1,
-            "gamma": 0.99,
-            "epsilon_start": 0.25,
-            "epsilon_end": 0.05,
-            "total_steps": int(1e6),
-            "runs": 3,
-        },
+        # {
+        #     "group_name": "MC-test-2",
+        #     "env_id": "Custom-MountainCar",
+        #     "train_env_params": [
+        #         {
+        #             "render_mode": "rgb_array",
+        #             "goal_velocity": 0,
+        #             "custom_gravity": 0.0015,
+        #             "max_episode_steps": 200,
+        #             "reward_type": 'progress',
+        #         },
+        #     ],
+        #     "test_per_num_steps": int(0.001e6),
+        #     "test_runs": 1,
+        #     "test_env_params": {
+        #         "render_mode": "rgb_array",
+        #         "goal_velocity": 0,
+        #         "custom_gravity": 0.0015,
+        #         "max_episode_steps": 200,
+        #         "reward_type": 'progress',
+        #     },
+        #     "state_space": {
+        #         "ranges": [(-1.2, 0.6), (-0.07, 0.07),],
+        #         "bins": [16, 16],
+        #     },
+        #     "action_space": {
+        #         "ranges": [(0, 2),],
+        #         "bins": [0],
+        #     },
+        #     "alpha": 0.1,
+        #     "gamma": 0.99,
+        #     "epsilon_start": 0.25,
+        #     "epsilon_end": 0.05,
+        #     "total_steps": int(1e6),
+        #     "runs": 1,
+        # },
     ]
 
     # Run all experiments

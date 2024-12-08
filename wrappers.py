@@ -262,7 +262,7 @@ class AEWrapper(gym.Wrapper):
 
 
 class DiscretizerWrapper(gym.Wrapper):
-    def __init__(self, env: gym.Env, state_discretizer, action_discretizer, enable_counting: bool = False):
+    def __init__(self, env: gym.Env, state_discretizer, action_discretizer, enable_counting: bool = True):
         """
         Wrapper to apply state and action discretization with counting functionality.
 

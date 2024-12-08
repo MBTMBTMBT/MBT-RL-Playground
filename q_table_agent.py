@@ -1077,7 +1077,7 @@ class _QTableAgent:
         td_error = td_target - self.q_table[(state_key, tuple(action))]
         self.q_table[(state_key, tuple(action))] += alpha * td_error
 
-        print(f"Updated Q-value for state {state_key}, action {action}: {self.q_table[(state_key, tuple(action))]}")
+        # print(f"Updated Q-value for state {state_key}, action {action}: {self.q_table[(state_key, tuple(action))]}")
 
 # Example Usage
 if __name__ == "__main__":
