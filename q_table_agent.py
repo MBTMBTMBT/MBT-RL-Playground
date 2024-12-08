@@ -8,9 +8,6 @@ import numpy as np
 import pandas as pd
 from scipy.stats import norm
 
-from discretizer import Discretizer
-from wrappers import DiscretizerWrapper
-
 """
 # Example usage scenarios for state_space and action_space definitions.
 
@@ -962,11 +959,12 @@ class _QTableAgent:
         for key, value in list(self.q_table.items())[:5]:  # Print first 5 entries for preview
             print(f"State-Action: {key}, Q-Value: {value}")
 
-    def save_q_table(self, file_path: str) -> None:
+    def save_q_table(self, file_path: str = None) -> pd.DataFrame:
         """
-        Save the Q-Table to a CSV file.
+        Save the Q-Table to a CSV file and/or return as a DataFrame.
 
         :param file_path: Path to save the file.
+        :return: DataFrame representation of the Q-Table.
         """
         data = []
         for (state, action), q_value in self.q_table.items():
@@ -975,22 +973,27 @@ class _QTableAgent:
             row.update({"q_value": q_value})
             data.append(row)
         df = pd.DataFrame(data)
-        df.to_csv(file_path, index=False)
-        print(f"Q-Table saved to {file_path}.")
+        if file_path:
+            df.to_csv(file_path, index=False)
+            print(f"Q-Table saved to {file_path}.")
+        return df
 
     @classmethod
-    def load_q_table(cls, file_path: str) -> "_QTableAgent":
+    def load_q_table(cls, file_path: str = None, df: pd.DataFrame = None) -> "_QTableAgent":
         """
-        Load a Q-Table from a CSV file.
+        Load a Q-Table from a CSV file or a DataFrame.
 
         :param file_path: Path to the saved file.
+        :param df: DataFrame representation of the Q-Table.
         :return: An instance of QTableAgent.
         """
-        df = pd.read_csv(file_path)
-        state_columns = sorted([col for col in df.columns if col.startswith("state_dim_")],
-                               key=lambda x: int(x.split("_")[-1]))
-        action_columns = sorted([col for col in df.columns if col.startswith("action_dim_")],
-                                key=lambda x: int(x.split("_")[-1]))
+        if file_path:
+            df = pd.read_csv(file_path)
+        elif df is None:
+            raise ValueError("Either file_path or df must be provided.")
+
+        state_columns = sorted([col for col in df.columns if col.startswith("state_dim_")], key=lambda x: int(x.split("_")[-1]))
+        action_columns = sorted([col for col in df.columns if col.startswith("action_dim_")], key=lambda x: int(x.split("_")[-1]))
 
         # Determine action space sizes from unique values in each action column
         action_space = [df[col].nunique() for col in action_columns]
@@ -1001,7 +1004,7 @@ class _QTableAgent:
             action = tuple(row[col] for col in action_columns)
             q_value = float(row["q_value"])
             agent.q_table[(state, action)] = q_value
-        print(f"Q-Table loaded from {file_path}.")
+        print(f"Q-Table loaded from {'file' if file_path else 'DataFrame'}.")
         return agent
 
     def get_action_probabilities(self, state: np.ndarray, strategy: str = "greedy", temperature: float = 1.0) -> np.ndarray:
@@ -1078,8 +1081,11 @@ class _QTableAgent:
 
 # Example Usage
 if __name__ == "__main__":
-    import gymnasium as gym
     import random
+    import gymnasium as gym
+    from utils import merge_q_table_with_counts
+    from discretizer import Discretizer
+    from wrappers import DiscretizerWrapper
 
     # Define ranges and number of buckets for each dimension based on CartPole state space
     state_ranges = [(-4.8, 4.8), (-3.4, 3.4), (-0.418, 0.418), (-3.4, 3.4)]  # CartPole observation ranges
@@ -1092,23 +1098,37 @@ if __name__ == "__main__":
     action_discretizer = Discretizer(action_ranges, action_buckets)
 
     env = gym.make("CartPole-v1")
-    env = DiscretizerWrapper(env, state_discretizer, action_discretizer, enable_counting=True)
+    wrapped_env = DiscretizerWrapper(env, state_discretizer, action_discretizer, enable_counting=True)
 
     agent = _QTableAgent(action_space=[len(action_ranges[i]) for i in range(len(action_ranges))])
 
     # Train the agent
-    state, info = env.reset()
+    state, info = wrapped_env.reset()
     for episode in range(10):
         done = False
         while not done:
             action = random.choice(agent._generate_all_possible_actions())  # Choose a random action
-            next_state, reward, done, truncated, _ = env.step(action[0])  # Use the first action dimension for CartPole
+            next_state, reward, done, truncated, _ = wrapped_env.step(action[0])  # Use the first action dimension for CartPole
             agent.update(state, action, reward, next_state)
-            state = next_state if not done else env.reset()[0]
+            state = next_state if not done else wrapped_env.reset()[0]
 
-    # Save and load the Q-table
-    agent.save_q_table("q_table.csv")
-    loaded_agent = _QTableAgent.load_q_table("q_table.csv")
+    # Save Q-table and simulate wrapper counts
+    q_table_df = agent.save_q_table("./q_table.csv")
+    print("Saved Q-Table DataFrame:")
+    print(q_table_df.head())
+
+    counts_df = wrapped_env.export_counts("./counts.csv")
+    print("Exported Counts DataFrame:")
+    print(counts_df.head())
+
+    # Merge Q-table with counts
+    merged_df = merge_q_table_with_counts(q_table_df, counts_df)
+    merged_df.to_csv("merged_test.csv", index=False)
+    print("Merged Q-Table with Counts:")
+    print(merged_df.head())
+
+    # Load agent from merged DataFrame
+    loaded_agent = _QTableAgent.load_q_table(df=q_table_df)
 
     # Print loaded Q-table for verification
     loaded_agent.print_q_table_info()

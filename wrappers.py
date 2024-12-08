@@ -1,7 +1,7 @@
 import os
 from collections import defaultdict
 import random
-from typing import Tuple, Union, List,  Any, SupportsFloat
+from typing import Tuple, Union, List, Any, SupportsFloat, Dict
 
 import gymnasium as gym
 import numpy as np
@@ -262,7 +262,7 @@ class AEWrapper(gym.Wrapper):
 
 
 class DiscretizerWrapper(gym.Wrapper):
-    def __init__(self, env: gym.Env, state_discretizer: Discretizer, action_discretizer: Discretizer, enable_counting: bool = False):
+    def __init__(self, env: gym.Env, state_discretizer, action_discretizer, enable_counting: bool = False):
         """
         Wrapper to apply state and action discretization with counting functionality.
 
@@ -288,7 +288,7 @@ class DiscretizerWrapper(gym.Wrapper):
         discretized_state, _ = self.state_discretizer.discretize(state)
         return discretized_state, info
 
-    def step(self, action: Union[int, List[float]]) -> Tuple[np.ndarray, float, bool, bool, dict]:
+    def step(self, action: Union[int, List[float]]) -> tuple[Any, SupportsFloat, bool, bool, dict[str, Any]]:
         """
         Take a step in the environment using a discretized action.
 
@@ -308,9 +308,12 @@ class DiscretizerWrapper(gym.Wrapper):
         discretized_state, bucket_indices = self.state_discretizer.discretize(state)
 
         if self.enable_counting:
-            key = {f"state_dim_{i}_index": idx for i, idx in enumerate(bucket_indices)}
-            key.update({f"state_dim_{i}_value": val for i, val in enumerate(discretized_state)})
-            key["action"] = action
+            key = {f"state_dim_{i}": val for i, val in enumerate(discretized_state)}
+            if isinstance(action, list):
+                key.update({f"action_dim_{j}": action[j] for j in range(len(action))})
+            else:
+                key.update({f"action_dim_0": action})
+            # key["action_index"] = action if isinstance(action, int) else None
             self.state_action_counts[tuple(key.items())] += 1
 
         return discretized_state, reward, done, truncated, info
