@@ -1,13 +1,12 @@
 import os
 from collections import defaultdict
 import random
-from typing import Tuple, Union, List, Any, SupportsFloat, Dict
+from typing import Tuple, Union, List, Any, SupportsFloat
 
 import gymnasium as gym
 import numpy as np
 import pandas as pd
 import torch
-from numpy import ndarray
 from torch import optim
 
 from discretizer import Discretizer

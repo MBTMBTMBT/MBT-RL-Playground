@@ -1,5 +1,5 @@
 import numpy as np
-from typing import List, Tuple, Union
+from typing import List, Tuple
 
 class Discretizer:
     def __init__(self, ranges: List[Tuple[float, float]], num_buckets: List[int]):
