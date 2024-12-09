@@ -3,22 +3,29 @@ from typing import Union, Optional, List
 import numpy as np
 import pandas as pd
 
+from dqn_agent import DQNAgent
+
 
 def merge_q_table_with_counts(q_table_df: pd.DataFrame, counts_df: pd.DataFrame) -> pd.DataFrame:
     """
     Merge the Q-Table DataFrame with the wrapper's state-action counts DataFrame.
 
-    :param q_table_df: DataFrame containing the Q-Table (state, action, q_value).
-    :param counts_df: DataFrame containing state-action counts (state, action, count).
+    :param q_table_df: Sparse DataFrame containing the Q-Table (state, action, q_value).
+    :param counts_df: Dense DataFrame containing state-action counts (state, action, count).
     :return: A merged DataFrame containing states, actions, Q-values, and counts.
     """
     # Identify state and action columns
-    state_columns = sorted([col for col in q_table_df.columns if col.startswith("state_dim_")])
-    action_columns = sorted([col for col in q_table_df.columns if col.startswith("action_dim_")])
+    state_columns = sorted([col for col in counts_df.columns if col.startswith("state_dim_")])
+    action_columns = sorted([col for col in counts_df.columns if col.startswith("action_dim_")])
+
+    # Convert sparse Q-Table to dense for merging
+    dense_q_table_df = q_table_df.copy()
+    for col in state_columns + action_columns:
+        dense_q_table_df[col] = dense_q_table_df[col].sparse.to_dense()
 
     # Merge on state and action columns
     merged_df = pd.merge(
-        q_table_df,
+        dense_q_table_df,
         counts_df,
         on=state_columns + action_columns,
         how="inner",  # Use "inner" to keep only matching rows
@@ -29,6 +36,35 @@ def merge_q_table_with_counts(q_table_df: pd.DataFrame, counts_df: pd.DataFrame)
     merged_df = merged_df[state_columns + action_columns + ["q_value", "count"]]
 
     return merged_df
+
+def sample_q_table_with_counts(agent: DQNAgent, counts_df: pd.DataFrame) -> pd.DataFrame:
+    """
+        Sample Q-values from an agent using the states in counts_df and merge with the counts.
+
+        :param agent: An agent with a `get_action_probabilities` method.
+        :param counts_df: DataFrame containing state-action counts (state, action, count).
+        :return: A merged DataFrame containing states, actions, Q-values, and counts.
+        """
+    # Identify state columns
+    state_columns = sorted([col for col in counts_df.columns if col.startswith("state_dim_")])
+
+    # Create a DataFrame to store sampled Q-values
+    sampled_data = []
+
+    for _, row in counts_df.iterrows():
+        state = np.array([row[col] for col in state_columns])
+        q_values = agent.get_action_probabilities(state, strategy="softmax")
+
+        for action_idx, q_value in enumerate(q_values):
+            sampled_row = {col: row[col] for col in state_columns}
+            sampled_row[f"action_dim_0"] = action_idx  # Assuming single-dimensional action
+            sampled_row["q_value"] = q_value
+            sampled_row["count"] = row["count"]
+            sampled_data.append(sampled_row)
+
+    sampled_df = pd.DataFrame(sampled_data)
+    return sampled_df
+
 
 def compute_action_probabilities(
         df: pd.DataFrame,
@@ -85,6 +121,7 @@ def compute_action_probabilities(
         state_values = group_keys[:]
 
         q_values = group["q_value"].values
+        # print(q_values)
         actions = group[action_index_columns].to_numpy()
         if "count" in group.columns:
             visit_count = group["count"].sum()  # Sum visit counts for this state
@@ -102,10 +139,13 @@ def compute_action_probabilities(
             exp_q_values = np.exp(q_values / temperature)
             softmax_probs = exp_q_values / np.sum(exp_q_values)
             probabilities = np.zeros(len(all_action_indices), dtype=float)
+            # print(q_values)
+            # print(softmax_probs)
             for i, action in enumerate(actions):
                 action_tuple = tuple(action)
                 action_idx = all_action_indices.index(action_tuple)
                 probabilities[action_idx] = softmax_probs[i]
+            # print(probabilities)
 
         # Append state, action probabilities, and visit count as one row
         # row = list(state_indices) + list(state_values) + list(probabilities) + [visit_count]

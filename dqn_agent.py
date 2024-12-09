@@ -7,6 +7,8 @@ from collections import deque
 from typing import List
 from collections import defaultdict
 import random
+
+from pandas import SparseDtype
 from torch.utils.data import DataLoader, TensorDataset
 
 
@@ -18,7 +20,8 @@ class DQNAgent:
                  max_q_value_abs: float = 1.0,
                  replay_buffer_size: int = 10000,
                  batch_size: int = 64,
-                 train_epochs: int = 1):
+                 train_epochs: int = 1,
+                 device: str = "cpu"):
         """
         Initialize the DQN agent.
 
@@ -37,7 +40,7 @@ class DQNAgent:
 
         self.batch_size = batch_size
         self.train_epochs = train_epochs
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = device
         # self.device = torch.device("cpu")
 
         # Replay buffer to store experiences
@@ -53,7 +56,7 @@ class DQNAgent:
         self.q_table = defaultdict(lambda: 0.0)
 
     def _build_model(self) -> nn.Module:
-        """Build a feedforward neural network based on the specified hidden layers."""
+        """Build a feedforward neural network based on the specified hidden layers and initialize parameters."""
         layers = []
         input_size = self.input_dims
         for hidden_size in self.hidden_layers:
@@ -61,7 +64,15 @@ class DQNAgent:
             layers.append(nn.LeakyReLU())
             input_size = hidden_size
         layers.append(nn.Linear(input_size, np.prod(self.action_space)))
-        return nn.Sequential(*layers)
+        model = nn.Sequential(*layers)
+
+        # Initialize parameters with Xavier initialization
+        for layer in model:
+            if isinstance(layer, nn.Linear):
+                nn.init.xavier_uniform_(layer.weight)
+                if layer.bias is not None:
+                    nn.init.constant_(layer.bias, 0.0)
+        return model
 
     def get_action_probabilities(self, state: np.ndarray, strategy: str = "greedy",
                                  temperature: float = 1.0) -> np.ndarray:
@@ -73,8 +84,12 @@ class DQNAgent:
         :param temperature: Temperature parameter for softmax.
         :return: An array of action probabilities.
         """
-        state_tensor = torch.tensor(state, dtype=torch.float32, device=self.device).unsqueeze(0)
+        self.model.to("cpu")
+        state_tensor = torch.tensor(state, dtype=torch.float32, device="cpu").unsqueeze(0)
         q_values = self.model(state_tensor).squeeze(0).detach().cpu().numpy()
+
+        # Rescale q values
+        q_values *= self.max_q_value_abs
 
         if strategy == "greedy":
             probabilities = np.zeros_like(q_values, dtype=float)
@@ -137,6 +152,8 @@ class DQNAgent:
         """
         if len(self.replay_buffer) < self.replay_buffer_size:
             return
+
+        self.model.to(self.device)
 
         # Prepare dataset and dataloader
         experiences = list(self.replay_buffer)
@@ -202,7 +219,8 @@ class DQNAgent:
         state_key = tuple(state)
         action_key = tuple(action)
 
-        state_tensor = torch.tensor(state, dtype=torch.float32, device=self.device).unsqueeze(0)
+        state_tensor = torch.tensor(state, dtype=torch.float32, device="cpu").unsqueeze(0)
+        self.model.to("cpu")
         q_values = self.model(state_tensor).squeeze(0).detach().cpu().numpy()
 
         # Rescale q values
@@ -244,19 +262,27 @@ class DQNAgent:
 
     def save_q_table(self, file_path: str = None) -> pd.DataFrame:
         """
-        Save the Q-Table to a CSV file and/or return as a DataFrame.
+        Save the Q-Table to a CSV file and/or return as a DataFrame in sparse format.
 
         :param file_path: Path to save the file.
-        :return: DataFrame representation of the Q-Table.
+        :return: DataFrame representation of the Q-Table in sparse format.
         """
+
         data = []
         for (state, action), q_value in self.q_table.items():
             row = {f"state_dim_{i}": state[i] for i in range(len(state))}
             row.update({f"action_dim_{j}": action[j] for j in range(len(action))})
             row.update({"q_value": q_value})
             data.append(row)
+
         df = pd.DataFrame(data)
+
+        # Convert to sparse DataFrame
+        for col in df.columns:
+            if col.startswith("state_dim_") or col.startswith("action_dim_"):
+                df[col] = df[col].astype(SparseDtype("float", 0))
+
         if file_path:
             df.to_csv(file_path, index=False)
-            print(f"Q-Table saved to {file_path}.")
+            print(f"Q-Table saved to {file_path} in sparse format.")
         return df

@@ -16,7 +16,8 @@ from custom_cartpole import CustomCartPoleEnv
 from discretizer import Discretizer
 from dqn_agent import DQNAgent
 from q_table_agent import Qtableagent
-from utils import compute_action_probabilities, merge_q_table_with_counts, compute_average_kl_divergence_between_dfs
+from utils import compute_action_probabilities, merge_q_table_with_counts, compute_average_kl_divergence_between_dfs, \
+    sample_q_table_with_counts
 from wrappers import DiscretizerWrapper
 
 CUSTOM_ENVS = {
@@ -125,6 +126,7 @@ def run_experiment(args):
         average_kl = 0.0
         env = envs[0]
         reset_kl = reset_kls[0]
+        reset_old_agent_times = 0
         while current_steps < total_steps:
             state, _ = env.reset()
             total_reward = 0
@@ -159,7 +161,7 @@ def run_experiment(args):
                         old_agent = agent.clone()
 
                 if np.random.random() < epsilon:
-                    action = [np.random.choice([0, 1])]
+                    action = [np.random.choice([0, 1])]  # todo: fuck!
                 else:
                     probabilities = agent.get_action_probabilities(state, strategy="softmax")
                     action = [np.argmax(probabilities)]
@@ -173,7 +175,7 @@ def run_experiment(args):
                 epsilon = max(epsilon_end, epsilon - epsilon_decay)
                 pbar.update(1)
 
-                if old_agent is None and current_steps >= 100:
+                if old_agent is None and current_steps >= 1000:
                     old_agent = agent.clone()
 
                 # Periodic testing
@@ -195,11 +197,11 @@ def run_experiment(args):
                     recent_avg = np.mean([r for _, r in training_rewards[-10:]])
                     try:
                         policy = compute_action_probabilities(
-                            merge_q_table_with_counts(agent.save_q_table(), env.export_counts()),
+                            sample_q_table_with_counts(agent, env.export_counts()),
                             strategy="softmax",
                         )
                         old_policy = compute_action_probabilities(
-                            merge_q_table_with_counts(old_agent.save_q_table(), env.export_counts()),
+                            sample_q_table_with_counts(old_agent, env.export_counts()),
                             strategy="softmax",
                         )
                         average_kl = compute_average_kl_divergence_between_dfs(
@@ -208,6 +210,9 @@ def run_experiment(args):
                         if np.isnan(average_kl):
                             average_kl = 0.0
                             old_agent = agent.clone()
+                            reset_old_agent_times += 1
+                            if reset_old_agent_times > 1:
+                                print("Warning, prior agent is NaN. Resetting prior agent.")
                     except ValueError:
                         average_kl = 0.0
 

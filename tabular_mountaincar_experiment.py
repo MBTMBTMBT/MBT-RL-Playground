@@ -24,6 +24,7 @@ if __name__ == '__main__':
                 "replay_buffer_size": 16384*4,
                 "batch_size": 32,
                 "train_epochs": 10,
+                "device": "cpu",
             },
             "train_env_params": [
                 {
@@ -72,6 +73,7 @@ if __name__ == '__main__':
                 "replay_buffer_size": 16384*4,
                 "batch_size": 32,
                 "train_epochs": 10,
+                "device": "cpu",
             },
             "train_env_params": [
                 {
@@ -120,6 +122,7 @@ if __name__ == '__main__':
                 "replay_buffer_size": 16384*4,
                 "batch_size": 32,
                 "train_epochs": 10,
+                "device": "cpu",
             },
             "train_env_params": [
                 {

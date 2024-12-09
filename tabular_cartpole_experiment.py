@@ -24,6 +24,7 @@ if __name__ == '__main__':
                 "replay_buffer_size": 16384*4,
                 "batch_size": 32,
                 "train_epochs": 10,
+                "device": "cuda",
             },
             "train_env_params": [
                 {
@@ -64,6 +65,7 @@ if __name__ == '__main__':
                 "replay_buffer_size": 16384*4,
                 "batch_size": 32,
                 "train_epochs": 10,
+                "device": "cuda",
             },
             "train_env_params": [
                 {
@@ -104,6 +106,7 @@ if __name__ == '__main__':
                 "replay_buffer_size": 16384*4,
                 "batch_size": 32,
                 "train_epochs": 10,
+                "device": "cuda",
             },
             "train_env_params": [
                 {
@@ -144,6 +147,7 @@ if __name__ == '__main__':
                 "replay_buffer_size": 16384*4,
                 "batch_size": 32,
                 "train_epochs": 10,
+                "device": "cuda",
             },
             "train_env_params": [
                 {
@@ -176,7 +180,7 @@ if __name__ == '__main__':
     ]
 
     # Run all experiments
-    max_workers = 2  # Number of parallel processes
+    max_workers = 1  # Number of parallel processes
     aggregated_results = run_all_experiments(experiment_groups, save_dir, max_workers)
 
     # Define color map to ensure consistent colors across figures
