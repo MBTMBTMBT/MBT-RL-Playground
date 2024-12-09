@@ -112,7 +112,7 @@ def run_experiment(args):
                         old_agent = agent.clone()
 
                 if np.random.random() < epsilon:
-                    action = [np.random.choice([0, 1])]
+                    action = [np.random.choice(list(range(agent.action_space[0]["bins"])))]
                 else:
                     probabilities = agent.get_action_probabilities(state, strategy="softmax")
                     action = [np.argmax(probabilities)]

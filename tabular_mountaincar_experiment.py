@@ -45,7 +45,7 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.25,
-            "total_steps": int(5e6),
+            "total_steps": int(25e6),
             "runs": 4,
         },
         {
@@ -80,7 +80,7 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.25,
-            "total_steps": int(5e6),
+            "total_steps": int(25e6),
             "runs": 4,
         },
         {
@@ -115,7 +115,7 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.25,
-            "total_steps": int(5e6),
+            "total_steps": int(25e6),
             "runs": 4,
         },
     ]
