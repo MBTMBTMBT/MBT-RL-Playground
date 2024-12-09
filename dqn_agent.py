@@ -15,6 +15,7 @@ class DQNAgent:
                  input_dims: int,
                  action_space: List[int],
                  hidden_layers: List[int],
+                 max_q_value_abs: float = 1.0,
                  replay_buffer_size: int = 10000,
                  batch_size: int = 64,
                  train_epochs: int = 1):
@@ -31,6 +32,8 @@ class DQNAgent:
         self.input_dims = input_dims
         self.action_space = action_space
         self.hidden_layers = hidden_layers
+
+        self.max_q_value_abs = abs(max_q_value_abs)
 
         self.batch_size = batch_size
         self.train_epochs = train_epochs
@@ -161,6 +164,9 @@ class DQNAgent:
                     next_q_values = self.model(batch_next_states)
                     max_next_q_value = torch.max(next_q_values, dim=1).values
 
+                # Rescale rewards
+                batch_rewards /= self.max_q_value_abs
+
                 # Correctly handle the `done` flag
                 target = batch_rewards + gamma * max_next_q_value * (1 - batch_dones)
                 target[batch_dones.bool()] = batch_rewards[batch_dones.bool()]  # Override target for done states
@@ -198,6 +204,9 @@ class DQNAgent:
 
         state_tensor = torch.tensor(state, dtype=torch.float32, device=self.device).unsqueeze(0)
         q_values = self.model(state_tensor).squeeze(0).detach().cpu().numpy()
+
+        # Rescale q values
+        q_values *= self.max_q_value_abs
 
         if not hasattr(self, 'q_table'):
             from collections import defaultdict

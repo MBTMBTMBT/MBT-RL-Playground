@@ -20,7 +20,8 @@ if __name__ == '__main__':
             "agent_params": {
                 "input_dims": 4,
                 "hidden_layers": [64, 64],
-                "replay_buffer_size": 16384 * 4,
+                "max_q_value_abs": 500.0,
+                "replay_buffer_size": 16384*4,
                 "batch_size": 32,
                 "train_epochs": 10,
             },
@@ -59,7 +60,8 @@ if __name__ == '__main__':
             "agent_params": {
                 "input_dims": 4,
                 "hidden_layers": [64, 64],
-                "replay_buffer_size": 16384 * 4,
+                "max_q_value_abs": 500.0,
+                "replay_buffer_size": 16384*4,
                 "batch_size": 32,
                 "train_epochs": 10,
             },
@@ -98,7 +100,8 @@ if __name__ == '__main__':
             "agent_params": {
                 "input_dims": 4,
                 "hidden_layers": [64, 64],
-                "replay_buffer_size": 16384 * 4,
+                "max_q_value_abs": 500.0,
+                "replay_buffer_size": 16384*4,
                 "batch_size": 32,
                 "train_epochs": 10,
             },
@@ -137,7 +140,8 @@ if __name__ == '__main__':
             "agent_params": {
                 "input_dims": 4,
                 "hidden_layers": [64, 64],
-                "replay_buffer_size": 16384 * 4,
+                "max_q_value_abs": 500.0,
+                "replay_buffer_size": 16384*4,
                 "batch_size": 32,
                 "train_epochs": 10,
             },
