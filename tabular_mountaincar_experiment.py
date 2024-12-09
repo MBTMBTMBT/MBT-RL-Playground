@@ -14,7 +14,7 @@ if __name__ == '__main__':
     # Define experiment groups
     experiment_groups = [
         {
-            "group_name": "MC-50-nc",
+            "group_name": "MC-50-50",
             "env_id": "Custom-MountainCar",
             "train_env_params": [
                 {
@@ -45,11 +45,11 @@ if __name__ == '__main__':
             "gamma": 0.99,
             "epsilon_start": 0.25,
             "epsilon_end": 0.25,
-            "total_steps": int(25e6),
-            "runs": 4,
+            "total_steps": int(5e6),
+            "runs": 1,
         },
         {
-            "group_name": "MC-25-nc",
+            "group_name": "MC-25-00",
             "env_id": "Custom-MountainCar",
             "train_env_params": [
                 {
@@ -84,7 +84,7 @@ if __name__ == '__main__':
             "runs": 4,
         },
         {
-            "group_name": "MC-00-nc",
+            "group_name": "MC-25-nc",
             "env_id": "Custom-MountainCar",
             "train_env_params": [
                 {
