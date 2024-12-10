@@ -377,10 +377,67 @@ class TransitionTable:
     def __init__(self, state_discretizer: Discretizer, action_discretizer: Discretizer,):
         self.state_discretizer = state_discretizer
         self.action_discretizer = action_discretizer
-        self.transition_table: Dict[int, Dict[int, Dict[str, int]]] = {}  # {state: {action: {next_state: count}}}
+        self.transition_table: Dict[int, Dict[int, Dict[int, Dict[float, int]]]] \
+            = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: 0))))  # {state: {action: {next_state: {reward: count}}}
         self.neighbour_dict = defaultdict(lambda: set())
-        self.forward_dict = defaultdict(lambda: set())
-        self.inverse_dict = defaultdict(lambda: set())
+        self.forward_dict = defaultdict(lambda: defaultdict(lambda: set()))
+        self.inverse_dict = defaultdict(lambda: defaultdict(lambda: set()))
+        self.done_set = set()
+
+    def update(self, state: np.ndarray, action: List[int], reward: float, next_state: np.ndarray, done: bool):
+        encoded_state = self.state_discretizer.encode_indices([*state])
+        encoded_next_state = self.state_discretizer.encode_indices([*next_state])
+        encoded_action = self.action_discretizer.encode_indices([*action])
+
+        if done:
+            self.done_set.add(encoded_next_state)
+
+        self.transition_table[encoded_state][encoded_action][encoded_next_state][reward] += 1
+        self.neighbour_dict[encoded_state].add(encoded_action)
+        self.neighbour_dict[encoded_next_state].add(encoded_action)
+        self.forward_dict[encoded_state][encoded_next_state].add(encoded_action)
+        self.forward_dict[encoded_next_state][encoded_state].add(encoded_action)
+
+    def save_transition_table(self, file_path: str = None):
+        transition_table_data = []
+        for encoded_state in self.transition_table.keys():
+            for encoded_action in self.transition_table[encoded_state].keys():
+                for encoded_next_state in self.transition_table[encoded_state][encoded_action].keys():
+                    for reward in self.transition_table[encoded_state][encoded_action][encoded_next_state].keys():
+                        count = self.transition_table[encoded_state][encoded_action][encoded_next_state][reward]
+                        row = {
+                            "state": encoded_state,
+                            "action": encoded_action,
+                            "next_state": encoded_next_state,
+                            "reward": reward,
+                            "count": count,
+                        }
+                        transition_table_data.append(row)
+        transition_table_df = pd.DataFrame(transition_table_data)
+
+        if file_path:
+            transition_table_df.to_csv(file_path, index=False)
+            print(f"Transition Table saved to {file_path}.")
+        return transition_table_df
+
+    def load_transition_table(self, file_path: str = None, transition_table_df: pd.DataFrame = None):
+        if file_path:
+            transition_table_df = pd.read_csv(file_path)
+        elif transition_table_df is None:
+            raise ValueError("Either file_path or df must be provided.")
+
+        for _, row in transition_table_df.iterrows():
+            encoded_state = row["state"]
+            encoded_action = row["action"]
+            encoded_next_state = row["next_state"]
+            reward = row["reward"]
+            count = row["count"]
+            self.transition_table[encoded_state][encoded_action][encoded_next_state][reward] = count
+            self.neighbour_dict[encoded_state].add(encoded_action)
+            self.neighbour_dict[encoded_next_state].add(encoded_action)
+            self.forward_dict[encoded_state][encoded_next_state].add(encoded_action)
+            self.forward_dict[encoded_next_state][encoded_state].add(encoded_action)
+        print(f"Transition Table loaded from {f'{file_path}' if file_path else 'DataFrame'}.")
 
 
 if __name__ == "__main__":
