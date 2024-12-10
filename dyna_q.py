@@ -117,6 +117,18 @@ class Discretizer:
 
         return midpoints_product, indices_product
 
+    def count_possible_combinations(self) -> int:
+        """
+        Count the total number of possible combinations of bucket midpoints.
+
+        :return: The total number of combinations.
+        """
+        total_combinations = 1
+        for buckets in self.num_buckets:
+            if buckets > 0:
+                total_combinations *= buckets
+        return total_combinations
+
     def print_buckets(self) -> None:
         """
         Print all buckets and their corresponding ranges.
@@ -144,15 +156,13 @@ class Discretizer:
 
 
 class TabularQAgent:
-    def __init__(self, action_space: List[int]):
-        """
-        Initialize the Q-Table agent.
-
-        :param action_space: List of possible values for each action dimension.
-        """
+    def __init__(self, state_discretizer: Discretizer, action_discretizer: Discretizer, print_info: bool = True):
+        self.state_discretizer = state_discretizer
+        self.action_discretizer = action_discretizer
         self.q_table = defaultdict(lambda: 0.0)  # Flattened Q-Table with state-action tuple keys
-        self.action_space = action_space
-        self.print_q_table_info()
+        self.visit_table = defaultdict(lambda: 0)  # Uses the same keys of the Q-Table to do visit count.
+        if print_info:
+            self.print_q_table_info()
 
     def clone(self) -> 'TabularQAgent':
         """
@@ -160,17 +170,19 @@ class TabularQAgent:
 
         :return: A new QTableAgent instance with the same Q-Table.
         """
-        new_agent = TabularQAgent(self.action_space)
+        new_agent = TabularQAgent(self.state_discretizer, self.action_discretizer, print_info=False)
         new_agent.q_table = self.q_table.copy()
+        new_agent.visit_table = self.visit_table.copy()
+        new_agent.print_q_table_info()
         return new_agent
 
     def print_q_table_info(self) -> None:
         """
         Print information about the Q-Table size and its structure.
         """
-        print(f"Q-Table Size: {len(self.q_table)} state-action pairs")
-        for key, value in list(self.q_table.items())[:5]:  # Print first 5 entries for preview
-            print(f"State-Action: {key}, Q-Value: {value}")
+        total_combinations = (self.state_discretizer.count_possible_combinations()
+                              * self.action_discretizer.count_possible_combinations())
+        print(f"Q-Table Size: {len(self.q_table)} state-action pairs / total combinations: {total_combinations}.")
 
     def save_q_table(self, file_path: str = None) -> pd.DataFrame:
         """
