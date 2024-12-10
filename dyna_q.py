@@ -1,10 +1,13 @@
+import random
 from collections import defaultdict
 from itertools import product
-
+import gymnasium as gym
 import numpy as np
 import pandas as pd
 import scipy.stats
 from typing import List, Tuple, Optional, Dict
+
+from gymnasium import spaces
 
 
 class Discretizer:
@@ -383,6 +386,7 @@ class TransitionTable:
         self.forward_dict = defaultdict(lambda: defaultdict(lambda: set()))
         self.inverse_dict = defaultdict(lambda: defaultdict(lambda: set()))
         self.done_set = set()
+        self.start_set = set()
 
     def update(self, state: np.ndarray, action: List[int], reward: float, next_state: np.ndarray, done: bool):
         encoded_state = self.state_discretizer.encode_indices([*state])
@@ -486,6 +490,72 @@ class TransitionTable:
 
     def get_done_set(self) -> set[int]:
         return self.done_set
+
+    def add_start_state(self, encoded_state: int):
+        self.start_set.add(encoded_state)
+
+    def get_start_set(self) -> set[int]:
+        return self.start_set
+
+
+class TransitionalTableEnv(TransitionTable, gym.Env):
+    def __init__(self, state_discretizer: Discretizer, action_discretizer: Discretizer):
+        TransitionTable.__init__(self, state_discretizer, action_discretizer)
+        gym.Env.__init__(self)
+
+        # State space
+        self.state_discretizer = state_discretizer
+        state_size = state_discretizer.count_possible_combinations()
+        self.observation_space = spaces.Discrete(state_size)
+
+        # Action space
+        self.action_discretizer = action_discretizer
+        action_size = action_discretizer.count_possible_combinations()
+        self.action_space = spaces.Discrete(action_size)
+
+        self.max_steps = np.inf
+        self.step_count = 0
+        self.current_state = None
+
+    def reset(self, seed=None, options=None, init_state_encode: int = None, init_strategy: str = "random"):
+        """
+        Reset the environment to an initial state.
+
+        :return: Initial state (encoded as an integer).
+        """
+        super().reset(seed=seed)
+        self.step_count = 0
+        if init_state_encode is None:
+            if init_strategy == "random":
+                init_state_encode = random.randint(0, len(self.forward_dict) - 1)
+            elif init_strategy == "real_start_states":
+                init_state_encode = random.choice(tuple(self.start_set))
+            else:
+                raise ValueError(f"Init strategy not supported: {init_strategy}.")
+            self.current_state = init_state_encode
+        return self.current_state, {}
+
+    def step(self, action):
+        """
+        Take a step in the environment.
+
+        :param action: Action encoded as an integer.
+        :return: A tuple (next_state, reward, done, info).
+        """
+        # Decode action to bucket indices
+        action_indices = self.action_discretizer.decode_indices(action)
+
+        # Implement the transition logic here (example: cyclic state update)
+        self.current_state = (self.current_state + 1) % self.state_discretizer.count_possible_combinations()
+
+        # Example reward and done condition
+        reward = 1.0  # Example fixed reward
+        done = self.current_state == 0  # Example done condition
+
+        # Optional: Add additional information
+        info = {"action_indices": action_indices}
+
+        return self.current_state, reward, done, info
 
 
 if __name__ == "__main__":
