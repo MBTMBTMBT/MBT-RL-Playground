@@ -8,6 +8,7 @@ import scipy.stats
 from typing import List, Tuple, Optional, Dict
 
 from gymnasium import spaces
+from pandas import DataFrame
 
 
 class Discretizer:
@@ -388,6 +389,12 @@ class TransitionTable:
         self.done_set = set()
         self.start_set = set()
 
+    def print_transition_table_info(self):
+        print("Transition Table Information:")
+        print(f"Total num transition pairs: {len(self.forward_dict)}.")
+        print(f"Collected initial states: {len(self.start_set)}.")
+        print(f"Collected termination states: {len(self.done_set)}.")
+
     def update(self, state: np.ndarray, action: List[int], reward: float, next_state: np.ndarray, done: bool):
         encoded_state = self.state_discretizer.encode_indices([*state])
         encoded_next_state = self.state_discretizer.encode_indices([*next_state])
@@ -564,6 +571,29 @@ class TransitionalTableEnv(TransitionTable, gym.Env):
 
         info = {"current_step": self.step_count}
         return encoded_next_state, reward, terminated, truncated, info
+
+
+class TabularDynaQAgent:
+    def __init__(self, state_discretizer: Discretizer, action_discretizer: Discretizer,):
+        self.state_discretizer = state_discretizer
+        self.action_discretizer = action_discretizer
+        self.transition_table_env = TransitionalTableEnv(state_discretizer, action_discretizer)
+        self.q_table_agent = TabularQAgent(self.state_discretizer, self.action_discretizer)
+
+    def print_agent_info(self):
+        self.q_table_agent.print_q_table_info()
+        self.transition_table_env.print_transition_table_info()
+
+    def save_agent(self, file_path: str = None) -> tuple[DataFrame, DataFrame]:
+        if file_path:
+            q_table_file_path = file_path.split(".csv")[0] + "_q_table.csv"
+            transition_table_file_path = file_path.split(".csv")[0] + "_transition_table.csv"
+        else:
+            q_table_file_path = None
+            transition_table_file_path = None
+        q_table_df = self.q_table_agent.save_q_table(file_path=q_table_file_path)
+        transition_table_df = self.transition_table_env.save_transition_table(file_path=transition_table_file_path)
+        return q_table_df, transition_table_df
 
 
 if __name__ == "__main__":
