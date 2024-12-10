@@ -183,6 +183,7 @@ class TabularQAgent:
         total_combinations = (self.state_discretizer.count_possible_combinations()
                               * self.action_discretizer.count_possible_combinations())
         print(f"Q-Table Size: {len(self.q_table)} state-action pairs / total combinations: {total_combinations}.")
+        print(f"State-Action usage: {len(self.q_table) / total_combinations * 100:.2f}%.")
 
     def save_q_table(self, file_path: str = None) -> pd.DataFrame:
         """
