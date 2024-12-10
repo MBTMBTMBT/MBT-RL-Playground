@@ -4,7 +4,7 @@ from itertools import product
 import numpy as np
 import pandas as pd
 import scipy.stats
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Dict
 
 
 class Discretizer:
@@ -371,6 +371,16 @@ class TabularQAgent:
         # Update Q-value for the current state-action pair
         td_error = td_target - self.q_table[(state_key, tuple(action))]
         self.q_table[(state_key, tuple(action))] += alpha * td_error
+
+
+class TransitionTable:
+    def __init__(self, state_discretizer: Discretizer, action_discretizer: Discretizer,):
+        self.state_discretizer = state_discretizer
+        self.action_discretizer = action_discretizer
+        self.transition_table: Dict[str, List[List[str, int]]] = {}
+        self.neighbour_dict = defaultdict(lambda: set())
+        self.forward_dict = defaultdict(lambda: set())
+        self.inverse_dict = defaultdict(lambda: set())
 
 
 if __name__ == "__main__":
