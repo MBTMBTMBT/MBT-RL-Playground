@@ -288,8 +288,7 @@ class TabularQAgent:
             print(f"Q-Table saved to {file_path}.")
         return df
 
-    @classmethod
-    def load_q_table(cls, file_path: str = None, df: pd.DataFrame = None) -> "TabularQAgent":
+    def load_q_table(self, file_path: str = None, df: pd.DataFrame = None):
         """
         Load a Q-Table from a CSV file or a DataFrame.
 
@@ -302,23 +301,21 @@ class TabularQAgent:
         elif df is None:
             raise ValueError("Either file_path or df must be provided.")
 
-        state_columns = sorted([col for col in df.columns if col.startswith("state_dim_")],
-                               key=lambda x: int(x.split("_")[-1]))
-        action_columns = sorted([col for col in df.columns if col.startswith("action_dim_")],
-                                key=lambda x: int(x.split("_")[-1]))
+        if len(self.q_table) > 0 or len(self.visit_table) > 0:
+            print("Warning: Loading a Q-Table that already has data. Part of them might be overwritten.")
 
-        # Determine action space sizes from unique values in each action column
-        action_space = [df[col].nunique() for col in action_columns]
+        all_actions_encoded = [
+            self.action_discretizer.encode_indices([*indices])
+            for indices in self.action_discretizer.list_all_possible_combinations()[1]
+        ]
 
-        agent = cls(action_space=action_space)
         for _, row in df.iterrows():
-            state = tuple(row[col] for col in state_columns)
-            action = tuple(row[col] for col in action_columns)
-            q_value = float(row["q_value"])
-            agent.q_table[(state, action)] = q_value
+            encoded_state = int(row["state"])
+            for a in all_actions_encoded:
+                self.q_table[(encoded_state, a)] = row[f"action_{a}_q_value"]
+                self.visit_table[(encoded_state, a)] = row[f"action_{a}_visit_count"]
         print(f"Q-Table loaded from {f'{file_path}' if file_path else 'DataFrame'}.")
-        agent.print_q_table_info()
-        return agent
+        self.print_q_table_info()
 
     def get_action_probabilities(self, state: np.ndarray, strategy: str = "greedy",
                                  temperature: float = 1.0) -> np.ndarray:
