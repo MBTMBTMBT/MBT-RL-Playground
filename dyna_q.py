@@ -524,7 +524,7 @@ class TransitionalTableEnv(TransitionTable, gym.Env):
         self.step_count = 0
         self.current_state = None
 
-    def reset(self, seed=None, options=None, init_state_encode: int = None, init_strategy: str = "random"):
+    def reset(self, seed=None, options=None, init_state_encode: int = None, init_strategy: str = "real_start_states"):
         super().reset(seed=seed)
         self.step_count = 0
         if init_state_encode is None or init_state_encode in self.done_set:
@@ -544,6 +544,8 @@ class TransitionalTableEnv(TransitionTable, gym.Env):
         encoded_action = action
         transition_state_avg_reward_and_prob \
             = self.get_transition_state_avg_reward_and_prob(encoded_state, encoded_action)
+        if len(transition_state_avg_reward_and_prob) == 0:
+            return encoded_state, 0.0, True, False, {"current_step": self.step_count}
         if transition_strategy == "weighted":
             encoded_next_state = random.choices(
                 [transition_state_avg_reward_and_prob.keys()],
@@ -621,10 +623,62 @@ class TabularDynaQAgent:
         else:
             raise ValueError(f"Select strategy not supported: {strategy}.")
 
+    def choose_action(self, state: np.ndarray, strategy: str = "greedy", temperature: float = 1.0) -> np.ndarray:
+        action_probabilities = self.get_action_probabilities(state, strategy=strategy, temperature=temperature)
+        action = random.choices(self.q_table_agent.all_actions_encoded, weights=action_probabilities, k=1)[0]
+        return np.array(self.action_discretizer.decode_indices(action))
+
+    def choose_action_encoded(self, state: np.ndarray, strategy: str = "greedy", temperature: float = 1.0) -> np.ndarray:
+        action_probabilities = self.get_action_probabilities(state, strategy=strategy, temperature=temperature)
+        action = random.choices(self.q_table_agent.all_actions_encoded, weights=action_probabilities, k=1)[0]
+        return action
+
     def update_from_env(self, state: np.ndarray, action: np.ndarray, reward: float, next_state: np.ndarray, done: bool,
                alpha: float = 0.1, gamma: float = 0.99):
         self.q_table_agent.update(state, list(action), reward, next_state, done, alpha=alpha, gamma=gamma)
         self.transition_table_env.update(state, list(action), reward, next_state, done)
+
+    def update_from_transition_table(
+            self,
+            steps: int,
+            epsilon: float,
+            strategy: str = "greedy",
+            alpha: float = 0.1,
+            gamma: float = 0.99,
+            transition_strategy: str = "weighted",
+            init_strategy: str = "real_start_states",
+    ):
+        num_episodes = 1
+        num_truncated = 0
+        num_terminated = 0
+        sum_episode_rewards = 0
+
+        print(f"Starting for {steps} steps...")
+        state_encoded, info = self.transition_table_env.reset(init_strategy=init_strategy)
+        for step in range(steps):
+            if np.random.random() < epsilon:
+                action_encoded = random.choice(self.q_table_agent.all_actions_encoded)
+            else:
+                action_encoded = self.choose_action_encoded(state_encoded, strategy=strategy, temperature=1.0)
+            next_state_encoded, reward, terminated, truncated, info = self.transition_table_env.step(
+                action_encoded, transition_strategy
+            )
+            state = self.state_discretizer.decode_indices(state_encoded)
+            action = self.action_discretizer.decode_indices(action_encoded)
+            next_state = self.state_discretizer.decode_indices(next_state_encoded)
+            self.q_table_agent.update(state, action, reward, next_state, terminated, alpha=alpha, gamma=gamma)
+            state_encoded = next_state_encoded
+            if terminated:
+                num_terminated += 1
+            if truncated:
+                num_truncated += 1
+            sum_episode_rewards += reward
+            if terminated or truncated:
+                num_episodes += 1
+                state_encoded, info = self.transition_table_env.reset(init_strategy=init_strategy)
+
+        print(f"Trained {num_episodes} episodes, including {num_truncated} truncated, {num_terminated} terminated.")
+        print(f"Average episode reward: {sum_episode_rewards / num_episodes}.")
 
 
 if __name__ == "__main__":
