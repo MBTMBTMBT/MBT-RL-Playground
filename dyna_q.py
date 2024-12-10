@@ -465,6 +465,16 @@ class TransitionTable:
             transition_state_reward_and_prob[encoded_next_state] = (avg_reward, prob)
         return transition_state_reward_and_prob
 
+    def get_state_action_counts(self, encoded_state: int) -> Dict[int, int]:
+        state_action_counts = {}
+        for encoded_action in self.transition_table[encoded_state].keys():
+            state_action_counts[encoded_action] = 0
+            for encoded_next_state in self.transition_table[encoded_state][encoded_action].keys():
+                for reward in self.transition_table[encoded_state][encoded_action][encoded_next_state].keys():
+                    count = self.transition_table[encoded_state][encoded_action][encoded_next_state][reward]
+                    state_action_counts[encoded_action] += count
+        return state_action_counts
+
     def get_neighbours(self, encoded_state: int) -> set[int]:
         return self.neighbour_dict[encoded_state]
 
