@@ -55,7 +55,7 @@ class Discretizer:
                     midpoints = [round(min_val + (i + 0.5) * step, 6) for i in range(buckets)]
                 self.bucket_midpoints.append(midpoints)
 
-    def discretize(self, vector: List[float]) -> Tuple[np.ndarray, np.ndarray]:
+    def discretize(self, vector: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """
         Discretize a vector.
 
@@ -232,6 +232,10 @@ class TabularQAgent:
         self.visit_table = defaultdict(lambda: 0)  # Uses the same keys of the Q-Table to do visit count.
         if print_info:
             self.print_q_table_info()
+        self.all_actions_encoded = [
+            self.action_discretizer.encode_indices([*indices])
+            for indices in self.action_discretizer.list_all_possible_combinations()[1]
+        ].sort()
 
     def clone(self) -> 'TabularQAgent':
         """
@@ -267,19 +271,15 @@ class TabularQAgent:
         :return: DataFrame representation of the Q-Table.
         """
         # list all possible actions (but not states, cause states are just too many)
-        all_actions_encoded = [
-            self.action_discretizer.encode_indices([*indices])
-            for indices in self.action_discretizer.list_all_possible_combinations()[1]
-        ]
         checked_states = set()
         data = []
         for (encoded_state, encoded_action), q_value in self.q_table.items():
             if encoded_state in checked_states:
                 continue
             row = {f"state": encoded_state}
-            row.update({f"action_{a}_q_value": self.q_table[(encoded_state, a)] for a in all_actions_encoded})
-            row.update({f"action_{a}_visit_count": self.visit_table[(encoded_state, a)] for a in all_actions_encoded})
-            row.update({"total_visit_count": sum([self.visit_table[(encoded_state, a)] for a in all_actions_encoded])})
+            row.update({f"action_{a}_q_value": self.q_table[(encoded_state, a)] for a in self.all_actions_encoded})
+            row.update({f"action_{a}_visit_count": self.visit_table[(encoded_state, a)] for a in self.all_actions_encoded})
+            row.update({"total_visit_count": sum([self.visit_table[(encoded_state, a)] for a in self.all_actions_encoded])})
             data.append(row)
             checked_states.add(encoded_state)
         df = pd.DataFrame(data)
@@ -304,14 +304,9 @@ class TabularQAgent:
         if len(self.q_table) > 0 or len(self.visit_table) > 0:
             print("Warning: Loading a Q-Table that already has data. Part of them might be overwritten.")
 
-        all_actions_encoded = [
-            self.action_discretizer.encode_indices([*indices])
-            for indices in self.action_discretizer.list_all_possible_combinations()[1]
-        ]
-
         for _, row in df.iterrows():
             encoded_state = int(row["state"])
-            for a in all_actions_encoded:
+            for a in self.all_actions_encoded:
                 self.q_table[(encoded_state, a)] = row[f"action_{a}_q_value"]
                 self.visit_table[(encoded_state, a)] = row[f"action_{a}_visit_count"]
         print(f"Q-Table loaded from {f'{file_path}' if file_path else 'DataFrame'}.")
@@ -327,13 +322,10 @@ class TabularQAgent:
         :param temperature: Temperature parameter for softmax.
         :return: An array of action probabilities.
         """
-        state_key = tuple(state)
-
-        # Generate all possible actions
-        possible_actions = self._generate_all_possible_actions()
+        encoded_state = self.state_discretizer.encode_indices([*self.state_discretizer.discretize(state)[1]])
 
         # Retrieve Q-values for all actions
-        q_values = np.array([self.q_table.get((state_key, tuple(action)), 0.0) for action in possible_actions])
+        q_values = np.array([self.q_table.get((encoded_state, a), 0.0) for a in self.all_actions_encoded])
 
         if strategy == "greedy":
             probabilities = np.zeros_like(q_values, dtype=float)
@@ -349,16 +341,6 @@ class TabularQAgent:
             raise ValueError("Invalid strategy. Use 'greedy' or 'softmax'.")
 
         return probabilities
-
-    def _generate_all_possible_actions(self) -> List[List[int]]:
-        """
-        Generate all possible combinations of actions given the action space.
-
-        :return: List of all possible actions.
-        """
-        if not self.action_space:
-            raise ValueError("Action space is not defined.")
-        return [list(action) for action in product(*[range(dim) for dim in self.action_space])]
 
     def update(self, state: np.ndarray, action: List[int], reward: float, next_state: np.ndarray, done: bool,
                alpha: float = 0.1, gamma: float = 0.99) -> None:
@@ -379,12 +361,9 @@ class TabularQAgent:
         if done:
             td_target = reward  # No future reward if the episode is done
         else:
-            # Generate all possible next actions
-            possible_actions = self._generate_all_possible_actions()
-
             # Compute the best next action's Q-value
             best_next_action_value = max(
-                [self.q_table.get((next_state_key, tuple(a)), 0.0) for a in possible_actions],
+                [self.q_table.get((next_state_key, tuple(a)), 0.0) for a in self.all_actions_encoded],
                 default=0.0
             )
             td_target = reward + gamma * best_next_action_value
@@ -392,8 +371,6 @@ class TabularQAgent:
         # Update Q-value for the current state-action pair
         td_error = td_target - self.q_table[(state_key, tuple(action))]
         self.q_table[(state_key, tuple(action))] += alpha * td_error
-
-        # print(f"Updated Q-value for state {state_key}, action {action}: {self.q_table[(state_key, tuple(action))]}")
 
 
 if __name__ == "__main__":
