@@ -267,14 +267,21 @@ class TabularQAgent:
         :return: DataFrame representation of the Q-Table.
         """
         # list all possible actions (but not states, cause states are just too many)
-        all_actions = self.action_discretizer.list_all_possible_combinations()
-        checked_states = []
+        all_actions_encoded = [
+            self.action_discretizer.encode_indices([*indices])
+            for indices in self.action_discretizer.list_all_possible_combinations()[1]
+        ]
+        checked_states = set()
         data = []
-        for (state, action), q_value in self.q_table.items():
-            row = {f"state_dim_{i}": state[i] for i in range(len(state))}
-            row.update({f"action_{j}": action[j] for j in range(len(action))})
-            row.update({"q_value": q_value})
+        for (encoded_state, encoded_action), q_value in self.q_table.items():
+            if encoded_state in checked_states:
+                continue
+            row = {f"state": encoded_state}
+            row.update({f"action_{a}_q_value": self.q_table[(encoded_state, a)] for a in all_actions_encoded})
+            row.update({f"action_{a}_visit_count": self.visit_table[(encoded_state, a)] for a in all_actions_encoded})
+            row.update({"total_visit_count": sum([self.visit_table[(encoded_state, a)] for a in all_actions_encoded])})
             data.append(row)
+            checked_states.add(encoded_state)
         df = pd.DataFrame(data)
         if file_path:
             df.to_csv(file_path, index=False)
