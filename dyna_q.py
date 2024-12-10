@@ -377,7 +377,7 @@ class TransitionTable:
     def __init__(self, state_discretizer: Discretizer, action_discretizer: Discretizer,):
         self.state_discretizer = state_discretizer
         self.action_discretizer = action_discretizer
-        self.transition_table: Dict[str, List[List[str, int]]] = {}
+        self.transition_table: Dict[int, Dict[int, Dict[str, int]]] = {}  # {state: {action: {next_state: count}}}
         self.neighbour_dict = defaultdict(lambda: set())
         self.forward_dict = defaultdict(lambda: set())
         self.inverse_dict = defaultdict(lambda: set())
