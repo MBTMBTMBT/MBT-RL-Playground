@@ -595,6 +595,37 @@ class TabularDynaQAgent:
         transition_table_df = self.transition_table_env.save_transition_table(file_path=transition_table_file_path)
         return q_table_df, transition_table_df
 
+    def load_agent(self, file_path: str = None, dataframes: tuple[DataFrame, DataFrame] = (None, None)):
+        if file_path:
+            q_table_file_path = file_path.split(".csv")[0] + "_q_table.csv"
+            transition_table_file_path = file_path.split(".csv")[0] + "_transition_table.csv"
+        else:
+            q_table_file_path = None
+            transition_table_file_path = None
+        self.q_table_agent.load_q_table(file_path=q_table_file_path, df=dataframes[0])
+        self.transition_table_env.load_transition_table(
+            file_path=transition_table_file_path, transition_table_df=dataframes[1]
+        )
+
+    def get_action_probabilities(self, state: np.ndarray, strategy: str = "greedy",
+                                 temperature: float = 1.0) -> np.ndarray:
+        if strategy == "softmax" or strategy == "greedy":
+            return self.q_table_agent.get_action_probabilities(state, strategy=strategy, temperature=temperature)
+        elif strategy == "weighted":
+            encoded_state = self.state_discretizer.encode_indices([*self.state_discretizer.discretize(state)[1]])
+            state_action_counts = self.transition_table_env.get_state_action_counts(encoded_state)
+            sum_counts = sum(state_action_counts.values())
+            return np.array([state_action_counts[count]/sum_counts for count in self.q_table_agent.all_actions_encoded])
+        elif strategy == "random":
+            return np.ones(len(self.q_table_agent.all_actions_encoded)) / len(self.q_table_agent.all_actions_encoded)
+        else:
+            raise ValueError(f"Select strategy not supported: {strategy}.")
+
+    def update_from_env(self, state: np.ndarray, action: np.ndarray, reward: float, next_state: np.ndarray, done: bool,
+               alpha: float = 0.1, gamma: float = 0.99):
+        self.q_table_agent.update(state, list(action), reward, next_state, done, alpha=alpha, gamma=gamma)
+        self.transition_table_env.update(state, list(action), reward, next_state, done)
+
 
 if __name__ == "__main__":
     # Define test parameters
