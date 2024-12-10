@@ -518,14 +518,11 @@ class TransitionalTableEnv(TransitionTable, gym.Env):
         self.current_state = None
 
     def reset(self, seed=None, options=None, init_state_encode: int = None, init_strategy: str = "random"):
-        """
-        Reset the environment to an initial state.
-
-        :return: Initial state (encoded as an integer).
-        """
         super().reset(seed=seed)
         self.step_count = 0
-        if init_state_encode is None:
+        if init_state_encode is None or init_state_encode in self.done_set:
+            if init_state_encode in self.done_set:
+                print("Warning: Starting from a done state, reset to a random state.")
             if init_strategy == "random":
                 init_state_encode = random.randint(0, len(self.forward_dict) - 1)
             elif init_strategy == "real_start_states":
@@ -535,27 +532,38 @@ class TransitionalTableEnv(TransitionTable, gym.Env):
             self.current_state = init_state_encode
         return self.current_state, {}
 
-    def step(self, action):
-        """
-        Take a step in the environment.
+    def step(self, action: int, transition_strategy: str = "weighted"):
+        encoded_state = self.current_state
+        encoded_action = action
+        transition_state_avg_reward_and_prob \
+            = self.get_transition_state_avg_reward_and_prob(encoded_state, encoded_action)
+        if transition_strategy == "weighted":
+            encoded_next_state = random.choices(
+                [transition_state_avg_reward_and_prob.keys()],
+                weights=[v[1] for v in transition_state_avg_reward_and_prob.values()],
+                k=1,
+            )[0]
+        elif transition_strategy == "random":
+            encoded_next_state = random.choice(tuple(transition_state_avg_reward_and_prob.keys()))
+        elif transition_strategy == "inverse_weighted":
+            probabilities = [v[1] for v in transition_state_avg_reward_and_prob.values()]
+            total_weight = sum(probabilities)
+            inverse_weights = [total_weight - p for p in probabilities]
+            encoded_next_state = random.choices(
+                [transition_state_avg_reward_and_prob.keys()],
+                weights=inverse_weights,
+                k=1,
+            )[0]
+        else:
+            raise ValueError(f"Transition strategy not supported: {transition_strategy}.")
+        reward = transition_state_avg_reward_and_prob[encoded_next_state][0]
+        self.step_count += 1
 
-        :param action: Action encoded as an integer.
-        :return: A tuple (next_state, reward, done, info).
-        """
-        # Decode action to bucket indices
-        action_indices = self.action_discretizer.decode_indices(action)
+        terminated = encoded_next_state in self.done_set
+        truncated = self.step_count >= self.max_steps
 
-        # Implement the transition logic here (example: cyclic state update)
-        self.current_state = (self.current_state + 1) % self.state_discretizer.count_possible_combinations()
-
-        # Example reward and done condition
-        reward = 1.0  # Example fixed reward
-        done = self.current_state == 0  # Example done condition
-
-        # Optional: Add additional information
-        info = {"action_indices": action_indices}
-
-        return self.current_state, reward, done, info
+        info = {"current_step": self.step_count}
+        return encoded_next_state, reward, terminated, truncated, info
 
 
 if __name__ == "__main__":
