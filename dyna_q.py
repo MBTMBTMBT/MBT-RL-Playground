@@ -439,6 +439,32 @@ class TransitionTable:
             self.forward_dict[encoded_next_state][encoded_state].add(encoded_action)
         print(f"Transition Table loaded from {f'{file_path}' if file_path else 'DataFrame'}.")
 
+    def get_transition_state_avg_reward_and_prob(self, encoded_state: int, encoded_action: int):
+        # Transition to state probs: from given state, with given action, probs of getting into next states
+        # Avg Reward: from given state, with given action, ending up in certain state, the average reward it gets
+        transition_state_reward_and_prob = {}
+        encoded_next_states = []
+        encoded_next_state_counts = []
+        avg_rewards = []
+        for encoded_next_state in self.transition_table[encoded_state][encoded_action].keys():
+            encoded_next_state_count = 0
+            transition_state_reward_and_prob[encoded_next_state] = {}
+            rewards = []
+            reward_counts = []
+            for reward in self.transition_table[encoded_state][encoded_action][encoded_next_state].keys():
+                reward_count = self.transition_table[encoded_state][encoded_action][encoded_next_state][reward]
+                transition_state_reward_and_prob[encoded_next_state][reward] = reward_count
+                encoded_next_state_count += reward_count
+                rewards.append(reward)
+                reward_counts.append(reward_count)
+            avg_rewards.append(np.average(rewards, weights=reward_counts))
+            encoded_next_states.append(encoded_next_state)
+            encoded_next_state_counts.append(encoded_next_state_count)
+        encoded_next_state_probs = np.array(encoded_next_state_counts) / np.sum(encoded_next_state_counts)
+        for encoded_next_state, avg_reward, prob in zip(encoded_next_states, avg_rewards, encoded_next_state_probs):
+            transition_state_reward_and_prob[encoded_next_state] = (avg_reward, prob)
+        return transition_state_reward_and_prob
+
 
 if __name__ == "__main__":
     # Define test parameters
