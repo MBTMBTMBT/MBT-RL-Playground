@@ -144,7 +144,7 @@ class Discretizer:
                 indices.append(code % buckets)
                 code //= buckets
 
-        return list(reversed(indices))
+        return list(indices)
 
     def indices_to_midpoints(self, indices: List[int]) -> List[float]:
         """
@@ -236,10 +236,10 @@ class TabularQAgent:
         self.visit_table = defaultdict(lambda: 0)  # Uses the same keys of the Q-Table to do visit count.
         if print_info:
             self.print_q_table_info()
-        self.all_actions_encoded = [
+        self.all_actions_encoded = sorted([
             self.action_discretizer.encode_indices([*indices])
             for indices in self.action_discretizer.list_all_possible_combinations()[1]
-        ].sort()
+        ])
 
     def clone(self) -> 'TabularQAgent':
         """
@@ -367,7 +367,7 @@ class TabularQAgent:
         else:
             # Compute the best next action's Q-value
             best_next_action_value = max(
-                [self.q_table.get((next_state_key, tuple(a)), 0.0) for a in self.all_actions_encoded],
+                [self.q_table.get((next_state_key, a), 0.0) for a in self.all_actions_encoded],
                 default=0.0
             )
             td_target = reward + gamma * best_next_action_value
@@ -396,9 +396,9 @@ class TransitionTable:
         print(f"Collected termination states: {len(self.done_set)}.")
 
     def update(self, state: np.ndarray, action: List[int], reward: float, next_state: np.ndarray, done: bool):
-        encoded_state = self.state_discretizer.encode_indices([*state])
-        encoded_next_state = self.state_discretizer.encode_indices([*next_state])
-        encoded_action = self.action_discretizer.encode_indices([*action])
+        encoded_state = self.state_discretizer.encode_indices(list(self.state_discretizer.discretize(state)[1]))
+        encoded_next_state = self.state_discretizer.encode_indices(list(self.state_discretizer.discretize(next_state)[1]))
+        encoded_action = self.action_discretizer.encode_indices(list(self.action_discretizer.discretize(action)[1]))
 
         if done:
             self.done_set.add(encoded_next_state)
@@ -477,7 +477,7 @@ class TransitionTable:
         return transition_state_reward_and_prob
 
     def get_state_action_counts(self, encoded_state: int) -> Dict[int, int]:
-        state_action_counts = {}
+        state_action_counts = defaultdict(lambda: 0)
         for encoded_action in self.transition_table[encoded_state].keys():
             state_action_counts[encoded_action] = 0
             for encoded_next_state in self.transition_table[encoded_state][encoded_action].keys():
@@ -548,7 +548,7 @@ class TransitionalTableEnv(TransitionTable, gym.Env):
             return encoded_state, 0.0, True, False, {"current_step": self.step_count}
         if transition_strategy == "weighted":
             encoded_next_state = random.choices(
-                [transition_state_avg_reward_and_prob.keys()],
+                tuple(transition_state_avg_reward_and_prob.keys()),
                 weights=[v[1] for v in transition_state_avg_reward_and_prob.values()],
                 k=1,
             )[0]
@@ -559,7 +559,7 @@ class TransitionalTableEnv(TransitionTable, gym.Env):
             total_weight = sum(probabilities)
             inverse_weights = [total_weight - p for p in probabilities]
             encoded_next_state = random.choices(
-                [transition_state_avg_reward_and_prob.keys()],
+                tuple(transition_state_avg_reward_and_prob.keys()),
                 weights=inverse_weights,
                 k=1,
             )[0]
@@ -570,6 +570,7 @@ class TransitionalTableEnv(TransitionTable, gym.Env):
 
         terminated = encoded_next_state in self.done_set
         truncated = self.step_count >= self.max_steps
+        self.current_state = encoded_next_state
 
         info = {"current_step": self.step_count}
         return encoded_next_state, reward, terminated, truncated, info
@@ -617,7 +618,9 @@ class TabularDynaQAgent:
             encoded_state = self.state_discretizer.encode_indices([*self.state_discretizer.discretize(state)[1]])
             state_action_counts = self.transition_table_env.get_state_action_counts(encoded_state)
             sum_counts = sum(state_action_counts.values())
-            return np.array([state_action_counts[count]/sum_counts for count in self.q_table_agent.all_actions_encoded])
+            if sum_counts == 0:
+                return np.ones(len(self.q_table_agent.all_actions_encoded)) / len(self.q_table_agent.all_actions_encoded)
+            return np.array([state_action_counts[a]/sum_counts for a in self.q_table_agent.all_actions_encoded])
         elif strategy == "random":
             return np.ones(len(self.q_table_agent.all_actions_encoded)) / len(self.q_table_agent.all_actions_encoded)
         else:
@@ -653,19 +656,20 @@ class TabularDynaQAgent:
         num_terminated = 0
         sum_episode_rewards = 0
 
-        print(f"Starting for {steps} steps...")
+        print(f"Starting for {steps} steps using transition table: ")
+        self.transition_table_env.print_transition_table_info()
         state_encoded, info = self.transition_table_env.reset(init_strategy=init_strategy)
         for step in range(steps):
+            state = self.state_discretizer.indices_to_midpoints(self.state_discretizer.decode_indices(state_encoded))
             if np.random.random() < epsilon:
                 action_encoded = random.choice(self.q_table_agent.all_actions_encoded)
             else:
-                action_encoded = self.choose_action_encoded(state_encoded, strategy=strategy, temperature=1.0)
+                action_encoded = self.choose_action_encoded(state, strategy=strategy, temperature=1.0)
             next_state_encoded, reward, terminated, truncated, info = self.transition_table_env.step(
                 action_encoded, transition_strategy
             )
-            state = self.state_discretizer.decode_indices(state_encoded)
-            action = self.action_discretizer.decode_indices(action_encoded)
-            next_state = self.state_discretizer.decode_indices(next_state_encoded)
+            action = self.action_discretizer.indices_to_midpoints(self.action_discretizer.decode_indices(action_encoded))
+            next_state = self.state_discretizer.indices_to_midpoints(self.state_discretizer.decode_indices(next_state_encoded))
             self.q_table_agent.update(state, action, reward, next_state, terminated, alpha=alpha, gamma=gamma)
             state_encoded = next_state_encoded
             if terminated:
@@ -677,7 +681,7 @@ class TabularDynaQAgent:
                 num_episodes += 1
                 state_encoded, info = self.transition_table_env.reset(init_strategy=init_strategy)
 
-        print(f"Trained {num_episodes} episodes, including {num_truncated} truncated, {num_terminated} terminated.")
+        print(f"Trained {num_episodes-1} episodes, including {num_truncated} truncated, {num_terminated} terminated.")
         print(f"Average episode reward: {sum_episode_rewards / num_episodes}.")
 
 
