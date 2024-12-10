@@ -26,8 +26,12 @@ class Discretizer:
             assert len(normal_params) == len(num_buckets), "normal_params must match the length of num_buckets."
 
         self.ranges: List[Tuple[float, float]] = ranges
-        self.num_buckets: List[int] = num_buckets
-        self.normal_params: List[Optional[Tuple[float, float]]] = normal_params if normal_params else [None] * len(num_buckets)
+        self.num_buckets: List[int] = [
+            int(np.floor(max_val) - np.ceil(min_val) + 1) if buckets == 0 else buckets
+            for (min_val, max_val), buckets in zip(ranges, num_buckets)
+        ]
+        self.normal_params: List[Optional[Tuple[float, float]]] = normal_params if normal_params else [None] * len(
+            num_buckets)
         self.bucket_midpoints: List[List[float]] = []
 
         for i, ((min_val, max_val), buckets, normal_param) in enumerate(zip(ranges, num_buckets, self.normal_params)):
@@ -101,6 +105,59 @@ class Discretizer:
                     bucket_indices.append(bucket)
 
         return np.array(midpoints), np.array(bucket_indices)
+
+    def encode_indices(self, indices: List[int]) -> int:
+        """
+        Encode bucket indices into a unique integer.
+
+        :param indices: List of bucket indices.
+        :return: Encoded integer.
+        """
+        assert len(indices) == len(self.num_buckets), "Indices must match the number of dimensions."
+        encoded = 0
+        multiplier = 1
+
+        for index, buckets in zip(reversed(indices), reversed(self.num_buckets)):
+            if buckets != -1:
+                encoded += index * multiplier
+                multiplier *= buckets
+
+        return encoded
+
+    def decode_indices(self, code: int) -> List[int]:
+        """
+        Decode a unique integer back into bucket indices.
+
+        :param code: Encoded integer.
+        :return: List of bucket indices.
+        """
+        indices = []
+
+        for buckets in self.num_buckets:
+            if buckets == -1:
+                indices.append(-1)
+            else:
+                indices.append(code % buckets)
+                code //= buckets
+
+        return list(reversed(indices))
+
+    def indices_to_midpoints(self, indices: List[int]) -> List[float]:
+        """
+        Convert bucket indices to bucket midpoints.
+
+        :param indices: List of bucket indices.
+        :return: List of bucket midpoints.
+        """
+        midpoints = []
+
+        for index, midpoints_list in zip(indices, self.bucket_midpoints):
+            if index == -1:
+                midpoints.append(None)
+            else:
+                midpoints.append(midpoints_list[index])
+
+        return midpoints
 
     def list_all_possible_combinations(self) -> Tuple[List[Tuple[float, ...]], List[Tuple[int, ...]]]:
         """
@@ -192,6 +249,11 @@ class TabularQAgent:
         """
         Print information about the Q-Table size and its structure.
         """
+        print("Q-Table Information:")
+        print(f"State Discretizer:")
+        self.state_discretizer.print_buckets()
+        print(f"Action Discretizer:")
+        self.action_discretizer.print_buckets()
         total_combinations = (self.state_discretizer.count_possible_combinations()
                               * self.action_discretizer.count_possible_combinations())
         print(f"Q-Table Size: {len(self.q_table)} state-action pairs / total combinations: {total_combinations}.")
@@ -204,10 +266,13 @@ class TabularQAgent:
         :param file_path: Path to save the file.
         :return: DataFrame representation of the Q-Table.
         """
+        # list all possible actions (but not states, cause states are just too many)
+        all_actions = self.action_discretizer.list_all_possible_combinations()
+        checked_states = []
         data = []
         for (state, action), q_value in self.q_table.items():
             row = {f"state_dim_{i}": state[i] for i in range(len(state))}
-            row.update({f"action_dim_{j}": action[j] for j in range(len(action))})
+            row.update({f"action_{j}": action[j] for j in range(len(action))})
             row.update({"q_value": q_value})
             data.append(row)
         df = pd.DataFrame(data)
@@ -390,3 +455,50 @@ if __name__ == "__main__":
         print(f"Midpoints: {midpoints}")
         print(f"Bucket indices: {indices}")
 
+    # Define test parameters
+    ranges = [(0, 4), (-1, 1), (5, 6)]  # Added an integer range example
+    num_buckets = [2, 0, 0]  # Integer range for second dimension, no discretization for the third
+    normal_params = [None, None, None]  # Uniform distribution
+
+    # Create Discretizer instance
+    discretizer = Discretizer(ranges, num_buckets, normal_params)
+
+    # Print bucket information
+    print("Bucket Information:")
+    discretizer.print_buckets()
+
+    # Test all possible combinations
+    midpoints_product, indices_product = discretizer.list_all_possible_combinations()
+    print("\nAll possible combinations of bucket midpoints:")
+    for combo in midpoints_product:
+        print(combo)
+
+    print("\nAll possible combinations of bucket indices:")
+    for combo in indices_product:
+        print(combo)
+
+    # Count possible combinations
+    total_combinations = discretizer.count_possible_combinations()
+    print(f"\nTotal number of possible combinations: {total_combinations}")
+
+    # Test encoding and decoding
+    test_indices = [1, 2, 0]
+    encoded = discretizer.encode_indices(test_indices)
+    decoded = discretizer.decode_indices(encoded)
+    midpoints = discretizer.indices_to_midpoints(test_indices)
+    print(f"\nTest indices: {test_indices}")
+    print(f"Encoded: {encoded}")
+    print(f"Decoded: {decoded}")
+    print(f"Midpoints: {midpoints}")
+
+    # Test vectors
+    test_vectors = [
+        [1, 0, 5.2],
+        [3.5, -1, 6.0],
+    ]
+
+    for vector in test_vectors:
+        midpoints, indices = discretizer.discretize(vector)
+        print(f"\nInput vector: {vector}")
+        print(f"Midpoints: {midpoints}")
+        print(f"Bucket indices: {indices}")
