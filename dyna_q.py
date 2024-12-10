@@ -15,7 +15,8 @@ class Discretizer:
 
         :param ranges: List of tuples specifying the min and max value for each dimension. [(min1, max1), (min2, max2), ...]
         :param num_buckets: List of integers specifying the number of buckets for each dimension. [buckets1, buckets2, ...]
-                            A value of 0 means no discretization (output the original number),
+                            A value of -1 means no discretization (output the original number),
+                            a value of 0 means discretize into integers within the range,
                             and a value of 1 means all values map to the single bucket midpoint.
         :param normal_params: List of tuples specifying the mean and std for normal distribution for each dimension.
                               If None, use uniform distribution. [(mean1, std1), None, (mean3, std3), ...]
@@ -30,7 +31,16 @@ class Discretizer:
         self.bucket_midpoints: List[List[float]] = []
 
         for i, ((min_val, max_val), buckets, normal_param) in enumerate(zip(ranges, num_buckets, self.normal_params)):
-            if buckets > 1:
+            if buckets == -1:
+                self.bucket_midpoints.append([])
+            elif buckets == 0:
+                # Discretize into integers within range
+                midpoints = list(range(int(np.ceil(min_val)), int(np.floor(max_val)) + 1))
+                self.bucket_midpoints.append(midpoints)
+            elif buckets == 1:
+                midpoint = [(min_val + max_val) / 2]
+                self.bucket_midpoints.append(midpoint)
+            else:
                 if normal_param:
                     mean, std = normal_param
                     # Restrict edges to a finite range if necessary
@@ -40,8 +50,6 @@ class Discretizer:
                     step = (max_val - min_val) / buckets
                     midpoints = [round(min_val + (i + 0.5) * step, 6) for i in range(buckets)]
                 self.bucket_midpoints.append(midpoints)
-            else:
-                self.bucket_midpoints.append([])
 
     def discretize(self, vector: List[float]) -> Tuple[np.ndarray, np.ndarray]:
         """
@@ -58,10 +66,16 @@ class Discretizer:
         bucket_indices: List[int] = []
 
         for i, (value, (min_val, max_val), buckets, normal_param) in enumerate(zip(vector, self.ranges, self.num_buckets, self.normal_params)):
-            if buckets == 0:
+            if buckets == -1:
                 # No discretization
                 midpoints.append(value)
                 bucket_indices.append(-1)
+            elif buckets == 0:
+                # Discretize into integers within range
+                int_range = list(range(int(np.ceil(min_val)), int(np.floor(max_val)) + 1))
+                closest = min(int_range, key=lambda x: abs(x - value))
+                midpoints.append(closest)
+                bucket_indices.append(int_range.index(closest))
             elif buckets == 1:
                 # Single bucket, always map to midpoint
                 midpoint = round((min_val + max_val) / 2, 6)
@@ -100,17 +114,12 @@ class Discretizer:
         all_indices = []
 
         for midpoints, buckets in zip(self.bucket_midpoints, self.num_buckets):
-            if buckets == 0:
+            if buckets == -1:
                 all_midpoints.append([None])
                 all_indices.append([-1])
-            elif buckets == 1:
-                midpoint = [(self.ranges[all_midpoints.index(midpoints)][0] +
-                             self.ranges[all_midpoints.index(midpoints)][1]) / 2]
-                all_midpoints.append(midpoint)
-                all_indices.append([0])
             else:
                 all_midpoints.append(midpoints)
-                all_indices.append(list(range(buckets)))
+                all_indices.append(list(range(len(midpoints))))
 
         midpoints_product = list(product(*all_midpoints))
         indices_product = list(product(*all_indices))
@@ -124,9 +133,9 @@ class Discretizer:
         :return: The total number of combinations.
         """
         total_combinations = 1
-        for buckets in self.num_buckets:
-            if buckets > 0:
-                total_combinations *= buckets
+        for midpoints, buckets in zip(self.bucket_midpoints, self.num_buckets):
+            if buckets != -1:
+                total_combinations *= len(midpoints)
         return total_combinations
 
     def print_buckets(self) -> None:
@@ -134,8 +143,11 @@ class Discretizer:
         Print all buckets and their corresponding ranges.
         """
         for i, ((min_val, max_val), buckets, normal_param) in enumerate(zip(self.ranges, self.num_buckets, self.normal_params)):
-            if buckets == 0:
+            if buckets == -1:
                 print(f"Dimension {i}: No discretization")
+            elif buckets == 0:
+                int_range = list(range(int(np.ceil(min_val)), int(np.floor(max_val)) + 1))
+                print(f"Dimension {i}: Integer buckets {int_range}")
             elif buckets == 1:
                 midpoint = round((min_val + max_val) / 2, 6)
                 print(f"Dimension {i}: Single bucket at midpoint {midpoint}")
@@ -344,38 +356,37 @@ if __name__ == "__main__":
         print(f"Midpoints: {midpoints}")
         print(f"Bucket indices: {indices}")
 
-    if __name__ == "__main__":
-        # Define test parameters
-        ranges = [(0, 4), (5, 6)]  # Reduced range for easier testing
-        num_buckets = [2, 3]
-        normal_params = [None, None]  # Uniform distribution
+    # Define test parameters
+    ranges = [(0, 4), (5, 6)]  # Reduced range for easier testing
+    num_buckets = [2, 0]
+    normal_params = [None, None]  # Uniform distribution
 
-        # Create Discretizer instance
-        discretizer = Discretizer(ranges, num_buckets, normal_params)
+    # Create Discretizer instance
+    discretizer = Discretizer(ranges, num_buckets, normal_params)
 
-        # Print bucket information
-        print("Bucket Information:")
-        discretizer.print_buckets()
+    # Print bucket information
+    print("Bucket Information:")
+    discretizer.print_buckets()
 
-        # Test all possible combinations
-        midpoints_product, indices_product = discretizer.list_all_possible_combinations()
-        print("\nAll possible combinations of bucket midpoints:")
-        for combo in midpoints_product:
-            print(combo)
+    # Test all possible combinations
+    midpoints_product, indices_product = discretizer.list_all_possible_combinations()
+    print("\nAll possible combinations of bucket midpoints:")
+    for combo in midpoints_product:
+        print(combo)
 
-        print("\nAll possible combinations of bucket indices:")
-        for combo in indices_product:
-            print(combo)
+    print("\nAll possible combinations of bucket indices:")
+    for combo in indices_product:
+        print(combo)
 
-        # Test vectors
-        test_vectors = [
-            [1, 5.2],
-            [3.5, 5.8],
-        ]
+    # Test vectors
+    test_vectors = [
+        [1, 5.2],
+        [3.5, 5.8],
+    ]
 
-        for vector in test_vectors:
-            midpoints, indices = discretizer.discretize(vector)
-            print(f"\nInput vector: {vector}")
-            print(f"Midpoints: {midpoints}")
-            print(f"Bucket indices: {indices}")
+    for vector in test_vectors:
+        midpoints, indices = discretizer.discretize(vector)
+        print(f"\nInput vector: {vector}")
+        print(f"Midpoints: {midpoints}")
+        print(f"Bucket indices: {indices}")
 
