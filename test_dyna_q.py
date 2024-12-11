@@ -8,14 +8,14 @@ if __name__ == '__main__':
     import numpy as np
 
 
-    env = CustomMountainCarEnv(custom_gravity=0.0025)
-    test_env = CustomMountainCarEnv(custom_gravity=0.0025)
+    # env = CustomMountainCarEnv(custom_gravity=0.0025)
+    # test_env = CustomMountainCarEnv(custom_gravity=0.0025)
 
-    # env = CustomCartPoleEnv()
-    # test_env = CustomCartPoleEnv()
+    env = CustomCartPoleEnv()
+    test_env = CustomCartPoleEnv()
 
     total_steps = int(1e6)
-    alpha = 0.1
+    alpha = 0.25
     rmax = 1.0
     rmax_alpha = 0.25
     gamma = 0.99
@@ -42,17 +42,17 @@ if __name__ == '__main__':
         normal_params=[None,],
     )
 
-    # state_discretizer = Discretizer(
-    #     ranges=[(-2.4, 2.4), (-2, 2), (-0.25, 0.25), (-2, 2),],
-    #     num_buckets=[8, 32, 32, 32],
-    #     normal_params=[None, None, None, None,],
-    # )
-    #
-    # action_discretizer = Discretizer(
-    #     ranges=[(0, 1),],
-    #     num_buckets=[0],
-    #     normal_params=[None, ],
-    # )
+    state_discretizer = Discretizer(
+        ranges=[(-2.4, 2.4), (-2, 2), (-0.25, 0.25), (-2, 2),],
+        num_buckets=[8, 32, 32, 32],
+        normal_params=[None, None, None, None,],
+    )
+
+    action_discretizer = Discretizer(
+        ranges=[(0, 1),],
+        num_buckets=[0],
+        normal_params=[None, ],
+    )
 
     agent = TabularDynaQAgent(state_discretizer, action_discretizer,)
     agent.transition_table_env.max_steps = max_steps
