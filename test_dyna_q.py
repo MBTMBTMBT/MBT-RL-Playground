@@ -21,6 +21,7 @@ if __name__ == '__main__':
     gamma = 0.99
     env_epsilon = 0.5
     agent_epsilon = 0.25
+    rmax_agent_epsilon = 0.5
     inner_training_per_num_steps = int(0.2e6)
     rmax_inner_training_per_num_steps = int(0.025e6)
     inner_training_steps = int(0.5e6)
@@ -84,7 +85,7 @@ if __name__ == '__main__':
                 if current_steps % rmax_inner_training_per_num_steps == 0 and current_steps > 1:
                     agent.update_from_transition_table(
                         rmax_inner_training_steps,
-                        agent_epsilon,
+                        rmax_agent_epsilon,
                         alpha=rmax_alpha,
                         strategy = "greedy",
                         train_rmax_agent=True,
@@ -97,6 +98,7 @@ if __name__ == '__main__':
                         agent_epsilon,
                         alpha=alpha,
                         strategy = "softmax",
+                        train_rmax_agent = False,
                     )
 
                 # Periodic testing
