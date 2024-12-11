@@ -701,6 +701,8 @@ class TabularDynaQAgent:
             next_state_encoded, reward, terminated, truncated, info = self.transition_table_env.step(
                 action_encoded, transition_strategy, rmax=rmax,
             )
+            if train_rmax_agent and reward != rmax:
+                reward = 0.0
 
             # Decode and compute the midpoint of the action and next state
             action = self.action_discretizer.indices_to_midpoints(

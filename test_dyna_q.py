@@ -16,13 +16,13 @@ if __name__ == '__main__':
 
     total_steps = int(1e6)
     alpha = 0.1
-    rmax = 1e3
+    rmax = 1.0
     rmax_alpha = 0.25
     gamma = 0.99
     env_epsilon = 0.5
     agent_epsilon = 0.25
     inner_training_per_num_steps = int(0.2e6)
-    rmax_inner_training_per_num_steps = int(0.05e6)
+    rmax_inner_training_per_num_steps = int(0.025e6)
     inner_training_steps = int(0.5e6)
     rmax_inner_training_steps = int(0.25e6)
     test_per_num_steps = int(10e3)
@@ -86,7 +86,7 @@ if __name__ == '__main__':
                         rmax_inner_training_steps,
                         agent_epsilon,
                         alpha=rmax_alpha,
-                        strategy = "softmax",
+                        strategy = "greedy",
                         train_rmax_agent=True,
                         rmax=rmax,
                     )
