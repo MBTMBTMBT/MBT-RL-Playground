@@ -242,6 +242,12 @@ class TabularQAgent:
             for indices in self.action_discretizer.list_all_possible_combinations()[1]
         ])
 
+    def reset_q_table(self) -> None:
+        self.q_table = defaultdict(lambda: 0.0)  # Flattened Q-Table with state-action tuple keys
+
+    def reset_visit_table(self) -> None:
+        self.visit_table = defaultdict(lambda: 0)  # Uses the same keys of the Q-Table to do visit count.
+
     def clone(self) -> 'TabularQAgent':
         """
         Create a deep copy of the Q-Table agent.
@@ -676,6 +682,7 @@ class TabularDynaQAgent:
         old_truncate_steps = self.transition_table_env.max_steps
         if train_rmax_agent:
             self.transition_table_env.max_steps = np.inf
+            self.rmax_agent.reset_q_table()
 
         agent = self.q_table_agent if not train_rmax_agent else self.rmax_agent
         rmax = 0.0 if not train_rmax_agent else rmax

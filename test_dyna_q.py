@@ -24,7 +24,7 @@ if __name__ == '__main__':
     inner_training_per_num_steps = int(0.2e6)
     rmax_inner_training_per_num_steps = int(0.025e6)
     inner_training_steps = int(0.5e6)
-    rmax_inner_training_steps = int(0.25e6)
+    rmax_inner_training_steps = int(0.1e6)
     test_per_num_steps = int(10e3)
     test_runs = 10
     max_steps = 200
