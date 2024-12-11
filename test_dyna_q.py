@@ -8,14 +8,14 @@ if __name__ == '__main__':
     import numpy as np
 
 
-    # env = CustomMountainCarEnv(custom_gravity=0.0025)
-    # test_env = CustomMountainCarEnv(custom_gravity=0.0025)
+    env = CustomMountainCarEnv(custom_gravity=0.0025)
+    test_env = CustomMountainCarEnv(custom_gravity=0.0025)
 
     # env = CustomCartPoleEnv()
     # test_env = CustomCartPoleEnv()
 
-    env = gym.make("LunarLander-v3")
-    test_env = gym.make("LunarLander-v3")
+    # env = gym.make("LunarLander-v3")
+    # test_env = gym.make("LunarLander-v3")
 
     total_steps = int(5e6)
     alpha = 0.25
@@ -33,17 +33,17 @@ if __name__ == '__main__':
     test_runs = 10
     max_steps = 200
 
-    # state_discretizer = Discretizer(
-    #     ranges = [(-1.2, 0.6), (-0.07, 0.07),],
-    #     num_buckets=[128, 64],
-    #     normal_params=[None, None],
-    # )
-    #
-    # action_discretizer = Discretizer(
-    #     ranges=[(0, 2),],
-    #     num_buckets=[0],
-    #     normal_params=[None,],
-    # )
+    state_discretizer = Discretizer(
+        ranges = [(-1.2, 0.6), (-0.07, 0.07),],
+        num_buckets=[128, 64],
+        normal_params=[None, None],
+    )
+
+    action_discretizer = Discretizer(
+        ranges=[(0, 2),],
+        num_buckets=[0],
+        normal_params=[None,],
+    )
 
     # state_discretizer = Discretizer(
     #     ranges=[(-2.4, 2.4), (-2, 2), (-0.25, 0.25), (-2, 2),],
@@ -57,20 +57,20 @@ if __name__ == '__main__':
     #     normal_params=[None, ],
     # )
 
-    state_discretizer = Discretizer(
-        ranges=[
-            (-1.5, 1.5), (-1.5, 1.5), (-5.0, 5.0), (-5.0, 5.0),
-            (-3.14, 3.14), (-5.0, 5.0), (0, 1), (0, 1),
-        ],
-        num_buckets=[12, 12, 24, 24, 16, 24, 0, 0,],
-        normal_params=[None, None, None, None, None, None, None, None,],
-    )
-
-    action_discretizer = Discretizer(
-        ranges=[(0, 1), ],
-        num_buckets=[0],
-        normal_params=[None, ],
-    )
+    # state_discretizer = Discretizer(
+    #     ranges=[
+    #         (-1.5, 1.5), (-1.5, 1.5), (-5.0, 5.0), (-5.0, 5.0),
+    #         (-3.14, 3.14), (-5.0, 5.0), (0, 1), (0, 1),
+    #     ],
+    #     num_buckets=[12, 12, 24, 24, 16, 24, 0, 0,],
+    #     normal_params=[None, None, None, None, None, None, None, None,],
+    # )
+    #
+    # action_discretizer = Discretizer(
+    #     ranges=[(0, 1), ],
+    #     num_buckets=[0],
+    #     normal_params=[None, ],
+    # )
 
     agent = TabularDynaQAgent(state_discretizer, action_discretizer,)
     agent.transition_table_env.max_steps = max_steps
