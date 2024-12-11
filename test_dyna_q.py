@@ -8,16 +8,16 @@ if __name__ == '__main__':
     import numpy as np
 
 
-    # env = CustomMountainCarEnv(custom_gravity=0.0050)
-    # test_env = CustomMountainCarEnv(custom_gravity=0.0050)
+    env = CustomMountainCarEnv(custom_gravity=0.0050)
+    test_env = CustomMountainCarEnv(custom_gravity=0.0050)
 
-    env = CustomCartPoleEnv()
-    test_env = CustomCartPoleEnv()
+    # env = CustomCartPoleEnv()
+    # test_env = CustomCartPoleEnv()
 
     total_steps = int(1e6)
     alpha = 0.1
     gamma = 0.99
-    env_epsilon = 0.1
+    env_epsilon = 0.5
     agent_epsilon = 0.25
     inner_training_per_num_steps = int(0.2e6)
     inner_training_steps = int(0.5e6)
@@ -25,29 +25,29 @@ if __name__ == '__main__':
     test_runs = 10
     max_steps = 200
 
-    # state_discretizer = Discretizer(
-    #     ranges = [(-1.2, 0.6), (-0.07, 0.07),],
-    #     num_buckets=[64, 32],
-    #     normal_params=[None, None],
-    # )
-    #
-    # action_discretizer = Discretizer(
-    #     ranges=[(0, 2),],
-    #     num_buckets=[0],
-    #     normal_params=[None,],
-    # )
-
     state_discretizer = Discretizer(
-        ranges=[(-2.4, 2.4), (-2, 2), (-0.25, 0.25), (-2, 2),],
-        num_buckets=[8, 32, 32, 32],
-        normal_params=[None, None, None, None,],
+        ranges = [(-1.2, 0.6), (-0.07, 0.07),],
+        num_buckets=[64, 32],
+        normal_params=[None, None],
     )
 
     action_discretizer = Discretizer(
-        ranges=[(0, 1),],
+        ranges=[(0, 2),],
         num_buckets=[0],
-        normal_params=[None, ],
+        normal_params=[None,],
     )
+
+    # state_discretizer = Discretizer(
+    #     ranges=[(-2.4, 2.4), (-2, 2), (-0.25, 0.25), (-2, 2),],
+    #     num_buckets=[8, 32, 32, 32],
+    #     normal_params=[None, None, None, None,],
+    # )
+    #
+    # action_discretizer = Discretizer(
+    #     ranges=[(0, 1),],
+    #     num_buckets=[0],
+    #     normal_params=[None, ],
+    # )
 
     agent = TabularDynaQAgent(state_discretizer, action_discretizer,)
     agent.transition_table_env.max_steps = max_steps
@@ -67,9 +67,9 @@ if __name__ == '__main__':
             agent.transition_table_env.add_start_state(encoded_state)
             while not done:
                 if random.random() < env_epsilon:
-                    action = agent.choose_action(state, strategy="random")
-                else:
                     action = agent.choose_action(state, strategy="weighted")
+                else:
+                    action = agent.choose_action(state, strategy="softmax")
                 next_state, reward, done, truncated, _ = env.step(action[0].item())
                 agent.update_from_env(state, action, reward, next_state, done, alpha, gamma)
                 state = next_state
