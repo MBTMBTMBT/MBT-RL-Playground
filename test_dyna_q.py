@@ -17,9 +17,9 @@ if __name__ == '__main__':
     total_steps = int(1e6)
     alpha = 0.1
     gamma = 0.99
-    env_epsilon = 0.5
+    env_epsilon = 0.1
     agent_epsilon = 0.25
-    inner_training_per_num_steps = int(0.25e6)
+    inner_training_per_num_steps = int(0.2e6)
     inner_training_steps = int(0.5e6)
     test_per_num_steps = int(10e3)
     test_runs = 10
@@ -67,9 +67,9 @@ if __name__ == '__main__':
             agent.transition_table_env.add_start_state(encoded_state)
             while not done:
                 if random.random() < env_epsilon:
-                    action = agent.choose_action(state, strategy="weighted")
+                    action = agent.choose_action(state, strategy="random")
                 else:
-                    action = agent.choose_action(state, strategy="softmax")
+                    action = agent.choose_action(state, strategy="weighted")
                 next_state, reward, done, truncated, _ = env.step(action[0].item())
                 agent.update_from_env(state, action, reward, next_state, done, alpha, gamma)
                 state = next_state
@@ -112,3 +112,5 @@ if __name__ == '__main__':
                                          f"Recent Avg Reward: {recent_avg:.2f} | "
                                          f"Avg Test Reward: {avg_test_reward:.2f}")
                     break
+
+    print(f"End of training. Avg Test Reward: {avg_test_reward:.2f}.")
