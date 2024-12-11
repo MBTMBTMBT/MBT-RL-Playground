@@ -10,14 +10,17 @@ if __name__ == '__main__':
 
     env = CustomMountainCarEnv(custom_gravity=0.0025)
     test_env = CustomMountainCarEnv(custom_gravity=0.0025)
+    save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_mountain_car.csv"
 
     # env = CustomCartPoleEnv()
     # test_env = CustomCartPoleEnv()
+    # save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_cartpole.csv"
 
     # env = gym.make("LunarLander-v3")
     # test_env = gym.make("LunarLander-v3")
+    # save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_lunarlander.csv"
 
-    total_steps = int(5e6)
+    total_steps = int(10e6)
     alpha = 0.25
     rmax = 1.0
     rmax_alpha = 0.25
@@ -62,7 +65,7 @@ if __name__ == '__main__':
     #         (-1.5, 1.5), (-1.5, 1.5), (-5.0, 5.0), (-5.0, 5.0),
     #         (-3.14, 3.14), (-5.0, 5.0), (0, 1), (0, 1),
     #     ],
-    #     num_buckets=[12, 12, 24, 24, 16, 24, 0, 0,],
+    #     num_buckets=[16, 16, 32, 32, 24, 32, 0, 0,],
     #     normal_params=[None, None, None, None, None, None, None, None,],
     # )
     #
@@ -165,3 +168,5 @@ if __name__ == '__main__':
                     paused = False
 
     print(f"End of training. Avg Test Reward: {avg_test_reward:.2f}.")
+    agent.save_agent(save_file)
+    agent.load_agent(save_file)

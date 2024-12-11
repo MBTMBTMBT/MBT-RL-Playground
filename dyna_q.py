@@ -284,7 +284,7 @@ class TabularQAgent:
         # list all possible actions (but not states, cause states are just too many)
         checked_states = set()
         data = []
-        for (encoded_state, encoded_action), q_value in self.q_table.items():
+        for (encoded_state, encoded_action), q_value in tuple(self.q_table.items()):
             if encoded_state in checked_states:
                 continue
             row = {f"state": encoded_state}
@@ -385,6 +385,7 @@ class TabularQAgent:
         # Update Q-value for the current state-action pair
         td_error = td_target - self.q_table[(state_encoded, action_encoded)]
         self.q_table[(state_encoded, action_encoded)] += alpha * td_error
+        self.visit_table[(state_encoded, action_encoded)] += 1
 
 
 class TransitionTable:
