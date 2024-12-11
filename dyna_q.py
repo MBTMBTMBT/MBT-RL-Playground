@@ -346,7 +346,7 @@ class TabularQAgent:
 
         return probabilities
 
-    def update(self, state: np.ndarray, action: List[int], reward: float, next_state: np.ndarray, done: bool,
+    def update(self, state: np.ndarray, action: np.ndarray, reward: float, next_state: np.ndarray, done: bool,
                alpha: float = 0.1, gamma: float = 0.99) -> None:
         """
         Update the Q-Table using the Q-learning update rule.
@@ -359,22 +359,23 @@ class TabularQAgent:
         :param alpha: Learning rate.
         :param gamma: Discount factor.
         """
-        state_key = tuple(state)
-        next_state_key = tuple(next_state)
+        state_encoded = self.state_discretizer.encode_indices([*self.state_discretizer.discretize(state)[1]])
+        next_state_encoded = self.state_discretizer.encode_indices([*self.state_discretizer.discretize(next_state)[1]])
+        action_encoded = self.action_discretizer.encode_indices([*self.action_discretizer.discretize(action)[1]])
 
         if done:
             td_target = reward  # No future reward if the episode is done
         else:
             # Compute the best next action's Q-value
             best_next_action_value = max(
-                [self.q_table.get((next_state_key, a), 0.0) for a in self.all_actions_encoded],
+                [self.q_table.get((next_state_encoded, a), 0.0) for a in self.all_actions_encoded],
                 default=0.0
             )
             td_target = reward + gamma * best_next_action_value
 
         # Update Q-value for the current state-action pair
-        td_error = td_target - self.q_table[(state_key, tuple(action))]
-        self.q_table[(state_key, tuple(action))] += alpha * td_error
+        td_error = td_target - self.q_table[(state_encoded, action_encoded)]
+        self.q_table[(state_encoded, action_encoded)] += alpha * td_error
 
 
 class TransitionTable:
@@ -395,7 +396,7 @@ class TransitionTable:
         print(f"Collected initial states: {len(self.start_set)}.")
         print(f"Collected termination states: {len(self.done_set)}.")
 
-    def update(self, state: np.ndarray, action: List[int], reward: float, next_state: np.ndarray, done: bool):
+    def update(self, state: np.ndarray, action: np.ndarray, reward: float, next_state: np.ndarray, done: bool):
         encoded_state = self.state_discretizer.encode_indices(list(self.state_discretizer.discretize(state)[1]))
         encoded_next_state = self.state_discretizer.encode_indices(list(self.state_discretizer.discretize(next_state)[1]))
         encoded_action = self.action_discretizer.encode_indices(list(self.action_discretizer.discretize(action)[1]))
@@ -638,8 +639,8 @@ class TabularDynaQAgent:
 
     def update_from_env(self, state: np.ndarray, action: np.ndarray, reward: float, next_state: np.ndarray, done: bool,
                alpha: float = 0.1, gamma: float = 0.99):
-        self.q_table_agent.update(state, list(action), reward, next_state, done, alpha=alpha, gamma=gamma)
-        self.transition_table_env.update(state, list(action), reward, next_state, done)
+        self.q_table_agent.update(state, action, reward, next_state, done, alpha=alpha, gamma=gamma)
+        self.transition_table_env.update(state, action, reward, next_state, done)
 
     def update_from_transition_table(
             self,
