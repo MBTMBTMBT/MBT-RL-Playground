@@ -541,13 +541,13 @@ class TransitionalTableEnv(TransitionTable, gym.Env):
             self.current_state = init_state_encode
         return self.current_state, {}
 
-    def step(self, action: int, transition_strategy: str = "weighted"):
+    def step(self, action: int, transition_strategy: str = "weighted", rmax: float = 0.0):
         encoded_state = self.current_state
         encoded_action = action
         transition_state_avg_reward_and_prob \
             = self.get_transition_state_avg_reward_and_prob(encoded_state, encoded_action)
         if len(transition_state_avg_reward_and_prob) == 0:
-            return encoded_state, 0.0, True, False, {"current_step": self.step_count}
+            return encoded_state, rmax, True, False, {"current_step": self.step_count}
         if transition_strategy == "weighted":
             encoded_next_state = random.choices(
                 tuple(transition_state_avg_reward_and_prob.keys()),
@@ -584,30 +584,38 @@ class TabularDynaQAgent:
         self.action_discretizer = action_discretizer
         self.transition_table_env = TransitionalTableEnv(state_discretizer, action_discretizer)
         self.q_table_agent = TabularQAgent(self.state_discretizer, self.action_discretizer)
+        self.rmax_agent = TabularQAgent(self.state_discretizer, self.action_discretizer)
 
     def print_agent_info(self):
         self.q_table_agent.print_q_table_info()
+        self.rmax_agent.print_q_table_info()
         self.transition_table_env.print_transition_table_info()
 
-    def save_agent(self, file_path: str = None) -> tuple[DataFrame, DataFrame]:
+    def save_agent(self, file_path: str = None) -> tuple[DataFrame, DataFrame, DataFrame]:
         if file_path:
             q_table_file_path = file_path.split(".csv")[0] + "_q_table.csv"
+            rmax_agent_q_table_file_path = file_path.split(".csv")[0] + "_rmax_agent_q_table.csv"
             transition_table_file_path = file_path.split(".csv")[0] + "_transition_table.csv"
         else:
             q_table_file_path = None
+            rmax_agent_q_table_file_path = None
             transition_table_file_path = None
         q_table_df = self.q_table_agent.save_q_table(file_path=q_table_file_path)
+        rmax_agent_q_table_df = self.rmax_agent.save_q_table(file_path=rmax_agent_q_table_file_path)
         transition_table_df = self.transition_table_env.save_transition_table(file_path=transition_table_file_path)
-        return q_table_df, transition_table_df
+        return q_table_df, transition_table_df, rmax_agent_q_table_df
 
-    def load_agent(self, file_path: str = None, dataframes: tuple[DataFrame, DataFrame] = (None, None)):
+    def load_agent(self, file_path: str = None, dataframes: tuple[DataFrame, DataFrame, DataFrame] = (None, None, None)):
         if file_path:
             q_table_file_path = file_path.split(".csv")[0] + "_q_table.csv"
+            rmax_agent_q_table_file_path = file_path.split(".csv")[0] + "_rmax_agent_q_table.csv"
             transition_table_file_path = file_path.split(".csv")[0] + "_transition_table.csv"
         else:
             q_table_file_path = None
+            rmax_agent_q_table_file_path = None
             transition_table_file_path = None
         self.q_table_agent.load_q_table(file_path=q_table_file_path, df=dataframes[0])
+        self.rmax_agent.load_q_table(file_path=rmax_agent_q_table_file_path, df=dataframes[0])
         self.transition_table_env.load_transition_table(
             file_path=transition_table_file_path, transition_table_df=dataframes[1]
         )
@@ -616,6 +624,10 @@ class TabularDynaQAgent:
                                  temperature: float = 1.0) -> np.ndarray:
         if strategy == "softmax" or strategy == "greedy":
             return self.q_table_agent.get_action_probabilities(state, strategy=strategy, temperature=temperature)
+        elif strategy == "rmax_softmax":
+            return self.rmax_agent.get_action_probabilities(state, strategy="softmax", temperature=temperature)
+        elif strategy == "rmax_greedy":
+            return self.rmax_agent.get_action_probabilities(state, strategy="greedy", temperature=temperature)
         elif strategy == "weighted":
             encoded_state = self.state_discretizer.encode_indices([*self.state_discretizer.discretize(state)[1]])
             state_action_counts = self.transition_table_env.get_state_action_counts(encoded_state)
@@ -652,6 +664,8 @@ class TabularDynaQAgent:
             gamma: float = 0.99,
             transition_strategy: str = "weighted",
             init_strategy: str = "real_start_states",
+            train_rmax_agent: bool = False,
+            rmax: float = 1e3
     ):
         # Initialize variables
         num_episodes = 1
@@ -659,7 +673,12 @@ class TabularDynaQAgent:
         num_terminated = 0
         sum_episode_rewards = 0
 
+        agent = self.q_table_agent if not train_rmax_agent else self.rmax_agent
+        rmax = 0.0 if not train_rmax_agent else rmax
+
         print(f"Starting for {steps} steps using transition table: ")
+        if train_rmax_agent:
+            print(f"Training rmax agent with rmax value: {rmax}.")
         self.transition_table_env.print_transition_table_info()
 
         # Reset the environment and get the initial state
@@ -674,13 +693,13 @@ class TabularDynaQAgent:
 
             # Select action based on epsilon-greedy strategy
             if np.random.random() < epsilon:
-                action_encoded = random.choice(self.q_table_agent.all_actions_encoded)
+                action_encoded = random.choice(agent.all_actions_encoded)
             else:
                 action_encoded = self.choose_action_encoded(state, strategy=strategy, temperature=1.0)
 
             # Take a step in the environment
             next_state_encoded, reward, terminated, truncated, info = self.transition_table_env.step(
-                action_encoded, transition_strategy
+                action_encoded, transition_strategy, rmax=rmax,
             )
 
             # Decode and compute the midpoint of the action and next state
@@ -690,7 +709,7 @@ class TabularDynaQAgent:
                 self.state_discretizer.decode_indices(next_state_encoded))
 
             # Update Q-table using the chosen action
-            self.q_table_agent.update(state, action, reward, next_state, terminated, alpha=alpha, gamma=gamma)
+            agent.update(state, action, reward, next_state, terminated, alpha=alpha, gamma=gamma)
 
             # Update the current state
             state_encoded = next_state_encoded
