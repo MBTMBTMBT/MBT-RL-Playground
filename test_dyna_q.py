@@ -17,8 +17,9 @@ if __name__ == '__main__':
     total_steps = int(1e6)
     alpha = 0.1
     gamma = 0.99
-    epsilon = 0.25
-    inner_training_per_num_steps = int(0.1e6)
+    env_epsilon = 0.5
+    agent_epsilon = 0.25
+    inner_training_per_num_steps = int(0.25e6)
     inner_training_steps = int(0.5e6)
     test_per_num_steps = int(10e3)
     test_runs = 10
@@ -38,7 +39,7 @@ if __name__ == '__main__':
 
     state_discretizer = Discretizer(
         ranges=[(-2.4, 2.4), (-2, 2), (-0.25, 0.25), (-2, 2),],
-        num_buckets=[8, 16, 16, 16],
+        num_buckets=[8, 32, 32, 32],
         normal_params=[None, None, None, None,],
     )
 
@@ -65,10 +66,10 @@ if __name__ == '__main__':
             encoded_state = agent.state_discretizer.encode_indices(list(agent.state_discretizer.discretize(state)[1]))
             agent.transition_table_env.add_start_state(encoded_state)
             while not done:
-                if random.random() < epsilon:
-                    action = agent.choose_action(state, strategy="random")
-                else:
+                if random.random() < env_epsilon:
                     action = agent.choose_action(state, strategy="weighted")
+                else:
+                    action = agent.choose_action(state, strategy="softmax")
                 next_state, reward, done, truncated, _ = env.step(action[0].item())
                 agent.update_from_env(state, action, reward, next_state, done, alpha, gamma)
                 state = next_state
@@ -79,7 +80,7 @@ if __name__ == '__main__':
                 if current_steps % inner_training_per_num_steps == 0 and current_steps > 1:
                     agent.update_from_transition_table(
                         inner_training_steps,
-                        epsilon,
+                        agent_epsilon,
                         strategy = "greedy",
                     )
 
@@ -100,14 +101,14 @@ if __name__ == '__main__':
                         periodic_test_rewards.append(test_total_reward)
                     avg_test_reward = np.mean(periodic_test_rewards)
                     recent_avg = np.mean([r for _, r in training_rewards[-10:]])
-                    pbar.set_description(f"Epsilon: {epsilon:.4f} | "
+                    pbar.set_description(f"Epsilon: {agent_epsilon:.4f} | "
                                          f"Recent Avg Reward: {recent_avg:.2f} | "
                                          f"Avg Test Reward: {avg_test_reward:.2f}")
 
                 if done or truncated:
                     training_rewards.append((current_steps, total_reward))
                     recent_avg = np.mean([r for _, r in training_rewards[-10:]])
-                    pbar.set_description(f"Epsilon: {epsilon:.4f} | "
+                    pbar.set_description(f"Epsilon: {agent_epsilon:.4f} | "
                                          f"Recent Avg Reward: {recent_avg:.2f} | "
                                          f"Avg Test Reward: {avg_test_reward:.2f}")
                     break
