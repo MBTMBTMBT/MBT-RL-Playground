@@ -539,7 +539,7 @@ class TransitionalTableEnv(TransitionTable, gym.Env):
             if init_state_encode in self.done_set:
                 print("Warning: Starting from a done state, reset to a random state.")
             if init_strategy == "random":
-                init_state_encode = random.randint(0, len(self.forward_dict) - 1)
+                init_state_encode = random.choice(tuple(self.forward_dict.keys()))
             elif init_strategy == "real_start_states":
                 init_state_encode = random.choice(tuple(self.start_set))
             else:

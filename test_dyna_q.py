@@ -22,10 +22,10 @@ if __name__ == '__main__':
     env_epsilon = 0.1
     agent_epsilon = 0.25
     rmax_agent_epsilon = 0.25
-    inner_training_per_num_steps = int(0.2e6)
+    inner_training_per_num_steps = int(0.1e6)
     rmax_inner_training_per_num_steps = int(0.025e6)
     inner_training_steps = int(0.5e6)
-    rmax_inner_training_steps = int(0.025e6)
+    rmax_inner_training_steps = int(0.05e6)
     test_per_num_steps = int(10e3)
     test_runs = 10
     max_steps = 200
@@ -76,8 +76,10 @@ if __name__ == '__main__':
                 if random.random() < env_epsilon:
                     action = agent.choose_action(state, strategy="random")
                 else:
-                    if sample_counter % 2 == 1:
+                    if sample_counter % 3 == 1:
                         action = agent.choose_action(state, strategy="rmax_greedy")
+                    elif sample_counter % 3 == 2:
+                        action = agent.choose_action(state, strategy="softmax")
                     else:
                         action = agent.choose_action(state, strategy="weighted")
                 next_state, reward, done, truncated, _ = env.step(action[0].item())
@@ -88,12 +90,13 @@ if __name__ == '__main__':
                 pbar.update(1)
 
                 if current_steps % rmax_inner_training_per_num_steps == 0 and current_steps > 1:
-                    if not sample_counter % 2 == 1:
+                    if sample_counter % 3 == 0:
                         agent.update_from_transition_table(
                             rmax_inner_training_steps,
                             rmax_agent_epsilon,
                             alpha=rmax_alpha,
                             strategy = "greedy",
+                            init_strategy="random",
                             train_rmax_agent=True,
                             rmax=rmax,
                         )
@@ -104,8 +107,9 @@ if __name__ == '__main__':
                         inner_training_steps,
                         agent_epsilon,
                         alpha=alpha,
-                        strategy = "softmax",
-                        train_rmax_agent = False,
+                        strategy="softmax",
+                        init_strategy="random",
+                        train_rmax_agent=False,
                     )
                     paused = True
 
