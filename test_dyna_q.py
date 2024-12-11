@@ -18,8 +18,8 @@ if __name__ == '__main__':
     alpha = 0.1
     gamma = 0.99
     epsilon = 0.25
-    inner_training_per_num_steps = int(100e3)
-    inner_training_steps = int(100e3)
+    inner_training_per_num_steps = int(0.1e6)
+    inner_training_steps = int(0.5e6)
     test_per_num_steps = int(10e3)
     test_runs = 10
     max_steps = 200

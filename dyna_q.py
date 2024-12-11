@@ -9,6 +9,7 @@ from typing import List, Tuple, Optional, Dict
 
 from gymnasium import spaces
 from pandas import DataFrame
+import tqdm
 
 
 class Discretizer:
@@ -652,6 +653,7 @@ class TabularDynaQAgent:
             transition_strategy: str = "weighted",
             init_strategy: str = "real_start_states",
     ):
+        # Initialize variables
         num_episodes = 1
         num_truncated = 0
         num_terminated = 0
@@ -659,28 +661,64 @@ class TabularDynaQAgent:
 
         print(f"Starting for {steps} steps using transition table: ")
         self.transition_table_env.print_transition_table_info()
+
+        # Reset the environment and get the initial state
         state_encoded, info = self.transition_table_env.reset(init_strategy=init_strategy)
+
+        # Initialize the progress bar
+        progress_bar = tqdm.tqdm(total=steps, desc="Training Progress", unit="step")
+
         for step in range(steps):
+            # Decode and compute the midpoint of the current state
             state = self.state_discretizer.indices_to_midpoints(self.state_discretizer.decode_indices(state_encoded))
+
+            # Select action based on epsilon-greedy strategy
             if np.random.random() < epsilon:
                 action_encoded = random.choice(self.q_table_agent.all_actions_encoded)
             else:
                 action_encoded = self.choose_action_encoded(state, strategy=strategy, temperature=1.0)
+
+            # Take a step in the environment
             next_state_encoded, reward, terminated, truncated, info = self.transition_table_env.step(
                 action_encoded, transition_strategy
             )
-            action = self.action_discretizer.indices_to_midpoints(self.action_discretizer.decode_indices(action_encoded))
-            next_state = self.state_discretizer.indices_to_midpoints(self.state_discretizer.decode_indices(next_state_encoded))
+
+            # Decode and compute the midpoint of the action and next state
+            action = self.action_discretizer.indices_to_midpoints(
+                self.action_discretizer.decode_indices(action_encoded))
+            next_state = self.state_discretizer.indices_to_midpoints(
+                self.state_discretizer.decode_indices(next_state_encoded))
+
+            # Update Q-table using the chosen action
             self.q_table_agent.update(state, action, reward, next_state, terminated, alpha=alpha, gamma=gamma)
+
+            # Update the current state
             state_encoded = next_state_encoded
+
+            # Update counters and rewards
             if terminated:
                 num_terminated += 1
             if truncated:
                 num_truncated += 1
             sum_episode_rewards += reward
+
+            # Reset the environment if an episode ends
             if terminated or truncated:
                 num_episodes += 1
                 state_encoded, info = self.transition_table_env.reset(init_strategy=init_strategy)
+
+            # Update the progress bar
+            progress_bar.set_postfix({
+                "Episodes": num_episodes,
+                "Terminated": num_terminated,
+                "Truncated": num_truncated,
+                "Reward (last)": reward,
+                "Avg Episode Reward": sum_episode_rewards / num_episodes
+            })
+            progress_bar.update(1)
+
+        # Close the progress bar
+        progress_bar.close()
 
         print(f"Trained {num_episodes-1} episodes, including {num_truncated} truncated, {num_terminated} terminated.")
         print(f"Average episode reward: {sum_episode_rewards / num_episodes}.")
