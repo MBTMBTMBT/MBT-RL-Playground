@@ -8,8 +8,8 @@ if __name__ == '__main__':
     import numpy as np
 
 
-    env = CustomMountainCarEnv(custom_gravity=0.0050)
-    test_env = CustomMountainCarEnv(custom_gravity=0.0050)
+    env = CustomMountainCarEnv(custom_gravity=0.0025)
+    test_env = CustomMountainCarEnv(custom_gravity=0.0025)
 
     # env = CustomCartPoleEnv()
     # test_env = CustomCartPoleEnv()
@@ -19,13 +19,13 @@ if __name__ == '__main__':
     rmax = 1.0
     rmax_alpha = 0.25
     gamma = 0.99
-    env_epsilon = 0.5
+    env_epsilon = 0.1
     agent_epsilon = 0.25
-    rmax_agent_epsilon = 0.5
+    rmax_agent_epsilon = 0.25
     inner_training_per_num_steps = int(0.2e6)
     rmax_inner_training_per_num_steps = int(0.025e6)
     inner_training_steps = int(0.5e6)
-    rmax_inner_training_steps = int(0.1e6)
+    rmax_inner_training_steps = int(0.025e6)
     test_per_num_steps = int(10e3)
     test_runs = 10
     max_steps = 200
@@ -63,6 +63,7 @@ if __name__ == '__main__':
         training_rewards = []
         test_rewards = []
         avg_test_reward = 0.0
+        sample_counter = 0
 
         while current_steps < total_steps:
             state, _ = env.reset()
@@ -70,11 +71,15 @@ if __name__ == '__main__':
             total_reward = 0
             encoded_state = agent.state_discretizer.encode_indices(list(agent.state_discretizer.discretize(state)[1]))
             agent.transition_table_env.add_start_state(encoded_state)
+            paused = False
             while not done:
                 if random.random() < env_epsilon:
-                    action = agent.choose_action(state, strategy="weighted")
+                    action = agent.choose_action(state, strategy="random")
                 else:
-                    action = agent.choose_action(state, strategy="rmax_softmax")
+                    if sample_counter % 2 == 1:
+                        action = agent.choose_action(state, strategy="rmax_greedy")
+                    else:
+                        action = agent.choose_action(state, strategy="weighted")
                 next_state, reward, done, truncated, _ = env.step(action[0].item())
                 agent.update_from_env(state, action, reward, next_state, done, alpha, gamma)
                 state = next_state
@@ -83,14 +88,16 @@ if __name__ == '__main__':
                 pbar.update(1)
 
                 if current_steps % rmax_inner_training_per_num_steps == 0 and current_steps > 1:
-                    agent.update_from_transition_table(
-                        rmax_inner_training_steps,
-                        rmax_agent_epsilon,
-                        alpha=rmax_alpha,
-                        strategy = "greedy",
-                        train_rmax_agent=True,
-                        rmax=rmax,
-                    )
+                    if not sample_counter % 2 == 1:
+                        agent.update_from_transition_table(
+                            rmax_inner_training_steps,
+                            rmax_agent_epsilon,
+                            alpha=rmax_alpha,
+                            strategy = "greedy",
+                            train_rmax_agent=True,
+                            rmax=rmax,
+                        )
+                    paused = True
 
                 if current_steps % inner_training_per_num_steps == 0 and current_steps > 1:
                     agent.update_from_transition_table(
@@ -100,6 +107,7 @@ if __name__ == '__main__':
                         strategy = "softmax",
                         train_rmax_agent = False,
                     )
+                    paused = True
 
                 # Periodic testing
                 if current_steps % test_per_num_steps == 0:
@@ -129,5 +137,9 @@ if __name__ == '__main__':
                                          f"Recent Avg Reward: {recent_avg:.2f} | "
                                          f"Avg Test Reward: {avg_test_reward:.2f}")
                     break
+
+                if paused:
+                    sample_counter += 1
+                    paused = False
 
     print(f"End of training. Avg Test Reward: {avg_test_reward:.2f}.")
