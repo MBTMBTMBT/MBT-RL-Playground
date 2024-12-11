@@ -347,7 +347,7 @@ class TabularQAgent:
                 probabilities = np.ones_like(q_values, dtype=float) / len(q_values)
             else:
                 exp_values = np.exp(q_values / temperature)
-                probabilities = exp_values / np.sum(exp_values)
+                probabilities = (exp_values + 1e-10) / (np.sum(exp_values) + 1e-10)
         else:
             raise ValueError("Invalid strategy. Use 'greedy' or 'softmax'.")
 
