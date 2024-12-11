@@ -81,7 +81,7 @@ if __name__ == '__main__':
                     agent.update_from_transition_table(
                         inner_training_steps,
                         agent_epsilon,
-                        strategy = "greedy",
+                        strategy = "softmax",
                     )
 
                 # Periodic testing
