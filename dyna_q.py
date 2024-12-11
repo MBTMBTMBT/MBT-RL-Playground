@@ -673,6 +673,10 @@ class TabularDynaQAgent:
         num_terminated = 0
         sum_episode_rewards = 0
 
+        old_truncate_steps = self.transition_table_env.max_steps
+        if train_rmax_agent:
+            self.transition_table_env.max_steps = np.inf
+
         agent = self.q_table_agent if not train_rmax_agent else self.rmax_agent
         rmax = 0.0 if not train_rmax_agent else rmax
 
@@ -703,6 +707,8 @@ class TabularDynaQAgent:
             )
             if train_rmax_agent and reward != rmax:
                 reward = 0.0
+            else:
+                terminated = True
 
             # Decode and compute the midpoint of the action and next state
             action = self.action_discretizer.indices_to_midpoints(
@@ -743,6 +749,7 @@ class TabularDynaQAgent:
 
         print(f"Trained {num_episodes-1} episodes, including {num_truncated} truncated, {num_terminated} terminated.")
         print(f"Average episode reward: {sum_episode_rewards / num_episodes}.")
+        self.transition_table_env.max_steps = old_truncate_steps
 
 
 if __name__ == "__main__":
