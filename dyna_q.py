@@ -721,8 +721,9 @@ class TabularDynaQAgent:
                 else:
                     terminated = True
             else:
-                if reward >= rmax:
-                    reward += 1.0
+                # if reward >= rmax:
+                #     reward += 1.0
+                pass
 
             # Decode and compute the midpoint of the action and next state
             action = self.action_discretizer.indices_to_midpoints(
