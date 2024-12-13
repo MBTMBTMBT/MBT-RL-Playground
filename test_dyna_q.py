@@ -6,11 +6,13 @@ if __name__ == '__main__':
     from tqdm import tqdm
     import random
     import numpy as np
+    from parallel_training import generate_test_gif
 
 
-    env = CustomMountainCarEnv(custom_gravity=0.0025)
-    test_env = CustomMountainCarEnv(custom_gravity=0.0025)
+    env = CustomMountainCarEnv(custom_gravity=0.0025, render_mode="rgb_array")
+    test_env = CustomMountainCarEnv(custom_gravity=0.0025, render_mode="rgb_array")
     save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_mountain_car.csv"
+    save_file_gif = "./experiments/DynaQ_Experiments/dyna_q_agent_mountain_car.gif"
 
     # env = CustomCartPoleEnv()
     # test_env = CustomCartPoleEnv()
@@ -42,7 +44,7 @@ if __name__ == '__main__':
 
     state_discretizer = Discretizer(
         ranges = [(-1.2, 0.6), (-0.07, 0.07),],
-        num_buckets=[128, 64],
+        num_buckets=[256, 32],
         normal_params=[None, None],
     )
 
@@ -104,6 +106,7 @@ if __name__ == '__main__':
         test_rewards = []
         avg_test_reward = 0.0
         sample_counter = 0
+        test_counter = 0
 
         while current_steps < total_steps:
             state, _ = env.reset()
@@ -117,7 +120,7 @@ if __name__ == '__main__':
                     action = agent.choose_action(state, strategy="random")
                 else:
                     if sample_counter % 3 == 1:
-                        action = agent.choose_action(state, strategy="rmax_greedy")
+                        action = agent.choose_action(state, strategy="rmax_softmax")
                     elif sample_counter % 3 == 2:
                         action = agent.choose_action(state, strategy="softmax")
                     else:
@@ -156,13 +159,16 @@ if __name__ == '__main__':
                 # Periodic testing
                 if current_steps % test_per_num_steps == 0:
                     periodic_test_rewards = []
-                    for _ in range(test_runs):
+                    frames = []
+                    for t in range(test_runs):
                         test_state, _ = test_env.reset()
                         test_total_reward = 0
                         test_done = False
                         while not test_done:
                             test_action = [np.argmax(agent.get_action_probabilities(test_state, strategy="greedy"))]
                             test_next_state, test_reward, test_done, test_truncated, _ = test_env.step(test_action[0])
+                            if t == 0 and test_counter % 5 == 0:
+                                frames.append(test_env.render())
                             test_state = test_next_state
                             test_total_reward += test_reward
                             if test_done or test_truncated:
@@ -173,6 +179,12 @@ if __name__ == '__main__':
                     pbar.set_description(f"Epsilon: {agent_epsilon:.4f} | "
                                          f"Recent Avg Reward: {recent_avg:.2f} | "
                                          f"Avg Test Reward: {avg_test_reward:.2f}")
+
+                    # Save GIF for the first test episode
+                    gif_path = save_file_gif.split(".gif")[0] + f"_{test_counter}.gif"
+                    if len(frames) > 0:
+                        generate_test_gif(frames, gif_path)
+                    test_counter += 1
 
                 if done or truncated:
                     training_rewards.append((current_steps, total_reward))
@@ -189,3 +201,4 @@ if __name__ == '__main__':
     print(f"End of training. Avg Test Reward: {avg_test_reward:.2f}.")
     agent.save_agent(save_file)
     agent.load_agent(save_file)
+
