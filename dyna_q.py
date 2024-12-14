@@ -2,6 +2,7 @@ import random
 from collections import defaultdict
 from itertools import product
 import gymnasium as gym
+import networkx as nx
 import numpy as np
 import pandas as pd
 import scipy.stats
@@ -10,6 +11,7 @@ from typing import List, Tuple, Optional, Dict
 from gymnasium import spaces
 from pandas import DataFrame
 import tqdm
+from pyvis.network import Network
 
 
 class Discretizer:
@@ -441,6 +443,42 @@ class TransitionTable:
             transition_table_df.to_csv(file_path, index=False)
             print(f"Transition Table saved to {file_path}.")
         return transition_table_df
+
+    def create_mdp_graph(self, output_file='mdp_visualization.html'):
+        # Create a directed graph
+        G = nx.DiGraph()
+
+        # Traverse the transition table and construct the graph
+        for encoded_state in self.transition_table.keys():
+            for encoded_action in self.transition_table[encoded_state].keys():
+                for encoded_next_state in self.transition_table[encoded_state][encoded_action].keys():
+                    for reward in self.transition_table[encoded_state][encoded_action][encoded_next_state].keys():
+                        count = self.transition_table[encoded_state][encoded_action][encoded_next_state][reward]
+                        # Add edges and attributes
+                        G.add_edge(
+                            int(encoded_state),
+                            int(encoded_next_state),
+                            label=f"{encoded_action}\nR={reward}\nCount={count}",
+                            count=count
+                        )
+
+        # Use Pyvis for visualization
+        net = Network(height='750px', width='100%', directed=True)
+        net.from_nx(G)
+
+        # Set edge colors to a uniform color
+        for edge in net.edges:
+            edge['color'] = "#4682B4"  # Steel blue color
+
+        # Set node titles
+        for node in G.nodes():
+            net.get_node(node)['title'] = f"State: {node}"
+            net.get_node(node)['color'] = '#87CEEB'
+
+        net.toggle_physics(True)
+
+        # Save and display
+        net.write_html(output_file, notebook=False, open_browser=False)
 
     def load_transition_table(self, file_path: str = None, transition_table_df: pd.DataFrame = None):
         if file_path:

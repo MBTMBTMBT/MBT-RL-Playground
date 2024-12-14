@@ -182,8 +182,10 @@ if __name__ == '__main__':
 
                     # Save GIF for the first test episode
                     gif_path = save_file_gif.split(".gif")[0] + f"_{test_counter}.gif"
+                    graph_path = save_file_gif.split(".gif")[0] + f".html"
                     if len(frames) > 0:
                         generate_test_gif(frames, gif_path)
+                        agent.transition_table_env.create_mdp_graph(graph_path)
                     test_counter += 1
 
                 if done or truncated:
