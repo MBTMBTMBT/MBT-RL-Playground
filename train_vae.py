@@ -89,7 +89,7 @@ def visualize_reconstruction(model, dataloader, epoch, save_dir, is_color):
 
 if __name__ == '__main__':
     # Setup
-    env = make("CartPole-v1")
+    env = make("CartPole-v1", render_mode="rgb_array")
     dataset = GymDataset(env=env, num_samples=16384, frame_size=(60, 80), is_color=True, num_frames=3, repeat=10)
     dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
 

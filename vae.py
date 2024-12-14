@@ -4,6 +4,8 @@ from torch import nn, Tensor
 from torch.nn import functional as F
 from abc import abstractmethod
 
+from losses import FlexibleThresholdedLoss
+
 
 class BaseVAE(nn.Module):
 
@@ -64,6 +66,10 @@ class VanillaVAE(nn.Module):
             nn.Tanh()
         )
 
+        self.pixel_loss = FlexibleThresholdedLoss(use_mse_threshold=True, use_mae_threshold=True, reduction='mean',
+                                      l1_weight=1.0, l2_weight=1.0, threshold_weight=0.5, non_threshold_weight=0.5,
+                                      mse_clip_ratio=10.0, mae_clip_ratio=10.0)
+
     def build_encoder(self, in_channels):
         modules = []
         for h_dim in self.hidden_dims:
@@ -121,7 +127,7 @@ class VanillaVAE(nn.Module):
         return decoded, x, mu, log_var
 
     def loss_function(self, recons, input, mu, log_var, kld_weight=1.0):
-        recons_loss = nn.functional.mse_loss(recons, input, reduction="sum")
+        recons_loss = self.pixel_loss(recons, input)
         kld_loss = -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp(), dim=1).mean()
         return {
             'loss': recons_loss + kld_weight * kld_loss,

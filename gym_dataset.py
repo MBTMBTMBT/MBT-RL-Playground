@@ -32,9 +32,8 @@ class GymDataset(Dataset):
         samples = []
         frame_queue = deque(maxlen=self.num_frames + 1)  # Fixed-length queue for frames + 1 for next_state
 
-        # Fill initial frames with the first observation
-        initial_obs, _ = self.env.reset()
-        initial_frame = self._preprocess_frame(initial_obs['image'] if 'image' in initial_obs else initial_obs)
+        # Fill initial frames with rendered observations
+        initial_frame = self._preprocess_frame(self.env.render())
         for _ in range(self.num_frames):
             frame_queue.append(initial_frame)
 
@@ -44,8 +43,8 @@ class GymDataset(Dataset):
                 action = self.env.action_space.sample()
                 next_obs, reward, terminated, truncated, info = self.env.step(action)
 
-                # Preprocess frame and add to queue
-                frame = self._preprocess_frame(next_obs['image'] if 'image' in next_obs else next_obs)
+                # Preprocess rendered frame and add to queue
+                frame = self._preprocess_frame(self.env.render())
                 frame_queue.append(frame)
 
                 if len(frame_queue) == self.num_frames + 1:  # Only proceed if the queue has enough frames
