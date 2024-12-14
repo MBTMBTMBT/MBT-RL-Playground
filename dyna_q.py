@@ -456,14 +456,14 @@ class TransitionTable:
                         count = self.transition_table[encoded_state][encoded_action][encoded_next_state][reward]
                         # Add edges and attributes
                         G.add_edge(
-                            int(encoded_state),
-                            int(encoded_next_state),
+                            str(self.state_discretizer.indices_to_midpoints(self.state_discretizer.decode_indices(encoded_state))),
+                            str(self.state_discretizer.indices_to_midpoints(self.state_discretizer.decode_indices(encoded_next_state))),
                             label=f"{encoded_action}\nR={reward}\nCount={count}",
                             count=count
                         )
 
         # Use Pyvis for visualization
-        net = Network(height='750px', width='100%', directed=True)
+        net = Network(height='1000px', width='100%', directed=True)
         net.from_nx(G)
 
         # Set edge colors to a uniform color
@@ -480,6 +480,7 @@ class TransitionTable:
 
         # Save and display
         net.write_html(output_file, notebook=False, open_browser=False)
+        print(f"Saved tranisiton graph at {output_file}.")
 
     def load_transition_table(self, file_path: str = None, transition_table_df: pd.DataFrame = None):
         if file_path:
