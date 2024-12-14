@@ -12,10 +12,9 @@ if __name__ == '__main__':
     env = CustomMountainCarEnv(custom_gravity=0.0025, render_mode="rgb_array")
     test_env = CustomMountainCarEnv(custom_gravity=0.0025, render_mode="rgb_array")
     save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_mountain_car.csv"
-    save_file_gif = "./experiments/DynaQ_Experiments/dyna_q_agent_mountain_car.gif"
 
-    # env = CustomCartPoleEnv()
-    # test_env = CustomCartPoleEnv()
+    # env = CustomCartPoleEnv(render_mode="rgb_array")
+    # test_env = CustomCartPoleEnv(render_mode="rgb_array")
     # save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_cartpole.csv"
 
     # env = gym.make("LunarLander-v3")
@@ -25,22 +24,6 @@ if __name__ == '__main__':
     # env = gym.make("Acrobot-v1")
     # test_env = gym.make("Acrobot-v1")
     # save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_acrobot.csv"
-
-    total_steps = int(25e6)
-    alpha = 0.25
-    rmax = 1.0
-    rmax_alpha = 0.25
-    gamma = 0.99
-    env_epsilon = 0.1
-    agent_epsilon = 0.25
-    rmax_agent_epsilon = 0.25
-    inner_training_per_num_steps = int(0.1e6)
-    rmax_inner_training_per_num_steps = int(0.025e6)
-    inner_training_steps = int(0.5e6)
-    rmax_inner_training_steps = int(0.01e6)
-    test_per_num_steps = int(10e3)
-    test_runs = 10
-    max_steps = 200
 
     state_discretizer = Discretizer(
         ranges = [(-1.2, 0.6), (-0.07, 0.07),],
@@ -56,7 +39,7 @@ if __name__ == '__main__':
 
     # state_discretizer = Discretizer(
     #     ranges=[(-2.4, 2.4), (-2, 2), (-0.25, 0.25), (-2, 2),],
-    #     num_buckets=[8, 32, 32, 32],
+    #     num_buckets=[12, 32, 32, 32],
     #     normal_params=[None, None, None, None,],
     # )
     #
@@ -96,6 +79,22 @@ if __name__ == '__main__':
     #     normal_params=[None,],
     # )
 
+    total_steps = int(50e6)
+    alpha = 0.25
+    rmax = 1.0
+    rmax_alpha = 0.25
+    gamma = 0.99
+    env_epsilon = 0.25
+    agent_epsilon = 0.25
+    rmax_agent_epsilon = 0.25
+    inner_training_per_num_steps = int(0.1e6)
+    rmax_inner_training_per_num_steps = int(0.025e6)
+    inner_training_steps = int(0.5e6)
+    rmax_inner_training_steps = int(0.01e6)
+    test_per_num_steps = int(10e3)
+    test_runs = 10
+    max_steps = 200
+
     agent = TabularDynaQAgent(state_discretizer, action_discretizer,)
     agent.transition_table_env.max_steps = max_steps
 
@@ -119,12 +118,13 @@ if __name__ == '__main__':
                 if random.random() < env_epsilon:
                     action = agent.choose_action(state, strategy="random")
                 else:
-                    if sample_counter % 3 == 1:
-                        action = agent.choose_action(state, strategy="rmax_softmax")
-                    elif sample_counter % 3 == 2:
-                        action = agent.choose_action(state, strategy="softmax")
-                    else:
-                        action = agent.choose_action(state, strategy="weighted")
+                    # if sample_counter % 3 == 1:
+                    #     action = agent.choose_action(state, strategy="rmax_softmax")
+                    # elif sample_counter % 3 == 2:
+                    #     action = agent.choose_action(state, strategy="softmax")
+                    # else:
+                    #     action = agent.choose_action(state, strategy="weighted")
+                    action = agent.choose_action(state, strategy="softmax")
                 next_state, reward, done, truncated, _ = env.step(action[0].item())
                 agent.update_from_env(state, action, reward, next_state, done, alpha, gamma)
                 state = next_state
@@ -132,29 +132,29 @@ if __name__ == '__main__':
                 current_steps += 1
                 pbar.update(1)
 
-                if current_steps % rmax_inner_training_per_num_steps == 0 and current_steps > 1:
-                    if sample_counter % 3 == 0:
-                        agent.update_from_transition_table(
-                            rmax_inner_training_steps,
-                            rmax_agent_epsilon,
-                            alpha=rmax_alpha,
-                            strategy = "softmax",
-                            init_strategy="random",
-                            train_rmax_agent=True,
-                            rmax=rmax,
-                        )
-                    paused = True
-
-                if current_steps % inner_training_per_num_steps == 0 and current_steps > 1:
-                    agent.update_from_transition_table(
-                        inner_training_steps,
-                        agent_epsilon,
-                        alpha=alpha,
-                        strategy="softmax",
-                        init_strategy="real_start_states",
-                        train_rmax_agent=False,
-                    )
-                    paused = True
+                # if current_steps % rmax_inner_training_per_num_steps == 0 and current_steps > 1:
+                #     if sample_counter % 3 == 0:
+                #         agent.update_from_transition_table(
+                #             rmax_inner_training_steps,
+                #             rmax_agent_epsilon,
+                #             alpha=rmax_alpha,
+                #             strategy = "softmax",
+                #             init_strategy="random",
+                #             train_rmax_agent=True,
+                #             rmax=rmax,
+                #         )
+                #     paused = True
+                #
+                # if current_steps % inner_training_per_num_steps == 0 and current_steps > 1:
+                #     agent.update_from_transition_table(
+                #         inner_training_steps,
+                #         agent_epsilon,
+                #         alpha=alpha,
+                #         strategy="softmax",
+                #         init_strategy="real_start_states",
+                #         train_rmax_agent=False,
+                #     )
+                #     paused = True
 
                 # Periodic testing
                 if current_steps % test_per_num_steps == 0:
@@ -167,7 +167,7 @@ if __name__ == '__main__':
                         while not test_done:
                             test_action = [np.argmax(agent.get_action_probabilities(test_state, strategy="greedy"))]
                             test_next_state, test_reward, test_done, test_truncated, _ = test_env.step(test_action[0])
-                            if t == 0 and test_counter % 5 == 0:
+                            if t == 0 and test_counter % 25 == 0:
                                 frames.append(test_env.render())
                             test_state = test_next_state
                             test_total_reward += test_reward
@@ -181,9 +181,11 @@ if __name__ == '__main__':
                                          f"Avg Test Reward: {avg_test_reward:.2f}")
 
                     # Save GIF for the first test episode
+                    save_file_gif = save_file.split(".csv")[0] + ".gif"
                     gif_path = save_file_gif.split(".gif")[0] + f"_{test_counter}.gif"
                     graph_path = gif_path.split(".gif")[0] + f".html"
                     if len(frames) > 0:
+                        agent.transition_table_env.print_transition_table_info()
                         generate_test_gif(frames, gif_path)
                         agent.transition_table_env.create_mdp_graph(graph_path)
                     test_counter += 1
