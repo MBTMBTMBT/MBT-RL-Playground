@@ -121,7 +121,7 @@ class VanillaVAE(nn.Module):
         return decoded, x, mu, log_var
 
     def loss_function(self, recons, input, mu, log_var, kld_weight=1.0):
-        recons_loss = nn.functional.mse_loss(recons, input)
+        recons_loss = nn.functional.mse_loss(recons, input, reduction="sum")
         kld_loss = -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp(), dim=1).mean()
         return {
             'loss': recons_loss + kld_weight * kld_loss,
