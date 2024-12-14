@@ -475,7 +475,8 @@ class TransitionTable:
             net.get_node(node)['title'] = f"State: {node}"
             net.get_node(node)['color'] = '#87CEEB'
 
-        net.toggle_physics(True)
+        # # Disable physics for faster rendering
+        # net.toggle_physics(False)
 
         # Save and display
         net.write_html(output_file, notebook=False, open_browser=False)
