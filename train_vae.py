@@ -107,12 +107,14 @@ def visualize_reconstruction(model, dataloader, epoch, save_dir, is_color):
 
 if __name__ == '__main__':
     # Setup
-    env = make("LunarLander-v3", continuous=False, render_mode="rgb_array",)
-    dataset = GymDataset(env=env, num_samples=16384*2, frame_size=(60, 80), is_color=True, repeat=10)
+    env = make("MountainCar-v0", render_mode="rgb_array",)
+    dataset = GymDataset(env=env, num_samples=4096, frame_size=(60, 80), is_color=True, repeat=10)
     dataloader = DataLoader(dataset, batch_size=8, shuffle=True)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    vae = VAE(in_channels=3, latent_dim=32, input_size=(60, 80), hidden_dims=[256, 512, 1024]).to(device)  # in_channels = num_frames * 3 for RGB images
+    vae = VAE(
+        in_channels=3, latent_dim=32, input_size=(60, 80), hidden_dims=[256, 512, 1024], ema_factor=0.01
+    ).to(device)  # in_channels = num_frames * 3 for RGB images
 
     # Train the model
     train_vae(
@@ -125,5 +127,5 @@ if __name__ == '__main__':
         save_dir="./experiments/vae/checkpoints",
         is_color=True,
         beta_start=0.1,
-        beta_end=1.0,
+        beta_end=1.1,
     )
