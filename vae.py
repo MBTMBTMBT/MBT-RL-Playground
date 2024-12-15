@@ -100,11 +100,11 @@ class VAE(nn.Module):
             use_mse_threshold=True,
             use_mae_threshold=True,
             reduction='mean',
-            l1_weight=1.0,
+            l1_weight=0.1,
             l2_weight=1.0,
-            threshold_weight=0.5,
-            non_threshold_weight=0.5,
-            mse_clip_ratio=10.0,
+            threshold_weight=1.0,
+            non_threshold_weight=1.0,
+            mse_clip_ratio=1.0,
             mae_clip_ratio=1.0
         )
 
@@ -136,7 +136,7 @@ class VAE(nn.Module):
     def encode(self, x):
         x = self.encoder(x)
         x = torch.flatten(x, start_dim=1)
-        mu = self.fc_mu(x)
+        mu = F.tanh(self.fc_mu(x))
         log_var = self.fc_var(x)
         return mu, log_var
 

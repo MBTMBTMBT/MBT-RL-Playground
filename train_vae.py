@@ -112,15 +112,15 @@ if __name__ == '__main__':
     dataloader = DataLoader(dataset, batch_size=8, shuffle=True)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    vae = VAE(in_channels=3, latent_dim=32, input_size=(60, 80), hidden_dims=[128, 256, 512, 1024, 2048]).to(device)  # in_channels = num_frames * 3 for RGB images
+    vae = VAE(in_channels=3, latent_dim=512, input_size=(60, 80), hidden_dims=[256, 512, 1024]).to(device)  # in_channels = num_frames * 3 for RGB images
 
     # Train the model
     train_vae(
         model=vae,
         dataloader=dataloader,
-        epochs=100,
+        epochs=10,
         device=device,
-        lr=5e-4,
+        lr=1e-4,
         log_dir="./experiments/vae/logs",
         save_dir="./experiments/vae/checkpoints",
         is_color=True,
