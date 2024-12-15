@@ -95,6 +95,9 @@ class VAE(nn.Module):
             nn.Tanh()
         )
 
+        # Apply Kaiming initialization
+        self.apply(self._initialize_weights)
+
         # Use your custom loss function
         self.pixel_loss = FlexibleThresholdedLoss(
             use_mse_threshold=True,
@@ -136,6 +139,16 @@ class VAE(nn.Module):
             )
             layers.append(ResidualBlock(hidden_dims[i + 1], hidden_dims[i + 1]))
         return nn.Sequential(*layers)
+
+    def _initialize_weights(self, module):
+        if isinstance(module, nn.Conv2d) or isinstance(module, nn.ConvTranspose2d):
+            nn.init.kaiming_normal_(module.weight, mode='fan_out', nonlinearity='relu')
+            if module.bias is not None:
+                nn.init.constant_(module.bias, 0)
+        elif isinstance(module, nn.Linear):
+            nn.init.kaiming_normal_(module.weight, a=0, mode='fan_out', nonlinearity='relu')
+            if module.bias is not None:
+                nn.init.constant_(module.bias, 0)
 
     def encode(self, x):
         x = self.encoder(x)
