@@ -7,6 +7,35 @@ from abc import abstractmethod
 from losses import FlexibleThresholdedLoss
 
 
+class ResidualBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, stride=1, downsample=None):
+        super(ResidualBlock, self).__init__()
+        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(out_channels)
+        self.relu = nn.LeakyReLU()
+        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=False)
+        self.bn2 = nn.BatchNorm2d(out_channels)
+        self.downsample = downsample
+        self.stride = stride
+
+    def forward(self, x):
+        identity = x
+        if self.downsample is not None:
+            identity = self.downsample(x)
+
+        out = self.conv1(x)
+        out = self.bn1(out)
+        out = self.relu(out)
+
+        out = self.conv2(out)
+        out = self.bn2(out)
+
+        out += identity
+        out = self.relu(out)
+
+        return out
+
+
 class BaseVAE(nn.Module):
 
     def __init__(self) -> None:
@@ -33,13 +62,13 @@ class BaseVAE(nn.Module):
         pass
 
 
-class VanillaVAE(nn.Module):
+class VAE(nn.Module):
     def __init__(self, in_channels: int, latent_dim: int, hidden_dims: list = None, input_size=(60, 80)):
-        super(VanillaVAE, self).__init__()
+        super(VAE, self).__init__()
 
         self.latent_dim = latent_dim
         self.input_height, self.input_width = input_size
-        self.hidden_dims = hidden_dims if hidden_dims else [32, 64, 128, 256, 512]
+        self.hidden_dims = hidden_dims if hidden_dims else [64, 128, 256, 512, 1024]
 
         # Encoder
         self.encoder = self.build_encoder(in_channels)
@@ -66,35 +95,43 @@ class VanillaVAE(nn.Module):
             nn.Tanh()
         )
 
-        self.pixel_loss = FlexibleThresholdedLoss(use_mse_threshold=True, use_mae_threshold=True, reduction='mean',
-                                      l1_weight=1.0, l2_weight=1.0, threshold_weight=0.5, non_threshold_weight=0.5,
-                                      mse_clip_ratio=10.0, mae_clip_ratio=10.0)
+        # Use your custom loss function
+        self.pixel_loss = FlexibleThresholdedLoss(
+            use_mse_threshold=True,
+            use_mae_threshold=True,
+            reduction='mean',
+            l1_weight=1.0,
+            l2_weight=1.0,
+            threshold_weight=0.5,
+            non_threshold_weight=0.5,
+            mse_clip_ratio=1.0,
+            mae_clip_ratio=1.0
+        )
 
     def build_encoder(self, in_channels):
-        modules = []
+        layers = []
         for h_dim in self.hidden_dims:
-            modules.append(
-                nn.Sequential(
-                    nn.Conv2d(in_channels, out_channels=h_dim, kernel_size=3, stride=2, padding=1),
-                    nn.BatchNorm2d(h_dim),
-                    nn.LeakyReLU()
-                )
+            downsample = nn.Sequential(
+                nn.Conv2d(in_channels, h_dim, kernel_size=1, stride=2, bias=False),
+                nn.BatchNorm2d(h_dim),
             )
+            layers.append(ResidualBlock(in_channels, h_dim, stride=2, downsample=downsample))
             in_channels = h_dim
-        return nn.Sequential(*modules)
+        return nn.Sequential(*layers)
 
     def build_decoder(self):
-        modules = []
+        layers = []
         hidden_dims = self.hidden_dims[::-1]
         for i in range(len(hidden_dims) - 1):
-            modules.append(
+            layers.append(
                 nn.Sequential(
-                    nn.ConvTranspose2d(hidden_dims[i], hidden_dims[i + 1], kernel_size=3, stride=2, padding=1),
+                    nn.ConvTranspose2d(hidden_dims[i], hidden_dims[i + 1], kernel_size=3, stride=2, padding=1, output_padding=1),
                     nn.BatchNorm2d(hidden_dims[i + 1]),
                     nn.LeakyReLU()
                 )
             )
-        return nn.Sequential(*modules)
+            layers.append(ResidualBlock(hidden_dims[i + 1], hidden_dims[i + 1]))
+        return nn.Sequential(*layers)
 
     def encode(self, x):
         x = self.encoder(x)
@@ -127,6 +164,7 @@ class VanillaVAE(nn.Module):
         return decoded, x, mu, log_var
 
     def loss_function(self, recons, input, mu, log_var, kld_weight=1.0):
+        # Use your custom pixel-wise loss
         recons_loss = self.pixel_loss(recons, input)
         kld_loss = -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp(), dim=1).mean()
         return {

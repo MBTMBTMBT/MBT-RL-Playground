@@ -9,14 +9,17 @@ import os
 # Import your dataset and VAE model
 from gym_dataset import GymDataset
 from gymnasium import make
-from vae import VanillaVAE
+from vae import VAE
 
-def train_vae(model, dataloader, epochs, device, lr, log_dir, save_dir, is_color):
+def train_vae(model, dataloader, epochs, device, lr, log_dir, save_dir, is_color, beta_start=0.0, beta_end=1.0,):
     os.makedirs(save_dir, exist_ok=True)
     writer = SummaryWriter(log_dir=log_dir)
 
     optimizer = optim.Adam(model.parameters(), lr=lr)
     model.train()
+
+    beta = beta_start
+    beta_increment = (beta_end - beta_start) / epochs
 
     for epoch in range(epochs):
         epoch_loss = 0
@@ -27,7 +30,7 @@ def train_vae(model, dataloader, epochs, device, lr, log_dir, save_dir, is_color
 
             # Forward pass
             recons, _, mu, log_var = model(inputs)
-            loss_dict = model.loss_function(recons, inputs, mu, log_var, kld_weight=1.0 / dataloader.batch_size)
+            loss_dict = model.loss_function(recons, inputs, mu, log_var, kld_weight=1.0 / dataloader.batch_size * beta)
             loss = loss_dict['loss']
 
             # Backward pass
@@ -49,10 +52,13 @@ def train_vae(model, dataloader, epochs, device, lr, log_dir, save_dir, is_color
             writer.add_scalar('Loss/reconstruction', loss_dict['Reconstruction_Loss'],
                               epoch * len(dataloader) + batch_idx)
             writer.add_scalar('Loss/KLD', loss_dict['KLD'], epoch * len(dataloader) + batch_idx)
+            writer.add_scalar('beta', beta, epoch * len(dataloader) + batch_idx)
+
+            beta += beta_increment
 
         # Epoch summary
         avg_loss = epoch_loss / len(dataloader)
-        print(f"Epoch [{epoch + 1}/{epochs}], Average Loss: {avg_loss:.4f}")
+        print(f"Epoch [{epoch + 1}/{epochs}], Beta: {beta}, Average Loss: {avg_loss:.4f}.")
 
         # Save the model after each epoch
         torch.save(model.state_dict(), os.path.join(save_dir, f"vae_epoch_{epoch + 1}.pth"))
@@ -63,47 +69,61 @@ def train_vae(model, dataloader, epochs, device, lr, log_dir, save_dir, is_color
     writer.close()
 
 def visualize_reconstruction(model, dataloader, epoch, save_dir, is_color):
+    """
+    Visualizes reconstruction by comparing input and reconstructed images.
+
+    Args:
+        model (nn.Module): The trained VAE model.
+        dataloader (DataLoader): DataLoader for the dataset.
+        epoch (int): Current epoch number.
+        save_dir (str): Directory to save the visualization.
+        is_color (bool): Whether the images are in color (True) or grayscale (False).
+    """
     model.eval()
     with torch.no_grad():
         batch = next(iter(dataloader))
         inputs = batch['state'].to(next(model.parameters()).device) / 255.0  # Normalize to [0, 1]
         recons, _, _, _ = model(inputs)
 
-        # Select the first 3 channels for RGB visualization
-        inputs = inputs[:, :3, :, :]
-        recons = recons[:, :3, :, :]
-
-        # Convert grayscale to RGB if needed
+        # Convert grayscale to RGB if needed for visualization
         if not is_color:
             inputs = inputs.repeat(1, 3, 1, 1)
             recons = recons.repeat(1, 3, 1, 1)
 
-        # Concatenate inputs and reconstructions for visualization
-        comparison = torch.cat([inputs[:8], recons[:8]])  # Show first 8 samples
+        # Select a few samples (e.g., first 8) for visualization
+        num_samples = min(8, inputs.shape[0])  # Ensure we don't exceed batch size
+        inputs = inputs[:num_samples]
+        recons = recons[:num_samples]
 
-        # Create a grid and save the image
-        grid = make_grid(comparison, nrow=8, normalize=True, scale_each=True)
+        # Concatenate inputs and reconstructions for comparison
+        comparison = torch.cat([inputs, recons], dim=0)  # Stack inputs and reconstructions vertically
+
+        # Create a grid and save the visualization
+        grid = make_grid(comparison, nrow=num_samples, normalize=True, scale_each=True)
         save_image(grid, os.path.join(save_dir, f"reconstruction_epoch_{epoch+1}.png"))
+
     model.train()
 
 
 if __name__ == '__main__':
     # Setup
-    env = make("CartPole-v1", render_mode="rgb_array")
-    dataset = GymDataset(env=env, num_samples=16384, frame_size=(60, 80), is_color=True, num_frames=3, repeat=10)
+    env = make("LunarLander-v3", continuous=False, render_mode="rgb_array",)
+    dataset = GymDataset(env=env, num_samples=1024, frame_size=(60, 80), is_color=True, repeat=10)
     dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    vae = VanillaVAE(in_channels=9, latent_dim=128, input_size=(60, 80)).to(device)  # in_channels = num_frames * 3 for RGB images
+    vae = VAE(in_channels=3, latent_dim=256, input_size=(60, 80), hidden_dims=[128, 256, 512, 1024, 2048]).to(device)  # in_channels = num_frames * 3 for RGB images
 
     # Train the model
     train_vae(
         model=vae,
         dataloader=dataloader,
-        epochs=20,
+        epochs=100,
         device=device,
-        lr=1e-3,
+        lr=2.5e-4,
         log_dir="./experiments/vae/logs",
         save_dir="./experiments/vae/checkpoints",
-        is_color=True
+        is_color=True,
+        beta_start=0.0,
+        beta_end=1.0,
     )

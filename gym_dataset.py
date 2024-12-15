@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 
 class GymDataset(Dataset):
-    def __init__(self, env, num_samples, frame_size=(64, 128), is_color=True, num_frames=3, repeat=1):
+    def __init__(self, env, num_samples, frame_size=(64, 128), is_color=True, repeat=1):
         """
         PyTorch Dataset to sample transitions from a Gymnasium environment.
 
@@ -15,14 +15,12 @@ class GymDataset(Dataset):
             env (gym.Env): Pre-created Gymnasium environment instance.
             num_samples (int): Number of samples to generate.
             frame_size (tuple): Tuple specifying the height and width of the resized frames.
-            is_color (bool): Whether to use color frames (True) or grayscale (False).
             num_frames (int): Number of consecutive frames to stack.
         """
         self.env = env
         self.num_samples = num_samples
         self.frame_height, self.frame_width = frame_size
         self.is_color = is_color
-        self.num_frames = num_frames
         self.repeat = repeat
         self.data = self._collect_samples()
 
@@ -30,12 +28,6 @@ class GymDataset(Dataset):
         """Collects samples from the environment with a progress bar."""
         self.env.reset()
         samples = []
-        frame_queue = deque(maxlen=self.num_frames + 1)  # Fixed-length queue for frames + 1 for next_state
-
-        # Fill initial frames with rendered observations
-        initial_frame = self._preprocess_frame(self.env.render())
-        for _ in range(self.num_frames):
-            frame_queue.append(initial_frame)
 
         # Add a progress bar for the sampling process
         with tqdm(total=self.num_samples, desc="Collecting Samples") as pbar:
@@ -43,31 +35,25 @@ class GymDataset(Dataset):
                 action = self.env.action_space.sample()
                 next_obs, reward, terminated, truncated, info = self.env.step(action)
 
-                # Preprocess rendered frame and add to queue
-                frame = self._preprocess_frame(self.env.render())
-                frame_queue.append(frame)
+                # Preprocess rendered frame
+                current_frame = self._preprocess_frame(self.env.render())
+                next_frame = self._preprocess_frame(self.env.render()) if not (
+                            terminated or truncated) else current_frame
 
-                if len(frame_queue) == self.num_frames + 1:  # Only proceed if the queue has enough frames
-                    action_encoded = self._encode_action(action)
-                    state = np.concatenate(list(frame_queue)[:self.num_frames],
-                                           axis=-1)  # Concatenate along channel axis
-                    next_state = np.concatenate(list(frame_queue)[1:], axis=-1)  # Concatenate along channel axis
-                    sample = {
-                        'state': state,
-                        'next_state': next_state,
-                        'action': action_encoded,
-                        'reward': reward,
-                        'terminal': terminated
-                    }
-                    samples.append(sample)
-                    pbar.update(1)  # Update the progress bar
+                # Collect sample without stacking frames
+                action_encoded = self._encode_action(action)
+                sample = {
+                    'state': current_frame,  # Single frame as state
+                    'next_state': next_frame,  # Single frame as next state
+                    'action': action_encoded,
+                    'reward': reward,
+                    'terminal': terminated
+                }
+                samples.append(sample)
+                pbar.update(1)  # Update the progress bar
 
                 if terminated or truncated:  # Reset the environment if done
                     self.env.reset()
-                    # Fill the queue with the last frame to maintain consistency
-                    last_frame = frame_queue[-1]
-                    for _ in range(self.num_frames):
-                        frame_queue.append(last_frame)
 
         return samples
 
