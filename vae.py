@@ -167,6 +167,10 @@ class VAE(nn.Module):
         # Use your custom pixel-wise loss
         recons_loss = self.pixel_loss(recons, input)
         kld_loss = -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp(), dim=1).mean()
+        _kld_weight = kld_weight
+        kld_weight = recons_loss.item() / kld_loss.item() * _kld_weight
+        if kld_weight < _kld_weight:
+            kld_weight = _kld_weight
         return {
             'loss': recons_loss + kld_weight * kld_loss,
             'Reconstruction_Loss': recons_loss,
