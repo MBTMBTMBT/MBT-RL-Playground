@@ -108,7 +108,7 @@ def visualize_reconstruction(model, dataloader, epoch, save_dir, is_color):
 if __name__ == '__main__':
     # Setup
     env = make("MountainCar-v0", render_mode="rgb_array",)
-    dataset = GymDataset(env=env, num_samples=8192, frame_size=(60, 80), is_color=True, repeat=10)
+    dataset = GymDataset(env=env, num_samples=16384, frame_size=(60, 80), is_color=True, repeat=1)
     dataloader = DataLoader(dataset, batch_size=8, shuffle=True)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -120,7 +120,7 @@ if __name__ == '__main__':
     train_vae(
         model=vae,
         dataloader=dataloader,
-        epochs=5,
+        epochs=20,
         device=device,
         lr=1e-4,
         log_dir="./experiments/vae/logs",
