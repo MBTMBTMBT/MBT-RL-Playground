@@ -103,7 +103,7 @@ class VAE(nn.Module):
             use_mse_threshold=True,
             use_mae_threshold=True,
             reduction='mean',
-            l1_weight=0.1,
+            l1_weight=1.0,
             l2_weight=1.0,
             threshold_weight=1.0,
             non_threshold_weight=1.0,
