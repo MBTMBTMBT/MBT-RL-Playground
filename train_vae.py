@@ -109,10 +109,10 @@ if __name__ == '__main__':
     # Setup
     env = make("LunarLander-v3", continuous=False, render_mode="rgb_array",)
     dataset = GymDataset(env=env, num_samples=16384*2, frame_size=(60, 80), is_color=True, repeat=10)
-    dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
+    dataloader = DataLoader(dataset, batch_size=8, shuffle=True)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    vae = VAE(in_channels=3, latent_dim=256, input_size=(60, 80), hidden_dims=[128, 256, 512, 1024, 2048]).to(device)  # in_channels = num_frames * 3 for RGB images
+    vae = VAE(in_channels=3, latent_dim=32, input_size=(60, 80), hidden_dims=[128, 256, 512, 1024, 2048]).to(device)  # in_channels = num_frames * 3 for RGB images
 
     # Train the model
     train_vae(
@@ -120,10 +120,10 @@ if __name__ == '__main__':
         dataloader=dataloader,
         epochs=100,
         device=device,
-        lr=2.5e-4,
+        lr=5e-4,
         log_dir="./experiments/vae/logs",
         save_dir="./experiments/vae/checkpoints",
         is_color=True,
-        beta_start=0.0,
+        beta_start=1e-10,
         beta_end=1.0,
     )

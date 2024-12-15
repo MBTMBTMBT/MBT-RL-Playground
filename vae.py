@@ -104,7 +104,7 @@ class VAE(nn.Module):
             l2_weight=1.0,
             threshold_weight=0.5,
             non_threshold_weight=0.5,
-            mse_clip_ratio=1.0,
+            mse_clip_ratio=10.0,
             mae_clip_ratio=1.0
         )
 
