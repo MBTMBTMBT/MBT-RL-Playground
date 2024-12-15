@@ -113,7 +113,7 @@ if __name__ == '__main__':
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     vae = VAE(
-        in_channels=3, latent_dim=32, input_size=(60, 80), hidden_dims=[256, 512, 1024], ema_factor=0.01
+        in_channels=3, latent_dim=8, input_size=(60, 80), hidden_dims=[256, 512, 1024], ema_factor=0.01
     ).to(device)  # in_channels = num_frames * 3 for RGB images
 
     # Train the model
@@ -127,5 +127,5 @@ if __name__ == '__main__':
         save_dir="./experiments/vae/checkpoints",
         is_color=True,
         beta_start=0.001,
-        beta_end=0.01,
+        beta_end=1.0,
     )
