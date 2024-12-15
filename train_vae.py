@@ -54,8 +54,6 @@ def train_vae(model, dataloader, epochs, device, lr, log_dir, save_dir, is_color
             writer.add_scalar('Loss/KLD', loss_dict['KLD'], epoch * len(dataloader) + batch_idx)
             writer.add_scalar('beta', beta, epoch * len(dataloader) + batch_idx)
 
-            beta += beta_increment
-
         # Epoch summary
         avg_loss = epoch_loss / len(dataloader)
         print(f"Epoch [{epoch + 1}/{epochs}], Beta: {beta}, Average Loss: {avg_loss:.4f}.")
@@ -65,6 +63,8 @@ def train_vae(model, dataloader, epochs, device, lr, log_dir, save_dir, is_color
 
         # Visualize reconstructions
         visualize_reconstruction(model, dataloader, epoch, save_dir, is_color)
+
+        beta += beta_increment
 
     writer.close()
 
@@ -108,7 +108,7 @@ def visualize_reconstruction(model, dataloader, epoch, save_dir, is_color):
 if __name__ == '__main__':
     # Setup
     env = make("LunarLander-v3", continuous=False, render_mode="rgb_array",)
-    dataset = GymDataset(env=env, num_samples=1024, frame_size=(60, 80), is_color=True, repeat=10)
+    dataset = GymDataset(env=env, num_samples=16384*2, frame_size=(60, 80), is_color=True, repeat=10)
     dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
