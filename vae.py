@@ -96,7 +96,7 @@ class VAE(nn.Module):
         )
 
         # Apply Kaiming initialization
-        self.apply(self._initialize_weights)
+        self._initialize_weights()
 
         # Use your custom loss function
         self.pixel_loss = FlexibleThresholdedLoss(
@@ -140,15 +140,21 @@ class VAE(nn.Module):
             layers.append(ResidualBlock(hidden_dims[i + 1], hidden_dims[i + 1]))
         return nn.Sequential(*layers)
 
-    def _initialize_weights(self, module):
-        if isinstance(module, nn.Conv2d) or isinstance(module, nn.ConvTranspose2d):
-            nn.init.kaiming_normal_(module.weight, mode='fan_out', nonlinearity='leaky_relu')
-            if module.bias is not None:
-                nn.init.constant_(module.bias, 0)
-        elif isinstance(module, nn.Linear):
-            nn.init.kaiming_normal_(module.weight, a=0, mode='fan_out', nonlinearity='leaky_relu')
-            if module.bias is not None:
-                nn.init.constant_(module.bias, 0)
+    def _initialize_weights(self):
+        # Initialize encoder and decoder weights
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d):
+                nn.init.kaiming_normal_(m.weight, nonlinearity='leaky_relu')  # He initialization for Leaky ReLU
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.Linear):
+                nn.init.xavier_normal_(m.weight)  # Xavier initialization for Linear layers
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.Conv2d) and m in self.final_layer:
+                nn.init.xavier_uniform_(m.weight)  # Xavier initialization for Tanh activation in final layer
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
 
     def encode(self, x):
         x = self.encoder(x)
