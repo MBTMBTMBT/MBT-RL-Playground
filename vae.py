@@ -142,11 +142,11 @@ class VAE(nn.Module):
 
     def _initialize_weights(self, module):
         if isinstance(module, nn.Conv2d) or isinstance(module, nn.ConvTranspose2d):
-            nn.init.kaiming_normal_(module.weight, mode='fan_out', nonlinearity='relu')
+            nn.init.kaiming_normal_(module.weight, mode='fan_out', nonlinearity='leaky_relu')
             if module.bias is not None:
                 nn.init.constant_(module.bias, 0)
         elif isinstance(module, nn.Linear):
-            nn.init.kaiming_normal_(module.weight, a=0, mode='fan_out', nonlinearity='relu')
+            nn.init.kaiming_normal_(module.weight, a=0, mode='fan_out', nonlinearity='leaky_relu')
             if module.bias is not None:
                 nn.init.constant_(module.bias, 0)
 
