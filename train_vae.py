@@ -124,6 +124,6 @@ if __name__ == '__main__':
         log_dir="./experiments/vae/logs",
         save_dir="./experiments/vae/checkpoints",
         is_color=True,
-        beta_start=1e-10,
+        beta_start=0.1,
         beta_end=1.0,
     )
