@@ -96,7 +96,7 @@ class VAE(nn.Module):
         )
 
         # Apply Kaiming initialization
-        self._initialize_weights()
+        # self._initialize_weights()
 
         # Use your custom loss function
         self.pixel_loss = FlexibleThresholdedLoss(
