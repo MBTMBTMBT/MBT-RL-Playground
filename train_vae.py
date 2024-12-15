@@ -108,7 +108,7 @@ def visualize_reconstruction(model, dataloader, epoch, save_dir, is_color):
 if __name__ == '__main__':
     # Setup
     env = make("MountainCar-v0", render_mode="rgb_array",)
-    dataset = GymDataset(env=env, num_samples=16384, frame_size=(60, 80), is_color=True, repeat=1)
+    dataset = GymDataset(env=env, num_samples=16384, frame_size=(60, 80), is_color=True, repeat=5)
     dataloader = DataLoader(dataset, batch_size=8, shuffle=True)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
