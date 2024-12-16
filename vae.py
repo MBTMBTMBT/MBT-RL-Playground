@@ -63,7 +63,7 @@ class BaseVAE(nn.Module):
 
 
 class VAE(nn.Module):
-    def __init__(self, in_channels: int, latent_dim: int, hidden_dims: list = None, input_size=(60, 80), ema_factor=0.01):
+    def __init__(self, in_channels: int, latent_dim: int, hidden_dims: list = None, input_size=(60, 80),):
         super(VAE, self).__init__()
 
         self.latent_dim = latent_dim
@@ -111,9 +111,9 @@ class VAE(nn.Module):
             mae_clip_ratio=1.0,
         )
 
-        self.recon_loss_ema = 0.0
-        self.kl_loss_ema = 0.0
-        self.ema_factor = ema_factor
+        # self.recon_loss_ema = 0.0
+        # self.kl_loss_ema = 0.0
+        # self.ema_factor = ema_factor
 
     def build_encoder(self, in_channels):
         layers = []
@@ -189,13 +189,13 @@ class VAE(nn.Module):
     def loss_function(self, recons, input, mu, log_var, kld_weight=1.0, kld_threshold=1.0):
         # Use your custom pixel-wise loss
         recons_loss = self.pixel_loss(recons, input)
-        self.recon_loss_ema = (1.0 - self.ema_factor) * self.recon_loss_ema + self.ema_factor * recons_loss.item()
+        # self.recon_loss_ema = (1.0 - self.ema_factor) * self.recon_loss_ema + self.ema_factor * recons_loss.item()
         kld_loss = -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp(), dim=1).mean()
-        self.kl_loss_ema = (1.0 - self.ema_factor) * self.kl_loss_ema + self.ema_factor * kld_loss.item()
-        _kld_weight = kld_weight
-        kld_weight = self.recon_loss_ema / (self.kl_loss_ema + 1e-10) * _kld_weight
-        if kld_weight > _kld_weight:
-            kld_weight = _kld_weight
+        # self.kl_loss_ema = (1.0 - self.ema_factor) * self.kl_loss_ema + self.ema_factor * kld_loss.item()
+        # _kld_weight = kld_weight
+        # kld_weight = self.recon_loss_ema / (self.kl_loss_ema + 1e-10) * _kld_weight
+        # if kld_weight > _kld_weight:
+        #     kld_weight = _kld_weight
         return {
             'loss': recons_loss + kld_weight * kld_loss if kld_loss.item() >= kld_threshold else recons_loss,
             'Reconstruction_Loss': recons_loss,
