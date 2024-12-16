@@ -108,7 +108,7 @@ def visualize_reconstruction(model, dataloader, epoch, save_dir, is_color):
 if __name__ == '__main__':
     # Setup
     env = make("LunarLander-v3", render_mode="rgb_array",)
-    dataset = GymDataset(env=env, num_samples=16384, frame_size=(60, 80), is_color=True, repeat=5)
+    dataset = GymDataset(env=env, num_samples=16384, frame_size=(96, 128), is_color=True, repeat=2)
     # mnist_trainset = datasets.MNIST(root='./data', train=True, download=True, transform=None)
 
     dataloader = DataLoader(dataset, batch_size=8, shuffle=True)
@@ -117,7 +117,7 @@ if __name__ == '__main__':
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     vae = VAE(
-        in_channels=3, latent_dim=64, input_size=(60, 80), hidden_dims=[256, 512, 1024],
+        in_channels=3, latent_dim=128, input_size=(96, 128), hidden_dims=[128, 256, 512, 1024, 2048], ema_factor=0.01,
     ).to(device)
 
     # vae = VAE(
@@ -130,11 +130,11 @@ if __name__ == '__main__':
         dataloader=dataloader,
         epochs=20,
         device=device,
-        lr=1e-4,
+        lr=1e-5,
         log_dir="./experiments/vae/logs",
         save_dir="./experiments/vae/checkpoints",
         is_color=True,
         beta_start=1.0,
         beta_end=1.0,
-        kld_threshold=10.0,
+        kld_threshold=1.0,
     )

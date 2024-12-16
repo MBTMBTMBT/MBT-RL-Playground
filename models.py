@@ -63,7 +63,7 @@ class BaseVAE(nn.Module):
 
 
 class VAE(nn.Module):
-    def __init__(self, in_channels: int, latent_dim: int, hidden_dims: list = None, input_size=(60, 80),):
+    def __init__(self, in_channels: int, latent_dim: int, hidden_dims: list = None, input_size=(60, 80), ema_factor=0.01,):
         super(VAE, self).__init__()
 
         self.latent_dim = latent_dim
@@ -111,9 +111,9 @@ class VAE(nn.Module):
             mae_clip_ratio=1.0,
         )
 
-        # self.recon_loss_ema = 0.0
-        # self.kl_loss_ema = 0.0
-        # self.ema_factor = ema_factor
+        self.recon_loss_ema = 0.0
+        self.kl_loss_ema = 0.0
+        self.ema_factor = ema_factor
 
     def build_encoder(self, in_channels):
         layers = []
@@ -189,13 +189,13 @@ class VAE(nn.Module):
     def loss_function(self, recons, input, mu, log_var, kld_weight=1.0, kld_threshold=1.0):
         # Use your custom pixel-wise loss
         recons_loss = self.pixel_loss(recons, input)
-        # self.recon_loss_ema = (1.0 - self.ema_factor) * self.recon_loss_ema + self.ema_factor * recons_loss.item()
+        self.recon_loss_ema = (1.0 - self.ema_factor) * self.recon_loss_ema + self.ema_factor * recons_loss.item()
         kld_loss = -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp(), dim=1).mean()
-        # self.kl_loss_ema = (1.0 - self.ema_factor) * self.kl_loss_ema + self.ema_factor * kld_loss.item()
-        # _kld_weight = kld_weight
-        # kld_weight = self.recon_loss_ema / (self.kl_loss_ema + 1e-10) * _kld_weight
-        # if kld_weight > _kld_weight:
-        #     kld_weight = _kld_weight
+        self.kl_loss_ema = (1.0 - self.ema_factor) * self.kl_loss_ema + self.ema_factor * kld_loss.item()
+        _kld_weight = kld_weight
+        kld_weight = self.recon_loss_ema / (self.kl_loss_ema + 1e-10) * _kld_weight
+        if kld_weight > _kld_weight:
+            kld_weight = _kld_weight
         return {
             'loss': recons_loss + kld_weight * kld_loss if kld_loss.item() >= kld_threshold else recons_loss,
             'Reconstruction_Loss': recons_loss,
@@ -204,30 +204,45 @@ class VAE(nn.Module):
 
 
 class RSSM(nn.Module):
-    def __init__(self, latent_dim, action_dim, rnn_hidden_dim, rnn_layers=1,):
+    def __init__(self, latent_dim, action_dim, rnn_hidden_dim, rnn_layers=1):
         super(RSSM, self).__init__()
         self.latent_dim = latent_dim
         self.rnn_hidden_dim = rnn_hidden_dim
 
         # RNN
-        self.rnn = nn.GRU(latent_dim + action_dim, rnn_hidden_dim, rnn_layers=rnn_layers, batch_first=True)
+        self.rnn = nn.GRU(latent_dim + action_dim, rnn_hidden_dim, rnn_layers, batch_first=True)
 
         # Prior and Posterior
         self.prior_fc = nn.Linear(rnn_hidden_dim, 2 * latent_dim)
         self.posterior_fc = nn.Linear(rnn_hidden_dim + latent_dim, 2 * latent_dim)
 
-    def forward(self, latent, actions, rnn_hidden, obs=None):
-        # Combine latent state and actions
-        x = torch.cat([latent, actions], dim=-1).unsqueeze(1)
-        _, rnn_hidden = self.rnn(x, rnn_hidden)
+    def forward(self, latents, actions, rnn_hidden, observations=None):
+        """
+        Args:
+            latents: (batch_size, seq_len, latent_dim)
+            actions: (batch_size, seq_len, action_dim)
+            rnn_hidden: (num_layers, batch_size, rnn_hidden_dim)
+            observations: (batch_size, seq_len, latent_dim) or None
+
+        Returns:
+            prior_mean, prior_log_var: (batch_size, seq_len, latent_dim)
+            post_mean, post_log_var: (batch_size, seq_len, latent_dim)
+            rnn_hidden: (num_layers, batch_size, rnn_hidden_dim)
+        """
+        # Concatenate latent states and actions along the last dimension
+        x = torch.cat([latents, actions], dim=-1)  # (batch_size, seq_len, latent_dim + action_dim)
+
+        # Pass the concatenated sequence through the RNN
+        rnn_output, rnn_hidden = self.rnn(x, rnn_hidden)  # rnn_output: (batch_size, seq_len, rnn_hidden_dim)
 
         # Compute Prior
-        prior = self.prior_fc(rnn_hidden)
+        prior = self.prior_fc(rnn_output)  # (batch_size, seq_len, 2 * latent_dim)
         prior_mean, prior_log_var = torch.chunk(prior, 2, dim=-1)
 
-        # Compute Posterior (if obs is provided)
-        if obs is not None:
-            posterior = self.posterior_fc(torch.cat([rnn_hidden, obs], dim=-1))
+        # Compute Posterior (if observations are provided)
+        if observations is not None:
+            obs_concat = torch.cat([rnn_output, observations], dim=-1)  # (batch_size, seq_len, rnn_hidden_dim + latent_dim)
+            posterior = self.posterior_fc(obs_concat)  # (batch_size, seq_len, 2 * latent_dim)
             post_mean, post_log_var = torch.chunk(posterior, 2, dim=-1)
         else:
             post_mean, post_log_var = prior_mean, prior_log_var
@@ -246,3 +261,52 @@ class MultiHeadPredictor(nn.Module):
         reward = self.reward_head(rnn_hidden)
         termination = self.termination_head(rnn_hidden)
         return reward, termination
+
+
+class WorldModel(nn.Module):
+    def __init__(self, vae, rssm, predictor):
+        super(WorldModel, self).__init__()
+        self.vae = vae
+        self.rssm = rssm
+        self.predictor = predictor
+
+    def train_batch(self, batch, optimizer, rnn_hidden_dim):
+        true_obs = batch["state"]  # (batch_size, seq_len, obs_dim)
+        true_actions = batch["action"]  # (batch_size, seq_len, action_dim)
+        true_rewards = batch["reward"]  # (batch_size, seq_len, 1)
+        true_terminations = batch["terminal"]  # (batch_size, seq_len, 1)
+        masks = batch["mask"]  # (batch_size, seq_len)
+
+        # Encode observations with VAE
+        recon_obs, mean, log_var, latents = self.vae(true_obs)  # (batch_size, seq_len, latent_dim)
+
+        # RSSM: Compute prior and posterior
+        rnn_hidden = torch.zeros(1, true_obs.size(0), rnn_hidden_dim)  # Initialize hidden state
+        prior_mean, prior_log_var, post_mean, post_log_var, rnn_hidden = self.rssm(
+            latents, true_actions, rnn_hidden, observations=latents
+        )
+
+        # Multi-head Predictor
+        rnn_output, _ = self.rssm.rnn(torch.cat([latents, true_actions], dim=-1), rnn_hidden)
+        predicted_rewards, predicted_terminations = self.predictor(rnn_output)
+
+        # Compute losses
+        recon_loss = (F.mse_loss(recon_obs, true_obs, reduction="none") * masks.unsqueeze(-1)).mean()
+        kl_vae_loss = -0.5 * torch.sum((1 + log_var - mean.pow(2) - log_var.exp()) * masks.unsqueeze(-1), dim=[1, 2]).mean()
+        kl_dyn_loss = -0.5 * torch.sum((1 + prior_log_var - post_mean.pow(2) - prior_log_var.exp()) * masks.unsqueeze(-1), dim=[1, 2]).mean()
+        kl_rep_loss = -0.5 * torch.sum((1 + post_log_var - prior_mean.pow(2) - post_log_var.exp()) * masks.unsqueeze(-1), dim=[1, 2]).mean()
+        reward_loss = (F.mse_loss(predicted_rewards, true_rewards, reduction="none") * masks).mean()
+        termination_loss = (F.binary_cross_entropy_with_logits(predicted_terminations, true_terminations, reduction="none") * masks).mean()
+
+        # Total loss
+        beta_vae, beta_dyn, beta_rep = 1.0, 1.0, 0.1
+        total_loss = (
+            recon_loss + beta_vae * kl_vae_loss + beta_dyn * kl_dyn_loss + beta_rep * kl_rep_loss + reward_loss + termination_loss
+        )
+
+        # Backward pass
+        optimizer.zero_grad()
+        total_loss.backward()
+        optimizer.step()
+
+        return total_loss
