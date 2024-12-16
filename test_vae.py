@@ -6,8 +6,8 @@ from vae import VAE
 
 # Initialize latent dimension
 latent_dim = 1
-vae = VAE(in_channels=3, latent_dim=latent_dim, input_size=(60, 80), hidden_dims=[256, 512, 1024], ema_factor=0.01)
-vae.load_state_dict(torch.load("./experiments/vae/checkpoints/vae_epoch_3.pth", map_location="cpu"))
+vae = VAE(in_channels=3, latent_dim=1, input_size=(60, 80), hidden_dims=[32, 64,], ema_factor=0.01)
+vae.load_state_dict(torch.load("./experiments/vae/checkpoints/vae_epoch_20.pth", map_location="cpu"))
 
 # Dynamically set latent_dim
 st.sidebar.title("Settings")

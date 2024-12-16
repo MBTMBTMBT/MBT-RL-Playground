@@ -7,7 +7,7 @@ from tqdm import tqdm
 import os
 # import torchvision.datasets as datasets
 
-from gym_dataset import GymDataset
+from gym_datasets import GymDataset
 from gymnasium import make
 from vae import VAE
 
@@ -117,7 +117,7 @@ if __name__ == '__main__':
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     vae = VAE(
-        in_channels=3, latent_dim=1, input_size=(60, 80), hidden_dims=[256, 512, 1024], ema_factor=0.01
+        in_channels=3, latent_dim=1, input_size=(60, 80), hidden_dims=[32, 64,], ema_factor=0.01
     ).to(device)
 
     # vae = VAE(
