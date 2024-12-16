@@ -9,9 +9,9 @@ import os
 
 from gym_datasets import GymDataset
 from gymnasium import make
-from vae import VAE
+from models import VAE
 
-def train_vae(model, dataloader, epochs, device, lr, log_dir, save_dir, is_color, beta_start=0.0, beta_end=1.0,):
+def train_vae(model, dataloader, epochs, device, lr, log_dir, save_dir, is_color, beta_start=0.0, beta_end=1.0, kld_threshold=10.):
     os.makedirs(save_dir, exist_ok=True)
     writer = SummaryWriter(log_dir=log_dir)
 
@@ -30,7 +30,7 @@ def train_vae(model, dataloader, epochs, device, lr, log_dir, save_dir, is_color
 
             # Forward pass
             recons, _, mu, log_var = model(inputs)
-            loss_dict = model.loss_function(recons, inputs, mu, log_var, kld_weight=1.0 / dataloader.batch_size * beta)
+            loss_dict = model.loss_function(recons, inputs, mu, log_var, kld_weight=1.0 / dataloader.batch_size * beta, kld_threshold=kld_threshold)
             loss = loss_dict['loss']
 
             # Backward pass
@@ -107,8 +107,8 @@ def visualize_reconstruction(model, dataloader, epoch, save_dir, is_color):
 
 if __name__ == '__main__':
     # Setup
-    env = make("MountainCar-v0", render_mode="rgb_array",)
-    dataset = GymDataset(env=env, num_samples=8192, frame_size=(60, 80), is_color=True, repeat=5)
+    env = make("LunarLander-v3", render_mode="rgb_array",)
+    dataset = GymDataset(env=env, num_samples=16384, frame_size=(60, 80), is_color=True, repeat=5)
     # mnist_trainset = datasets.MNIST(root='./data', train=True, download=True, transform=None)
 
     dataloader = DataLoader(dataset, batch_size=8, shuffle=True)
@@ -117,7 +117,7 @@ if __name__ == '__main__':
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     vae = VAE(
-        in_channels=3, latent_dim=1, input_size=(60, 80), hidden_dims=[32, 64,], ema_factor=0.01
+        in_channels=3, latent_dim=64, input_size=(60, 80), hidden_dims=[256, 512, 1024],
     ).to(device)
 
     # vae = VAE(
@@ -136,4 +136,5 @@ if __name__ == '__main__':
         is_color=True,
         beta_start=1.0,
         beta_end=1.0,
+        kld_threshold=10.0,
     )

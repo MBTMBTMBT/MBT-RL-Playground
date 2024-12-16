@@ -201,3 +201,48 @@ class VAE(nn.Module):
             'Reconstruction_Loss': recons_loss,
             'KLD': kld_loss
         }
+
+
+class RSSM(nn.Module):
+    def __init__(self, latent_dim, action_dim, rnn_hidden_dim, rnn_layers=1,):
+        super(RSSM, self).__init__()
+        self.latent_dim = latent_dim
+        self.rnn_hidden_dim = rnn_hidden_dim
+
+        # RNN
+        self.rnn = nn.GRU(latent_dim + action_dim, rnn_hidden_dim, rnn_layers=rnn_layers, batch_first=True)
+
+        # Prior and Posterior
+        self.prior_fc = nn.Linear(rnn_hidden_dim, 2 * latent_dim)
+        self.posterior_fc = nn.Linear(rnn_hidden_dim + latent_dim, 2 * latent_dim)
+
+    def forward(self, latent, actions, rnn_hidden, obs=None):
+        # Combine latent state and actions
+        x = torch.cat([latent, actions], dim=-1).unsqueeze(1)
+        _, rnn_hidden = self.rnn(x, rnn_hidden)
+
+        # Compute Prior
+        prior = self.prior_fc(rnn_hidden)
+        prior_mean, prior_log_var = torch.chunk(prior, 2, dim=-1)
+
+        # Compute Posterior (if obs is provided)
+        if obs is not None:
+            posterior = self.posterior_fc(torch.cat([rnn_hidden, obs], dim=-1))
+            post_mean, post_log_var = torch.chunk(posterior, 2, dim=-1)
+        else:
+            post_mean, post_log_var = prior_mean, prior_log_var
+
+        return prior_mean, prior_log_var, post_mean, post_log_var, rnn_hidden
+
+
+# Multi-head Predictor
+class MultiHeadPredictor(nn.Module):
+    def __init__(self, rnn_hidden_dim):
+        super(MultiHeadPredictor, self).__init__()
+        self.reward_head = nn.Linear(rnn_hidden_dim, 1)
+        self.termination_head = nn.Linear(rnn_hidden_dim, 1)
+
+    def forward(self, rnn_hidden):
+        reward = self.reward_head(rnn_hidden)
+        termination = self.termination_head(rnn_hidden)
+        return reward, termination
