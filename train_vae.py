@@ -108,7 +108,7 @@ def visualize_reconstruction(model, dataloader, epoch, save_dir, is_color):
 if __name__ == '__main__':
     # Setup
     env = make("LunarLander-v3", render_mode="rgb_array",)
-    dataset = GymDataset(env=env, num_samples=16384, frame_size=(96, 128), is_color=True, repeat=2)
+    dataset = GymDataset(env=env, num_samples=16384*2, frame_size=(96, 128), is_color=True, repeat=5)
     # mnist_trainset = datasets.MNIST(root='./data', train=True, download=True, transform=None)
 
     dataloader = DataLoader(dataset, batch_size=8, shuffle=True)
@@ -130,7 +130,7 @@ if __name__ == '__main__':
         dataloader=dataloader,
         epochs=20,
         device=device,
-        lr=1e-5,
+        lr=1e-4,
         log_dir="./experiments/vae/logs",
         save_dir="./experiments/vae/checkpoints",
         is_color=True,
