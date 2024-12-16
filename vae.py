@@ -11,10 +11,10 @@ class ResidualBlock(nn.Module):
     def __init__(self, in_channels, out_channels, stride=1, downsample=None):
         super(ResidualBlock, self).__init__()
         self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=False)
-        self.bn1 = nn.BatchNorm2d(out_channels)
+        self.bn1 = nn.InstanceNorm2d(out_channels, affine=True)
         self.relu = nn.LeakyReLU()
         self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=False)
-        self.bn2 = nn.BatchNorm2d(out_channels)
+        self.bn2 = nn.InstanceNorm2d(out_channels, affine=True)
         self.downsample = downsample
         self.stride = stride
 
@@ -107,8 +107,8 @@ class VAE(nn.Module):
             l2_weight=1.0,
             threshold_weight=1.0,
             non_threshold_weight=1.0,
-            mse_clip_ratio=1e3,
-            mae_clip_ratio=1e3,
+            mse_clip_ratio=1.0,
+            mae_clip_ratio=1.0,
         )
 
         self.recon_loss_ema = 0.0
@@ -120,7 +120,7 @@ class VAE(nn.Module):
         for h_dim in self.hidden_dims:
             downsample = nn.Sequential(
                 nn.Conv2d(in_channels, h_dim, kernel_size=1, stride=2, bias=False),
-                nn.BatchNorm2d(h_dim),
+                nn.InstanceNorm2d(h_dim, affine=True),
             )
             layers.append(ResidualBlock(in_channels, h_dim, stride=2, downsample=downsample))
             in_channels = h_dim
@@ -133,7 +133,7 @@ class VAE(nn.Module):
             layers.append(
                 nn.Sequential(
                     nn.ConvTranspose2d(hidden_dims[i], hidden_dims[i + 1], kernel_size=3, stride=2, padding=1, output_padding=1),
-                    nn.BatchNorm2d(hidden_dims[i + 1]),
+                    nn.InstanceNorm2d(hidden_dims[i + 1], affine=True),
                     nn.LeakyReLU()
                 )
             )
@@ -186,7 +186,7 @@ class VAE(nn.Module):
         assert decoded.shape == x.shape, f"Mismatch: {decoded.shape} vs {x.shape}"
         return decoded, x, mu, log_var
 
-    def loss_function(self, recons, input, mu, log_var, kld_weight=1.0):
+    def loss_function(self, recons, input, mu, log_var, kld_weight=1.0, kld_threshold=1.0):
         # Use your custom pixel-wise loss
         recons_loss = self.pixel_loss(recons, input)
         self.recon_loss_ema = (1.0 - self.ema_factor) * self.recon_loss_ema + self.ema_factor * recons_loss.item()
@@ -197,7 +197,7 @@ class VAE(nn.Module):
         if kld_weight > _kld_weight:
             kld_weight = _kld_weight
         return {
-            'loss': recons_loss + kld_weight * kld_loss,
+            'loss': recons_loss + kld_weight * kld_loss if kld_loss.item() >= kld_threshold else recons_loss,
             'Reconstruction_Loss': recons_loss,
             'KLD': kld_loss
         }
