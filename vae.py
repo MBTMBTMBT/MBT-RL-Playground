@@ -107,8 +107,8 @@ class VAE(nn.Module):
             l2_weight=1.0,
             threshold_weight=1.0,
             non_threshold_weight=1.0,
-            mse_clip_ratio=1.0,
-            mae_clip_ratio=1.0
+            mse_clip_ratio=1e3,
+            mae_clip_ratio=1e3,
         )
 
         self.recon_loss_ema = 0.0
