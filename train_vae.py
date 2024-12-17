@@ -107,17 +107,17 @@ def visualize_reconstruction(model, dataloader, epoch, save_dir, is_color):
 
 if __name__ == '__main__':
     # Setup
-    env = make("LunarLander-v3", render_mode="rgb_array",)
-    dataset = GymDataset(env=env, num_samples=16384*2, frame_size=(96, 128), is_color=True, repeat=5)
+    env = make("Acrobot-v1", render_mode="rgb_array",)
+    dataset = GymDataset(env=env, num_samples=16384, frame_size=(96, 128), is_color=True, repeat=10)
     # mnist_trainset = datasets.MNIST(root='./data', train=True, download=True, transform=None)
 
-    dataloader = DataLoader(dataset, batch_size=8, shuffle=True)
+    dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
 
     # dataloader = DataLoader(mnist_trainset, batch_size=8, shuffle=True)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     vae = VAE(
-        in_channels=3, latent_dim=128, input_size=(96, 128), hidden_dims=[128, 256, 512, 1024, 2048], ema_factor=0.01,
+        in_channels=3, latent_dim=32, input_size=(96, 128), hidden_dims=[128, 256, 512],  # ema_factor=0.01,
     ).to(device)
 
     # vae = VAE(
