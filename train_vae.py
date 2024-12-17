@@ -9,7 +9,8 @@ import os
 
 from gym_datasets import GymDataset
 from gymnasium import make
-from models import VAE
+from vae import VAE
+
 
 def train_vae(model, dataloader, epochs, device, lr, log_dir, save_dir, is_color, beta_start=0.0, beta_end=1.0, kld_threshold=10.):
     os.makedirs(save_dir, exist_ok=True)
@@ -117,7 +118,7 @@ if __name__ == '__main__':
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     vae = VAE(
-        in_channels=3, latent_dim=32, input_size=(96, 128), hidden_dims=[128, 256, 512],  # ema_factor=0.01,
+        in_channels=3, latent_dim=64, input_size=(96, 128), hidden_dims=[64, 128],  # ema_factor=0.01,
     ).to(device)
 
     # vae = VAE(

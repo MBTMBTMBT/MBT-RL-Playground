@@ -1,10 +1,6 @@
-from typing import List, Any
 import torch
-from torch import nn, Tensor
+from torch import nn
 from torch.nn import functional as F
-from abc import abstractmethod
-
-from losses import FlexibleThresholdedLoss
 
 
 class ResidualBlock(nn.Module):
@@ -36,41 +32,14 @@ class ResidualBlock(nn.Module):
         return out
 
 
-class BaseVAE(nn.Module):
-
-    def __init__(self) -> None:
-        super(BaseVAE, self).__init__()
-
-    def encode(self, input: Tensor) -> List[Tensor]:
-        raise NotImplementedError
-
-    def decode(self, input: Tensor) -> Any:
-        raise NotImplementedError
-
-    def sample(self, batch_size: int, current_device: int, **kwargs) -> Tensor:
-        raise NotImplementedError
-
-    def generate(self, x: Tensor, **kwargs) -> Tensor:
-        raise NotImplementedError
-
-    @abstractmethod
-    def forward(self, *inputs: Tensor) -> Tensor:
-        pass
-
-    @abstractmethod
-    def loss_function(self, *inputs: Any, **kwargs) -> Tensor:
-        pass
-
-
-class VAE(nn.Module):
-    def __init__(self, in_channels: int, latent_dim: int, hidden_dims: list = None, input_size=(60, 80),):  # ema_factor=0.01,):
-        super(VAE, self).__init__()
-
+class Encoder(nn.Module):
+    def __init__(self, in_channels: int, latent_dim: int, hidden_net_dims: list = None, input_size=(60, 80)):
+        super(Encoder, self).__init__()
         self.latent_dim = latent_dim
         self.input_height, self.input_width = input_size
-        self.hidden_dims = hidden_dims if hidden_dims else [64, 128, 256, 512, 1024]
+        self.hidden_net_dims = hidden_net_dims if hidden_net_dims else [64, 128, 256, 512, 1024]
 
-        # Encoder
+        # Encoder layers
         self.encoder = self.build_encoder(in_channels)
 
         # Dynamically compute flattened dimension
@@ -82,125 +51,67 @@ class VAE(nn.Module):
             self.encoder_output_width = encoder_output.shape[3]
             self.flattened_dim = encoder_output.view(-1).shape[0]
 
-        self.fc_mu = nn.Linear(self.flattened_dim, latent_dim)
-        self.fc_var = nn.Linear(self.flattened_dim, latent_dim)
-
-        # Decoder
-        self.decoder_input = nn.Linear(latent_dim, self.flattened_dim)
-        self.decoder = self.build_decoder()
-
-        # Final layer to match exact dimensions
-        self.final_layer = nn.Sequential(
-            nn.Conv2d(self.hidden_dims[0], in_channels, kernel_size=3, padding=1),
-            nn.Tanh()
-        )
-
-        # Apply Kaiming initialization
-        # self._initialize_weights()
-
-        # Use your custom loss function
-        self.pixel_loss = FlexibleThresholdedLoss(
-            use_mse_threshold=True,
-            use_mae_threshold=True,
-            reduction='mean',
-            l1_weight=1.0,
-            l2_weight=1.0,
-            threshold_weight=1.0,
-            non_threshold_weight=1.0,
-            mse_clip_ratio=1.0,
-            mae_clip_ratio=1.0,
-        )
-
-        # self.recon_loss_ema = 0.0
-        # self.kl_loss_ema = 0.0
-        # self.ema_factor = ema_factor
+        self.fc = nn.Linear(self.flattened_dim, latent_dim)
 
     def build_encoder(self, in_channels):
         layers = []
-        for h_dim in self.hidden_dims:
+        for h_dim in self.hidden_net_dims:
             downsample = nn.Sequential(
                 nn.Conv2d(in_channels, h_dim, kernel_size=1, stride=2, bias=False),
                 nn.InstanceNorm2d(h_dim, affine=True),
+                nn.LeakyReLU()
             )
             layers.append(ResidualBlock(in_channels, h_dim, stride=2, downsample=downsample))
             in_channels = h_dim
         return nn.Sequential(*layers)
 
+    def forward(self, x):
+        x = self.encoder(x)
+        x = torch.flatten(x, start_dim=1)
+        latent = torch.tanh(self.fc(x))  # Remove log_var, only return latent representation
+        return latent
+
+
+class Decoder(nn.Module):
+    def __init__(self, latent_dim: int, out_channels: int, hidden_net_dims: list, input_size=(60, 80)):
+        super(Decoder, self).__init__()
+        self.latent_dim = latent_dim
+        self.output_height, self.output_width = input_size
+        self.hidden_net_dims = hidden_net_dims[::-1]  # Reverse hidden dimensions for decoding
+
+        # Input layer
+        self.decoder_input = nn.Linear(latent_dim, hidden_net_dims[0] * self.output_height * self.output_width)
+
+        # Decoder layers
+        self.decoder = self.build_decoder()
+
+        # Final layer to match input channels
+        self.final_layer = nn.Sequential(
+            nn.Conv2d(self.hidden_net_dims[-1], out_channels, kernel_size=3, padding=1),
+            nn.Tanh()
+        )
+
     def build_decoder(self):
         layers = []
-        hidden_dims = self.hidden_dims[::-1]
-        for i in range(len(hidden_dims) - 1):
+        for i in range(len(self.hidden_net_dims) - 1):
             layers.append(
                 nn.Sequential(
-                    nn.ConvTranspose2d(hidden_dims[i], hidden_dims[i + 1], kernel_size=3, stride=2, padding=1, output_padding=1),
-                    nn.InstanceNorm2d(hidden_dims[i + 1], affine=True),
+                    nn.ConvTranspose2d(self.hidden_net_dims[i], self.hidden_net_dims[i + 1], kernel_size=3, stride=2, padding=1, output_padding=1),
+                    nn.InstanceNorm2d(self.hidden_net_dims[i + 1], affine=True),
                     nn.LeakyReLU()
                 )
             )
-            layers.append(ResidualBlock(hidden_dims[i + 1], hidden_dims[i + 1]))
+            layers.append(ResidualBlock(self.hidden_net_dims[i + 1], self.hidden_net_dims[i + 1]))
         return nn.Sequential(*layers)
 
-    def _initialize_weights(self):
-        # Initialize encoder and decoder weights
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d):
-                nn.init.kaiming_normal_(m.weight, nonlinearity='leaky_relu')  # He initialization for Leaky ReLU
-                if m.bias is not None:
-                    nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.Linear):
-                nn.init.xavier_normal_(m.weight)  # Xavier initialization for Linear layers
-                if m.bias is not None:
-                    nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.Conv2d) and m in self.final_layer:
-                nn.init.xavier_uniform_(m.weight)  # Xavier initialization for Tanh activation in final layer
-                if m.bias is not None:
-                    nn.init.constant_(m.bias, 0)
-
-    def encode(self, x):
-        x = self.encoder(x)
-        x = torch.flatten(x, start_dim=1)
-        mu = F.tanh(self.fc_mu(x))
-        log_var = self.fc_var(x)
-        return mu, log_var
-
-    def decode(self, z):
-        x = self.decoder_input(z)
+    def forward(self, z):
         batch_size = z.size(0)
-        x = x.view(batch_size, self.encoder_output_channels, self.encoder_output_height, self.encoder_output_width)
+        x = self.decoder_input(z)
+        x = x.view(batch_size, self.hidden_net_dims[0], self.output_height, self.output_width)
         x = self.decoder(x)
-
-        # Final adjustment layer to match input dimensions
-        x = nn.functional.interpolate(x, size=(self.input_height, self.input_width), mode="bilinear", align_corners=False)
+        x = nn.functional.interpolate(x, size=(self.output_height, self.output_width), mode="bilinear", align_corners=False)
         x = self.final_layer(x)
         return x
-
-    def reparameterize(self, mu, log_var):
-        std = torch.exp(0.5 * log_var)
-        eps = torch.randn_like(std)
-        return eps * std + mu
-
-    def forward(self, x):
-        mu, log_var = self.encode(x)
-        z = self.reparameterize(mu, log_var)
-        decoded = self.decode(z)
-        assert decoded.shape == x.shape, f"Mismatch: {decoded.shape} vs {x.shape}"
-        return decoded, x, mu, log_var
-
-    def loss_function(self, recons, input, mu, log_var, kld_weight=1.0, kld_threshold=1.0):
-        # Use your custom pixel-wise loss
-        recons_loss = self.pixel_loss(recons, input)
-        # self.recon_loss_ema = (1.0 - self.ema_factor) * self.recon_loss_ema + self.ema_factor * recons_loss.item()
-        kld_loss = -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp(), dim=1).mean()
-        # self.kl_loss_ema = (1.0 - self.ema_factor) * self.kl_loss_ema + self.ema_factor * kld_loss.item()
-        # _kld_weight = kld_weight
-        # kld_weight = self.recon_loss_ema / (self.kl_loss_ema + 1e-10) * _kld_weight
-        # if kld_weight > _kld_weight:
-        #     kld_weight = _kld_weight
-        return {
-            'loss': recons_loss + kld_weight * kld_loss if kld_loss.item() >= kld_threshold else recons_loss,
-            'Reconstruction_Loss': recons_loss,
-            'KLD': kld_loss
-        }
 
 
 class RSSM(nn.Module):
@@ -250,41 +161,87 @@ class RSSM(nn.Module):
         return prior_mean, prior_log_var, post_mean, post_log_var, rnn_hidden
 
 
-# Multi-head Predictor
 class MultiHeadPredictor(nn.Module):
-    def __init__(self, rnn_hidden_dim):
+    def __init__(self, rnn_hidden_dim, hidden_dim=128):
+        """
+        Multi-Head Predictor with an additional hidden layer.
+        Args:
+            rnn_hidden_dim (int): Dimension of the RNN hidden state.
+            hidden_dim (int): Fixed size of the intermediate hidden layer.
+        """
         super(MultiHeadPredictor, self).__init__()
-        self.reward_head = nn.Linear(rnn_hidden_dim, 1)
-        self.termination_head = nn.Linear(rnn_hidden_dim, 1)
+
+        # Shared intermediate layer
+        self.shared_fc = nn.Linear(rnn_hidden_dim, hidden_dim)
+
+        # Reward prediction head
+        self.reward_head = nn.Sequential(
+            nn.LeakyReLU(),
+            nn.Linear(hidden_dim, 1)  # Output 1 scalar for reward
+        )
+
+        # Termination prediction head
+        self.termination_head = nn.Sequential(
+            nn.LeakyReLU(),
+            nn.Linear(hidden_dim, 1)  # Output 1 scalar for termination flag
+        )
 
     def forward(self, rnn_hidden):
-        reward = self.reward_head(rnn_hidden)
-        termination = self.termination_head(rnn_hidden)
+        """
+        Forward pass through the predictor.
+        Args:
+            rnn_hidden (Tensor): Input hidden state from RNN, shape (batch_size, rnn_hidden_dim).
+        Returns:
+            reward (Tensor): Predicted reward, shape (batch_size, 1).
+            termination (Tensor): Predicted termination flag, shape (batch_size, 1).
+        """
+        # Pass through shared intermediate layer
+        x = self.shared_fc(rnn_hidden)
+        x = torch.relu(x)  # Activation function for shared layer
+
+        # Predict reward and termination separately
+        reward = self.reward_head(x)
+        termination = self.termination_head(x)
+
         return reward, termination
 
 
 class WorldModel(nn.Module):
-    def __init__(self, vae, rssm, predictor):
+    def __init__(
+            self,
+            encoder: Encoder,
+            decoder: Decoder,
+            rssm: RSSM,
+            predictor: MultiHeadPredictor,
+            lr: float = 1e-4,
+    ):
         super(WorldModel, self).__init__()
-        self.vae = vae
+        self.encoder = encoder
+        self.decoder = decoder
         self.rssm = rssm
         self.predictor = predictor
+        self.optimizer = torch.optim.Adam(self.parameters(), lr=lr)
 
-    def train_batch(self, batch, optimizer, rnn_hidden_dim):
+    def train_batch(self, batch,):
         true_obs = batch["state"]  # (batch_size, seq_len, obs_dim)
         true_actions = batch["action"]  # (batch_size, seq_len, action_dim)
         true_rewards = batch["reward"]  # (batch_size, seq_len, 1)
         true_terminations = batch["terminal"]  # (batch_size, seq_len, 1)
         masks = batch["mask"]  # (batch_size, seq_len)
 
-        # Encode observations with VAE
-        recon_obs, mean, log_var, latents = self.vae(true_obs)  # (batch_size, seq_len, latent_dim)
+        # Initialize RNN hidden state
+        rnn_hidden = torch.zeros(1, true_obs.size(0), self.rssm.rnn_hidden_dim)
+
+        # Encode observations
+        latents = self.encoder(true_obs)
 
         # RSSM: Compute prior and posterior
-        rnn_hidden = torch.zeros(1, true_obs.size(0), rnn_hidden_dim)  # Initialize hidden state
         prior_mean, prior_log_var, post_mean, post_log_var, rnn_hidden = self.rssm(
             latents, true_actions, rnn_hidden, observations=latents
         )
+
+        # Decode latent states back to observations
+        recon_obs = self.decoder(latents)
 
         # Multi-head Predictor
         rnn_output, _ = self.rssm.rnn(torch.cat([latents, true_actions], dim=-1), rnn_hidden)
@@ -292,21 +249,16 @@ class WorldModel(nn.Module):
 
         # Compute losses
         recon_loss = (F.mse_loss(recon_obs, true_obs, reduction="none") * masks.unsqueeze(-1)).mean()
-        kl_vae_loss = -0.5 * torch.sum((1 + log_var - mean.pow(2) - log_var.exp()) * masks.unsqueeze(-1), dim=[1, 2]).mean()
         kl_dyn_loss = -0.5 * torch.sum((1 + prior_log_var - post_mean.pow(2) - prior_log_var.exp()) * masks.unsqueeze(-1), dim=[1, 2]).mean()
-        kl_rep_loss = -0.5 * torch.sum((1 + post_log_var - prior_mean.pow(2) - post_log_var.exp()) * masks.unsqueeze(-1), dim=[1, 2]).mean()
         reward_loss = (F.mse_loss(predicted_rewards, true_rewards, reduction="none") * masks).mean()
         termination_loss = (F.binary_cross_entropy_with_logits(predicted_terminations, true_terminations, reduction="none") * masks).mean()
 
         # Total loss
-        beta_vae, beta_dyn, beta_rep = 1.0, 1.0, 0.1
-        total_loss = (
-            recon_loss + beta_vae * kl_vae_loss + beta_dyn * kl_dyn_loss + beta_rep * kl_rep_loss + reward_loss + termination_loss
-        )
+        total_loss = recon_loss + kl_dyn_loss + reward_loss + termination_loss
 
         # Backward pass
-        optimizer.zero_grad()
+        self.optimizer.zero_grad()
         total_loss.backward()
-        optimizer.step()
+        self.optimizer.step()
 
         return total_loss

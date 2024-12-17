@@ -158,8 +158,9 @@ class ReplayBuffer:
     def collect_samples(self, num_samples):
         """Fill the buffer with data from the environment."""
         self.env.reset()
+        count = 0
         with tqdm(total=num_samples, desc="Collecting Samples") as pbar:
-            while self.size < num_samples:
+            while count < min(num_samples, self.buffer_size):
                 action = self.env.action_space.sample()
                 next_obs, reward, terminated, truncated, info = self.env.step(action)
 
@@ -177,6 +178,7 @@ class ReplayBuffer:
                     terminal=terminated
                 )
                 pbar.update(1)
+                count += 1
 
                 if terminated or truncated:  # Reset the environment if done
                     self.env.reset()

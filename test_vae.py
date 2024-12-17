@@ -2,7 +2,7 @@ import streamlit as st
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
-from models import VAE
+from vae import VAE
 
 # Initialize latent dimension
 latent_dim = 1
