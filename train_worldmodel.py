@@ -1,23 +1,109 @@
 import os
 
+import imageio
+import numpy as np
 import torch
 import gymnasium as gym
 from gymnasium import make
+from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
+from PIL import Image
+import torchvision.transforms as transforms
 
 from gym_datasets import ReplayBuffer
 from models import RSSM, MultiHeadPredictor, WorldModel, Encoder, Decoder
 
+
+def generate_visualization_gif(world_model, test_batch, epoch, save_dir):
+    """
+    Generates and saves a visualization GIF showing actual, predicted, and difference frames.
+
+    Args:
+        world_model: The world model instance to generate predictions.
+        test_batch (dict): A batch of test data.
+        epoch (int): Current epoch number.
+        save_dir (str): Directory to save the GIF.
+
+    Returns:
+        str: Path to the saved GIF.
+    """
+    with torch.no_grad():
+        true_obs = test_batch["state"]  # (batch_size, seq_len, channels, height, width)
+        true_obs = torch.tensor(true_obs, dtype=torch.float32, device=world_model.device)
+
+        batch_size, seq_len, channels, height, width = true_obs.size()
+        latents = []
+
+        for t in range(seq_len):
+            frame = true_obs[:, t]
+            latent = world_model.encoder(frame)
+            latents.append(latent)
+
+        latents = torch.stack(latents, dim=1)
+        recon_obs = []
+
+        for t in range(seq_len):
+            recon_frame = world_model.decoder(latents[:, t])
+            recon_obs.append(recon_frame)
+
+        recon_obs = torch.stack(recon_obs, dim=1).cpu().numpy()
+        true_obs = true_obs.cpu().numpy()
+        diff_obs = abs(true_obs - recon_obs)
+
+        combined_frames = []
+
+        for t in range(seq_len):
+            actual_row = np.concatenate([true_obs[i, t].transpose(1, 2, 0) for i in range(batch_size)], axis=1)
+            predicted_row = np.concatenate([recon_obs[i, t].transpose(1, 2, 0) for i in range(batch_size)], axis=1)
+            difference_row = np.concatenate([diff_obs[i, t].transpose(1, 2, 0) for i in range(batch_size)], axis=1)
+
+            combined_frame = np.concatenate((actual_row, predicted_row, difference_row), axis=0)
+            combined_frames.append((combined_frame * 255).astype(np.uint8))
+
+        gif_path = f"{save_dir}/epoch_{epoch + 1}_visualization.gif"
+        imageio.mimsave(gif_path, combined_frames, fps=5)
+
+        return gif_path
+
+
+def add_gif_to_tensorboard(writer, gif_path, tag, global_step):
+    """
+    Adds a GIF as a video to TensorBoard.
+
+    Args:
+        writer (SummaryWriter): TensorBoard SummaryWriter instance.
+        gif_path (str): Path to the GIF file.
+        tag (str): Tag name for the video.
+        global_step (int): Global step value for TensorBoard.
+
+    Returns:
+        None
+    """
+    # Read the GIF file
+    gif = imageio.mimread(gif_path)
+    # Convert frames to a tensor with shape (T, H, W, C)
+    frames = torch.stack([torch.tensor(frame) for frame in gif], dim=0)
+    # Permute dimensions to match (T, C, H, W)
+    frames = frames.permute(0, 3, 1, 2)
+    # Add batch dimension, resulting in shape (1, T, C, H, W)
+    frames = frames.unsqueeze(0)
+    # Normalize pixel values to [0, 1]
+    frames = frames.float() / 255.0
+    # Add video to TensorBoard
+    writer.add_video(tag, frames, global_step=global_step, fps=5)
+
+
 if __name__ == '__main__':
     batch_size = 8
+    test_batch_size = 8
     buffer_size = 16384
-    traj_len = 48
+    traj_len = 64
     frame_size = (60, 80)
     is_color = True
     input_channels = 3
     ae_latent_dim = 64
-    encoder_hidden_net_dims = [32, 64, 128,]
-    rnn_latent_dim = 256
+    encoder_hidden_net_dims = [16, 32, 64, 128,]
+    rnn_latent_dim = 128
     rnn_layers=1
     lr = 1e-4
     num_epochs = 50
@@ -25,7 +111,7 @@ if __name__ == '__main__':
     save_dir = "./experiments/worldmodel/checkpoints"
     os.makedirs(log_dir, exist_ok=True)
     os.makedirs(save_dir, exist_ok=True)
-
+    writer = SummaryWriter(log_dir)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -105,6 +191,16 @@ if __name__ == '__main__':
             total_reward_loss += losses["reward_loss"]
             total_termination_loss += losses["termination_loss"]
 
+            # Write batch losses to TensorBoard
+            writer.add_scalar("Loss/Total", losses["total_loss"], epoch * (buffer_size // batch_size) + step)
+            writer.add_scalar("Loss/Reconstruction", losses["recon_loss"], epoch * (buffer_size // batch_size) + step)
+            writer.add_scalar("Loss/KL_Dynamic", losses["kl_dyn_loss"], epoch * (buffer_size // batch_size) + step)
+            writer.add_scalar("Loss/KL_Representation", losses["kl_rep_loss"],
+                              epoch * (buffer_size // batch_size) + step)
+            writer.add_scalar("Loss/Reward", losses["reward_loss"], epoch * (buffer_size // batch_size) + step)
+            writer.add_scalar("Loss/Termination", losses["termination_loss"],
+                              epoch * (buffer_size // batch_size) + step)
+
             # Update progress bar with detailed losses
             progress_bar.set_postfix({
                 "Total Loss": f"{losses['total_loss']:.4f}",
@@ -124,6 +220,14 @@ if __name__ == '__main__':
         avg_reward_loss = total_reward_loss / num_batches
         avg_termination_loss = total_termination_loss / num_batches
 
+        # Write average epoch losses to TensorBoard
+        writer.add_scalar("Epoch_Loss/Total", avg_total_loss, epoch)
+        writer.add_scalar("Epoch_Loss/Reconstruction", avg_recon_loss, epoch)
+        writer.add_scalar("Epoch_Loss/KL_Dynamic", avg_kl_dyn_loss, epoch)
+        writer.add_scalar("Epoch_Loss/KL_Representation", avg_kl_rep_loss, epoch)
+        writer.add_scalar("Epoch_Loss/Reward", avg_reward_loss, epoch)
+        writer.add_scalar("Epoch_Loss/Termination", avg_termination_loss, epoch)
+
         # Print epoch summary
         print(f"Epoch [{epoch + 1}] Completed.")
         print(f"    Avg Total Loss: {avg_total_loss:.4f}")
@@ -132,3 +236,13 @@ if __name__ == '__main__':
         print(f"    Avg KL Rep Loss: {avg_kl_rep_loss:.4f}")
         print(f"    Avg Reward Loss: {avg_reward_loss:.4f}")
         print(f"    Avg Termination Loss: {avg_termination_loss:.4f}")
+
+        # Generate test batch and save visualization GIF
+        test_batch = dataset.sample(batch_size=test_batch_size)
+        gif_path = generate_visualization_gif(world_model, test_batch, epoch, save_dir)
+
+        # Add GIF as a video to TensorBoard
+        add_gif_to_tensorboard(writer, gif_path, "Visualization/GIF", epoch)
+
+        # Save model parameters
+        torch.save(world_model.state_dict(), f"{save_dir}/world_model_epoch_{epoch + 1}.pth")
