@@ -279,6 +279,7 @@ class WorldModel(nn.Module):
             batch (dict): A batch of training data with keys:
                 - "state": Real observations (batch_size, seq_len, channels, height, width)
                 - "action": Actions taken (batch_size, seq_len, action_dim)
+                - "next_state": Real next observations (batch_size, seq_len, channels, height, width)
                 - "reward": Rewards received (batch_size, seq_len, 1)
                 - "terminal": Termination flags (batch_size, seq_len, 1)
                 - "mask": Masks for valid steps (batch_size, seq_len)
@@ -294,6 +295,7 @@ class WorldModel(nn.Module):
         """
         # Convert batch data to tensors
         true_obs = torch.tensor(batch["state"], dtype=torch.float32, device=self.device)
+        next_obs = torch.tensor(batch["next_state"], dtype=torch.float32, device=self.device)
         true_actions = torch.tensor(batch["action"], dtype=torch.float32, device=self.device)
         true_rewards = torch.tensor(batch["reward"], dtype=torch.float32, device=self.device)
         true_terminations = torch.tensor(batch["terminal"], dtype=torch.float32, device=self.device)
@@ -315,9 +317,17 @@ class WorldModel(nn.Module):
         kl_dyn_loss_raw = torch.tensor(0.0, device=self.device)
         kl_rep_loss_raw = torch.tensor(0.0, device=self.device)
 
+        # Define time decay weights
+        time_weights = torch.linspace(1.0, 0.1, steps=seq_len, device=self.device)
+
         for t in range(seq_len):
-            # Encode observation into latent space
+            # Encode the current observation
             latent = self.encoder(true_obs[:, t])
+
+            # First frame: Calculate reconstruction loss directly
+            if t == 0:
+                recon_obs = self.decoder(latent)
+                recon_loss += self.pixel_loss(recon_obs, true_obs[:, t]) * time_weights[t]
 
             # Compute RSSM outputs
             prior_mean, prior_log_var, post_mean, post_log_var, rnn_hidden = self.rssm(
@@ -330,8 +340,9 @@ class WorldModel(nn.Module):
             # Decode reconstructed observation
             recon_obs = self.decoder(sampled_latent)
 
-            # Compute reconstruction loss
-            recon_loss += F.mse_loss(recon_obs, true_obs[:, t], reduction="none").mean()
+            # Reconstruction loss against next observation
+            if t < seq_len - 1:  # Exclude the last frame
+                recon_loss += self.pixel_loss(recon_obs, next_obs[:, t]) * time_weights[t]
 
             # Compute dynamic KL loss
             kl_dyn = -0.5 * torch.sum(
@@ -340,7 +351,7 @@ class WorldModel(nn.Module):
             ).mean()
             kl_dyn_loss_raw += kl_dyn
             if kl_dyn.item() > kl_min:
-                kl_dyn_loss += kl_dyn
+                kl_dyn_loss += kl_dyn * time_weights[t]
             else:
                 kl_dyn_loss += 0.0
 
@@ -351,17 +362,19 @@ class WorldModel(nn.Module):
             ).mean()
             kl_rep_loss_raw += kl_rep
             if kl_rep.item() > kl_min:
-                kl_rep_loss += kl_rep
+                kl_rep_loss += kl_rep * time_weights[t]
             else:
                 kl_rep_loss += 0.0
 
             # Multi-head predictor losses
             predicted_reward, predicted_termination = self.predictor(rnn_hidden.squeeze(0))
 
-            reward_loss += F.mse_loss(predicted_reward, true_rewards[:, t].squeeze(), reduction="mean")
+            reward_loss += F.mse_loss(
+                predicted_reward, true_rewards[:, t].squeeze(), reduction="mean"
+            ) * time_weights[t]
             termination_loss += F.binary_cross_entropy_with_logits(
                 predicted_termination, true_terminations[:, t].squeeze(), reduction="mean"
-            )
+            ) * time_weights[t]
 
         # Normalize losses by sequence length
         recon_loss /= seq_len
