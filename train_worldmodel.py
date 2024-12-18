@@ -115,7 +115,7 @@ def add_gif_to_tensorboard(writer, gif_path, tag, global_step):
 if __name__ == '__main__':
     batch_size = 16
     test_batch_size = 8
-    buffer_size = 512
+    buffer_size = 8192
     data_repeat_times = 10
     traj_len = 96
     frame_size = (60, 80)
@@ -217,6 +217,10 @@ if __name__ == '__main__':
             writer.add_scalar("Loss/KL_Dynamic", losses["kl_dyn_loss"], epoch * (buffer_size // batch_size) + step)
             writer.add_scalar("Loss/KL_Representation", losses["kl_rep_loss"],
                               epoch * (buffer_size // batch_size) + step)
+            writer.add_scalar("Loss/KL_Dynamic_Raw", losses["kl_dyn_loss_raw"],
+                              epoch * (buffer_size // batch_size) + step)
+            writer.add_scalar("Loss/KL_Representation_Raw", losses["kl_rep_loss_raw"],
+                              epoch * (buffer_size // batch_size) + step)
             writer.add_scalar("Loss/Reward", losses["reward_loss"], epoch * (buffer_size // batch_size) + step)
             writer.add_scalar("Loss/Termination", losses["termination_loss"],
                               epoch * (buffer_size // batch_size) + step)
@@ -227,6 +231,8 @@ if __name__ == '__main__':
                 "Recon Loss": f"{losses['recon_loss']:.4f}",
                 "KL Dyn Loss": f"{losses['kl_dyn_loss']:.4f}",
                 "KL Rep Loss": f"{losses['kl_rep_loss']:.4f}",
+                "KL Dyn Raw": f"{losses['kl_dyn_loss_raw']:.4f}",
+                "KL Rep Raw": f"{losses['kl_rep_loss_raw']:.4f}",
                 "Reward Loss": f"{losses['reward_loss']:.4f}",
                 "Termination Loss": f"{losses['termination_loss']:.4f}",
             })

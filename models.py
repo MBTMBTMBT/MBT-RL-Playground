@@ -304,12 +304,16 @@ class WorldModel(nn.Module):
 
         batch_size, seq_len, _, _, _ = true_obs.size()
 
-        # Initialize loss accumulators as tensors on the correct device
+        # Initialize loss accumulators as tensors
         recon_loss = torch.tensor(0.0, device=self.device)
         kl_dyn_loss = torch.tensor(0.0, device=self.device)
         kl_rep_loss = torch.tensor(0.0, device=self.device)
         reward_loss = torch.tensor(0.0, device=self.device)
         termination_loss = torch.tensor(0.0, device=self.device)
+
+        # For returning unadjusted KL losses
+        kl_dyn_loss_raw = torch.tensor(0.0, device=self.device)
+        kl_rep_loss_raw = torch.tensor(0.0, device=self.device)
 
         for t in range(seq_len):
             # Encode observation into latent space
@@ -334,6 +338,7 @@ class WorldModel(nn.Module):
                 (1 + prior_log_var.squeeze(1) - post_mean.pow(2) - prior_log_var.exp()) * masks[:, t].unsqueeze(-1),
                 dim=-1,
             ).mean()
+            kl_dyn_loss_raw += kl_dyn
             if kl_dyn.item() > kl_min:
                 kl_dyn_loss += kl_dyn
             else:
@@ -344,6 +349,7 @@ class WorldModel(nn.Module):
                 (1 + post_log_var.squeeze(1) - prior_mean.pow(2) - post_log_var.exp()) * masks[:, t].unsqueeze(-1),
                 dim=-1,
             ).mean()
+            kl_rep_loss_raw += kl_rep
             if kl_rep.item() > kl_min:
                 kl_rep_loss += kl_rep
             else:
@@ -361,6 +367,8 @@ class WorldModel(nn.Module):
         recon_loss /= seq_len
         kl_dyn_loss /= seq_len
         kl_rep_loss /= seq_len
+        kl_dyn_loss_raw /= seq_len
+        kl_rep_loss_raw /= seq_len
         reward_loss /= seq_len
         termination_loss /= seq_len
 
@@ -383,6 +391,8 @@ class WorldModel(nn.Module):
             "recon_loss": recon_loss.item(),
             "kl_dyn_loss": kl_dyn_loss.item(),
             "kl_rep_loss": kl_rep_loss.item(),
+            "kl_dyn_loss_raw": kl_dyn_loss_raw.item(),  # Unadjusted dynamic KL loss
+            "kl_rep_loss_raw": kl_rep_loss_raw.item(),  # Unadjusted representation KL loss
             "reward_loss": reward_loss.item(),
             "termination_loss": termination_loss.item(),
         }
