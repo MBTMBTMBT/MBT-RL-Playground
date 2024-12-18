@@ -95,20 +95,18 @@ class GymDataset(Dataset):
 
 
 class ReplayBuffer:
-    def __init__(self, env, buffer_size: int, traj_len: int, frame_size=(64, 128), is_color=True):
+    def __init__(self, env, buffer_size: int, frame_size=(64, 128), is_color=True):
         """
         Replay Buffer to store transitions and sample minibatches.
 
         Args:
             env (gym.Env): Pre-created Gymnasium environment instance.
             buffer_size (int): Maximum number of transitions to store.
-            traj_len (int): Fixed length of trajectory segments for training.
             frame_size (tuple): Tuple specifying the height and width of the resized frames.
             is_color (bool): Whether the frames are in color.
         """
         self.env = env
         self.buffer_size = buffer_size
-        self.traj_len = traj_len
         self.frame_height, self.frame_width = frame_size
         self.is_color = is_color
 
@@ -135,21 +133,21 @@ class ReplayBuffer:
         self.current_index += 1
         self.size = min(self.size + 1, self.buffer_size)
 
-    def sample(self, batch_size):
+    def sample(self, batch_size, traj_len: int):
         """Sample a minibatch of trajectory segments."""
-        indices = np.random.randint(0, self.size - self.traj_len, size=batch_size)
+        indices = np.random.randint(0, self.size - traj_len, size=batch_size)
         batch = {key: [] for key in self.buffer}
 
-        masks = np.zeros((batch_size, self.traj_len), dtype=np.float32)
+        masks = np.zeros((batch_size, traj_len), dtype=np.float32)
         for i, start_idx in enumerate(indices):
             for key in self.buffer:
-                segment = self.buffer[key][start_idx : start_idx + self.traj_len]
+                segment = self.buffer[key][start_idx : start_idx + traj_len]
                 if key == "state" or key == "next_state":
                     segment = segment.transpose(0, 3, 1, 2) / 255.0
                 batch[key].append(segment)
 
             # Generate mask for valid data (no padding)
-            masks[i, :self.traj_len] = 1.0
+            masks[i, :traj_len] = 1.0
 
         # Convert list of arrays to a single numpy array
         batch = {key: np.stack(batch[key]) for key in batch}
