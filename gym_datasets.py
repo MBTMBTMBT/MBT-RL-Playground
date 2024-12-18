@@ -144,6 +144,8 @@ class ReplayBuffer:
         for i, start_idx in enumerate(indices):
             for key in self.buffer:
                 segment = self.buffer[key][start_idx : start_idx + self.traj_len]
+                if key == "state" or key == "next_state":
+                    segment = segment.transpose(0, 3, 1, 2)
                 batch[key].append(segment)
 
             # Generate mask for valid data (no padding)
