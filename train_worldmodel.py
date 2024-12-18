@@ -126,7 +126,7 @@ if __name__ == '__main__':
     rnn_latent_dim = 32
     rnn_layers = 2
     lr = 1e-4
-    num_epochs = 10
+    num_epochs = 20
     log_dir = "./experiments/worldmodel/logs"
     save_dir = "./experiments/worldmodel/checkpoints"
     os.makedirs(log_dir, exist_ok=True)
