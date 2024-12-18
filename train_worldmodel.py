@@ -103,7 +103,7 @@ if __name__ == '__main__':
     input_channels = 3
     ae_latent_dim = 16
     encoder_hidden_net_dims = [16, 32, 64, 128,]
-    rnn_latent_dim = 64
+    rnn_latent_dim = 32
     rnn_layers=1
     lr = 1e-4
     num_epochs = 10
