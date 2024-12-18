@@ -124,7 +124,6 @@ if __name__ == '__main__':
     ae_latent_dim = 16
     encoder_hidden_net_dims = [16, 32, 64, 128,]
     rnn_latent_dim = 32
-    rnn_layers = 2
     lr = 1e-4
     num_epochs = 20
     log_dir = "./experiments/worldmodel/logs"
@@ -171,7 +170,6 @@ if __name__ == '__main__':
         latent_dim=ae_latent_dim,
         action_dim=action_dim,
         rnn_hidden_dim=rnn_latent_dim,
-        rnn_layers=rnn_layers,
     )
 
     predictor = MultiHeadPredictor(

@@ -144,13 +144,13 @@ class Decoder(nn.Module):
 
 
 class RSSM(nn.Module):
-    def __init__(self, latent_dim, action_dim, rnn_hidden_dim, rnn_layers=1):
+    def __init__(self, latent_dim, action_dim, rnn_hidden_dim,):
         super(RSSM, self).__init__()
         self.latent_dim = latent_dim
         self.rnn_hidden_dim = rnn_hidden_dim
 
         # RNN
-        self.rnn = nn.GRU(latent_dim + action_dim, rnn_hidden_dim, rnn_layers, batch_first=True)
+        self.rnn = nn.GRU(latent_dim + action_dim, rnn_hidden_dim, 1, batch_first=True)
 
         # Prior and Posterior
         self.prior_fc = nn.Linear(rnn_hidden_dim, 2 * latent_dim)
