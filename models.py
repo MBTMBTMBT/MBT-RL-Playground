@@ -270,7 +270,7 @@ class WorldModel(nn.Module):
         )
         self.to(device)
 
-    def train_batch(self, batch, recon_weight=1.0, kl_dyn_weight=1.0, kl_rep_weight=0.1, reward_weight=1.0,
+    def train_batch(self, batch, start_t=3, recon_weight=1.0, kl_dyn_weight=1.0, kl_rep_weight=0.1, reward_weight=1.0,
                     termination_weight=1.0, kl_min=1.0):
         """
         Train the world model on a single batch.
@@ -283,6 +283,7 @@ class WorldModel(nn.Module):
                 - "reward": Rewards received (batch_size, seq_len, 1)
                 - "terminal": Termination flags (batch_size, seq_len, 1)
                 - "mask": Masks for valid steps (batch_size, seq_len)
+            start_t (int): The starting timestep to compute RSSM prediction-related losses.
             recon_weight (float): Weight for reconstruction loss.
             kl_dyn_weight (float): Weight for dynamic KL loss.
             kl_rep_weight (float): Weight for representation KL loss.
@@ -317,15 +318,21 @@ class WorldModel(nn.Module):
         kl_dyn_loss_raw = torch.tensor(0.0, device=self.device)
         kl_rep_loss_raw = torch.tensor(0.0, device=self.device)
 
+        # asset rssm is at least trained once
+        assert seq_len > start_t, "seq_len is too short."
+
         # Define time decay weights
-        time_weights = torch.linspace(1.0, 0.1, steps=seq_len, device=self.device)
+        if seq_len <= 4:
+            time_weights = torch.ones(seq_len, device=self.device)
+        else:
+            time_weights = torch.linspace(1.0, 0.1, steps=seq_len, device=self.device)
 
         for t in range(seq_len):
             # Encode the current observation
             latent = self.encoder(true_obs[:, t])
 
-            # First frame: Calculate reconstruction loss directly
-            if t == 0:
+            # Early time steps: Calculate reconstruction loss directly
+            if t < start_t:
                 recon_obs = self.decoder(latent)
                 recon_loss += self.pixel_loss(recon_obs, true_obs[:, t]) * time_weights[t]
 
@@ -334,6 +341,10 @@ class WorldModel(nn.Module):
                 latent.unsqueeze(1), true_actions[:, t].unsqueeze(1), rnn_hidden, observations=latent.unsqueeze(1)
             )
 
+            # do not compute loss from rssm prediction at the very beginning
+            if t < start_t:
+                continue
+
             # Reparameterize to sample latent
             sampled_latent = self.rssm.reparameterize(post_mean.squeeze(1), post_log_var.squeeze(1))
 
@@ -341,8 +352,7 @@ class WorldModel(nn.Module):
             recon_obs = self.decoder(sampled_latent)
 
             # Reconstruction loss against next observation
-            if t < seq_len - 1:  # Exclude the last frame
-                recon_loss += self.pixel_loss(recon_obs, next_obs[:, t]) * time_weights[t]
+            recon_loss += self.pixel_loss(recon_obs, next_obs[:, t]) * time_weights[t]
 
             # Compute dynamic KL loss
             kl_dyn = -0.5 * torch.sum(
