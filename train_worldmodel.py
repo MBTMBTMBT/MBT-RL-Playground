@@ -97,7 +97,7 @@ if __name__ == '__main__':
     batch_size = 16
     test_batch_size = 8
     buffer_size = 16384
-    traj_len = 128
+    traj_len = 96
     frame_size = (60, 80)
     is_color = True
     input_channels = 3
