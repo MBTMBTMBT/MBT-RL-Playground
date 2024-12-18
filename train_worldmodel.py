@@ -94,19 +94,19 @@ def add_gif_to_tensorboard(writer, gif_path, tag, global_step):
 
 
 if __name__ == '__main__':
-    batch_size = 8
+    batch_size = 16
     test_batch_size = 8
     buffer_size = 16384
-    traj_len = 64
+    traj_len = 128
     frame_size = (60, 80)
     is_color = True
     input_channels = 3
-    ae_latent_dim = 64
+    ae_latent_dim = 16
     encoder_hidden_net_dims = [16, 32, 64, 128,]
-    rnn_latent_dim = 128
+    rnn_latent_dim = 64
     rnn_layers=1
     lr = 1e-4
-    num_epochs = 50
+    num_epochs = 10
     log_dir = "./experiments/worldmodel/logs"
     save_dir = "./experiments/worldmodel/checkpoints"
     os.makedirs(log_dir, exist_ok=True)
