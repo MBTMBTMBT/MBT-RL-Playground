@@ -116,7 +116,7 @@ if __name__ == '__main__':
     batch_size = 16
     test_batch_size = 8
     buffer_size = 8192
-    data_repeat_times = 10
+    data_repeat_times = 5
     traj_len = 96
     frame_size = (60, 80)
     is_color = True
@@ -197,7 +197,7 @@ if __name__ == '__main__':
         total_reward_loss = 0
         total_termination_loss = 0
 
-        progress_bar = tqdm(range((buffer_size // batch_size) * 10), desc=f"Epoch {epoch + 1}/{num_epochs}")
+        progress_bar = tqdm(range((buffer_size // batch_size) * data_repeat_times), desc=f"Epoch {epoch + 1}/{num_epochs}")
 
         for step in progress_bar:
             batch = dataset.sample(batch_size=batch_size)
