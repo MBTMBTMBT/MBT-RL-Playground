@@ -180,13 +180,13 @@ class RSSM(nn.Module):
         rnn_output, rnn_hidden = self.rnn(x, rnn_hidden)  # (batch_size, seq_len, rnn_hidden_dim)
 
         # Compute prior distribution
-        prior = self.prior_fc(rnn_output)
+        prior = F.tanh(self.prior_fc(rnn_output))
         prior_mean, prior_log_var = torch.chunk(prior, 2, dim=-1)
 
         # Compute posterior distribution if observations are provided
         if observations is not None:
             obs_concat = torch.cat([rnn_output, observations], dim=-1)
-            posterior = self.posterior_fc(obs_concat)
+            posterior = F.tanh(self.posterior_fc(obs_concat))
             post_mean, post_log_var = torch.chunk(posterior, 2, dim=-1)
         else:
             post_mean, post_log_var = prior_mean, prior_log_var
