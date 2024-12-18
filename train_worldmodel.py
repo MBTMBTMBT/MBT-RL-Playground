@@ -7,14 +7,12 @@ import gymnasium as gym
 from gymnasium import make
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
-from PIL import Image
-import torchvision.transforms as transforms
 
 from gym_datasets import ReplayBuffer
 from models import RSSM, MultiHeadPredictor, WorldModel, Encoder, Decoder
 
 
-def generate_visualization_gif(world_model, test_batch, epoch, save_dir):
+def generate_visualization_gif(world_model, test_batch, epoch, save_dir, history_len=3):
     """
     Generates and saves a visualization GIF showing actual, predicted, and difference frames.
 
@@ -23,36 +21,56 @@ def generate_visualization_gif(world_model, test_batch, epoch, save_dir):
         test_batch (dict): A batch of test data.
         epoch (int): Current epoch number.
         save_dir (str): Directory to save the GIF.
+        history_len (int): Number of frames used as history to initialize the model.
 
     Returns:
         str: Path to the saved GIF.
     """
     with torch.no_grad():
-        true_obs = test_batch["state"]  # (batch_size, seq_len, channels, height, width)
-        true_obs = torch.tensor(true_obs, dtype=torch.float32, device=world_model.device)
+        # Extract test batch data
+        true_obs = torch.tensor(test_batch["state"], dtype=torch.float32, device=world_model.device)
+        true_actions = torch.tensor(test_batch["action"], dtype=torch.float32, device=world_model.device)
 
         batch_size, seq_len, channels, height, width = true_obs.size()
-        latents = []
 
-        for t in range(seq_len):
-            frame = true_obs[:, t]
-            latent = world_model.encoder(frame)
-            latents.append(latent)
+        # Initialize RNN hidden state
+        rnn_hidden = torch.zeros(1, batch_size, world_model.rssm.rnn_hidden_dim, device=world_model.device)
 
-        latents = torch.stack(latents, dim=1)
+        # Use initial frames to initialize RNN
+        for t in range(history_len):
+            # Encode observation to latent space
+            latent = world_model.encoder(true_obs[:, t])
+            # Pass latent and action through RSSM
+            _, _, _, _, rnn_hidden = world_model.rssm(
+                latent.unsqueeze(1), true_actions[:, t].unsqueeze(1), rnn_hidden
+            )
+
+        # Generate predictions for remaining frames
         recon_obs = []
+        current_latent = world_model.encoder(true_obs[:, history_len - 1])
 
-        for t in range(seq_len):
-            recon_frame = world_model.decoder(latents[:, t])
-            recon_obs.append(recon_frame)
+        for t in range(history_len, seq_len):
+            # Predict next latent state using RSSM prior
+            prior_mean, prior_log_var, _, _, rnn_hidden = world_model.rssm(
+                current_latent.unsqueeze(1), true_actions[:, t].unsqueeze(1), rnn_hidden
+            )
+            # Sample from the prior
+            sampled_latent = world_model.rssm.reparameterize(prior_mean.squeeze(1), prior_log_var.squeeze(1))
+            # Decode the predicted latent state
+            predicted_frame = world_model.decoder(sampled_latent)
+            recon_obs.append(predicted_frame)
 
+            # Update current latent for the next step
+            current_latent = sampled_latent
+
+        # Convert predictions and ground truth to numpy
         recon_obs = torch.stack(recon_obs, dim=1).cpu().numpy()
-        true_obs = true_obs.cpu().numpy()
+        true_obs = true_obs[:, history_len:].cpu().numpy()
         diff_obs = abs(true_obs - recon_obs)
 
+        # Combine frames for visualization
         combined_frames = []
-
-        for t in range(seq_len):
+        for t in range(seq_len - history_len):
             actual_row = np.concatenate([true_obs[i, t].transpose(1, 2, 0) for i in range(batch_size)], axis=1)
             predicted_row = np.concatenate([recon_obs[i, t].transpose(1, 2, 0) for i in range(batch_size)], axis=1)
             difference_row = np.concatenate([diff_obs[i, t].transpose(1, 2, 0) for i in range(batch_size)], axis=1)
@@ -60,6 +78,7 @@ def generate_visualization_gif(world_model, test_batch, epoch, save_dir):
             combined_frame = np.concatenate((actual_row, predicted_row, difference_row), axis=0)
             combined_frames.append((combined_frame * 255).astype(np.uint8))
 
+        # Save the GIF
         gif_path = f"{save_dir}/epoch_{epoch + 1}_visualization.gif"
         imageio.mimsave(gif_path, combined_frames, fps=5)
 
@@ -96,7 +115,8 @@ def add_gif_to_tensorboard(writer, gif_path, tag, global_step):
 if __name__ == '__main__':
     batch_size = 16
     test_batch_size = 8
-    buffer_size = 16384
+    buffer_size = 512
+    data_repeat_times = 10
     traj_len = 96
     frame_size = (60, 80)
     is_color = True
@@ -177,7 +197,7 @@ if __name__ == '__main__':
         total_reward_loss = 0
         total_termination_loss = 0
 
-        progress_bar = tqdm(range(buffer_size // batch_size), desc=f"Epoch {epoch + 1}/{num_epochs}")
+        progress_bar = tqdm(range((buffer_size // batch_size) * 10), desc=f"Epoch {epoch + 1}/{num_epochs}")
 
         for step in progress_bar:
             batch = dataset.sample(batch_size=batch_size)

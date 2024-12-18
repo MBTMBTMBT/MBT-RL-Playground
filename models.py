@@ -156,8 +156,17 @@ class RSSM(nn.Module):
         self.prior_fc = nn.Linear(rnn_hidden_dim, 2 * latent_dim)
         self.posterior_fc = nn.Linear(rnn_hidden_dim + latent_dim, 2 * latent_dim)
 
+    def reparameterize(self, mean, log_var):
+        """
+        Reparameterization trick to sample latent variables.
+        """
+        std = torch.exp(0.5 * log_var)
+        eps = torch.randn_like(std)
+        return mean + eps * std
+
     def forward(self, latents, actions, rnn_hidden, observations=None):
         """
+        Forward pass through RSSM.
         Args:
             latents: (batch_size, seq_len, latent_dim)
             actions: (batch_size, seq_len, action_dim)
@@ -165,29 +174,25 @@ class RSSM(nn.Module):
             observations: (batch_size, seq_len, latent_dim) or None
 
         Returns:
-            prior_mean, prior_log_var: (batch_size, seq_len, latent_dim)
-            post_mean, post_log_var: (batch_size, seq_len, latent_dim)
-            rnn_hidden: (num_layers, batch_size, rnn_hidden_dim)
+            prior_mean, prior_log_var, post_mean, post_log_var, rnn_hidden
         """
-        # Concatenate latent states and actions along the last dimension
         x = torch.cat([latents, actions], dim=-1)  # (batch_size, seq_len, latent_dim + action_dim)
+        rnn_output, rnn_hidden = self.rnn(x, rnn_hidden)  # (batch_size, seq_len, rnn_hidden_dim)
 
-        # Pass the concatenated sequence through the RNN
-        rnn_output, rnn_hidden = self.rnn(x, rnn_hidden)  # rnn_output: (batch_size, seq_len, rnn_hidden_dim)
-
-        # Compute Prior
-        prior = self.prior_fc(rnn_output)  # (batch_size, seq_len, 2 * latent_dim)
+        # Compute prior distribution
+        prior = self.prior_fc(rnn_output)
         prior_mean, prior_log_var = torch.chunk(prior, 2, dim=-1)
 
-        # Compute Posterior (if observations are provided)
+        # Compute posterior distribution if observations are provided
         if observations is not None:
-            obs_concat = torch.cat([rnn_output, observations], dim=-1)  # (batch_size, seq_len, rnn_hidden_dim + latent_dim)
-            posterior = self.posterior_fc(obs_concat)  # (batch_size, seq_len, 2 * latent_dim)
+            obs_concat = torch.cat([rnn_output, observations], dim=-1)
+            posterior = self.posterior_fc(obs_concat)
             post_mean, post_log_var = torch.chunk(posterior, 2, dim=-1)
         else:
             post_mean, post_log_var = prior_mean, prior_log_var
 
         return prior_mean, prior_log_var, post_mean, post_log_var, rnn_hidden
+
 
 
 class MultiHeadPredictor(nn.Module):
@@ -283,10 +288,11 @@ class WorldModel(nn.Module):
             reward_weight (float): Weight for reward prediction loss.
             termination_weight (float): Weight for termination prediction loss.
             kl_min (float): Minimum threshold for KL loss to be included.
+
         Returns:
-            total_loss (float): The total loss for the batch.
+            dict: Losses computed during training.
         """
-        # Convert batch data to PyTorch tensors
+        # Convert batch data to tensors
         true_obs = torch.tensor(batch["state"], dtype=torch.float32, device=self.device)
         true_actions = torch.tensor(batch["action"], dtype=torch.float32, device=self.device)
         true_rewards = torch.tensor(batch["reward"], dtype=torch.float32, device=self.device)
@@ -296,91 +302,75 @@ class WorldModel(nn.Module):
         # Initialize RNN hidden state
         rnn_hidden = torch.zeros(1, true_obs.size(0), self.rssm.rnn_hidden_dim, device=self.device)
 
-        # Step-by-step encoding for observations
-        batch_size, seq_len, channels, height, width = true_obs.size()
-        latents = []
-        for t in range(seq_len):
-            frame = true_obs[:, t]  # Extract a single frame (batch_size, channels, height, width)
-            latent = self.encoder(frame)  # Encode the frame to latent representation
-            latents.append(latent)
+        batch_size, seq_len, _, _, _ = true_obs.size()
 
-        # Stack latents along the sequence dimension
-        latents = torch.stack(latents, dim=1)
-
-        # RSSM forward pass (compute prior and posterior)
-        prior_mean, prior_log_var, post_mean, post_log_var, rnn_hidden = self.rssm(
-            latents, true_actions, rnn_hidden, observations=latents
-        )
-
-        # Step-by-step decoding from latents
-        recon_obs = []
-        for t in range(seq_len):
-            recon_frame = self.decoder(latents[:, t])  # Decode latent representation back to observation
-            recon_obs.append(recon_frame)
-
-        # Stack reconstructed frames
-        recon_obs = torch.stack(recon_obs, dim=1)
-
-        # Multi-head Predictor for reward and termination
-        rnn_output, _ = self.rssm.rnn(torch.cat([latents, true_actions], dim=-1), rnn_hidden)
-
-        # Compute losses for each time step
-        recon_loss_per_t = []
-        kl_dyn_loss_per_t = []
-        kl_rep_loss_per_t = []
-        reward_loss_per_t = []
-        termination_loss_per_t = []
-
-        # Define time decay weights
-        time_weights = torch.linspace(1.0, 0.1, steps=seq_len, device=self.device)
+        # Initialize loss accumulators as tensors on the correct device
+        recon_loss = torch.tensor(0.0, device=self.device)
+        kl_dyn_loss = torch.tensor(0.0, device=self.device)
+        kl_rep_loss = torch.tensor(0.0, device=self.device)
+        reward_loss = torch.tensor(0.0, device=self.device)
+        termination_loss = torch.tensor(0.0, device=self.device)
 
         for t in range(seq_len):
-            # Reconstruction loss
-            recon_loss_t = (self.pixel_loss(recon_obs[:, t], true_obs[:, t]) * masks[:, t])  # .unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)).mean()
-            recon_loss_per_t.append(recon_loss_t * time_weights[t])
+            # Encode observation into latent space
+            latent = self.encoder(true_obs[:, t])
 
-            # Dynamic KL loss
-            kl_dyn_loss_t = -0.5 * torch.sum(
-                (1 + prior_log_var[:, t] - post_mean[:, t].pow(2) - prior_log_var[:, t].exp()) *
-                masks[:, t].unsqueeze(-1), dim=-1
+            # Compute RSSM outputs
+            prior_mean, prior_log_var, post_mean, post_log_var, rnn_hidden = self.rssm(
+                latent.unsqueeze(1), true_actions[:, t].unsqueeze(1), rnn_hidden, observations=latent.unsqueeze(1)
+            )
+
+            # Reparameterize to sample latent
+            sampled_latent = self.rssm.reparameterize(post_mean.squeeze(1), post_log_var.squeeze(1))
+
+            # Decode reconstructed observation
+            recon_obs = self.decoder(sampled_latent)
+
+            # Compute reconstruction loss
+            recon_loss += F.mse_loss(recon_obs, true_obs[:, t], reduction="none").mean()
+
+            # Compute dynamic KL loss
+            kl_dyn = -0.5 * torch.sum(
+                (1 + prior_log_var.squeeze(1) - post_mean.pow(2) - prior_log_var.exp()) * masks[:, t].unsqueeze(-1),
+                dim=-1,
             ).mean()
-            kl_dyn_loss_t = max(kl_dyn_loss_t.item(), kl_min)
-            kl_dyn_loss_per_t.append(kl_dyn_loss_t * time_weights[t])
+            if kl_dyn.item() > kl_min:
+                kl_dyn_loss += kl_dyn
+            else:
+                kl_dyn_loss += 0.0
 
-            # Representation KL loss
-            kl_rep_loss_t = -0.5 * torch.sum(
-                (1 + post_log_var[:, t] - prior_mean[:, t].pow(2) - post_log_var[:, t].exp()) *
-                masks[:, t].unsqueeze(-1), dim=-1
+            # Compute representation KL loss
+            kl_rep = -0.5 * torch.sum(
+                (1 + post_log_var.squeeze(1) - prior_mean.pow(2) - post_log_var.exp()) * masks[:, t].unsqueeze(-1),
+                dim=-1,
             ).mean()
-            kl_rep_loss_t = max(kl_rep_loss_t.item(), kl_min)
-            kl_rep_loss_per_t.append(kl_rep_loss_t * time_weights[t])
+            if kl_rep.item() > kl_min:
+                kl_rep_loss += kl_rep
+            else:
+                kl_rep_loss += 0.0
 
-            # Reward and termination prediction losses using predictor
-            predicted_reward_t, predicted_termination_t = self.predictor(rnn_output[:, t])
+            # Multi-head predictor losses
+            predicted_reward, predicted_termination = self.predictor(rnn_hidden.squeeze(0))
 
-            # Reward prediction loss
-            reward_loss_t = (F.mse_loss(predicted_reward_t, true_rewards[:, t], reduction="none") * masks[:, t]).mean()
-            reward_loss_per_t.append(reward_loss_t * time_weights[t])
+            reward_loss += F.mse_loss(predicted_reward, true_rewards[:, t].squeeze(), reduction="mean")
+            termination_loss += F.binary_cross_entropy_with_logits(
+                predicted_termination, true_terminations[:, t].squeeze(), reduction="mean"
+            )
 
-            # Termination prediction loss
-            termination_loss_t = (F.binary_cross_entropy_with_logits(predicted_termination_t, true_terminations[:, t],
-                                                                     reduction="none") * masks[:, t]).mean()
-            termination_loss_per_t.append(termination_loss_t * time_weights[t])
-
-        # Time-step-wise averaging
-        recon_loss = torch.mean(torch.stack(recon_loss_per_t))
-        kl_dyn_loss = torch.mean(torch.stack(kl_dyn_loss_per_t))
-        kl_rep_loss = torch.mean(torch.stack(kl_rep_loss_per_t))
-        reward_loss = torch.mean(torch.stack(reward_loss_per_t))
-        termination_loss = torch.mean(torch.stack(termination_loss_per_t))
+        # Normalize losses by sequence length
+        recon_loss /= seq_len
+        kl_dyn_loss /= seq_len
+        kl_rep_loss /= seq_len
+        reward_loss /= seq_len
+        termination_loss /= seq_len
 
         # Total loss
         total_loss = (
-                recon_weight * recon_loss +
-                kl_dyn_weight * kl_dyn_loss +
-                kl_rep_weight * kl_rep_loss +
-                reward_weight * reward_loss +
-                termination_weight * termination_loss
+                recon_weight * recon_loss
+                + kl_dyn_weight * kl_dyn_loss
+                + kl_rep_weight * kl_rep_loss
+                + reward_weight * reward_loss
+                + termination_weight * termination_loss
         )
 
         # Backpropagation
@@ -394,5 +384,5 @@ class WorldModel(nn.Module):
             "kl_dyn_loss": kl_dyn_loss.item(),
             "kl_rep_loss": kl_rep_loss.item(),
             "reward_loss": reward_loss.item(),
-            "termination_loss": termination_loss.item()
+            "termination_loss": termination_loss.item(),
         }
