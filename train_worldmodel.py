@@ -121,9 +121,9 @@ if __name__ == '__main__':
     frame_size = (60, 80)
     is_color = True
     input_channels = 3
-    ae_latent_dim = 16
+    ae_latent_dim = 32
     encoder_hidden_net_dims = [16, 32, 64, 128,]
-    rnn_latent_dim = 32
+    rnn_latent_dim = 64
     lr = 1e-4
     num_epochs = 20
     log_dir = "./experiments/worldmodel/logs"
@@ -210,18 +210,19 @@ if __name__ == '__main__':
             total_termination_loss += losses["termination_loss"]
 
             # Write batch losses to TensorBoard
-            writer.add_scalar("Loss/Total", losses["total_loss"], epoch * (buffer_size // batch_size) + step)
-            writer.add_scalar("Loss/Reconstruction", losses["recon_loss"], epoch * (buffer_size // batch_size) + step)
-            writer.add_scalar("Loss/KL_Dynamic", losses["kl_dyn_loss"], epoch * (buffer_size // batch_size) + step)
+            previous_steps = epoch * (buffer_size // batch_size) * data_repeat_times
+            writer.add_scalar("Loss/Total", losses["total_loss"], previous_steps + step)
+            writer.add_scalar("Loss/Reconstruction", losses["recon_loss"], previous_steps + step)
+            writer.add_scalar("Loss/KL_Dynamic", losses["kl_dyn_loss"], previous_steps + step)
             writer.add_scalar("Loss/KL_Representation", losses["kl_rep_loss"],
-                              epoch * (buffer_size // batch_size) + step)
+                              previous_steps + step)
             writer.add_scalar("Loss/KL_Dynamic_Raw", losses["kl_dyn_loss_raw"],
-                              epoch * (buffer_size // batch_size) + step)
+                              previous_steps + step)
             writer.add_scalar("Loss/KL_Representation_Raw", losses["kl_rep_loss_raw"],
-                              epoch * (buffer_size // batch_size) + step)
-            writer.add_scalar("Loss/Reward", losses["reward_loss"], epoch * (buffer_size // batch_size) + step)
+                              previous_steps + step)
+            writer.add_scalar("Loss/Reward", losses["reward_loss"], previous_steps + step)
             writer.add_scalar("Loss/Termination", losses["termination_loss"],
-                              epoch * (buffer_size // batch_size) + step)
+                              previous_steps + step)
 
             # Update progress bar with detailed losses
             progress_bar.set_postfix({
