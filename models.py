@@ -325,7 +325,8 @@ class WorldModel(nn.Module):
         if seq_len <= 4:
             time_weights = torch.ones(seq_len, device=self.device)
         else:
-            time_weights = torch.linspace(1.0, 0.5, steps=seq_len, device=self.device)
+            time_weights = torch.ones(seq_len, device=self.device)
+            time_weights[4:] = torch.linspace(1.0, 0.5, steps=seq_len - 4, device=self.device)
 
         for t in range(seq_len):
             # Encode the current observation
