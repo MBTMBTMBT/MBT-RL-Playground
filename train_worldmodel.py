@@ -36,11 +36,14 @@ def generate_visualization_gif(world_model, test_batch, epoch, save_dir, history
         # Initialize RNN hidden state
         rnn_hidden = torch.zeros(1, batch_size, world_model.rssm.rnn_hidden_dim, device=world_model.device)
 
-        # Use initial frames to initialize RNN
+        # Decode the initial history frames
+        recon_history = []
         for t in range(history_len):
-            # Encode observation to latent space
             latent = world_model.encoder(true_obs[:, t])
-            # Pass latent and action through RSSM
+            recon_frame = world_model.decoder(latent)
+            recon_history.append(recon_frame.unsqueeze(1))
+
+            # Pass through RSSM to initialize RNN hidden state
             _, _, _, _, rnn_hidden = world_model.rssm(
                 latent.unsqueeze(1), true_actions[:, t].unsqueeze(1), rnn_hidden
             )
@@ -58,19 +61,19 @@ def generate_visualization_gif(world_model, test_batch, epoch, save_dir, history
             sampled_latent = world_model.rssm.reparameterize(prior_mean.squeeze(1), prior_log_var.squeeze(1))
             # Decode the predicted latent state
             predicted_frame = world_model.decoder(sampled_latent)
-            recon_obs.append(predicted_frame)
+            recon_obs.append(predicted_frame.unsqueeze(1))
 
             # Update current latent for the next step
             current_latent = sampled_latent
 
-        # Convert predictions and ground truth to numpy
-        recon_obs = torch.stack(recon_obs, dim=1).cpu().numpy()
-        true_obs = true_obs[:, history_len:].cpu().numpy()
-        diff_obs = abs(true_obs - recon_obs)
+        # Combine history and predictions
+        recon_obs = torch.cat(recon_history + recon_obs, dim=1).cpu().numpy()
+        true_obs = true_obs.cpu().numpy()
+        diff_obs = abs(true_obs[:, :recon_obs.shape[1]] - recon_obs)
 
         # Combine frames for visualization
         combined_frames = []
-        for t in range(seq_len - history_len):
+        for t in range(recon_obs.shape[1]):
             actual_row = np.concatenate([true_obs[i, t].transpose(1, 2, 0) for i in range(batch_size)], axis=1)
             predicted_row = np.concatenate([recon_obs[i, t].transpose(1, 2, 0) for i in range(batch_size)], axis=1)
             difference_row = np.concatenate([diff_obs[i, t].transpose(1, 2, 0) for i in range(batch_size)], axis=1)
@@ -113,16 +116,17 @@ def add_gif_to_tensorboard(writer, gif_path, tag, global_step):
 
 
 if __name__ == '__main__':
-    batch_size = 16
+    batch_size = 8
     test_batch_size = 8
     buffer_size = 8192
-    data_repeat_times = 5
-    traj_len = 96
+    data_repeat_times = 10
+    traj_len_start = 4
+    traj_len_end = 64
     frame_size = (60, 80)
     is_color = True
     input_channels = 3
     ae_latent_dim = 32
-    encoder_hidden_net_dims = [16, 32, 64, 128,]
+    encoder_hidden_net_dims = [32, 64, 128, 256]
     rnn_latent_dim = 64
     lr = 1e-4
     num_epochs = 20
@@ -147,7 +151,6 @@ if __name__ == '__main__':
     dataset = ReplayBuffer(
         env=env,
         buffer_size=buffer_size,
-        traj_len=traj_len,
         frame_size=frame_size,
         is_color=is_color,
     )
@@ -185,8 +188,11 @@ if __name__ == '__main__':
         device=device,
     )
 
+    traj_lens = np.linspace(traj_len_start, traj_len_end, num=num_epochs, dtype=int)
+
+    # step_count = 0
     # Training Loop
-    for epoch in range(num_epochs):
+    for epoch, traj_len in zip(range(num_epochs), traj_lens):
         dataset.collect_samples(num_samples=buffer_size)
         total_loss = 0
         total_recon_loss = 0
@@ -195,10 +201,13 @@ if __name__ == '__main__':
         total_reward_loss = 0
         total_termination_loss = 0
 
-        progress_bar = tqdm(range((buffer_size // batch_size) * data_repeat_times), desc=f"Epoch {epoch + 1}/{num_epochs}")
+        progress_bar = tqdm(
+            range((buffer_size // batch_size) * data_repeat_times),  #  * int(traj_len_end // traj_len)
+            desc=f"Epoch {epoch + 1}/{num_epochs}, traj_len={int(traj_len)}",
+        )
 
         for step in progress_bar:
-            batch = dataset.sample(batch_size=batch_size)
+            batch = dataset.sample(batch_size=batch_size, traj_len=int(traj_len),)
             losses = world_model.train_batch(batch)
 
             # Update total losses
@@ -228,13 +237,15 @@ if __name__ == '__main__':
             progress_bar.set_postfix({
                 "Total Loss": f"{losses['total_loss']:.4f}",
                 "Recon Loss": f"{losses['recon_loss']:.4f}",
-                "KL Dyn Loss": f"{losses['kl_dyn_loss']:.4f}",
-                "KL Rep Loss": f"{losses['kl_rep_loss']:.4f}",
-                "KL Dyn Raw": f"{losses['kl_dyn_loss_raw']:.4f}",
-                "KL Rep Raw": f"{losses['kl_rep_loss_raw']:.4f}",
+                "KL Dyn Loss": f"{losses['kl_dyn_loss']:.2f}",
+                "KL Rep Loss": f"{losses['kl_rep_loss']:.2f}",
+                "KL Dyn Raw": f"{losses['kl_dyn_loss_raw']:.2f}",
+                "KL Rep Raw": f"{losses['kl_rep_loss_raw']:.2f}",
                 "Reward Loss": f"{losses['reward_loss']:.4f}",
                 "Termination Loss": f"{losses['termination_loss']:.4f}",
             })
+
+            # step_count += 1
 
         # Compute average losses for the epoch
         num_batches = buffer_size // batch_size
@@ -263,7 +274,7 @@ if __name__ == '__main__':
         print(f"    Avg Termination Loss: {avg_termination_loss:.4f}")
 
         # Generate test batch and save visualization GIF
-        test_batch = dataset.sample(batch_size=test_batch_size)
+        test_batch = dataset.sample(batch_size=test_batch_size, traj_len=int(traj_len),)
         gif_path = generate_visualization_gif(world_model, test_batch, epoch, save_dir)
 
         # Add GIF as a video to TensorBoard
