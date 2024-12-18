@@ -9,14 +9,14 @@ from gym_datasets import ReplayBuffer
 from models import RSSM, MultiHeadPredictor, WorldModel, Encoder, Decoder
 
 if __name__ == '__main__':
-    batch_size = 32
-    buffer_size = 8192
-    traj_len = 64
-    frame_size = (96, 128)
+    batch_size = 8
+    buffer_size = 1024
+    traj_len = 16
+    frame_size = (60, 80)
     is_color = True
     input_channels = 3
     ae_latent_dim = 64
-    encoder_hidden_net_dims = [256, 512, 1024, 2048]
+    encoder_hidden_net_dims = [128, 256,]
     rnn_latent_dim = 256
     rnn_layers=1
     lr = 1e-4
@@ -78,6 +78,7 @@ if __name__ == '__main__':
         rssm=rssm,
         predictor=predictor,
         lr=lr,
+        device=device,
     )
 
     dataset.collect_samples(num_samples=buffer_size)
