@@ -2,6 +2,8 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
+from losses import FlexibleThresholdedLoss
+
 
 class ResidualBlock(nn.Module):
     def __init__(self, in_channels, out_channels, stride=1, downsample=None):
@@ -250,9 +252,20 @@ class WorldModel(nn.Module):
         self.predictor = predictor
         self.optimizer = torch.optim.Adam(self.parameters(), lr=lr)
         self.device = device
+        self.pixel_loss = FlexibleThresholdedLoss(
+            use_mse_threshold=True,
+            use_mae_threshold=True,
+            reduction='mean',
+            l1_weight=1.0,
+            l2_weight=1.0,
+            threshold_weight=1.0,
+            non_threshold_weight=1.0,
+            mse_clip_ratio=1.0,
+            mae_clip_ratio=1.0,
+        )
         self.to(device)
 
-    def train_batch(self, batch, recon_weight=1.0, kl_dyn_weight=0.1, kl_rep_weight=0.1, reward_weight=1.0,
+    def train_batch(self, batch, recon_weight=1.0, kl_dyn_weight=1.0, kl_rep_weight=0.1, reward_weight=1.0,
                     termination_weight=1.0, kl_min=1.0):
         """
         Train the world model on a single batch.
@@ -310,47 +323,64 @@ class WorldModel(nn.Module):
 
         # Multi-head Predictor for reward and termination
         rnn_output, _ = self.rssm.rnn(torch.cat([latents, true_actions], dim=-1), rnn_hidden)
-        predicted_rewards, predicted_terminations = self.predictor(rnn_output)
 
-        # Compute losses
-        recon_loss = (F.mse_loss(recon_obs, true_obs, reduction="none") * masks.unsqueeze(-1).unsqueeze(-1).unsqueeze(
-            -1)).mean()
+        # Compute losses for each time step
+        recon_loss_per_t = []
+        kl_dyn_loss_per_t = []
+        kl_rep_loss_per_t = []
+        reward_loss_per_t = []
+        termination_loss_per_t = []
 
-        kl_dyn_loss = -0.5 * torch.sum(
-            (1 + prior_log_var - post_mean.pow(2) - prior_log_var.exp()) * masks.unsqueeze(-1), dim=[1, 2]
-        ).mean()
+        # Define time decay weights
+        time_weights = torch.linspace(1.0, 0.1, steps=seq_len, device=self.device)
 
-        kl_rep_loss = -0.5 * torch.sum(
-            (1 + post_log_var - prior_mean.pow(2) - post_log_var.exp()) * masks.unsqueeze(-1), dim=[1, 2]
-        ).mean()
+        for t in range(seq_len):
+            # Reconstruction loss
+            recon_loss_t = (self.pixel_loss(recon_obs[:, t], true_obs[:, t]) * masks[:, t])  # .unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)).mean()
+            recon_loss_per_t.append(recon_loss_t * time_weights[t])
 
-        reward_loss = (F.mse_loss(predicted_rewards, true_rewards, reduction="none") * masks).mean()
-        termination_loss = (F.binary_cross_entropy_with_logits(predicted_terminations, true_terminations,
-                                                               reduction="none") * masks).mean()
+            # Dynamic KL loss
+            kl_dyn_loss_t = -0.5 * torch.sum(
+                (1 + prior_log_var[:, t] - post_mean[:, t].pow(2) - prior_log_var[:, t].exp()) *
+                masks[:, t].unsqueeze(-1), dim=-1
+            ).mean()
+            kl_dyn_loss_t = max(kl_dyn_loss_t.item(), kl_min)
+            kl_dyn_loss_per_t.append(kl_dyn_loss_t * time_weights[t])
 
-        # KL Loss lower bound
-        if kl_dyn_loss.item() < kl_min:
-            kl_dyn_loss = torch.tensor(0.0, device=self.device)
-        if kl_rep_loss.item() < kl_min:
-            kl_rep_loss = torch.tensor(0.0, device=self.device)
+            # Representation KL loss
+            kl_rep_loss_t = -0.5 * torch.sum(
+                (1 + post_log_var[:, t] - prior_mean[:, t].pow(2) - post_log_var[:, t].exp()) *
+                masks[:, t].unsqueeze(-1), dim=-1
+            ).mean()
+            kl_rep_loss_t = max(kl_rep_loss_t.item(), kl_min)
+            kl_rep_loss_per_t.append(kl_rep_loss_t * time_weights[t])
 
-        # Compute time-step weights
-        time_weights = torch.linspace(1.0, 0.1, steps=seq_len, device=self.device).unsqueeze(0).repeat(batch_size, 1)
+            # Reward and termination prediction losses using predictor
+            predicted_reward_t, predicted_termination_t = self.predictor(rnn_output[:, t])
 
-        # Apply time-step weights
-        weighted_recon_loss = (time_weights * recon_loss).mean()
-        weighted_kl_dyn_loss = (time_weights * kl_dyn_loss).mean()
-        weighted_kl_rep_loss = (time_weights * kl_rep_loss).mean()
-        weighted_reward_loss = (time_weights * reward_loss).mean()
-        weighted_termination_loss = (time_weights * termination_loss).mean()
+            # Reward prediction loss
+            reward_loss_t = (F.mse_loss(predicted_reward_t, true_rewards[:, t], reduction="none") * masks[:, t]).mean()
+            reward_loss_per_t.append(reward_loss_t * time_weights[t])
+
+            # Termination prediction loss
+            termination_loss_t = (F.binary_cross_entropy_with_logits(predicted_termination_t, true_terminations[:, t],
+                                                                     reduction="none") * masks[:, t]).mean()
+            termination_loss_per_t.append(termination_loss_t * time_weights[t])
+
+        # Time-step-wise averaging
+        recon_loss = torch.mean(torch.stack(recon_loss_per_t))
+        kl_dyn_loss = torch.mean(torch.stack(kl_dyn_loss_per_t))
+        kl_rep_loss = torch.mean(torch.stack(kl_rep_loss_per_t))
+        reward_loss = torch.mean(torch.stack(reward_loss_per_t))
+        termination_loss = torch.mean(torch.stack(termination_loss_per_t))
 
         # Total loss
         total_loss = (
-                recon_weight * weighted_recon_loss +
-                kl_dyn_weight * weighted_kl_dyn_loss +
-                kl_rep_weight * weighted_kl_rep_loss +
-                reward_weight * weighted_reward_loss +
-                termination_weight * weighted_termination_loss
+                recon_weight * recon_loss +
+                kl_dyn_weight * kl_dyn_loss +
+                kl_rep_weight * kl_rep_loss +
+                reward_weight * reward_loss +
+                termination_weight * termination_loss
         )
 
         # Backpropagation
@@ -358,4 +388,11 @@ class WorldModel(nn.Module):
         total_loss.backward()
         self.optimizer.step()
 
-        return total_loss
+        return {
+            "total_loss": total_loss.item(),
+            "recon_loss": recon_loss.item(),
+            "kl_dyn_loss": kl_dyn_loss.item(),
+            "kl_rep_loss": kl_rep_loss.item(),
+            "reward_loss": reward_loss.item(),
+            "termination_loss": termination_loss.item()
+        }
