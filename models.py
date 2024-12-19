@@ -346,7 +346,10 @@ class WorldModel(nn.Module):
 
             # Compute RSSM outputs
             prior_mean, prior_log_var, post_mean, post_log_var, rnn_hidden = self.rssm(
-                latent.unsqueeze(1), true_actions[:, t].unsqueeze(1), rnn_hidden, observations=latent.unsqueeze(1)
+                latent.unsqueeze(1),
+                true_actions[:, t].unsqueeze(1),
+                rnn_hidden,
+                observations=latent.unsqueeze(1) if t < start_t else None,
             )
 
             # do not compute loss from rssm prediction at the very beginning

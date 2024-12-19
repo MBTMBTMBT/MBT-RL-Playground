@@ -127,7 +127,7 @@ if __name__ == '__main__':
     input_channels = 3
     ae_latent_dim = 32
     encoder_hidden_net_dims = [32, 64, 128, 256]
-    rnn_layers=3
+    rnn_layers = 1
     rnn_latent_dim = 64
     lr = 1e-4
     num_epochs = 20
@@ -210,7 +210,7 @@ if __name__ == '__main__':
 
         for step in progress_bar:
             batch = dataset.sample(batch_size=batch_size, traj_len=int(traj_len),)
-            losses = world_model.train_batch(batch)
+            losses = world_model.train_batch(batch, kl_min=1.0 * rnn_latent_dim * rnn_layers,)
 
             # Update total losses
             total_loss += losses["total_loss"]
@@ -237,14 +237,14 @@ if __name__ == '__main__':
 
             # Update progress bar with detailed losses
             progress_bar.set_postfix({
-                "Total Loss": f"{losses['total_loss']:.4f}",
-                "Recon Loss": f"{losses['recon_loss']:.4f}",
-                "KL Dyn Loss": f"{losses['kl_dyn_loss']:.2f}",
-                "KL Rep Loss": f"{losses['kl_rep_loss']:.2f}",
-                "KL Dyn Raw": f"{losses['kl_dyn_loss_raw']:.2f}",
-                "KL Rep Raw": f"{losses['kl_rep_loss_raw']:.2f}",
-                "Reward Loss": f"{losses['reward_loss']:.4f}",
-                "Termination Loss": f"{losses['termination_loss']:.4f}",
+                "Total": f"{losses['total_loss']:.4f}",
+                "Recon": f"{losses['recon_loss']:.4f}",
+                "KLDyn": f"{losses['kl_dyn_loss']:.2f}",
+                "KLRep": f"{losses['kl_rep_loss']:.2f}",
+                "KLDynRaw": f"{losses['kl_dyn_loss_raw']:.2f}",
+                "KLRepRaw": f"{losses['kl_rep_loss_raw']:.2f}",
+                "Reward": f"{losses['reward_loss']:.4f}",
+                "Termination": f"{losses['termination_loss']:.4f}",
             })
 
             # step_count += 1
