@@ -118,9 +118,9 @@ def add_gif_to_tensorboard(writer, gif_path, tag, global_step):
 if __name__ == '__main__':
     batch_size = 8
     test_batch_size = 8
-    buffer_size = 128
-    data_repeat_times = 1
-    traj_len_start = 4
+    buffer_size = 8192
+    data_repeat_times = 50
+    traj_len_start = 6
     traj_len_end = 32
     frame_size = (60, 80)
     is_color = True
