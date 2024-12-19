@@ -83,7 +83,7 @@ def generate_visualization_gif(world_model, test_batch, epoch, save_dir, history
 
         # Save the GIF
         gif_path = f"{save_dir}/epoch_{epoch + 1}_visualization.gif"
-        imageio.mimsave(gif_path, combined_frames, fps=5)
+        imageio.mimsave(gif_path, combined_frames, fps=1)
 
         return gif_path
 
@@ -178,7 +178,7 @@ if __name__ == '__main__':
     )
 
     predictor = MultiHeadPredictor(
-        rnn_hidden_dim=rnn_latent_dim,
+        rnn_hidden_dim=rnn_latent_dim * rnn_layers,
     )
 
     world_model = WorldModel(

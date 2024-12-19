@@ -385,7 +385,8 @@ class WorldModel(nn.Module):
                 kl_rep_loss += 0.0
 
             # Multi-head predictor losses
-            predicted_reward, predicted_termination = self.predictor(rnn_hidden[-1])
+            combined_hidden = rnn_hidden.permute(1, 0, 2).reshape(batch_size, -1)  # Flatten layers
+            predicted_reward, predicted_termination = self.predictor(combined_hidden)
 
             reward_loss += F.mse_loss(
                 predicted_reward, true_rewards[:, t].squeeze(), reduction="mean"
