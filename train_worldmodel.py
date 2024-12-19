@@ -119,7 +119,7 @@ if __name__ == '__main__':
     batch_size = 8
     test_batch_size = 8
     buffer_size = 8192
-    data_repeat_times = 50
+    data_repeat_times = 100
     traj_len_start = 6
     traj_len_end = 32
     frame_size = (60, 80)
