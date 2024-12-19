@@ -34,7 +34,7 @@ def generate_visualization_gif(world_model, test_batch, epoch, save_dir, history
         batch_size, seq_len, channels, height, width = true_obs.size()
 
         # Initialize RNN hidden state
-        rnn_hidden = torch.zeros(1, batch_size, world_model.rssm.rnn_hidden_dim, device=world_model.device)
+        rnn_hidden = torch.zeros(world_model.rssm.num_rnn_layers, batch_size, world_model.rssm.rnn_hidden_dim, device=world_model.device)
 
         # Decode the initial history frames
         recon_history = []
@@ -119,14 +119,15 @@ if __name__ == '__main__':
     batch_size = 8
     test_batch_size = 8
     buffer_size = 8192
-    data_repeat_times = 25
+    data_repeat_times = 50
     traj_len_start = 4
-    traj_len_end = 64
+    traj_len_end = 32
     frame_size = (60, 80)
     is_color = True
     input_channels = 3
     ae_latent_dim = 32
     encoder_hidden_net_dims = [32, 64, 128, 256]
+    rnn_layers=3
     rnn_latent_dim = 64
     lr = 1e-4
     num_epochs = 20
@@ -173,6 +174,7 @@ if __name__ == '__main__':
         latent_dim=ae_latent_dim,
         action_dim=action_dim,
         rnn_hidden_dim=rnn_latent_dim,
+        num_rnn_layers=rnn_layers,
     )
 
     predictor = MultiHeadPredictor(

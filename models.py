@@ -144,13 +144,14 @@ class Decoder(nn.Module):
 
 
 class RSSM(nn.Module):
-    def __init__(self, latent_dim, action_dim, rnn_hidden_dim,):
+    def __init__(self, latent_dim, action_dim, rnn_hidden_dim, num_rnn_layers=1):
         super(RSSM, self).__init__()
         self.latent_dim = latent_dim
         self.rnn_hidden_dim = rnn_hidden_dim
+        self.num_rnn_layers = num_rnn_layers
 
         # RNN
-        self.rnn = nn.GRU(latent_dim + action_dim, rnn_hidden_dim, 1, batch_first=True)
+        self.rnn = nn.GRU(latent_dim + action_dim, rnn_hidden_dim, num_rnn_layers, batch_first=True)
 
         # Prior and Posterior
         self.prior_fc = nn.Linear(rnn_hidden_dim, 2 * latent_dim)
@@ -303,7 +304,12 @@ class WorldModel(nn.Module):
         masks = torch.tensor(batch["mask"], dtype=torch.float32, device=self.device)
 
         # Initialize RNN hidden state
-        rnn_hidden = torch.zeros(1, true_obs.size(0), self.rssm.rnn_hidden_dim, device=self.device)
+        rnn_hidden = torch.zeros(
+            self.rssm.num_rnn_layers,  # Multiple layers
+            true_obs.size(0),  # Batch size
+            self.rssm.rnn_hidden_dim,
+            device=self.device
+        )
 
         batch_size, seq_len, _, _, _ = true_obs.size()
 
@@ -379,7 +385,7 @@ class WorldModel(nn.Module):
                 kl_rep_loss += 0.0
 
             # Multi-head predictor losses
-            predicted_reward, predicted_termination = self.predictor(rnn_hidden.squeeze(0))
+            predicted_reward, predicted_termination = self.predictor(rnn_hidden[-1])
 
             reward_loss += F.mse_loss(
                 predicted_reward, true_rewards[:, t].squeeze(), reduction="mean"
