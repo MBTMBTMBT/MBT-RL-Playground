@@ -276,7 +276,7 @@ if __name__ == '__main__':
         print(f"    Avg Termination Loss: {avg_termination_loss:.4f}")
 
         # Generate test batch and save visualization GIF
-        test_batch = dataset.sample(batch_size=test_batch_size, traj_len=int(traj_len),)
+        test_batch = dataset.sample(batch_size=test_batch_size, traj_len=int(traj_len_end),)
         gif_path = generate_visualization_gif(world_model, test_batch, epoch, save_dir)
 
         # Add GIF as a video to TensorBoard
