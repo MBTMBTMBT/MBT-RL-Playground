@@ -328,11 +328,9 @@ class WorldModel(nn.Module):
         assert seq_len > start_t, "seq_len is too short."
 
         # Define time decay weights
-        if seq_len <= 4:
-            time_weights = torch.ones(seq_len, device=self.device)
-        else:
-            time_weights = torch.ones(seq_len, device=self.device)
-            time_weights[4:] = torch.linspace(1.0, 0.5, steps=seq_len - 4, device=self.device)
+        time_weights = torch.ones(seq_len, device=self.device)
+        if seq_len > start_t:
+            time_weights[start_t:] = torch.linspace(1.0, 0.5, steps=seq_len - start_t, device=self.device)
         # time_weights[0:3] = 0.33
 
         for t in range(seq_len):
@@ -340,9 +338,9 @@ class WorldModel(nn.Module):
             latent = self.encoder(true_obs[:, t])
 
             # Early time steps: Calculate reconstruction loss directly
-            if t < start_t:
-                recon_obs = self.decoder(latent)
-                recon_loss += self.pixel_loss(recon_obs, true_obs[:, t]) * time_weights[t]
+            # if t < start_t:
+            #     recon_obs = self.decoder(latent)
+            #     recon_loss += self.pixel_loss(recon_obs, true_obs[:, t]) * time_weights[t]
 
             # Compute RSSM outputs
             prior_mean, prior_log_var, post_mean, post_log_var, rnn_hidden = self.rssm(
@@ -353,14 +351,15 @@ class WorldModel(nn.Module):
             )
 
             # do not compute loss from rssm prediction at the very beginning
-            if t < start_t:
-                continue
+            # if t < start_t:
+            #     continue
 
             # Reparameterize to sample latent
             sampled_latent = self.rssm.reparameterize(post_mean.squeeze(1), post_log_var.squeeze(1))
 
             # Decode reconstructed observation
-            recon_obs = self.decoder(sampled_latent)
+            combined_latent = torch.cat([sampled_latent, rnn_hidden[-1]], dim=1)
+            recon_obs = self.decoder(combined_latent)
 
             # Reconstruction loss against next observation
             recon_loss += self.pixel_loss(recon_obs, next_obs[:, t]) * time_weights[t]
@@ -388,8 +387,7 @@ class WorldModel(nn.Module):
                 kl_rep_loss += 0.0
 
             # Multi-head predictor losses
-            combined_hidden = rnn_hidden.permute(1, 0, 2).reshape(batch_size, -1)  # Flatten layers
-            predicted_reward, predicted_termination = self.predictor(combined_hidden)
+            predicted_reward, predicted_termination = self.predictor(rnn_hidden[-1])
 
             reward_loss += F.mse_loss(
                 predicted_reward, true_rewards[:, t].squeeze(), reduction="mean"
