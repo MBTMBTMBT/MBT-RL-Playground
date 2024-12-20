@@ -59,8 +59,8 @@ def generate_visualization_gif(world_model, test_batch, epoch, save_dir, history
             sampled_latent = world_model.rssm.reparameterize(predicted_mean.squeeze(1), predicted_log_var.squeeze(1))
 
             # Decode the predicted latent state
-            combined_latent = torch.cat([sampled_latent, rnn_hidden[-1]], dim=1)
-            predicted_frame = world_model.decoder(combined_latent)
+            # combined_latent = torch.cat([sampled_latent, rnn_hidden[-1]], dim=1)
+            predicted_frame = world_model.decoder(sampled_latent)
             recon_obs.append(predicted_frame.unsqueeze(1))
 
             # Update the current latent for the next time step after history_len
@@ -165,7 +165,7 @@ if __name__ == '__main__':
     )
 
     decoder = Decoder(
-        latent_dim=ae_latent_dim + rnn_latent_dim,
+        latent_dim=ae_latent_dim,  # + rnn_latent_dim,
         out_channels=input_channels,
         hidden_net_dims=encoder_hidden_net_dims,
         input_size=frame_size,
@@ -179,7 +179,7 @@ if __name__ == '__main__':
     )
 
     predictor = MultiHeadPredictor(
-        rnn_hidden_dim=rnn_latent_dim * rnn_layers,
+        rnn_hidden_dim=rnn_latent_dim,  # * rnn_layers,
     )
 
     world_model = WorldModel(

@@ -354,8 +354,8 @@ class WorldModel(nn.Module):
             sampled_latent = self.rssm.reparameterize(predicted_mean.squeeze(1), predicted_log_var.squeeze(1))
 
             # Decode reconstructed observation
-            combined_latent = torch.cat([sampled_latent, rnn_hidden[-1]], dim=1)
-            recon_obs = self.decoder(combined_latent)
+            # combined_latent = torch.cat([sampled_latent, rnn_hidden[-1]], dim=1)
+            recon_obs = self.decoder(sampled_latent)
 
             # Reconstruction loss against next observation
             recon_loss += self.pixel_loss(recon_obs, next_obs[:, t]) * time_weights[t]
