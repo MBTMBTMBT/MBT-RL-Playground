@@ -153,9 +153,12 @@ class RSSM(nn.Module):
         # RNN
         self.rnn = nn.GRU(latent_dim + action_dim, rnn_hidden_dim, num_rnn_layers, batch_first=True)
 
-        # Prior and Posterior
-        self.prior_fc = nn.Linear(rnn_hidden_dim, 2 * latent_dim)
-        self.posterior_fc = nn.Linear(rnn_hidden_dim + latent_dim, 2 * latent_dim)
+        # Predictor MLP
+        self.predictor = nn.Sequential(
+            nn.Linear(rnn_hidden_dim, 2 * latent_dim),
+            nn.LeakyReLU(),
+            nn.Linear(2 * latent_dim, 2 * latent_dim),
+        )
 
     def reparameterize(self, mean, log_var):
         """
@@ -165,35 +168,26 @@ class RSSM(nn.Module):
         eps = torch.randn_like(std)
         return mean + eps * std
 
-    def forward(self, latents, actions, rnn_hidden, observations=None):
+    def forward(self, latents, actions, rnn_hidden,):
         """
         Forward pass through RSSM.
         Args:
             latents: (batch_size, seq_len, latent_dim)
             actions: (batch_size, seq_len, action_dim)
             rnn_hidden: (num_layers, batch_size, rnn_hidden_dim)
-            observations: (batch_size, seq_len, latent_dim) or None
 
         Returns:
-            prior_mean, prior_log_var, post_mean, post_log_var, rnn_hidden
+            predicted_mean, predicted_var, rnn_hidden
         """
         x = torch.cat([latents, actions], dim=-1)  # (batch_size, seq_len, latent_dim + action_dim)
         rnn_output, rnn_hidden = self.rnn(x, rnn_hidden)  # (batch_size, seq_len, rnn_hidden_dim)
 
         # Compute prior distribution
-        prior = F.tanh(self.prior_fc(rnn_output))
-        prior_mean, prior_log_var = torch.chunk(prior, 2, dim=-1)
+        prior = self.predictor(rnn_output)
+        predicted_mean, predicted_var = torch.chunk(prior, 2, dim=-1)
+        predicted_mean = F.tanh(predicted_mean)
 
-        # Compute posterior distribution if observations are provided
-        if observations is not None:
-            obs_concat = torch.cat([rnn_output, observations], dim=-1)
-            posterior = F.tanh(self.posterior_fc(obs_concat))
-            post_mean, post_log_var = torch.chunk(posterior, 2, dim=-1)
-        else:
-            post_mean, post_log_var = prior_mean, prior_log_var
-
-        return prior_mean, prior_log_var, post_mean, post_log_var, rnn_hidden
-
+        return predicted_mean, predicted_var, rnn_hidden
 
 
 class MultiHeadPredictor(nn.Module):
@@ -333,29 +327,31 @@ class WorldModel(nn.Module):
             time_weights[start_t:] = torch.linspace(1.0, 0.5, steps=seq_len - start_t, device=self.device)
         # time_weights[0:3] = 0.33
 
+        sampled_latent, predicted_mean, predicted_log_var = None, None, None
         for t in range(seq_len):
             # Encode the current observation
-            latent = self.encoder(true_obs[:, t])
+            if t < start_t:
+                latent = self.encoder(true_obs[:, t])
+            else:
+                latent = sampled_latent
 
-            # Early time steps: Calculate reconstruction loss directly
-            # if t < start_t:
-            #     recon_obs = self.decoder(latent)
-            #     recon_loss += self.pixel_loss(recon_obs, true_obs[:, t]) * time_weights[t]
+            # Take the previous prediction as prior
+            prior_mean, prior_log_var = predicted_mean, predicted_log_var
 
             # Compute RSSM outputs
-            prior_mean, prior_log_var, post_mean, post_log_var, rnn_hidden = self.rssm(
+            predicted_mean, predicted_log_var, rnn_hidden = self.rssm(
                 latent.unsqueeze(1),
                 true_actions[:, t].unsqueeze(1),
                 rnn_hidden,
-                observations=latent.unsqueeze(1) if t < start_t else None,
             )
 
-            # do not compute loss from rssm prediction at the very beginning
-            # if t < start_t:
-            #     continue
+            if t == 0:
+                prior_mean = torch.zeros(batch_size, self.rssm.latent_dim, device=self.device)
+                prior_log_var = torch.ones(batch_size, self.rssm.latent_dim, device=self.device)
+                # prior_mean, prior_log_var = predicted_mean, predicted_log_var
 
             # Reparameterize to sample latent
-            sampled_latent = self.rssm.reparameterize(post_mean.squeeze(1), post_log_var.squeeze(1))
+            sampled_latent = self.rssm.reparameterize(predicted_mean.squeeze(1), predicted_log_var.squeeze(1))
 
             # Decode reconstructed observation
             combined_latent = torch.cat([sampled_latent, rnn_hidden[-1]], dim=1)
@@ -366,7 +362,7 @@ class WorldModel(nn.Module):
 
             # Compute dynamic KL loss
             kl_dyn = -0.5 * torch.sum(
-                (1 + prior_log_var.squeeze(1) - post_mean.pow(2) - prior_log_var.exp()) * masks[:, t].unsqueeze(-1),
+                (1 + prior_log_var.squeeze(1) - predicted_mean.pow(2) - prior_log_var.exp()) * masks[:, t].unsqueeze(-1),
                 dim=-1,
             ).mean()
             kl_dyn_loss_raw += kl_dyn
@@ -377,7 +373,7 @@ class WorldModel(nn.Module):
 
             # Compute representation KL loss
             kl_rep = -0.5 * torch.sum(
-                (1 + post_log_var.squeeze(1) - prior_mean.pow(2) - post_log_var.exp()) * masks[:, t].unsqueeze(-1),
+                (1 + predicted_log_var.squeeze(1) - prior_mean.pow(2) - predicted_log_var.exp()) * masks[:, t].unsqueeze(-1),
                 dim=-1,
             ).mean()
             kl_rep_loss_raw += kl_rep
