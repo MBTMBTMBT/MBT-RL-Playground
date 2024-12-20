@@ -38,21 +38,21 @@ def generate_visualization_gif(world_model, test_batch, epoch, save_dir, history
 
         # Decode the initial history frames
         recon_history = []
-        for t in range(history_len):
-            latent = world_model.encoder(true_obs[:, t])
-            recon_frame = world_model.decoder(latent)
-            recon_history.append(recon_frame.unsqueeze(1))
-
-            # Pass through RSSM to initialize RNN hidden state
-            _, _, _, _, rnn_hidden = world_model.rssm(
-                latent.unsqueeze(1), true_actions[:, t].unsqueeze(1), rnn_hidden
-            )
+        # for t in range(history_len):
+        #     latent = world_model.encoder(true_obs[:, t])
+        #     recon_frame = world_model.decoder(latent)
+        #     recon_history.append(recon_frame.unsqueeze(1))
+        #
+        #     # Pass through RSSM to initialize RNN hidden state
+        #     _, _, _, _, rnn_hidden = world_model.rssm(
+        #         latent.unsqueeze(1), true_actions[:, t].unsqueeze(1), rnn_hidden
+        #     )
 
         # Generate predictions for remaining frames
         recon_obs = []
         current_latent = world_model.encoder(true_obs[:, history_len - 1])
 
-        for t in range(history_len, seq_len):
+        for t in range(0, seq_len):
             # Predict next latent state using RSSM prior
             prior_mean, prior_log_var, _, _, rnn_hidden = world_model.rssm(
                 current_latent.unsqueeze(1), true_actions[:, t].unsqueeze(1), rnn_hidden
@@ -60,7 +60,8 @@ def generate_visualization_gif(world_model, test_batch, epoch, save_dir, history
             # Sample from the prior
             sampled_latent = world_model.rssm.reparameterize(prior_mean.squeeze(1), prior_log_var.squeeze(1))
             # Decode the predicted latent state
-            predicted_frame = world_model.decoder(sampled_latent)
+            combined_latent = torch.cat([sampled_latent, rnn_hidden[-1]], dim=1)
+            predicted_frame = world_model.decoder(combined_latent)
             recon_obs.append(predicted_frame.unsqueeze(1))
 
             # Update current latent for the next step
@@ -116,19 +117,19 @@ def add_gif_to_tensorboard(writer, gif_path, tag, global_step):
 
 
 if __name__ == '__main__':
-    batch_size = 8
+    batch_size = 32
     test_batch_size = 8
-    buffer_size = 8192
+    buffer_size = 4096
     data_repeat_times = 100
-    traj_len_start = 6
-    traj_len_end = 32
+    traj_len_start = 8
+    traj_len_end = 64
     frame_size = (60, 80)
     is_color = True
     input_channels = 3
     ae_latent_dim = 32
-    encoder_hidden_net_dims = [32, 64, 128, 256]
+    encoder_hidden_net_dims = [16, 32, 64,]
     rnn_layers = 1
-    rnn_latent_dim = 64
+    rnn_latent_dim = 32
     lr = 1e-4
     num_epochs = 20
     log_dir = "./experiments/worldmodel/logs"
@@ -164,7 +165,7 @@ if __name__ == '__main__':
     )
 
     decoder = Decoder(
-        latent_dim=ae_latent_dim,
+        latent_dim=ae_latent_dim + rnn_latent_dim,
         out_channels=input_channels,
         hidden_net_dims=encoder_hidden_net_dims,
         input_size=frame_size,
