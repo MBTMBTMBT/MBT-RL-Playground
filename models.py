@@ -332,6 +332,7 @@ class WorldModel(nn.Module):
             # Encode the current observation
             if t < start_t:
                 latent = self.encoder(true_obs[:, t])
+                recon_loss += self.pixel_loss(self.decoder(latent), true_obs[:, t]) * time_weights[t]
             else:
                 latent = sampled_latent
 
