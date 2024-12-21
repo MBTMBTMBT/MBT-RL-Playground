@@ -30,6 +30,7 @@ def generate_visualization_gif(world_model, test_batch, epoch, save_dir, history
         # Extract test batch data
         true_obs = torch.tensor(test_batch["state"], dtype=torch.float32, device=world_model.device)
         true_actions = torch.tensor(test_batch["action"], dtype=torch.float32, device=world_model.device)
+        next_obs = torch.tensor(test_batch["next_state"], dtype=torch.float32, device=world_model.device)
 
         batch_size, seq_len, channels, height, width = true_obs.size()
 
@@ -38,29 +39,32 @@ def generate_visualization_gif(world_model, test_batch, epoch, save_dir, history
             batch_size, world_model.rssm.rnn_hidden_dim, device=world_model.device,
         )
 
-        # Decode the initial history frames
-        recon_history = []
-
         # Generate predictions for remaining frames
         recon_obs = []
 
-        true_latent = None
+        next_latent_obs = None
+        current_latent = None
         for t in range(seq_len):
             if t < history_len:
                 # Use true observation to initialize the model
-                true_latent = world_model.encoder(true_obs[:, t])
-                current_latent = true_latent
+                next_latent_obs = world_model.encoder(next_obs[:, t])
+
+            if current_latent is None:
+                current_latent = torch.zeros_like(next_latent_obs)
 
             # Compute RSSM outputs
             prior_mean, prior_log_var, post_mean, post_log_var, rnn_hidden = world_model.rssm(
                 current_latent,
                 true_actions[:, t],
                 rnn_hidden,
-                true_latent if t < history_len else None,
+                next_latent_obs if t < history_len else None,
             )
 
             # Reparameterize to sample latent
-            sampled_latent = world_model.rssm.reparameterize(prior_mean.squeeze(1), prior_log_var.squeeze(1))
+            if t < history_len:
+                sampled_latent = world_model.rssm.reparameterize(post_mean.squeeze(1), post_log_var.squeeze(1))
+            else:
+                sampled_latent = world_model.rssm.reparameterize(prior_mean.squeeze(1), prior_log_var.squeeze(1))
 
             # Decode the predicted latent state
             combined_latent = torch.cat([sampled_latent, rnn_hidden], dim=1)
@@ -73,7 +77,7 @@ def generate_visualization_gif(world_model, test_batch, epoch, save_dir, history
         # Combine history and predictions
         # recon_obs = torch.cat(recon_history + recon_obs, dim=1).cpu().numpy()
         recon_obs = torch.cat(recon_obs, dim=1).cpu().numpy()
-        true_obs = true_obs.cpu().numpy()
+        true_obs = next_obs.cpu().numpy()
         diff_obs = abs(true_obs - recon_obs)
 
         # Combine frames for visualization
@@ -124,14 +128,14 @@ if __name__ == '__main__':
     batch_size = 8
     test_batch_size = 8
     buffer_size = 8192
-    data_repeat_times = 50
+    data_repeat_times = 100
     traj_len_start = 8
     traj_len_end = 64
     frame_size = (60, 80)
     is_color = True
     input_channels = 3
     ae_latent_dim = 64
-    encoder_hidden_net_dims = [32, 64, 128, 256]
+    encoder_hidden_net_dims = [32, 64, 128,]
     rnn_latent_dim = 64
     lr = 1e-4
     num_epochs = 25
