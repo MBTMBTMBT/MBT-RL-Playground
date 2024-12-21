@@ -35,7 +35,7 @@ def generate_visualization_gif(world_model, test_batch, epoch, save_dir, history
 
         # Initialize RNN hidden state
         rnn_hidden = torch.zeros(
-            world_model.rssm.num_rnn_layers, batch_size, world_model.rssm.rnn_hidden_dim, device=world_model.device,
+            batch_size, world_model.rssm.rnn_hidden_dim, device=world_model.device,
         )
 
         # Decode the initial history frames
@@ -43,34 +43,38 @@ def generate_visualization_gif(world_model, test_batch, epoch, save_dir, history
 
         # Generate predictions for remaining frames
         recon_obs = []
-        current_latent = None
 
+        true_latent = None
         for t in range(seq_len):
             if t < history_len:
                 # Use true observation to initialize the model
-                current_latent = world_model.encoder(true_obs[:, t])
+                true_latent = world_model.encoder(true_obs[:, t])
+                current_latent = true_latent
 
             # Compute RSSM outputs
-            predicted_mean, predicted_log_var, rnn_hidden = world_model.rssm(
-                current_latent.unsqueeze(1), true_actions[:, t].unsqueeze(1), rnn_hidden
+            prior_mean, prior_log_var, post_mean, post_log_var, rnn_hidden = world_model.rssm(
+                current_latent,
+                true_actions[:, t],
+                rnn_hidden,
+                true_latent if t < history_len else None,
             )
 
             # Reparameterize to sample latent
-            sampled_latent = world_model.rssm.reparameterize(predicted_mean.squeeze(1), predicted_log_var.squeeze(1))
+            sampled_latent = world_model.rssm.reparameterize(prior_mean.squeeze(1), prior_log_var.squeeze(1))
 
             # Decode the predicted latent state
-            # combined_latent = torch.cat([sampled_latent, rnn_hidden[-1]], dim=1)
-            predicted_frame = world_model.decoder(sampled_latent)
+            combined_latent = torch.cat([sampled_latent, rnn_hidden], dim=1)
+            predicted_frame = world_model.decoder(combined_latent)
             recon_obs.append(predicted_frame.unsqueeze(1))
 
             # Update the current latent for the next time step after history_len
-            if t >= history_len - 1:
-                current_latent = sampled_latent
+            current_latent = sampled_latent
 
         # Combine history and predictions
-        recon_obs = torch.cat(recon_history + recon_obs, dim=1).cpu().numpy()
+        # recon_obs = torch.cat(recon_history + recon_obs, dim=1).cpu().numpy()
+        recon_obs = torch.cat(recon_obs, dim=1).cpu().numpy()
         true_obs = true_obs.cpu().numpy()
-        diff_obs = abs(true_obs[:, :recon_obs.shape[1]] - recon_obs)
+        diff_obs = abs(true_obs - recon_obs)
 
         # Combine frames for visualization
         combined_frames = []
@@ -121,14 +125,13 @@ if __name__ == '__main__':
     test_batch_size = 8
     buffer_size = 8192
     data_repeat_times = 50
-    traj_len_start = 4
+    traj_len_start = 8
     traj_len_end = 64
     frame_size = (60, 80)
     is_color = True
     input_channels = 3
     ae_latent_dim = 64
     encoder_hidden_net_dims = [32, 64, 128, 256]
-    rnn_layers = 1
     rnn_latent_dim = 64
     lr = 1e-4
     num_epochs = 25
@@ -165,7 +168,7 @@ if __name__ == '__main__':
     )
 
     decoder = Decoder(
-        latent_dim=ae_latent_dim,  # + rnn_latent_dim,
+        latent_dim=ae_latent_dim + rnn_latent_dim,
         out_channels=input_channels,
         hidden_net_dims=encoder_hidden_net_dims,
         input_size=frame_size,
@@ -175,11 +178,10 @@ if __name__ == '__main__':
         latent_dim=ae_latent_dim,
         action_dim=action_dim,
         rnn_hidden_dim=rnn_latent_dim,
-        num_rnn_layers=rnn_layers,
     )
 
     predictor = MultiHeadPredictor(
-        rnn_hidden_dim=rnn_latent_dim,  # * rnn_layers,
+        rnn_hidden_dim=ae_latent_dim + rnn_latent_dim,  # * rnn_layers,
     )
 
     world_model = WorldModel(
@@ -211,7 +213,7 @@ if __name__ == '__main__':
 
         for step in progress_bar:
             batch = dataset.sample(batch_size=batch_size, traj_len=int(traj_len),)
-            losses = world_model.train_batch(batch, kl_min=1.0 * rnn_latent_dim * rnn_layers,)
+            losses = world_model.train_batch(batch, kl_min=1.0)  # * rnn_latent_dim)
 
             # Update total losses
             total_loss += losses["total_loss"]
