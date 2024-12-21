@@ -39,18 +39,20 @@ def generate_visualization_gif(world_model, test_batch, epoch, save_dir, history
             batch_size, world_model.rssm.rnn_hidden_dim, device=world_model.device,
         )
 
+        current_latent = torch.zeros(
+            true_obs.size(0),  # Batch size
+            world_model.rssm.latent_dim,
+            device=world_model.device
+        )
+
         # Generate predictions for remaining frames
         recon_obs = []
 
         next_latent_obs = None
-        current_latent = None
         for t in range(seq_len):
             if t < history_len:
                 # Use true observation to initialize the model
                 next_latent_obs = world_model.encoder(next_obs[:, t])
-
-            if current_latent is None:
-                current_latent = torch.zeros_like(next_latent_obs)
 
             # Compute RSSM outputs
             prior_mean, prior_log_var, post_mean, post_log_var, rnn_hidden = world_model.rssm(
@@ -125,18 +127,19 @@ def add_gif_to_tensorboard(writer, gif_path, tag, global_step):
 
 
 if __name__ == '__main__':
-    batch_size = 8
+    batch_size = 32
     test_batch_size = 8
     buffer_size = 8192
     data_repeat_times = 100
-    traj_len_start = 8
+    traj_len_start = 64
     traj_len_end = 64
     frame_size = (60, 80)
     is_color = True
     input_channels = 3
-    ae_latent_dim = 64
-    encoder_hidden_net_dims = [32, 64, 128,]
-    rnn_latent_dim = 64
+    ae_latent_dim = 32
+    latent_dim = 32
+    rnn_latent_dim = 96
+    encoder_hidden_net_dims = [16, 32, 64,]
     lr = 1e-4
     num_epochs = 25
     log_dir = "./experiments/worldmodel/logs"
@@ -172,20 +175,21 @@ if __name__ == '__main__':
     )
 
     decoder = Decoder(
-        latent_dim=ae_latent_dim + rnn_latent_dim,
+        latent_dim=latent_dim + rnn_latent_dim,
         out_channels=input_channels,
         hidden_net_dims=encoder_hidden_net_dims,
         input_size=frame_size,
     )
 
     rssm = RSSM(
-        latent_dim=ae_latent_dim,
+        latent_dim=latent_dim,
         action_dim=action_dim,
         rnn_hidden_dim=rnn_latent_dim,
+        embedded_obs_dim=ae_latent_dim,
     )
 
     predictor = MultiHeadPredictor(
-        rnn_hidden_dim=ae_latent_dim + rnn_latent_dim,  # * rnn_layers,
+        rnn_hidden_dim=latent_dim + rnn_latent_dim,  # * rnn_layers,
     )
 
     world_model = WorldModel(
