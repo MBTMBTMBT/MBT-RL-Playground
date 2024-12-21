@@ -144,21 +144,17 @@ class Decoder(nn.Module):
 
 
 class RSSM(nn.Module):
-    def __init__(self, latent_dim, action_dim, rnn_hidden_dim, num_rnn_layers=1):
+    def __init__(self, latent_dim, action_dim, rnn_hidden_dim):
         super(RSSM, self).__init__()
         self.latent_dim = latent_dim
         self.rnn_hidden_dim = rnn_hidden_dim
-        self.num_rnn_layers = num_rnn_layers
 
         # RNN
-        self.rnn = nn.GRU(latent_dim + action_dim, rnn_hidden_dim, num_rnn_layers, batch_first=True)
+        self.rnn = nn.GRUCell(latent_dim + action_dim, rnn_hidden_dim,)
 
-        # Predictor MLP
-        self.predictor = nn.Sequential(
-            nn.Linear(rnn_hidden_dim, 2 * latent_dim),
-            nn.LeakyReLU(),
-            nn.Linear(2 * latent_dim, 2 * latent_dim),
-        )
+        # Prior and Posterior
+        self.prior_fc = nn.Linear(rnn_hidden_dim, 2 * latent_dim)
+        self.posterior_fc = nn.Linear(rnn_hidden_dim + latent_dim, 2 * latent_dim)
 
     def reparameterize(self, mean, log_var):
         """
@@ -168,26 +164,37 @@ class RSSM(nn.Module):
         eps = torch.randn_like(std)
         return mean + eps * std
 
-    def forward(self, latents, actions, rnn_hidden,):
+    def forward(self, latents, actions, rnn_hidden, observations=None):
         """
         Forward pass through RSSM.
         Args:
             latents: (batch_size, seq_len, latent_dim)
             actions: (batch_size, seq_len, action_dim)
             rnn_hidden: (num_layers, batch_size, rnn_hidden_dim)
+            observations: (batch_size, seq_len, latent_dim) or None
 
         Returns:
-            predicted_mean, predicted_var, rnn_hidden
+            prior_mean, prior_log_var, post_mean, post_log_var, rnn_hidden
         """
         x = torch.cat([latents, actions], dim=-1)  # (batch_size, seq_len, latent_dim + action_dim)
-        rnn_output, rnn_hidden = self.rnn(x, rnn_hidden)  # (batch_size, seq_len, rnn_hidden_dim)
+        rnn_output = self.rnn(x, rnn_hidden)  # (batch_size, seq_len, rnn_hidden_dim)
 
         # Compute prior distribution
-        prior = self.predictor(rnn_output)
-        predicted_mean, predicted_var = torch.chunk(prior, 2, dim=-1)
-        predicted_mean = F.tanh(predicted_mean)
+        prior = self.prior_fc(rnn_output)
+        prior_mean, prior_log_var = torch.chunk(prior, 2, dim=-1)
+        prior_mean = F.tanh(prior_mean)
 
-        return predicted_mean, predicted_var, rnn_hidden
+        # Compute posterior distribution if observations are provided
+        if observations is not None:
+            obs_concat = torch.cat([rnn_output, observations], dim=-1)
+            posterior = self.posterior_fc(obs_concat)
+            post_mean, post_log_var = torch.chunk(posterior, 2, dim=-1)
+            post_mean = F.tanh(post_mean)
+        else:
+            post_mean, post_log_var = prior_mean, prior_log_var
+
+        return prior_mean, prior_log_var, post_mean, post_log_var, rnn_hidden
+
 
 
 class MultiHeadPredictor(nn.Module):
@@ -299,7 +306,6 @@ class WorldModel(nn.Module):
 
         # Initialize RNN hidden state
         rnn_hidden = torch.zeros(
-            self.rssm.num_rnn_layers,  # Multiple layers
             true_obs.size(0),  # Batch size
             self.rssm.rnn_hidden_dim,
             device=self.device
@@ -325,45 +331,32 @@ class WorldModel(nn.Module):
         time_weights = torch.ones(seq_len, device=self.device)
         if seq_len > start_t:
             time_weights[start_t:] = torch.linspace(1.0, 0.5, steps=seq_len - start_t, device=self.device)
-        # time_weights[0:3] = 0.33
 
-        sampled_latent, predicted_mean, predicted_log_var = None, None, None
         for t in range(seq_len):
             # Encode the current observation
-            if t < start_t:
-                latent = self.encoder(true_obs[:, t])
-                recon_loss += self.pixel_loss(self.decoder(latent), true_obs[:, t]) * time_weights[t]
-            else:
-                latent = sampled_latent
-
-            # Take the previous prediction as prior
-            prior_mean, prior_log_var = predicted_mean, predicted_log_var
+            latent = self.encoder(true_obs[:, t])
 
             # Compute RSSM outputs
-            predicted_mean, predicted_log_var, rnn_hidden = self.rssm(
-                latent.unsqueeze(1),
-                true_actions[:, t].unsqueeze(1),
+            prior_mean, prior_log_var, post_mean, post_log_var, rnn_hidden = self.rssm(
+                latent,
+                true_actions[:, t],
                 rnn_hidden,
+                observations=latent,  # if t < start_t else None,
             )
 
-            if t == 0:
-                prior_mean = torch.zeros(batch_size, self.rssm.latent_dim, device=self.device)
-                prior_log_var = torch.ones(batch_size, self.rssm.latent_dim, device=self.device)
-                # prior_mean, prior_log_var = predicted_mean, predicted_log_var
-
             # Reparameterize to sample latent
-            sampled_latent = self.rssm.reparameterize(predicted_mean.squeeze(1), predicted_log_var.squeeze(1))
+            sampled_latent = self.rssm.reparameterize(post_mean.squeeze(1), post_log_var.squeeze(1))
 
             # Decode reconstructed observation
-            # combined_latent = torch.cat([sampled_latent, rnn_hidden[-1]], dim=1)
-            recon_obs = self.decoder(sampled_latent)
+            combined_latent = torch.cat([sampled_latent, rnn_hidden], dim=1)
+            recon_obs = self.decoder(combined_latent)
 
             # Reconstruction loss against next observation
             recon_loss += self.pixel_loss(recon_obs, next_obs[:, t]) * time_weights[t]
 
             # Compute dynamic KL loss
             kl_dyn = -0.5 * torch.sum(
-                (1 + prior_log_var.squeeze(1) - predicted_mean.pow(2) - prior_log_var.exp()) * masks[:, t].unsqueeze(-1),
+                (1 + prior_log_var.squeeze(1) - post_mean.pow(2) - prior_log_var.exp()) * masks[:, t].unsqueeze(-1),
                 dim=-1,
             ).mean()
             kl_dyn_loss_raw += kl_dyn
@@ -374,7 +367,7 @@ class WorldModel(nn.Module):
 
             # Compute representation KL loss
             kl_rep = -0.5 * torch.sum(
-                (1 + predicted_log_var.squeeze(1) - prior_mean.pow(2) - predicted_log_var.exp()) * masks[:, t].unsqueeze(-1),
+                (1 + post_log_var.squeeze(1) - prior_mean.pow(2) - post_log_var.exp()) * masks[:, t].unsqueeze(-1),
                 dim=-1,
             ).mean()
             kl_rep_loss_raw += kl_rep
@@ -384,7 +377,7 @@ class WorldModel(nn.Module):
                 kl_rep_loss += 0.0
 
             # Multi-head predictor losses
-            predicted_reward, predicted_termination = self.predictor(rnn_hidden[-1])
+            predicted_reward, predicted_termination = self.predictor(combined_latent)
 
             reward_loss += F.mse_loss(
                 predicted_reward, true_rewards[:, t].squeeze(), reduction="mean"
@@ -394,13 +387,13 @@ class WorldModel(nn.Module):
             ) * time_weights[t]
 
         # Normalize losses by sequence length
-        recon_loss /= seq_len
-        kl_dyn_loss /= seq_len
-        kl_rep_loss /= seq_len
-        kl_dyn_loss_raw /= seq_len
-        kl_rep_loss_raw /= seq_len
-        reward_loss /= seq_len
-        termination_loss /= seq_len
+        # recon_loss /= seq_len
+        # kl_dyn_loss /= seq_len
+        # kl_rep_loss /= seq_len
+        # kl_dyn_loss_raw /= seq_len
+        # kl_rep_loss_raw /= seq_len
+        # reward_loss /= seq_len
+        # termination_loss /= seq_len
 
         # Total loss
         total_loss = (
