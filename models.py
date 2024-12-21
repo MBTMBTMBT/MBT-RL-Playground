@@ -310,6 +310,7 @@ class WorldModel(nn.Module):
             self.rssm.rnn_hidden_dim,
             device=self.device
         )
+        sampled_latent = None
 
         batch_size, seq_len, _, _, _ = true_obs.size()
 
@@ -334,14 +335,17 @@ class WorldModel(nn.Module):
 
         for t in range(seq_len):
             # Encode the current observation
-            latent = self.encoder(true_obs[:, t])
+            next_latent_obs = self.encoder(next_obs[:, t])
+
+            if sampled_latent is None:
+                sampled_latent = torch.zeros_like(next_latent_obs)
 
             # Compute RSSM outputs
             prior_mean, prior_log_var, post_mean, post_log_var, rnn_hidden = self.rssm(
-                latent,
+                sampled_latent,
                 true_actions[:, t],
                 rnn_hidden,
-                observations=latent,  # if t < start_t else None,
+                observations=next_latent_obs,  # if t < start_t else None,
             )
 
             # Reparameterize to sample latent
