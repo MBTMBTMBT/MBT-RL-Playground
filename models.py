@@ -144,7 +144,7 @@ class Decoder(nn.Module):
 
 
 class RSSM(nn.Module):
-    def __init__(self, latent_dim, action_dim, rnn_hidden_dim):
+    def __init__(self, latent_dim, action_dim, rnn_hidden_dim, embedded_obs_dim):
         super(RSSM, self).__init__()
         self.latent_dim = latent_dim
         self.rnn_hidden_dim = rnn_hidden_dim
@@ -153,8 +153,16 @@ class RSSM(nn.Module):
         self.rnn = nn.GRUCell(latent_dim + action_dim, rnn_hidden_dim,)
 
         # Prior and Posterior
-        self.prior_fc = nn.Linear(rnn_hidden_dim, 2 * latent_dim)
-        self.posterior_fc = nn.Linear(rnn_hidden_dim + latent_dim, 2 * latent_dim)
+        self.prior_fc = nn.Sequential(
+            nn.Linear(rnn_hidden_dim, 2 * latent_dim),
+            nn.LeakyReLU(),
+            nn.Linear(2 * latent_dim, 2 * latent_dim),
+        )
+        self.posterior_fc = nn.Sequential(
+            nn.Linear(rnn_hidden_dim + embedded_obs_dim, 2 * latent_dim),
+            nn.LeakyReLU(),
+            nn.Linear(2 * latent_dim, 2 * latent_dim),
+        )
 
     def reparameterize(self, mean, log_var):
         """
@@ -310,7 +318,11 @@ class WorldModel(nn.Module):
             self.rssm.rnn_hidden_dim,
             device=self.device
         )
-        sampled_latent = None
+        sampled_latent = torch.zeros(
+            true_obs.size(0),  # Batch size
+            self.rssm.latent_dim,
+            device=self.device
+        )
 
         batch_size, seq_len, _, _, _ = true_obs.size()
 
@@ -331,14 +343,11 @@ class WorldModel(nn.Module):
         # Define time decay weights
         time_weights = torch.ones(seq_len, device=self.device)
         if seq_len > start_t:
-            time_weights[start_t:] = torch.linspace(1.0, 0.5, steps=seq_len - start_t, device=self.device)
+            time_weights[start_t:] = torch.linspace(1.0, 0.1, steps=seq_len - start_t, device=self.device)
 
         for t in range(seq_len):
             # Encode the current observation
             next_latent_obs = self.encoder(next_obs[:, t])
-
-            if sampled_latent is None:
-                sampled_latent = torch.zeros_like(next_latent_obs)
 
             # Compute RSSM outputs
             prior_mean, prior_log_var, post_mean, post_log_var, rnn_hidden = self.rssm(
