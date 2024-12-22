@@ -129,16 +129,16 @@ def add_gif_to_tensorboard(writer, gif_path, tag, global_step):
 if __name__ == '__main__':
     batch_size = 32
     test_batch_size = 8
-    buffer_size = 8192
-    data_repeat_times = 100
+    buffer_size = 128
+    data_repeat_times = 1
     traj_len_start = 64
     traj_len_end = 64
     frame_size = (60, 80)
     is_color = True
     input_channels = 3
     ae_latent_dim = 32
-    latent_dim = 32
-    rnn_latent_dim = 96
+    latent_dim = 64
+    rnn_latent_dim = 256 - 64
     encoder_hidden_net_dims = [16, 32, 64,]
     lr = 1e-4
     num_epochs = 25

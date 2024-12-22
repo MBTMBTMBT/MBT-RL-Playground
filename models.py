@@ -150,18 +150,29 @@ class RSSM(nn.Module):
         self.rnn_hidden_dim = rnn_hidden_dim
 
         # RNN
-        self.rnn = nn.GRUCell(latent_dim + action_dim, rnn_hidden_dim,)
+        self.rnn = nn.GRUCell(latent_dim, rnn_hidden_dim,)
+
+        # State-Action MLP
+        self.state_action_fc = nn.Sequential(
+            nn.Linear(latent_dim + action_dim, 1024),
+            nn.LeakyReLU(),
+            nn.Linear(1024, latent_dim),
+        )
 
         # Prior and Posterior
         self.prior_fc = nn.Sequential(
-            nn.Linear(rnn_hidden_dim, 2 * latent_dim),
+            nn.Linear(rnn_hidden_dim, 1024),
             nn.LeakyReLU(),
-            nn.Linear(2 * latent_dim, 2 * latent_dim),
+            nn.Linear(1024, 1024),
+            nn.LeakyReLU(),
+            nn.Linear(1024, 2 * latent_dim),
         )
         self.posterior_fc = nn.Sequential(
-            nn.Linear(rnn_hidden_dim + embedded_obs_dim, 2 * latent_dim),
+            nn.Linear(rnn_hidden_dim + embedded_obs_dim, 1024),
             nn.LeakyReLU(),
-            nn.Linear(2 * latent_dim, 2 * latent_dim),
+            nn.Linear(1024, 1024),
+            nn.LeakyReLU(),
+            nn.Linear(1024, 2 * latent_dim),
         )
 
     def reparameterize(self, mean, log_var):
@@ -185,6 +196,7 @@ class RSSM(nn.Module):
             prior_mean, prior_log_var, post_mean, post_log_var, rnn_hidden
         """
         x = torch.cat([latents, actions], dim=-1)  # (batch_size, seq_len, latent_dim + action_dim)
+        x = self.state_action_fc(x)
         rnn_output = self.rnn(x, rnn_hidden)  # (batch_size, seq_len, rnn_hidden_dim)
 
         # Compute prior distribution
