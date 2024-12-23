@@ -131,8 +131,8 @@ if __name__ == '__main__':
     test_batch_size = 8
     buffer_size = 8192
     data_repeat_times = 100
-    traj_len_start = 64
-    traj_len_end = 64
+    traj_len_start = 32
+    traj_len_end = 32
     frame_size = (60, 80)
     is_color = True
     input_channels = 3

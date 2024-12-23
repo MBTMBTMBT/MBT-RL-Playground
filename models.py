@@ -366,7 +366,7 @@ class WorldModel(nn.Module):
                 sampled_latent,
                 true_actions[:, t],
                 rnn_hidden,
-                observations=next_latent_obs,  # if t < start_t else None,
+                observations=next_latent_obs if t < start_t else None,
             )
 
             # Reparameterize to sample latent
