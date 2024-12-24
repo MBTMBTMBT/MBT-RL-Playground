@@ -13,6 +13,10 @@ from pandas import DataFrame
 import tqdm
 from pyvis.network import Network
 
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+from matplotlib.colors import LinearSegmentedColormap
+
 
 class Discretizer:
     def __init__(self, ranges: List[Tuple[float, float]], num_buckets: List[int],
@@ -399,6 +403,10 @@ class TransitionTable:
         self.neighbour_dict = defaultdict(lambda: set())
         self.forward_dict = defaultdict(lambda: defaultdict(lambda: set()))
         self.inverse_dict = defaultdict(lambda: defaultdict(lambda: set()))
+
+        # todo: currently will not be saved!
+        self.state_count = defaultdict(lambda: 0)
+        self.state_action_count = defaultdict(lambda: defaultdict(lambda: 0))
         self.done_set = set()
         self.start_set = set()
 
@@ -421,6 +429,8 @@ class TransitionTable:
         self.neighbour_dict[encoded_next_state].add(encoded_action)
         self.forward_dict[encoded_state][encoded_next_state].add(encoded_action)
         self.inverse_dict[encoded_next_state][encoded_state].add(encoded_action)
+        self.state_count[encoded_state] += 1
+        self.state_action_count[encoded_state][encoded_action] += 1
 
     def save_transition_table(self, file_path: str = None) -> pd.DataFrame:
         transition_table_data = []
@@ -455,25 +465,43 @@ class TransitionTable:
                     for reward in self.transition_table[encoded_state][encoded_action][encoded_next_state].keys():
                         count = self.transition_table[encoded_state][encoded_action][encoded_next_state][reward]
                         # Add edges and attributes
+                        state_str = str(self.state_discretizer.indices_to_midpoints(self.state_discretizer.decode_indices(encoded_state)))
+                        encoded_next_state_str = str(self.state_discretizer.indices_to_midpoints(self.state_discretizer.decode_indices(encoded_next_state)))
                         G.add_edge(
-                            str(self.state_discretizer.indices_to_midpoints(self.state_discretizer.decode_indices(encoded_state))),
-                            str(self.state_discretizer.indices_to_midpoints(self.state_discretizer.decode_indices(encoded_next_state))),
+                            state_str,
+                            encoded_next_state_str,
                             label=f"{encoded_action}\nR={reward}\nCount={count}",
                             count=count
                         )
+                        G.nodes[state_str]['count'] = self.state_count[encoded_state]
+                        G.nodes[encoded_next_state_str]['count'] = self.state_count[encoded_next_state]
 
         # Use Pyvis for visualization
         net = Network(height='1000px', width='100%', directed=True)
         net.from_nx(G)
 
-        # Set edge colors to a uniform color
-        for edge in net.edges:
-            edge['color'] = "#4682B4"  # Steel blue color
+        # Normalize counts for coloring
+        all_node_counts = [data['count'] for _, data in G.nodes(data=True)]
+        all_edge_counts = [data['count'] for _, _, data in G.edges(data=True)]
 
-        # Set node titles
+        node_norm = mcolors.Normalize(vmin=min(all_node_counts), vmax=max(all_node_counts))
+        edge_norm = mcolors.Normalize(vmin=min(all_edge_counts), vmax=max(all_edge_counts))
+
+        cmap = LinearSegmentedColormap.from_list("custom_blues", ['#ADD8E6', '#00008B'])  # LightBlue to DarkBlue
+
+
+        # Set edge colors based on counts
+        for edge in net.edges:
+            edge_count = G.edges[edge['from'], edge['to']]['count']
+            edge_color = mcolors.to_hex(cmap(edge_norm(edge_count)))
+            edge['color'] = edge_color
+
+        # Set node colors based on counts
         for node in G.nodes():
-            net.get_node(node)['title'] = f"State: {node}"
-            net.get_node(node)['color'] = '#87CEEB'
+            node_count = G.nodes[node]['count']
+            node_color = mcolors.to_hex(cmap(node_norm(node_count)))
+            net.get_node(node)['color'] = node_color
+            net.get_node(node)['title'] = f"State: {node}, Count: {node_count}"
 
         # # Disable physics for faster rendering
         # net.toggle_physics(False)

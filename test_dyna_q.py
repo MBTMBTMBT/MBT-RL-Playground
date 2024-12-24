@@ -27,7 +27,7 @@ if __name__ == '__main__':
 
     state_discretizer = Discretizer(
         ranges = [(-1.2, 0.6), (-0.07, 0.07),],
-        num_buckets=[256, 32],
+        num_buckets=[64, 32],
         normal_params=[None, None],
     )
 
