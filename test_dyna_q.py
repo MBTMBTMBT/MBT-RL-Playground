@@ -13,18 +13,6 @@ if __name__ == '__main__':
     test_env = CustomMountainCarEnv(custom_gravity=0.0025, render_mode="rgb_array")
     save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_mountain_car.csv"
 
-    # env = CustomCartPoleEnv(render_mode="rgb_array")
-    # test_env = CustomCartPoleEnv(render_mode="rgb_array")
-    # save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_cartpole.csv"
-
-    # env = gym.make("LunarLander-v3")
-    # test_env = gym.make("LunarLander-v3")
-    # save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_lunarlander.csv"
-
-    # env = gym.make("Acrobot-v1")
-    # test_env = gym.make("Acrobot-v1")
-    # save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_acrobot.csv"
-
     state_discretizer = Discretizer(
         ranges = [(-1.2, 0.6), (-0.07, 0.07),],
         num_buckets=[64, 32],
@@ -37,6 +25,12 @@ if __name__ == '__main__':
         normal_params=[None,],
     )
 
+    action_type = "int"
+
+    # env = CustomCartPoleEnv(render_mode="rgb_array")
+    # test_env = CustomCartPoleEnv(render_mode="rgb_array")
+    # save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_cartpole.csv"
+
     # state_discretizer = Discretizer(
     #     ranges=[(-2.4, 2.4), (-2, 2), (-0.25, 0.25), (-2, 2),],
     #     num_buckets=[12, 32, 32, 32],
@@ -48,6 +42,10 @@ if __name__ == '__main__':
     #     num_buckets=[0],
     #     normal_params=[None, ],
     # )
+
+    # env = gym.make("LunarLander-v3")
+    # test_env = gym.make("LunarLander-v3")
+    # save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_lunarlander.csv"
 
     # state_discretizer = Discretizer(
     #     ranges=[
@@ -64,6 +62,10 @@ if __name__ == '__main__':
     #     normal_params=[None, ],
     # )
 
+    # env = gym.make("Acrobot-v1")
+    # test_env = gym.make("Acrobot-v1")
+    # save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_acrobot.csv"
+
     # state_discretizer = Discretizer(
     #     ranges=[
     #         (-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0),
@@ -78,6 +80,31 @@ if __name__ == '__main__':
     #     num_buckets=[0],
     #     normal_params=[None,],
     # )
+
+    # env = gym.make("BipedalWalker-v3", hardcore=True, render_mode="rgb_array")
+    # test_env = gym.make("BipedalWalker-v3", hardcore=True, render_mode="rgb_array")
+    # save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_bipedalwalker.csv"
+    #
+    # state_discretizer = Discretizer(
+    #     ranges=[
+    #         (-3.14, 3.14), (-5.0, 5.0), (-5.0, 5.0), (-5.0, 5.0),
+    #         (-3.14, 3.14), (-5.0, 5.0), (-3.14, 3.14), (-5.0, 5.0),
+    #         (-0.0, 5.0), (-3.14, 3.14), (-5.0, 5.0), (-3.14, 3.14),
+    #         (-5.0, 5.0), (-0.0, 5.0), (-1.0, 1.0), (-1.0, 1.0),
+    #         (-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0),
+    #         (-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0),
+    #     ],
+    #     num_buckets=[8 for _ in range(14)] + [4 for _ in range(10)],
+    #     normal_params=[None for _ in range(24)],
+    # )
+    #
+    # action_discretizer = Discretizer(
+    #     ranges=[(-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0),],
+    #     num_buckets=[4, 4, 4, 4,],
+    #     normal_params=[None, None, None, None,],
+    # )
+
+    # action_type = "float"
 
     total_steps = int(50e6)
     alpha = 0.25
@@ -116,7 +143,7 @@ if __name__ == '__main__':
             paused = False
             while not done:
                 if random.random() < env_epsilon:
-                    action = agent.choose_action(state, strategy="random")
+                    action_vec = agent.choose_action(state, strategy="random")
                 else:
                     # if sample_counter % 3 == 1:
                     #     action = agent.choose_action(state, strategy="rmax_softmax")
@@ -124,9 +151,14 @@ if __name__ == '__main__':
                     #     action = agent.choose_action(state, strategy="softmax")
                     # else:
                     #     action = agent.choose_action(state, strategy="weighted")
-                    action = agent.choose_action(state, strategy="softmax")
-                next_state, reward, done, truncated, _ = env.step(action[0].item())
-                agent.update_from_env(state, action, reward, next_state, done, alpha, gamma)
+                    action_vec = agent.choose_action(state, strategy="softmax")
+                if action_type == "int":
+                    action = action_vec.astype("int64")
+                    action = action[0].item()
+                elif action_type == "float":
+                    action = action_vec.astype("float32")
+                next_state, reward, done, truncated, _ = env.step(action)
+                agent.update_from_env(state, action_vec, reward, next_state, done, alpha, gamma)
                 state = next_state
                 total_reward += reward
                 current_steps += 1
@@ -165,8 +197,12 @@ if __name__ == '__main__':
                         test_total_reward = 0
                         test_done = False
                         while not test_done:
-                            test_action = [np.argmax(agent.get_action_probabilities(test_state, strategy="greedy"))]
-                            test_next_state, test_reward, test_done, test_truncated, _ = test_env.step(test_action[0])
+                            test_action = agent.choose_action(state, strategy="greedy")
+                            if action_type == "int":
+                                test_action = test_action.astype("int64")[0].item()
+                            elif action_type == "float":
+                                test_action = test_action.astype("float32")
+                            test_next_state, test_reward, test_done, test_truncated, _ = test_env.step(test_action)
                             if t == 0 and test_counter % 25 == 0:
                                 frames.append(test_env.render())
                             test_state = test_next_state
