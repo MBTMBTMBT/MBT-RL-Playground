@@ -1,3 +1,4 @@
+import heapq
 import random
 from collections import defaultdict
 from itertools import product
@@ -9,6 +10,7 @@ import scipy.stats
 from typing import List, Tuple, Optional, Dict
 
 from gymnasium import spaces
+from networkx.algorithms.flow import minimum_cut
 from pandas import DataFrame
 import tqdm
 from pyvis.network import Network
@@ -410,6 +412,8 @@ class TransitionTable:
         self.done_set = set()
         self.start_set = set()
 
+        self.mdp_graph = self.make_mdp_graph()
+
     def print_transition_table_info(self):
         print("Transition Table Information:")
         print(f"Total num transition pairs: {len(self.forward_dict)}.")
@@ -454,7 +458,7 @@ class TransitionTable:
             print(f"Transition Table saved to {file_path}.")
         return transition_table_df
 
-    def create_mdp_graph(self, output_file='mdp_visualization.html'):
+    def make_mdp_graph(self):
         # Create a directed graph
         G = nx.DiGraph()
 
@@ -465,16 +469,25 @@ class TransitionTable:
                     for reward in self.transition_table[encoded_state][encoded_action][encoded_next_state].keys():
                         count = self.transition_table[encoded_state][encoded_action][encoded_next_state][reward]
                         # Add edges and attributes
-                        state_str = str(self.state_discretizer.indices_to_midpoints(self.state_discretizer.decode_indices(encoded_state)))
-                        encoded_next_state_str = str(self.state_discretizer.indices_to_midpoints(self.state_discretizer.decode_indices(encoded_next_state)))
+                        state_str = str(self.state_discretizer.indices_to_midpoints(
+                            self.state_discretizer.decode_indices(encoded_state)))
+                        encoded_next_state_str = str(self.state_discretizer.indices_to_midpoints(
+                            self.state_discretizer.decode_indices(encoded_next_state)))
                         G.add_edge(
                             state_str,
                             encoded_next_state_str,
                             label=f"{encoded_action}\nR={reward}\nCount={count}",
-                            count=count
+                            count=count,
                         )
                         G.nodes[state_str]['count'] = self.state_count[encoded_state]
                         G.nodes[encoded_next_state_str]['count'] = self.state_count[encoded_next_state]
+
+        self.mdp_graph = G
+        return G
+
+    def save_mdp_graph(self, output_file='mdp_visualization.html'):
+        # Create a directed graph
+        G = self.make_mdp_graph()
 
         # Use Pyvis for visualization
         net = Network(height='1000px', width='100%', directed=True)
@@ -655,44 +668,209 @@ class TransitionalTableEnv(TransitionTable, gym.Env):
         return encoded_next_state, reward, terminated, truncated, info
 
 
+# class QCutTransitionalTableEnv(TransitionalTableEnv):
+#     def __init__(self, state_discretizer: Discretizer, action_discretizer: Discretizer, bonus_decay=0.99):
+#         TransitionalTableEnv.__init__(self, state_discretizer, action_discretizer)
+#         self.search_start_set = set()
+#         self.search_target_set = set()
+#         self.bonus_states = defaultdict(lambda: 0.0)
+#         self.bonus_decay = bonus_decay
+#
+#     def find_nearest_nodes_and_subgraph(self, start_node, n, weighted=True):
+#         """
+#         Find the nearest n nodes from the starting node, searching both forward and backward directions.
+#
+#         :param start_node: Starting node for the search
+#         :param n: Number of nearest nodes to find
+#         :param weighted: Whether to consider weights (True: use 'count' as weights; False: unweighted search)
+#         :return: Set of the nearest n nodes (node names only)
+#         """
+#         G = self.mdp_graph
+#
+#         visited = set()  # Set to track visited nodes
+#         heap = []  # Min-heap to prioritize nodes by shortest distance
+#         result = set()  # Set to store the nearest nodes
+#
+#         # Initialize the heap with the starting node in both forward and backward directions
+#         heapq.heappush(heap, (0, start_node, 'forward'))  # Forward direction
+#         heapq.heappush(heap, (0, start_node, 'backward'))  # Backward direction
+#
+#         while heap and len(result) < n:
+#             # Pop the node with the smallest distance from the heap
+#             dist, current_node, direction = heapq.heappop(heap)
+#
+#             # Skip if the node has already been visited
+#             if current_node in visited:
+#                 continue
+#
+#             # Mark the current node as visited
+#             visited.add(current_node)
+#             result.add(current_node)  # Add the node to the result set
+#
+#             # Get neighbors based on the direction (forward or backward)
+#             if direction == 'forward':
+#                 neighbors = G.successors(current_node)
+#             else:  # Backward direction
+#                 neighbors = G.predecessors(current_node)
+#
+#             for neighbor in neighbors:
+#                 if neighbor not in visited:
+#                     if weighted:
+#                         # Weighted mode: Use 'count' as the weight (higher count implies closer distance)
+#                         weight = G.edges[current_node, neighbor]['count']
+#                         effective_dist = dist - weight  # Larger count reduces the effective distance
+#                     else:
+#                         # Unweighted mode: Fixed step distance
+#                         effective_dist = dist + 1
+#
+#                     # Push the neighbor into the heap with the calculated effective distance
+#                     heapq.heappush(heap, (effective_dist, neighbor, direction))
+#
+#         # Create a subgraph based on the node set
+#         subgraph = self.mdp_graph.subgraph(result).copy()
+#
+#         # Return the set of the nearest nodes
+#         return result, subgraph
+#
+#     @staticmethod
+#     def find_states_by_count(G, n, find_max=True):
+#         """
+#         Find the top n states with the highest or lowest 'count' attribute in the graph.
+#
+#         :param G: Directed graph (nx.DiGraph)
+#         :param n: Number of states to find
+#         :param find_max: If True, find states with the highest 'count'; if False, find states with the lowest
+#         :return: List of tuples (state, count) sorted by count
+#         """
+#         # Extract all nodes with their 'count' attribute
+#         state_counts = [(node, G.nodes[node].get('count', 0)) for node in G.nodes]
+#
+#         # Sort the states by count (descending for max, ascending for min)
+#         state_counts = sorted(state_counts, key=lambda x: x[1], reverse=find_max)
+#
+#         # Return the top n states
+#         return state_counts[:n]
+#
+#     @staticmethod
+#     def find_min_cut_max_flow(G, source, target, invert_weights=False):
+#         """
+#         Find the Minimum Cut - Max Flow edges and the partitioned sets of nodes.
+#
+#         Parameters:
+#             G (nx.DiGraph): The directed graph.
+#             source (str): The source node.
+#             target (str): The target node.
+#             invert_weights (bool): Whether to use 1/count as the weight (True for minimizing count).
+#
+#         Returns:
+#             cut_value (float): The total weight of the minimum cut.
+#             partition (tuple): A tuple (reachable, non_reachable) containing the two sets of nodes.
+#             edges_in_cut (list): The edges included in the minimum cut.
+#         """
+#         # Create a copy of the graph to modify edge weights
+#         H = G.copy()
+#
+#         # Update edge weights
+#         for u, v, data in H.edges(data=True):
+#             count = data.get('count', 1)  # Default weight is 1 if 'count' is not present
+#             if invert_weights:
+#                 # Avoid division by zero by setting a small default value for zero counts
+#                 weight = 1.0 / max(count, 1e-6)
+#             else:
+#                 weight = count
+#             H[u][v]['capacity'] = weight  # Set the capacity for the edge
+#
+#         # Compute the minimum cut
+#         cut_value, partition = minimum_cut(H, source, target, capacity='capacity')
+#         reachable, non_reachable = partition
+#
+#         # Find the edges in the cut
+#         edges_in_cut = []
+#         for u in reachable:
+#             for v in G.successors(u):
+#                 if v in non_reachable:
+#                     edges_in_cut.append((u, v))
+#
+#         return cut_value, reachable, non_reachable, edges_in_cut
+#
+#     def step(self, action: int, transition_strategy: str = "weighted", rmax: float = 1.0):
+#         encoded_state = self.current_state
+#         encoded_action = action
+#         transition_state_avg_reward_and_prob \
+#             = self.get_transition_state_avg_reward_and_prob(encoded_state, encoded_action)
+#         if len(transition_state_avg_reward_and_prob) == 0:
+#             return encoded_state, rmax, True, False, {"current_step": self.step_count}
+#         if transition_strategy == "weighted":
+#             encoded_next_state = random.choices(
+#                 tuple(transition_state_avg_reward_and_prob.keys()),
+#                 weights=[v[1] for v in transition_state_avg_reward_and_prob.values()],
+#                 k=1,
+#             )[0]
+#         elif transition_strategy == "random":
+#             encoded_next_state = random.choice(tuple(transition_state_avg_reward_and_prob.keys()))
+#         elif transition_strategy == "inverse_weighted":
+#             probabilities = [v[1] for v in transition_state_avg_reward_and_prob.values()]
+#             total_weight = sum(probabilities)
+#             inverse_weights = [total_weight - p for p in probabilities]
+#             encoded_next_state = random.choices(
+#                 tuple(transition_state_avg_reward_and_prob.keys()),
+#                 weights=inverse_weights,
+#                 k=1,
+#             )[0]
+#         else:
+#             raise ValueError(f"Transition strategy not supported: {transition_strategy}.")
+#         reward = transition_state_avg_reward_and_prob[encoded_next_state][0]
+#         self.step_count += 1
+#
+#         terminated = encoded_next_state in self.done_set
+#         truncated = self.step_count >= self.max_steps
+#         self.current_state = encoded_next_state
+#
+#         info = {"current_step": self.step_count}
+#         return encoded_next_state, reward, terminated, truncated, info
+
+
 class TabularDynaQAgent:
-    def __init__(self, state_discretizer: Discretizer, action_discretizer: Discretizer,):
+    def __init__(self, state_discretizer: Discretizer, action_discretizer: Discretizer, bonus_decay=0.5):
         self.state_discretizer = state_discretizer
         self.action_discretizer = action_discretizer
         self.transition_table_env = TransitionalTableEnv(state_discretizer, action_discretizer)
         self.q_table_agent = TabularQAgent(self.state_discretizer, self.action_discretizer)
-        self.rmax_agent = TabularQAgent(self.state_discretizer, self.action_discretizer)
+        self.exploration_agent = TabularQAgent(self.state_discretizer, self.action_discretizer)
+        self.exploration_agent.q_table = defaultdict(lambda: 1.0)
+        self.bonus_states = defaultdict(lambda: 1.0)
+        self.bonus_decay = bonus_decay
 
     def print_agent_info(self):
         self.q_table_agent.print_q_table_info()
-        self.rmax_agent.print_q_table_info()
+        self.exploration_agent.print_q_table_info()
         self.transition_table_env.print_transition_table_info()
 
     def save_agent(self, file_path: str = None) -> tuple[DataFrame, DataFrame, DataFrame]:
         if file_path:
             q_table_file_path = file_path.split(".csv")[0] + "_q_table.csv"
-            rmax_agent_q_table_file_path = file_path.split(".csv")[0] + "_rmax_agent_q_table.csv"
+            exploration_agent_q_table_file_path = file_path.split(".csv")[0] + "_exploration_agent_q_table.csv"
             transition_table_file_path = file_path.split(".csv")[0] + "_transition_table.csv"
         else:
             q_table_file_path = None
-            rmax_agent_q_table_file_path = None
+            exploration_agent_q_table_file_path = None
             transition_table_file_path = None
         q_table_df = self.q_table_agent.save_q_table(file_path=q_table_file_path)
-        rmax_agent_q_table_df = self.rmax_agent.save_q_table(file_path=rmax_agent_q_table_file_path)
+        exploration_agent_q_table_df = self.exploration_agent.save_q_table(file_path=exploration_agent_q_table_file_path)
         transition_table_df = self.transition_table_env.save_transition_table(file_path=transition_table_file_path)
-        return q_table_df, transition_table_df, rmax_agent_q_table_df
+        return q_table_df, transition_table_df, exploration_agent_q_table_df
 
     def load_agent(self, file_path: str = None, dataframes: tuple[DataFrame, DataFrame, DataFrame] = (None, None, None)):
         if file_path:
             q_table_file_path = file_path.split(".csv")[0] + "_q_table.csv"
-            rmax_agent_q_table_file_path = file_path.split(".csv")[0] + "_rmax_agent_q_table.csv"
+            exploration_agent_q_table_file_path = file_path.split(".csv")[0] + "_exploration_agent_q_table.csv"
             transition_table_file_path = file_path.split(".csv")[0] + "_transition_table.csv"
         else:
             q_table_file_path = None
-            rmax_agent_q_table_file_path = None
+            exploration_agent_q_table_file_path = None
             transition_table_file_path = None
         self.q_table_agent.load_q_table(file_path=q_table_file_path, df=dataframes[0])
-        self.rmax_agent.load_q_table(file_path=rmax_agent_q_table_file_path, df=dataframes[0])
+        self.exploration_agent.load_q_table(file_path=exploration_agent_q_table_file_path, df=dataframes[0])
         self.transition_table_env.load_transition_table(
             file_path=transition_table_file_path, transition_table_df=dataframes[1]
         )
@@ -701,10 +879,10 @@ class TabularDynaQAgent:
                                  temperature: float = 1.0) -> np.ndarray:
         if strategy == "softmax" or strategy == "greedy":
             return self.q_table_agent.get_action_probabilities(state, strategy=strategy, temperature=temperature)
-        elif strategy == "rmax_softmax":
-            return self.rmax_agent.get_action_probabilities(state, strategy="softmax", temperature=temperature)
-        elif strategy == "rmax_greedy":
-            return self.rmax_agent.get_action_probabilities(state, strategy="greedy", temperature=temperature)
+        elif strategy == "explore_softmax":
+            return self.exploration_agent.get_action_probabilities(state, strategy="softmax", temperature=temperature)
+        elif strategy == "explore_greedy":
+            return self.exploration_agent.get_action_probabilities(state, strategy="greedy", temperature=temperature)
         elif strategy == "weighted":
             encoded_state = self.state_discretizer.encode_indices([*self.state_discretizer.discretize(state)[1]])
             state_action_counts = self.transition_table_env.get_state_action_counts(encoded_state)
@@ -731,6 +909,11 @@ class TabularDynaQAgent:
                alpha: float = 0.1, gamma: float = 0.99):
         self.q_table_agent.update(state, action, reward, next_state, done, alpha=alpha, gamma=gamma)
         self.transition_table_env.update(state, action, reward, next_state, done)
+        encoded_next_state = self.state_discretizer.encode_indices(
+            list(self.state_discretizer.discretize(next_state)[1]))
+        reward_bonus = self.bonus_states[encoded_next_state]
+        self.bonus_states[encoded_next_state] *= self.bonus_decay
+        self.exploration_agent.update(state, action, reward_bonus, next_state, done, alpha=alpha, gamma=gamma)
 
     def update_from_transition_table(
             self,
@@ -741,7 +924,7 @@ class TabularDynaQAgent:
             gamma: float = 0.99,
             transition_strategy: str = "weighted",
             init_strategy: str = "real_start_states",
-            train_rmax_agent: bool = False,
+            train_exploration_agent: bool = False,
             rmax: float = 1e3
     ):
         # Initialize variables
@@ -751,15 +934,15 @@ class TabularDynaQAgent:
         sum_episode_rewards = 0
 
         old_truncate_steps = self.transition_table_env.max_steps
-        if train_rmax_agent:
+        if train_exploration_agent:
             self.transition_table_env.max_steps = np.inf
-            self.rmax_agent.reset_q_table()
+            self.exploration_agent.reset_q_table()
 
-        agent = self.q_table_agent if not train_rmax_agent else self.rmax_agent
-        rmax = 0.0 if not train_rmax_agent else rmax
+        agent = self.q_table_agent if not train_exploration_agent else self.exploration_agent
+        rmax = 0.0 if not train_exploration_agent else rmax
 
         print(f"Starting for {steps} steps using transition table: ")
-        if train_rmax_agent:
+        if train_exploration_agent:
             print(f"Training rmax agent with rmax value: {rmax}.")
         self.transition_table_env.print_transition_table_info()
 
@@ -783,7 +966,7 @@ class TabularDynaQAgent:
             next_state_encoded, reward, terminated, truncated, info = self.transition_table_env.step(
                 action_encoded, transition_strategy, rmax=rmax,
             )
-            if train_rmax_agent:
+            if train_exploration_agent:
                 if reward != rmax:
                     reward = 0.0
                 else:
