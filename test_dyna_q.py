@@ -114,13 +114,13 @@ if __name__ == '__main__':
     env_epsilon = 0.25
     agent_epsilon = 0.25
     rmax_agent_epsilon = 0.25
-    inner_training_per_num_steps = int(0.1e6)
+    inner_training_per_num_steps = int(0.25e6)
     rmax_inner_training_per_num_steps = int(0.025e6)
-    inner_training_steps = int(0.5e6)
+    inner_training_steps = int(0.25e6)
     rmax_inner_training_steps = int(0.01e6)
     test_per_num_steps = int(10e3)
     test_runs = 10
-    max_steps = 200
+    max_steps = 250
 
     agent = TabularDynaQAgent(state_discretizer, action_discretizer,)
     agent.transition_table_env.max_steps = max_steps
@@ -177,16 +177,17 @@ if __name__ == '__main__':
                 #         )
                 #     paused = True
                 #
-                # if current_steps % inner_training_per_num_steps == 0 and current_steps > 1:
-                #     agent.update_from_transition_table(
-                #         inner_training_steps,
-                #         agent_epsilon,
-                #         alpha=alpha,
-                #         strategy="softmax",
-                #         init_strategy="real_start_states",
-                #         train_rmax_agent=False,
-                #     )
-                #     paused = True
+
+                if current_steps % inner_training_per_num_steps == 0 and current_steps > 1:
+                    agent.update_from_transition_table(
+                        inner_training_steps,
+                        agent_epsilon,
+                        alpha=alpha,
+                        strategy="softmax",
+                        init_strategy="real_start_states",
+                        train_rmax_agent=False,
+                    )
+                    paused = True
 
                 # Periodic testing
                 if current_steps % test_per_num_steps == 0:
@@ -223,7 +224,7 @@ if __name__ == '__main__':
                     if len(frames) > 0:
                         agent.transition_table_env.print_transition_table_info()
                         generate_test_gif(frames, gif_path)
-                        agent.transition_table_env.create_mdp_graph(graph_path)
+                        agent.transition_table_env.save_mdp_graph(graph_path)
                     test_counter += 1
 
                 if done or truncated:
