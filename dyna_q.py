@@ -413,6 +413,7 @@ class TransitionTable:
             = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: 0)))  # {state: {action: {next_state: rate}}
         self.done_set = set()
         self.start_set = set()
+        self.reward_set_dict = defaultdict(lambda: set())
 
         self.mdp_graph = self.make_mdp_graph()
 
@@ -440,8 +441,10 @@ class TransitionTable:
 
         transition_state_avg_reward_and_prob \
             = self.get_transition_state_avg_reward_and_prob(encoded_state, encoded_action)
-        for next_state_encoded, (avg_reward, prob) in transition_state_avg_reward_and_prob.items():
-            self.transition_prob_table[encoded_state][encoded_action][next_state_encoded] = prob
+        for encoded_next_state, (avg_reward, prob) in transition_state_avg_reward_and_prob.items():
+            self.transition_prob_table[encoded_state][encoded_action][encoded_next_state] = prob
+
+        self.reward_set_dict[round(reward, 1)].add(encoded_next_state)
 
     def save_transition_table(self, file_path: str = None) -> pd.DataFrame:
         transition_table_data = []
