@@ -348,8 +348,10 @@ class TabularQAgent:
 
         if strategy == "greedy":
             probabilities = np.zeros_like(q_values, dtype=float)
-            if len(q_values) > 0:
+            if np.any(q_values) > 0:
                 probabilities[np.argmax(q_values)] = 1.0
+            else:
+                probabilities = np.ones_like(q_values, dtype=float) / len(q_values)
         elif strategy == "softmax":
             if np.all(q_values == 0):  # Handle all-zero Q-values
                 probabilities = np.ones_like(q_values, dtype=float) / len(q_values)
@@ -422,6 +424,12 @@ class TransitionTable:
         print(f"Total num transition pairs: {len(self.forward_dict)}.")
         print(f"Collected initial states: {len(self.start_set)}.")
         print(f"Collected termination states: {len(self.done_set)}.")
+        print(f"Collected rewards:")
+        total_reward_count = 0
+        for reward, reward_set in self.reward_set_dict.items():
+            total_reward_count += len(reward_set)
+        for reward, reward_set in sorted(self.reward_set_dict.items(), key=lambda x: x[0]):
+            print(f"{reward}: {len(reward_set)} - {len(reward_set) / total_reward_count * 100:.2f}%")
 
     def update(self, state: np.ndarray, action: np.ndarray, reward: float, next_state: np.ndarray, done: bool):
         encoded_state = self.state_discretizer.encode_indices(list(self.state_discretizer.discretize(state)[1]))

@@ -9,41 +9,41 @@ if __name__ == '__main__':
     from parallel_training import generate_test_gif
 
 
-    env = CustomMountainCarEnv(custom_gravity=0.005, render_mode="rgb_array")
-    test_env = CustomMountainCarEnv(custom_gravity=0.005, render_mode="rgb_array")
-    save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_mountain_car.csv"
-
-    state_discretizer = Discretizer(
-        ranges = [(-1.2, 0.6), (-0.07, 0.07),],
-        num_buckets=[64, 32],
-        normal_params=[None, None],
-    )
-
-    action_discretizer = Discretizer(
-        ranges=[(0, 2),],
-        num_buckets=[0],
-        normal_params=[None,],
-    )
-
-    action_type = "int"
-
-    # env = CustomCartPoleEnv(render_mode="rgb_array")
-    # test_env = CustomCartPoleEnv(render_mode="rgb_array")
-    # save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_cartpole.csv"
+    # env = CustomMountainCarEnv(custom_gravity=0.005, render_mode="rgb_array")
+    # test_env = CustomMountainCarEnv(custom_gravity=0.005, render_mode="rgb_array")
+    # save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_mountain_car.csv"
     #
     # state_discretizer = Discretizer(
-    #     ranges=[(-2.4, 2.4), (-2, 2), (-0.25, 0.25), (-2, 2),],
-    #     num_buckets=[12, 32, 32, 32],
-    #     normal_params=[None, None, None, None,],
+    #     ranges = [(-1.2, 0.6), (-0.07, 0.07),],
+    #     num_buckets=[64, 32],
+    #     normal_params=[None, None],
     # )
     #
     # action_discretizer = Discretizer(
-    #     ranges=[(0, 1),],
+    #     ranges=[(0, 2),],
     #     num_buckets=[0],
-    #     normal_params=[None, ],
+    #     normal_params=[None,],
     # )
     #
     # action_type = "int"
+
+    env = CustomCartPoleEnv(render_mode="rgb_array")
+    test_env = CustomCartPoleEnv(render_mode="rgb_array")
+    save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_cartpole.csv"
+
+    state_discretizer = Discretizer(
+        ranges=[(-2.4, 2.4), (-2, 2), (-0.25, 0.25), (-2, 2),],
+        num_buckets=[12, 32, 32, 32],
+        normal_params=[None, None, None, None,],
+    )
+
+    action_discretizer = Discretizer(
+        ranges=[(0, 1),],
+        num_buckets=[0],
+        normal_params=[None, ],
+    )
+
+    action_type = "int"
 
     # env = gym.make("LunarLander-v3")
     # test_env = gym.make("LunarLander-v3")
@@ -118,9 +118,9 @@ if __name__ == '__main__':
     env_epsilon = 0.25
     agent_epsilon = 0.25
     rmax_agent_epsilon = 0.25
-    inner_training_per_num_steps = int(0.5e6)
+    inner_training_per_num_steps = int(0.1e6)
     rmax_inner_training_per_num_steps = int(0.025e6)
-    inner_training_steps = int(1e6)
+    inner_training_steps = int(0.1e6)
     rmax_inner_training_steps = int(0.01e6)
     test_per_num_steps = int(10e3)
     test_runs = 10
@@ -179,7 +179,7 @@ if __name__ == '__main__':
                         test_total_reward = 0
                         test_done = False
                         while not test_done:
-                            test_action = agent.choose_action(state, strategy="greedy")
+                            test_action = agent.choose_action(test_state, strategy="greedy")
                             if action_type == "int":
                                 test_action = test_action.astype("int64")[0].item()
                             elif action_type == "float":
