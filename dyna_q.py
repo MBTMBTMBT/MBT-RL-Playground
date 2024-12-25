@@ -438,6 +438,11 @@ class TransitionTable:
         self.state_count[encoded_state] += 1
         self.state_action_count[encoded_state][encoded_action] += 1
 
+        transition_state_avg_reward_and_prob \
+            = self.get_transition_state_avg_reward_and_prob(encoded_state, encoded_action)
+        for next_state_encoded, (avg_reward, prob) in transition_state_avg_reward_and_prob.items():
+            self.transition_prob_table[encoded_state][encoded_action][next_state_encoded] = prob
+
     def save_transition_table(self, file_path: str = None) -> pd.DataFrame:
         transition_table_data = []
         for encoded_state in self.transition_table.keys():
