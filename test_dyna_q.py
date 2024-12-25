@@ -172,7 +172,7 @@ if __name__ == '__main__':
                 #             alpha=rmax_alpha,
                 #             strategy = "softmax",
                 #             init_strategy="random",
-                #             train_rmax_agent=True,
+                #             train_exploration_agent=True,
                 #             rmax=rmax,
                 #         )
                 #     paused = True
@@ -185,7 +185,7 @@ if __name__ == '__main__':
                         alpha=alpha,
                         strategy="softmax",
                         init_strategy="real_start_states",
-                        train_rmax_agent=False,
+                        train_exploration_agent=False,
                     )
                     paused = True
 
