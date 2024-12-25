@@ -483,6 +483,10 @@ class TransitionTable:
         # Traverse the transition table and construct the graph
         for encoded_state in self.transition_table.keys():
             for encoded_action in self.transition_table[encoded_state].keys():
+                total_count = 0
+                for encoded_next_state in self.transition_table[encoded_state][encoded_action].keys():
+                    for reward in self.transition_table[encoded_state][encoded_action][encoded_next_state].keys():
+                        total_count += self.transition_table[encoded_state][encoded_action][encoded_next_state][reward]
                 for encoded_next_state in self.transition_table[encoded_state][encoded_action].keys():
                     for reward in self.transition_table[encoded_state][encoded_action][encoded_next_state].keys():
                         count = self.transition_table[encoded_state][encoded_action][encoded_next_state][reward]
@@ -496,6 +500,7 @@ class TransitionTable:
                             encoded_next_state_str,
                             label=f"{encoded_action}\nR={reward}\nCount={count}",
                             count=count,
+                            prob=count / total_count,
                         )
                         G.nodes[state_str]['count'] = self.state_count[encoded_state]
                         G.nodes[encoded_next_state_str]['count'] = self.state_count[encoded_next_state]
@@ -684,166 +689,167 @@ class TransitionalTableEnv(TransitionTable, gym.Env):
         return encoded_next_state, reward, terminated, truncated, info
 
 
-# class QCutTransitionalTableEnv(TransitionalTableEnv):
-#     def __init__(self, state_discretizer: Discretizer, action_discretizer: Discretizer, bonus_decay=0.99):
-#         TransitionalTableEnv.__init__(self, state_discretizer, action_discretizer)
-#         self.search_start_set = set()
-#         self.search_target_set = set()
-#         self.bonus_states = defaultdict(lambda: 0.0)
-#         self.bonus_decay = bonus_decay
-#
-#     def find_nearest_nodes_and_subgraph(self, start_node, n, weighted=True):
-#         """
-#         Find the nearest n nodes from the starting node, searching both forward and backward directions.
-#
-#         :param start_node: Starting node for the search
-#         :param n: Number of nearest nodes to find
-#         :param weighted: Whether to consider weights (True: use 'count' as weights; False: unweighted search)
-#         :return: Set of the nearest n nodes (node names only)
-#         """
-#         G = self.mdp_graph
-#
-#         visited = set()  # Set to track visited nodes
-#         heap = []  # Min-heap to prioritize nodes by shortest distance
-#         result = set()  # Set to store the nearest nodes
-#
-#         # Initialize the heap with the starting node in both forward and backward directions
-#         heapq.heappush(heap, (0, start_node, 'forward'))  # Forward direction
-#         heapq.heappush(heap, (0, start_node, 'backward'))  # Backward direction
-#
-#         while heap and len(result) < n:
-#             # Pop the node with the smallest distance from the heap
-#             dist, current_node, direction = heapq.heappop(heap)
-#
-#             # Skip if the node has already been visited
-#             if current_node in visited:
-#                 continue
-#
-#             # Mark the current node as visited
-#             visited.add(current_node)
-#             result.add(current_node)  # Add the node to the result set
-#
-#             # Get neighbors based on the direction (forward or backward)
-#             if direction == 'forward':
-#                 neighbors = G.successors(current_node)
-#             else:  # Backward direction
-#                 neighbors = G.predecessors(current_node)
-#
-#             for neighbor in neighbors:
-#                 if neighbor not in visited:
-#                     if weighted:
-#                         # Weighted mode: Use 'count' as the weight (higher count implies closer distance)
-#                         weight = G.edges[current_node, neighbor]['count']
-#                         effective_dist = dist - weight  # Larger count reduces the effective distance
-#                     else:
-#                         # Unweighted mode: Fixed step distance
-#                         effective_dist = dist + 1
-#
-#                     # Push the neighbor into the heap with the calculated effective distance
-#                     heapq.heappush(heap, (effective_dist, neighbor, direction))
-#
-#         # Create a subgraph based on the node set
-#         subgraph = self.mdp_graph.subgraph(result).copy()
-#
-#         # Return the set of the nearest nodes
-#         return result, subgraph
-#
-#     @staticmethod
-#     def find_states_by_count(G, n, find_max=True):
-#         """
-#         Find the top n states with the highest or lowest 'count' attribute in the graph.
-#
-#         :param G: Directed graph (nx.DiGraph)
-#         :param n: Number of states to find
-#         :param find_max: If True, find states with the highest 'count'; if False, find states with the lowest
-#         :return: List of tuples (state, count) sorted by count
-#         """
-#         # Extract all nodes with their 'count' attribute
-#         state_counts = [(node, G.nodes[node].get('count', 0)) for node in G.nodes]
-#
-#         # Sort the states by count (descending for max, ascending for min)
-#         state_counts = sorted(state_counts, key=lambda x: x[1], reverse=find_max)
-#
-#         # Return the top n states
-#         return state_counts[:n]
-#
-#     @staticmethod
-#     def find_min_cut_max_flow(G, source, target, invert_weights=False):
-#         """
-#         Find the Minimum Cut - Max Flow edges and the partitioned sets of nodes.
-#
-#         Parameters:
-#             G (nx.DiGraph): The directed graph.
-#             source (str): The source node.
-#             target (str): The target node.
-#             invert_weights (bool): Whether to use 1/count as the weight (True for minimizing count).
-#
-#         Returns:
-#             cut_value (float): The total weight of the minimum cut.
-#             partition (tuple): A tuple (reachable, non_reachable) containing the two sets of nodes.
-#             edges_in_cut (list): The edges included in the minimum cut.
-#         """
-#         # Create a copy of the graph to modify edge weights
-#         H = G.copy()
-#
-#         # Update edge weights
-#         for u, v, data in H.edges(data=True):
-#             count = data.get('count', 1)  # Default weight is 1 if 'count' is not present
-#             if invert_weights:
-#                 # Avoid division by zero by setting a small default value for zero counts
-#                 weight = 1.0 / max(count, 1e-6)
-#             else:
-#                 weight = count
-#             H[u][v]['capacity'] = weight  # Set the capacity for the edge
-#
-#         # Compute the minimum cut
-#         cut_value, partition = minimum_cut(H, source, target, capacity='capacity')
-#         reachable, non_reachable = partition
-#
-#         # Find the edges in the cut
-#         edges_in_cut = []
-#         for u in reachable:
-#             for v in G.successors(u):
-#                 if v in non_reachable:
-#                     edges_in_cut.append((u, v))
-#
-#         return cut_value, reachable, non_reachable, edges_in_cut
-#
-#     def step(self, action: int, transition_strategy: str = "weighted", unknown_reward: float = 1.0):
-#         encoded_state = self.current_state
-#         encoded_action = action
-#         transition_state_avg_reward_and_prob \
-#             = self.get_transition_state_avg_reward_and_prob(encoded_state, encoded_action)
-#         if len(transition_state_avg_reward_and_prob) == 0:
-#             return encoded_state, unknown_reward, True, False, {"current_step": self.step_count}
-#         if transition_strategy == "weighted":
-#             encoded_next_state = random.choices(
-#                 tuple(transition_state_avg_reward_and_prob.keys()),
-#                 weights=[v[1] for v in transition_state_avg_reward_and_prob.values()],
-#                 k=1,
-#             )[0]
-#         elif transition_strategy == "random":
-#             encoded_next_state = random.choice(tuple(transition_state_avg_reward_and_prob.keys()))
-#         elif transition_strategy == "inverse_weighted":
-#             probabilities = [v[1] for v in transition_state_avg_reward_and_prob.values()]
-#             total_weight = sum(probabilities)
-#             inverse_weights = [total_weight - p for p in probabilities]
-#             encoded_next_state = random.choices(
-#                 tuple(transition_state_avg_reward_and_prob.keys()),
-#                 weights=inverse_weights,
-#                 k=1,
-#             )[0]
-#         else:
-#             raise ValueError(f"Transition strategy not supported: {transition_strategy}.")
-#         reward = transition_state_avg_reward_and_prob[encoded_next_state][0]
-#         self.step_count += 1
-#
-#         terminated = encoded_next_state in self.done_set
-#         truncated = self.step_count >= self.max_steps
-#         self.current_state = encoded_next_state
-#
-#         info = {"current_step": self.step_count}
-#         return encoded_next_state, reward, terminated, truncated, info
+class QCutTransitionalTableEnv(TransitionalTableEnv):
+    def __init__(self, state_discretizer: Discretizer, action_discretizer: Discretizer,):
+        TransitionalTableEnv.__init__(self, state_discretizer, action_discretizer)
+        self.search_target_set = set()
+
+    def find_nearest_nodes_and_subgraph(self, start_node, n, weighted=True, direction='both'):
+        """
+        Find the nearest n nodes from the starting node, searching in the specified direction.
+
+        :param start_node: Starting node for the search
+        :param n: Number of nearest nodes to find
+        :param weighted: Whether to consider weights (True: use 'prob' as weights; False: unweighted search)
+        :param direction: Direction of search ('forward', 'backward', or 'both')
+        :return: Set of the nearest n nodes (node names only) and the subgraph containing these nodes
+        """
+        G = self.mdp_graph
+
+        visited = set()  # Set to track visited nodes
+        heap = []  # Min-heap to prioritize nodes by shortest distance
+        result = set()  # Set to store the nearest nodes
+
+        # Initialize the heap based on the specified direction
+        if direction in ['forward', 'both']:
+            heapq.heappush(heap, (0, start_node, 'forward'))  # Forward direction
+        if direction in ['backward', 'both']:
+            heapq.heappush(heap, (0, start_node, 'backward'))  # Backward direction
+
+        while heap and len(result) < n:
+            # Pop the node with the smallest distance from the heap
+            dist, current_node, search_direction = heapq.heappop(heap)
+
+            # Skip if the node has already been visited
+            if current_node in visited:
+                continue
+
+            # Mark the current node as visited
+            visited.add(current_node)
+            result.add(current_node)  # Add the node to the result set
+
+            # Get neighbors based on the current search direction
+            if search_direction == 'forward':
+                neighbors = G.successors(current_node)
+            else:  # Backward direction
+                neighbors = G.predecessors(current_node)
+
+            for neighbor in neighbors:
+                if neighbor not in visited:
+                    if weighted:
+                        # Weighted mode: Use 'prob' as the weight (higher prob implies closer distance)
+                        weight = G.edges[current_node, neighbor]['prob']
+                        weight = max(0.0, weight)
+                        effective_dist = dist - weight  # Larger prob reduces the effective distance
+                    else:
+                        # Unweighted mode: Fixed step distance
+                        effective_dist = dist + 1
+
+                    # Push the neighbor into the heap with the calculated effective distance
+                    heapq.heappush(heap, (effective_dist, neighbor, search_direction))
+
+        # Create a subgraph based on the node set
+        subgraph = self.mdp_graph.subgraph(result).copy()
+
+        # Return the set of the nearest nodes and the subgraph
+        return result, subgraph
+
+    @staticmethod
+    def find_states_by_prob(G, n, find_max=True):
+        """
+        Find the top n states with the highest or lowest 'prob' attribute in the graph.
+
+        :param G: Directed graph (nx.DiGraph)
+        :param n: Number of states to find
+        :param find_max: If True, find states with the highest 'prob'; if False, find states with the lowest
+        :return: List of tuples (state, prob) sorted by prob
+        """
+        # Extract all nodes with their 'prob' attribute
+        state_probs = [(node, G.nodes[node].get('prob', 0)) for node in G.nodes]
+
+        # Sort the states by prob (descending for max, ascending for min)
+        state_probs = sorted(state_probs, key=lambda x: x[1], reverse=find_max)
+
+        # Return the top n states
+        return state_probs[:n]
+
+    @staticmethod
+    def find_min_cut_max_flow(G, source, target, invert_weights=False):
+        """
+        Find the Minimum Cut - Max Flow edges and the partitioned sets of nodes.
+
+        Parameters:
+            G (nx.DiGraph): The directed graph.
+            source (str): The source node.
+            target (str): The target node.
+            invert_weights (bool): Whether to use 1/prob as the weight (True for minimizing prob).
+
+        Returns:
+            cut_value (float): The total weight of the minimum cut.
+            partition (tuple): A tuple (reachable, non_reachable) containing the two sets of nodes.
+            edges_in_cut (list): The edges included in the minimum cut.
+        """
+        # Create a copy of the graph to modify edge weights
+        H = G.copy()
+
+        # Update edge weights
+        for u, v, data in H.edges(data=True):
+            prob = data.get('prob', 0.0)  # Default weight is 1 if 'prob' is not present
+            if invert_weights:
+                # Avoid division by zero by setting a small default value for zero probs
+                weight = 1.0 / max(prob, 1e-8)
+            else:
+                weight = prob
+            H[u][v]['capacity'] = weight  # Set the capacity for the edge
+
+        # Compute the minimum cut
+        cut_value, partition = minimum_cut(H, source, target, capacity='capacity')
+        reachable, non_reachable = partition
+
+        # Find the edges in the cut
+        edges_in_cut = []
+        for u in reachable:
+            for v in G.successors(u):
+                if v in non_reachable:
+                    edges_in_cut.append((u, v))
+
+        return cut_value, reachable, non_reachable, edges_in_cut
+
+    def step(self, action: int, transition_strategy: str = "weighted", unknown_reward: float = 1.0):
+        encoded_state = self.current_state
+        encoded_action = action
+        transition_state_avg_reward_and_prob \
+            = self.get_transition_state_avg_reward_and_prob(encoded_state, encoded_action)
+        if len(transition_state_avg_reward_and_prob) == 0:
+            return encoded_state, unknown_reward, True, False, {"current_step": self.step_count}
+        if transition_strategy == "weighted":
+            encoded_next_state = random.choices(
+                tuple(transition_state_avg_reward_and_prob.keys()),
+                weights=[v[1] for v in transition_state_avg_reward_and_prob.values()],
+                k=1,
+            )[0]
+        elif transition_strategy == "random":
+            encoded_next_state = random.choice(tuple(transition_state_avg_reward_and_prob.keys()))
+        elif transition_strategy == "inverse_weighted":
+            probabilities = [v[1] for v in transition_state_avg_reward_and_prob.values()]
+            total_weight = sum(probabilities)
+            inverse_weights = [total_weight - p for p in probabilities]
+            encoded_next_state = random.choices(
+                tuple(transition_state_avg_reward_and_prob.keys()),
+                weights=inverse_weights,
+                k=1,
+            )[0]
+        else:
+            raise ValueError(f"Transition strategy not supported: {transition_strategy}.")
+        reward = transition_state_avg_reward_and_prob[encoded_next_state][0]
+        self.step_count += 1
+
+        terminated = encoded_next_state in self.done_set
+        truncated = self.step_count >= self.max_steps
+        self.current_state = encoded_next_state
+
+        info = {"current_step": self.step_count}
+        return encoded_next_state, reward, terminated, truncated, info
 
 
 class TabularDynaQAgent:
