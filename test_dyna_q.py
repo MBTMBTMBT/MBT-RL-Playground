@@ -198,7 +198,7 @@ if __name__ == '__main__':
                         test_total_reward = 0
                         test_done = False
                         while not test_done:
-                            test_action = agent.choose_action(state, strategy="greedy")
+                            test_action = agent.choose_action(test_state, strategy="greedy")
                             if action_type == "int":
                                 test_action = test_action.astype("int64")[0].item()
                             elif action_type == "float":

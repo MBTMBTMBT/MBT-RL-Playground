@@ -9,41 +9,41 @@ if __name__ == '__main__':
     from parallel_training import generate_test_gif
 
 
-    # env = CustomMountainCarEnv(custom_gravity=0.005, render_mode="rgb_array")
-    # test_env = CustomMountainCarEnv(custom_gravity=0.005, render_mode="rgb_array")
-    # save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_mountain_car.csv"
-    #
-    # state_discretizer = Discretizer(
-    #     ranges = [(-1.2, 0.6), (-0.07, 0.07),],
-    #     num_buckets=[64, 32],
-    #     normal_params=[None, None],
-    # )
-    #
-    # action_discretizer = Discretizer(
-    #     ranges=[(0, 2),],
-    #     num_buckets=[0],
-    #     normal_params=[None,],
-    # )
-    #
-    # action_type = "int"
-
-    env = CustomCartPoleEnv(render_mode="rgb_array")
-    test_env = CustomCartPoleEnv(render_mode="rgb_array")
-    save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_cartpole.csv"
+    env = CustomMountainCarEnv(custom_gravity=0.005, render_mode="rgb_array")
+    test_env = CustomMountainCarEnv(custom_gravity=0.005, render_mode="rgb_array")
+    save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_mountain_car.csv"
 
     state_discretizer = Discretizer(
-        ranges=[(-2.4, 2.4), (-2, 2), (-0.25, 0.25), (-2, 2),],
-        num_buckets=[12, 32, 32, 32],
-        normal_params=[None, None, None, None,],
+        ranges = [(-1.2, 0.6), (-0.07, 0.07),],
+        num_buckets=[64, 32],
+        normal_params=[None, None],
     )
 
     action_discretizer = Discretizer(
-        ranges=[(0, 1),],
+        ranges=[(0, 2),],
         num_buckets=[0],
-        normal_params=[None, ],
+        normal_params=[None,],
     )
 
     action_type = "int"
+
+    # env = CustomCartPoleEnv(render_mode="rgb_array")
+    # test_env = CustomCartPoleEnv(render_mode="rgb_array")
+    # save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_cartpole.csv"
+    #
+    # state_discretizer = Discretizer(
+    #     ranges=[(-2.4, 2.4), (-2, 2), (-0.25, 0.25), (-2, 2),],
+    #     num_buckets=[12, 32, 32, 32],
+    #     normal_params=[None, None, None, None,],
+    # )
+    #
+    # action_discretizer = Discretizer(
+    #     ranges=[(0, 1),],
+    #     num_buckets=[0],
+    #     normal_params=[None, ],
+    # )
+    #
+    # action_type = "int"
 
     # env = gym.make("LunarLander-v3")
     # test_env = gym.make("LunarLander-v3")
