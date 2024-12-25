@@ -147,7 +147,7 @@ if __name__ == '__main__':
             paused = False
             while not done:
                 if random.random() < env_epsilon:
-                    action_vec = agent.choose_action(state, strategy="explore_softmax")
+                    action_vec = agent.choose_action(state, strategy="random")
                 else:
                     action_vec = agent.choose_action(state, strategy="explore_greedy")
                 if action_type == "int":
