@@ -1,4 +1,5 @@
 import heapq
+import math
 import random
 from collections import defaultdict
 from itertools import product
@@ -692,7 +693,8 @@ class TransitionalTableEnv(TransitionTable, gym.Env):
 class QCutTransitionalTableEnv(TransitionalTableEnv):
     def __init__(self, state_discretizer: Discretizer, action_discretizer: Discretizer,):
         TransitionalTableEnv.__init__(self, state_discretizer, action_discretizer)
-        self.search_target_set = set()
+        self.landmark_states = defaultdict(lambda: 0)
+        self.landmark_states_level = defaultdict(lambda: 0)
 
     def find_nearest_nodes_and_subgraph(self, start_node, n, weighted=True, direction='both'):
         """
@@ -707,18 +709,19 @@ class QCutTransitionalTableEnv(TransitionalTableEnv):
         G = self.mdp_graph
 
         visited = set()  # Set to track visited nodes
-        heap = []  # Min-heap to prioritize nodes by shortest distance
+        heap = []  # Min-heap to prioritize nodes by accumulated probability (log space)
         result = set()  # Set to store the nearest nodes
+        accumulated_prob = {start_node: 0.0}  # Cumulative log-probabilities for each node
 
         # Initialize the heap based on the specified direction
         if direction in ['forward', 'both']:
-            heapq.heappush(heap, (0, start_node, 'forward'))  # Forward direction
+            heapq.heappush(heap, (0.0, start_node, 'forward'))  # Forward direction
         if direction in ['backward', 'both']:
-            heapq.heappush(heap, (0, start_node, 'backward'))  # Backward direction
+            heapq.heappush(heap, (0.0, start_node, 'backward'))  # Backward direction
 
         while heap and len(result) < n:
-            # Pop the node with the smallest distance from the heap
-            dist, current_node, search_direction = heapq.heappop(heap)
+            # Pop the node with the smallest log-probability from the heap
+            log_prob, current_node, search_direction = heapq.heappop(heap)
 
             # Skip if the node has already been visited
             if current_node in visited:
@@ -737,41 +740,23 @@ class QCutTransitionalTableEnv(TransitionalTableEnv):
             for neighbor in neighbors:
                 if neighbor not in visited:
                     if weighted:
-                        # Weighted mode: Use 'prob' as the weight (higher prob implies closer distance)
-                        weight = G.edges[current_node, neighbor]['prob']
-                        weight = max(0.0, weight)
-                        effective_dist = dist - weight  # Larger prob reduces the effective distance
+                        # Weighted mode: Use -log(prob) for cumulative probability
+                        prob = max(G.edges[current_node, neighbor].get('prob', 0.0), 1e-8)
+                        new_log_prob = log_prob - math.log(prob)  # Accumulate in log space
                     else:
                         # Unweighted mode: Fixed step distance
-                        effective_dist = dist + 1
+                        new_log_prob = log_prob + 1
 
-                    # Push the neighbor into the heap with the calculated effective distance
-                    heapq.heappush(heap, (effective_dist, neighbor, search_direction))
+                    # Update the heap and cumulative probabilities if this path is better
+                    if neighbor not in accumulated_prob or new_log_prob < accumulated_prob[neighbor]:
+                        accumulated_prob[neighbor] = new_log_prob
+                        heapq.heappush(heap, (new_log_prob, neighbor, search_direction))
 
         # Create a subgraph based on the node set
         subgraph = self.mdp_graph.subgraph(result).copy()
 
         # Return the set of the nearest nodes and the subgraph
         return result, subgraph
-
-    @staticmethod
-    def find_states_by_prob(G, n, find_max=True):
-        """
-        Find the top n states with the highest or lowest 'prob' attribute in the graph.
-
-        :param G: Directed graph (nx.DiGraph)
-        :param n: Number of states to find
-        :param find_max: If True, find states with the highest 'prob'; if False, find states with the lowest
-        :return: List of tuples (state, prob) sorted by prob
-        """
-        # Extract all nodes with their 'prob' attribute
-        state_probs = [(node, G.nodes[node].get('prob', 0)) for node in G.nodes]
-
-        # Sort the states by prob (descending for max, ascending for min)
-        state_probs = sorted(state_probs, key=lambda x: x[1], reverse=find_max)
-
-        # Return the top n states
-        return state_probs[:n]
 
     @staticmethod
     def find_min_cut_max_flow(G, source, target, invert_weights=False):
@@ -782,7 +767,7 @@ class QCutTransitionalTableEnv(TransitionalTableEnv):
             G (nx.DiGraph): The directed graph.
             source (str): The source node.
             target (str): The target node.
-            invert_weights (bool): Whether to use 1/prob as the weight (True for minimizing prob).
+            invert_weights (bool): Whether to use -log(prob) as the weight (True for maximizing prob).
 
         Returns:
             cut_value (float): The total weight of the minimum cut.
@@ -794,16 +779,16 @@ class QCutTransitionalTableEnv(TransitionalTableEnv):
 
         # Update edge weights
         for u, v, data in H.edges(data=True):
-            prob = data.get('prob', 0.0)  # Default weight is 1 if 'prob' is not present
+            prob = max(data.get('prob', 1e-8), 1e-8)  # Ensure probabilities are > 0
             if invert_weights:
-                # Avoid division by zero by setting a small default value for zero probs
-                weight = 1.0 / max(prob, 1e-8)
+                # Use -log(prob) for maximizing overall probabilities
+                weight = -math.log(prob)
             else:
                 weight = prob
             H[u][v]['capacity'] = weight  # Set the capacity for the edge
 
         # Compute the minimum cut
-        cut_value, partition = minimum_cut(H, source, target, capacity='capacity')
+        cut_value, partition = nx.minimum_cut(H, source, target, capacity='capacity')
         reachable, non_reachable = partition
 
         # Find the edges in the cut
@@ -814,42 +799,6 @@ class QCutTransitionalTableEnv(TransitionalTableEnv):
                     edges_in_cut.append((u, v))
 
         return cut_value, reachable, non_reachable, edges_in_cut
-
-    def step(self, action: int, transition_strategy: str = "weighted", unknown_reward: float = 1.0):
-        encoded_state = self.current_state
-        encoded_action = action
-        transition_state_avg_reward_and_prob \
-            = self.get_transition_state_avg_reward_and_prob(encoded_state, encoded_action)
-        if len(transition_state_avg_reward_and_prob) == 0:
-            return encoded_state, unknown_reward, True, False, {"current_step": self.step_count}
-        if transition_strategy == "weighted":
-            encoded_next_state = random.choices(
-                tuple(transition_state_avg_reward_and_prob.keys()),
-                weights=[v[1] for v in transition_state_avg_reward_and_prob.values()],
-                k=1,
-            )[0]
-        elif transition_strategy == "random":
-            encoded_next_state = random.choice(tuple(transition_state_avg_reward_and_prob.keys()))
-        elif transition_strategy == "inverse_weighted":
-            probabilities = [v[1] for v in transition_state_avg_reward_and_prob.values()]
-            total_weight = sum(probabilities)
-            inverse_weights = [total_weight - p for p in probabilities]
-            encoded_next_state = random.choices(
-                tuple(transition_state_avg_reward_and_prob.keys()),
-                weights=inverse_weights,
-                k=1,
-            )[0]
-        else:
-            raise ValueError(f"Transition strategy not supported: {transition_strategy}.")
-        reward = transition_state_avg_reward_and_prob[encoded_next_state][0]
-        self.step_count += 1
-
-        terminated = encoded_next_state in self.done_set
-        truncated = self.step_count >= self.max_steps
-        self.current_state = encoded_next_state
-
-        info = {"current_step": self.step_count}
-        return encoded_next_state, reward, terminated, truncated, info
 
 
 class TabularDynaQAgent:
