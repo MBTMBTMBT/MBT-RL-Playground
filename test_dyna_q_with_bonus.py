@@ -166,7 +166,7 @@ if __name__ == '__main__':
                         agent_epsilon,
                         alpha=alpha,
                         strategy="softmax",
-                        init_strategy="random",
+                        init_strategy="real_start_states",
                         train_exploration_agent=False,
                     )
 

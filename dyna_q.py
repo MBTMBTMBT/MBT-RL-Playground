@@ -695,6 +695,7 @@ class QCutTransitionalTableEnv(TransitionalTableEnv):
         TransitionalTableEnv.__init__(self, state_discretizer, action_discretizer)
         self.landmark_states = defaultdict(lambda: 0)
         self.landmark_states_level = defaultdict(lambda: 0)
+        self.landmark_occupied_states = set()
 
     def find_nearest_nodes_and_subgraph(self, start_node, n, weighted=True, direction='both'):
         """
@@ -761,7 +762,8 @@ class QCutTransitionalTableEnv(TransitionalTableEnv):
     @staticmethod
     def find_min_cut_max_flow(G, source, target, invert_weights=False):
         """
-        Find the Minimum Cut - Max Flow edges and the partitioned sets of nodes.
+        Find the Minimum Cut - Max Flow edges and the partitioned sets of nodes,
+        and calculate the ratio-cut quality factor.
 
         Parameters:
             G (nx.DiGraph): The directed graph.
@@ -771,8 +773,10 @@ class QCutTransitionalTableEnv(TransitionalTableEnv):
 
         Returns:
             cut_value (float): The total weight of the minimum cut.
-            partition (tuple): A tuple (reachable, non_reachable) containing the two sets of nodes.
+            reachable (set): Nodes in the source partition.
+            non_reachable (set): Nodes in the sink partition.
             edges_in_cut (list): The edges included in the minimum cut.
+            quality_factor (float): The ratio-cut quality factor.
         """
         # Create a copy of the graph to modify edge weights
         H = G.copy()
@@ -798,7 +802,42 @@ class QCutTransitionalTableEnv(TransitionalTableEnv):
                 if v in non_reachable:
                     edges_in_cut.append((u, v))
 
-        return cut_value, reachable, non_reachable, edges_in_cut
+        # Calculate the ratio-cut quality factor
+        size_reachable = len(reachable)
+        size_non_reachable = len(non_reachable)
+        num_cut_edges = len(edges_in_cut)
+
+        if num_cut_edges > 0:  # Avoid division by zero
+            quality_factor = (size_reachable * size_non_reachable) / num_cut_edges
+        else:
+            quality_factor = float('inf')  # Perfect separation
+
+        return cut_value, reachable, non_reachable, edges_in_cut, quality_factor
+
+    def get_landmark_states(
+            self,
+            num_landmarks: int,
+            min_cut_max_flow_search_space: int,
+            nums_in_layers: List[int],
+            init_state_reward_prob_below_threshold: float = 0.2,
+    ):
+        beginners = set()
+        total_reward_count = 0
+        for reward, reward_set in self.reward_set_dict.items():
+            total_reward_count += len(reward_set)
+        for reward in self.reward_set_dict.keys():
+            if len(self.reward_set_dict[reward]) / total_reward_count < init_state_reward_prob_below_threshold:
+                for state in self.reward_set_dict[reward]:
+                    beginners.add(state)
+
+        if len(beginners) == 0:
+            print("No beginner states for Q-Cut search found.")
+            return
+
+        for level, num_in_layer in enumerate(nums_in_layers):
+            if level == 0:
+                pass
+
 
 
 class TabularDynaQAgent:
