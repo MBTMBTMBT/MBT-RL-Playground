@@ -110,7 +110,7 @@ if __name__ == '__main__':
     #
     # action_type = "float"
 
-    total_steps = int(10e6)
+    total_steps = int(15e6)
     alpha = 0.1
     rmax = 1.0
     rmax_alpha = 0.1
@@ -118,9 +118,9 @@ if __name__ == '__main__':
     env_epsilon = 0.25
     agent_epsilon = 0.25
     rmax_agent_epsilon = 0.25
-    inner_training_per_num_steps = int(10e6)
+    inner_training_per_num_steps = int(0.5e6)
     rmax_inner_training_per_num_steps = int(0.025e6)
-    inner_training_steps = int(2.5e6)
+    inner_training_steps = int(1e6)
     rmax_inner_training_steps = int(0.01e6)
     test_per_num_steps = int(10e3)
     test_runs = 10
@@ -135,7 +135,6 @@ if __name__ == '__main__':
         training_rewards = []
         test_rewards = []
         avg_test_reward = 0.0
-        sample_counter = 0
         test_counter = 0
 
         while current_steps < total_steps:
@@ -144,7 +143,6 @@ if __name__ == '__main__':
             total_reward = 0
             encoded_state = agent.state_discretizer.encode_indices(list(agent.state_discretizer.discretize(state)[1]))
             agent.transition_table_env.add_start_state(encoded_state)
-            paused = False
             while not done:
                 if random.random() < env_epsilon:
                     action_vec = agent.choose_action(state, strategy="random")
@@ -162,21 +160,7 @@ if __name__ == '__main__':
                 current_steps += 1
                 pbar.update(1)
 
-                # if current_steps % rmax_inner_training_per_num_steps == 0 and current_steps > 1:
-                #     if sample_counter % 3 == 0:
-                #         agent.update_from_transition_table(
-                #             rmax_inner_training_steps,
-                #             rmax_agent_epsilon,
-                #             alpha=rmax_alpha,
-                #             strategy = "softmax",
-                #             init_strategy="random",
-                #             train_exploration_agent=True,
-                #             rmax=rmax,
-                #         )
-                #     paused = True
-                #
-
-                if current_steps % inner_training_per_num_steps == 0 and current_steps > 1:
+                if current_steps % inner_training_per_num_steps == 0 and current_steps > 1 and len(agent.transition_table_env.reward_set_dict.keys()) > 1:
                     agent.update_from_transition_table(
                         inner_training_steps,
                         agent_epsilon,
@@ -185,7 +169,6 @@ if __name__ == '__main__':
                         init_strategy="random",
                         train_exploration_agent=False,
                     )
-                    paused = True
 
                 # Periodic testing
                 if current_steps % test_per_num_steps == 0:
@@ -234,10 +217,6 @@ if __name__ == '__main__':
                                          f"Recent Avg Reward: {recent_avg:.2f} | "
                                          f"Avg Test Reward: {avg_test_reward:.2f}")
                     break
-
-                if paused:
-                    sample_counter += 1
-                    paused = False
 
     print(f"End of training. Avg Test Reward: {avg_test_reward:.2f}.")
     agent.save_agent(save_file)
