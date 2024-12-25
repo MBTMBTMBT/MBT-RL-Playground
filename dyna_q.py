@@ -409,6 +409,8 @@ class TransitionTable:
         # todo: currently will not be saved!
         self.state_count = defaultdict(lambda: 0)
         self.state_action_count = defaultdict(lambda: defaultdict(lambda: 0))
+        self.transition_prob_table: Dict[int, Dict[int, Dict[int, float]]] \
+            = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: 0)))  # {state: {action: {next_state: rate}}
         self.done_set = set()
         self.start_set = set()
 
@@ -546,17 +548,18 @@ class TransitionTable:
         # Transition to state probs: from given state, with given action, probs of getting into next states
         # Avg Reward: from given state, with given action, ending up in certain state, the average reward it gets
         transition_state_reward_and_prob = {}
+        _transition_state_reward_and_prob = {}
         encoded_next_states = []
         encoded_next_state_counts = []
         avg_rewards = []
         for encoded_next_state in self.transition_table[encoded_state][encoded_action].keys():
             encoded_next_state_count = 0
-            transition_state_reward_and_prob[encoded_next_state] = {}
+            _transition_state_reward_and_prob[encoded_next_state] = {}
             rewards = []
             reward_counts = []
             for reward in self.transition_table[encoded_state][encoded_action][encoded_next_state].keys():
                 reward_count = self.transition_table[encoded_state][encoded_action][encoded_next_state][reward]
-                transition_state_reward_and_prob[encoded_next_state][reward] = reward_count
+                _transition_state_reward_and_prob[encoded_next_state][reward] = reward_count
                 encoded_next_state_count += reward_count
                 rewards.append(reward)
                 reward_counts.append(reward_count)
@@ -565,18 +568,8 @@ class TransitionTable:
             encoded_next_state_counts.append(encoded_next_state_count)
         encoded_next_state_probs = np.array(encoded_next_state_counts) / np.sum(encoded_next_state_counts)
         for encoded_next_state, avg_reward, prob in zip(encoded_next_states, avg_rewards, encoded_next_state_probs):
-            transition_state_reward_and_prob[encoded_next_state] = (avg_reward, prob)
+            transition_state_reward_and_prob[encoded_next_state] = (float(avg_reward), float(prob))
         return transition_state_reward_and_prob
-
-    def get_state_action_counts(self, encoded_state: int) -> Dict[int, int]:
-        state_action_counts = defaultdict(lambda: 0)
-        for encoded_action in self.transition_table[encoded_state].keys():
-            state_action_counts[encoded_action] = 0
-            for encoded_next_state in self.transition_table[encoded_state][encoded_action].keys():
-                for reward in self.transition_table[encoded_state][encoded_action][encoded_next_state].keys():
-                    count = self.transition_table[encoded_state][encoded_action][encoded_next_state][reward]
-                    state_action_counts[encoded_action] += count
-        return state_action_counts
 
     def get_neighbours(self, encoded_state: int) -> set[int]:
         return self.neighbour_dict[encoded_state]
@@ -831,7 +824,7 @@ class TransitionalTableEnv(TransitionTable, gym.Env):
 
 
 class TabularDynaQAgent:
-    def __init__(self, state_discretizer: Discretizer, action_discretizer: Discretizer, bonus_decay=0.5):
+    def __init__(self, state_discretizer: Discretizer, action_discretizer: Discretizer, bonus_decay=0.9):
         self.state_discretizer = state_discretizer
         self.action_discretizer = action_discretizer
         self.transition_table_env = TransitionalTableEnv(state_discretizer, action_discretizer)
