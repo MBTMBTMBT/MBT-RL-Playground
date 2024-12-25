@@ -632,13 +632,20 @@ class TransitionalTableEnv(TransitionTable, gym.Env):
             self.current_state = init_state_encode
         return self.current_state, {}
 
-    def step(self, action: int, transition_strategy: str = "weighted", rmax: float = 0.0):
+    def step(self, action: int, transition_strategy: str = "weighted", unknown_reward: float = None):
+        if unknown_reward is None:
+            r_sum = 0.0
+            total_rewards = 0
+            for r in self.reward_set_dict.keys():
+                r_sum += r * len(self.reward_set_dict[r])
+                total_rewards += len(self.reward_set_dict[r])
+            unknown_reward = r_sum / total_rewards
         encoded_state = self.current_state
         encoded_action = action
         transition_state_avg_reward_and_prob \
             = self.get_transition_state_avg_reward_and_prob(encoded_state, encoded_action)
         if len(transition_state_avg_reward_and_prob) == 0:
-            return encoded_state, rmax, True, False, {"current_step": self.step_count}
+            return encoded_state, unknown_reward, True, False, {"current_step": self.step_count}
         if transition_strategy == "weighted":
             encoded_next_state = random.choices(
                 tuple(transition_state_avg_reward_and_prob.keys()),
@@ -794,13 +801,13 @@ class TransitionalTableEnv(TransitionTable, gym.Env):
 #
 #         return cut_value, reachable, non_reachable, edges_in_cut
 #
-#     def step(self, action: int, transition_strategy: str = "weighted", rmax: float = 1.0):
+#     def step(self, action: int, transition_strategy: str = "weighted", unknown_reward: float = 1.0):
 #         encoded_state = self.current_state
 #         encoded_action = action
 #         transition_state_avg_reward_and_prob \
 #             = self.get_transition_state_avg_reward_and_prob(encoded_state, encoded_action)
 #         if len(transition_state_avg_reward_and_prob) == 0:
-#             return encoded_state, rmax, True, False, {"current_step": self.step_count}
+#             return encoded_state, unknown_reward, True, False, {"current_step": self.step_count}
 #         if transition_strategy == "weighted":
 #             encoded_next_state = random.choices(
 #                 tuple(transition_state_avg_reward_and_prob.keys()),
@@ -926,7 +933,7 @@ class TabularDynaQAgent:
             transition_strategy: str = "weighted",
             init_strategy: str = "real_start_states",
             train_exploration_agent: bool = False,
-            rmax: float = 1e3
+            unknown_reward: float = None
     ):
         # Initialize variables
         num_episodes = 1
@@ -940,11 +947,11 @@ class TabularDynaQAgent:
             self.exploration_agent.reset_q_table()
 
         agent = self.q_table_agent if not train_exploration_agent else self.exploration_agent
-        rmax = 0.0 if not train_exploration_agent else rmax
+        unknown_reward = 0.0 if not train_exploration_agent else unknown_reward
 
         print(f"Starting for {steps} steps using transition table: ")
         if train_exploration_agent:
-            print(f"Training rmax agent with rmax value: {rmax}.")
+            print(f"Training unknown_reward agent with unknown_reward value: {unknown_reward}.")
         self.transition_table_env.print_transition_table_info()
 
         # Reset the environment and get the initial state
@@ -965,15 +972,15 @@ class TabularDynaQAgent:
 
             # Take a step in the environment
             next_state_encoded, reward, terminated, truncated, info = self.transition_table_env.step(
-                action_encoded, transition_strategy, rmax=rmax,
+                action_encoded, transition_strategy, unknown_reward=unknown_reward,
             )
             if train_exploration_agent:
-                if reward != rmax:
+                if reward != unknown_reward:
                     reward = 0.0
                 else:
                     terminated = True
             else:
-                # if reward >= rmax:
+                # if reward >= unknown_reward:
                 #     reward += 1.0
                 pass
 
