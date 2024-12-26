@@ -1,6 +1,6 @@
 if __name__ == '__main__':
     import gymnasium as gym
-    from dyna_q import Discretizer, TabularDynaQAgent
+    from dyna_q import Discretizer, TabularDynaQAgent, QCutTabularDynaQAgent
     from custom_mountain_car import CustomMountainCarEnv
     from custom_cartpole import CustomCartPoleEnv
     from tqdm import tqdm
@@ -26,24 +26,38 @@ if __name__ == '__main__':
     # )
     #
     # action_type = "int"
+    #
+    # num_targets: int = 16
+    # min_cut_max_flow_search_space: int = 256
+    # q_cut_space: int = 4
+    # weighted_search: bool = True
+    # init_state_reward_prob_below_threshold: float = 0.1
+    # quality_value_threshold: float = 1.0
 
-    # env = gym.make("MountainCarContinuous-v0", render_mode="rgb_array", goal_velocity=0.1)
-    # test_env = gym.make("MountainCarContinuous-v0", render_mode="rgb_array", goal_velocity=0.1)
-    # save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_mountain_car_continuous.csv"
-    #
-    # state_discretizer = Discretizer(
-    #     ranges = [(-1.2, 0.6), (-0.07, 0.07),],
-    #     num_buckets=[64, 32],
-    #     normal_params=[None, None],
-    # )
-    #
-    # action_discretizer = Discretizer(
-    #     ranges=[(-1.0, 1.0),],
-    #     num_buckets=[5],
-    #     normal_params=[None,],
-    # )
-    #
-    # action_type = "float"
+    env = gym.make("MountainCarContinuous-v0", render_mode="rgb_array", goal_velocity=0.1)
+    test_env = gym.make("MountainCarContinuous-v0", render_mode="rgb_array", goal_velocity=0.1)
+    save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_mountain_car_continuous.csv"
+
+    state_discretizer = Discretizer(
+        ranges = [(-1.2, 0.6), (-0.07, 0.07),],
+        num_buckets=[64, 32],
+        normal_params=[None, None],
+    )
+
+    action_discretizer = Discretizer(
+        ranges=[(-1.0, 1.0),],
+        num_buckets=[5],
+        normal_params=[None,],
+    )
+
+    action_type = "float"
+
+    num_targets: int = 16
+    min_cut_max_flow_search_space: int = 256
+    q_cut_space: int = 4
+    weighted_search: bool = True
+    init_state_reward_prob_below_threshold: float = 0.1
+    quality_value_threshold: float = 1.0
 
     # env = CustomCartPoleEnv(render_mode="rgb_array")
     # test_env = env
@@ -63,26 +77,33 @@ if __name__ == '__main__':
     #
     # action_type = "int"
 
-    env = gym.make("LunarLander-v3", render_mode="rgb_array")
-    test_env = gym.make("LunarLander-v3", render_mode="rgb_array")
-    save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_lunarlander.csv"
-
-    state_discretizer = Discretizer(
-        ranges=[
-            (-1.5, 1.5), (-1.5, 1.5), (-5.0, 5.0), (-5.0, 5.0),
-            (-3.14, 3.14), (-5.0, 5.0), (0, 1), (0, 1),
-        ],
-        num_buckets=[16, 16, 32, 32, 24, 32, 0, 0,],
-        normal_params=[None, None, None, None, None, None, None, None,],
-    )
-
-    action_discretizer = Discretizer(
-        ranges=[(0, 1), ],
-        num_buckets=[0],
-        normal_params=[None, ],
-    )
-
-    action_type = "int"
+    # env = gym.make("LunarLander-v3", render_mode="rgb_array")
+    # test_env = gym.make("LunarLander-v3", render_mode="rgb_array")
+    # save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_lunarlander.csv"
+    #
+    # state_discretizer = Discretizer(
+    #     ranges=[
+    #         (-1.5, 1.5), (-1.5, 1.5), (-5.0, 5.0), (-5.0, 5.0),
+    #         (-3.14, 3.14), (-5.0, 5.0), (0, 1), (0, 1),
+    #     ],
+    #     num_buckets=[16, 16, 32, 32, 24, 32, 0, 0,],
+    #     normal_params=[None, None, None, None, None, None, None, None,],
+    # )
+    #
+    # action_discretizer = Discretizer(
+    #     ranges=[(0, 3), ],
+    #     num_buckets=[0],
+    #     normal_params=[None, ],
+    # )
+    #
+    # action_type = "int"
+    #
+    # num_targets: int = 16
+    # min_cut_max_flow_search_space: int = 512
+    # q_cut_space: int = 8
+    # weighted_search: bool = True
+    # init_state_reward_prob_below_threshold: float = 0.01
+    # quality_value_threshold: float = 1.0
 
     # env = gym.make("Acrobot-v1", render_mode="rgb_array")
     # test_env = gym.make("Acrobot-v1", render_mode="rgb_array")
@@ -104,6 +125,13 @@ if __name__ == '__main__':
     # )
     #
     # action_type = "int"
+    #
+    # num_targets: int = 16
+    # min_cut_max_flow_search_space: int = 256
+    # q_cut_space: int = 4
+    # weighted_search: bool = True
+    # init_state_reward_prob_below_threshold: float = 0.1
+    # quality_value_threshold: float = 1.0
 
     # env = gym.make("BipedalWalker-v3", hardcore=True, render_mode="rgb_array")
     # test_env = gym.make("BipedalWalker-v3", hardcore=True, render_mode="rgb_array")
@@ -136,7 +164,7 @@ if __name__ == '__main__':
     #
     # state_discretizer = Discretizer(
     #     ranges=[(-1.0, 1.0), (-1.0, 1.0), (-8.0, 8.0), ],
-    #     num_buckets=[32, 32, 64],
+    #     num_buckets=[33, 33, 65],
     #     normal_params=[None, None, None],
     # )
     #
@@ -147,6 +175,13 @@ if __name__ == '__main__':
     # )
     #
     # action_type = "float"
+    #
+    # num_targets: int = 16
+    # min_cut_max_flow_search_space: int = 512
+    # q_cut_space: int = 8
+    # weighted_search: bool = True
+    # init_state_reward_prob_below_threshold: float = 0.005
+    # quality_value_threshold: float = 1.0
 
     total_steps = int(15e6)
     alpha = 0.1
@@ -160,8 +195,9 @@ if __name__ == '__main__':
     test_per_num_steps = int(10e3)
     test_runs = 10
     max_steps = 200
+    bonus_decay = 0.9
 
-    agent = TabularDynaQAgent(state_discretizer, action_discretizer,)
+    agent = QCutTabularDynaQAgent(state_discretizer, action_discretizer, bonus_decay=bonus_decay)
     agent.transition_table_env.max_steps = max_steps
 
     with tqdm(total=total_steps, leave=False) as pbar:
@@ -201,8 +237,14 @@ if __name__ == '__main__':
                         agent_epsilon,
                         alpha=train_alpha,
                         strategy="greedy",
-                        init_strategy="random",
+                        init_strategy="mix",
                         train_exploration_agent=False,
+                        num_targets=num_targets,
+                        min_cut_max_flow_search_space=min_cut_max_flow_search_space,
+                        q_cut_space=q_cut_space,
+                        weighted_search=weighted_search,
+                        init_state_reward_prob_below_threshold=init_state_reward_prob_below_threshold,
+                        quality_value_threshold=quality_value_threshold,
                     )
 
                 # Periodic testing
@@ -220,7 +262,7 @@ if __name__ == '__main__':
                             elif action_type == "float":
                                 test_action = test_action.astype("float32")
                             test_next_state, test_reward, test_done, test_truncated, _ = test_env.step(test_action)
-                            if t == 0 and test_counter % 5 == 0:
+                            if t == 0 and test_counter % 50 == 0:
                                 frames.append(test_env.render())
                             test_state = test_next_state
                             test_total_reward += test_reward
