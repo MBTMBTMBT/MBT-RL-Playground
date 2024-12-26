@@ -345,7 +345,7 @@ class TabularQAgent:
         encoded_state = self.state_discretizer.encode_indices([*self.state_discretizer.discretize(state)[1]])
 
         # Retrieve Q-values for all actions
-        q_values = np.array([self.q_table.get((encoded_state, a), 0.0) for a in self.all_actions_encoded])
+        q_values = np.array([self.q_table[(encoded_state, a)] for a in self.all_actions_encoded])
 
         if strategy == "greedy":
             probabilities = np.zeros_like(q_values, dtype=float)
@@ -382,6 +382,8 @@ class TabularQAgent:
         state_encoded = self.state_discretizer.encode_indices([*self.state_discretizer.discretize(state)[1]])
         next_state_encoded = self.state_discretizer.encode_indices([*self.state_discretizer.discretize(next_state)[1]])
         action_encoded = self.action_discretizer.encode_indices([*self.action_discretizer.discretize(action)[1]])
+
+        reward /= 10.
 
         if done:
             td_target = reward  # No future reward if the episode is done
@@ -440,7 +442,7 @@ class TransitionTable:
         if done:
             self.done_set.add(encoded_next_state)
 
-        self.transition_table[encoded_state][encoded_action][encoded_next_state][reward] += 1
+        self.transition_table[encoded_state][encoded_action][encoded_next_state][round(reward, 2)] += 1
         self.neighbour_dict[encoded_state].add(encoded_action)
         self.neighbour_dict[encoded_next_state].add(encoded_action)
         self.forward_dict[encoded_state][encoded_next_state].add(encoded_action)
@@ -453,7 +455,7 @@ class TransitionTable:
         for encoded_next_state, (avg_reward, prob) in transition_state_avg_reward_and_prob.items():
             self.transition_prob_table[encoded_state][encoded_action][encoded_next_state] = prob
 
-        self.reward_set_dict[round(reward, 1)].add(encoded_next_state)
+        self.reward_set_dict[round(reward, 2)].add(encoded_next_state)
 
     def save_transition_table(self, file_path: str = None) -> pd.DataFrame:
         transition_table_data = []
@@ -574,6 +576,7 @@ class TransitionTable:
         encoded_next_states = []
         encoded_next_state_counts = []
         avg_rewards = []
+        a = self.transition_table[encoded_state][encoded_action].keys()
         for encoded_next_state in self.transition_table[encoded_state][encoded_action].keys():
             encoded_next_state_count = 0
             _transition_state_reward_and_prob[encoded_next_state] = {}
@@ -661,6 +664,8 @@ class TransitionalTableEnv(TransitionTable, gym.Env):
         if len(transition_state_avg_reward_and_prob) == 0:
             return encoded_state, unknown_reward, True, False, {"current_step": self.step_count}
         if transition_strategy == "weighted":
+            a = tuple(transition_state_avg_reward_and_prob.keys())
+            b = [v[1] for v in transition_state_avg_reward_and_prob.values()]
             encoded_next_state = random.choices(
                 tuple(transition_state_avg_reward_and_prob.keys()),
                 weights=[v[1] for v in transition_state_avg_reward_and_prob.values()],

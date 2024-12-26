@@ -183,7 +183,7 @@ if __name__ == '__main__':
                         inner_training_steps,
                         agent_epsilon,
                         alpha=alpha,
-                        strategy="softmax",
+                        strategy="greedy",
                         init_strategy="real_start_states",
                         train_exploration_agent=False,
                     )
@@ -204,7 +204,7 @@ if __name__ == '__main__':
                             elif action_type == "float":
                                 test_action = test_action.astype("float32")
                             test_next_state, test_reward, test_done, test_truncated, _ = test_env.step(test_action)
-                            if t == 0 and test_counter % 25 == 0:
+                            if t == 0 and test_counter % 5 == 0:
                                 frames.append(test_env.render())
                             test_state = test_next_state
                             test_total_reward += test_reward

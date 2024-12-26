@@ -27,23 +27,23 @@ if __name__ == '__main__':
 
     action_type = "int"
 
-    # env = CustomCartPoleEnv(render_mode="rgb_array")
-    # test_env = CustomCartPoleEnv(render_mode="rgb_array")
-    # save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_cartpole.csv"
-    #
-    # state_discretizer = Discretizer(
-    #     ranges=[(-2.4, 2.4), (-2, 2), (-0.25, 0.25), (-2, 2),],
-    #     num_buckets=[12, 32, 32, 32],
-    #     normal_params=[None, None, None, None,],
-    # )
-    #
-    # action_discretizer = Discretizer(
-    #     ranges=[(0, 1),],
-    #     num_buckets=[0],
-    #     normal_params=[None, ],
-    # )
-    #
-    # action_type = "int"
+    env = CustomCartPoleEnv(render_mode="rgb_array")
+    test_env = env
+    save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_cartpole.csv"
+
+    state_discretizer = Discretizer(
+        ranges=[(-2.4, 2.4), (-2, 2), (-0.25, 0.25), (-2, 2),],
+        num_buckets=[32, 64, 64, 64],
+        normal_params=[None, None, None, None,],
+    )
+
+    action_discretizer = Discretizer(
+        ranges=[(0, 1),],
+        num_buckets=[0],
+        normal_params=[None, ],
+    )
+
+    action_type = "int"
 
     # env = gym.make("LunarLander-v3")
     # test_env = gym.make("LunarLander-v3")
@@ -112,15 +112,13 @@ if __name__ == '__main__':
 
     total_steps = int(15e6)
     alpha = 0.1
-    train_alpha = 0.25
+    train_alpha = 0.1
     gamma = 0.99
     env_epsilon = 0.25
     agent_epsilon = 0.25
     rmax_agent_epsilon = 0.25
-    inner_training_per_num_steps = int(0.1e6)
-    rmax_inner_training_per_num_steps = int(0.025e6)
-    inner_training_steps = int(0.5e6)
-    rmax_inner_training_steps = int(0.01e6)
+    inner_training_per_num_steps = int(0.25e6)
+    inner_training_steps = int(1e6)
     test_per_num_steps = int(10e3)
     test_runs = 10
     max_steps = 200
@@ -164,8 +162,8 @@ if __name__ == '__main__':
                         inner_training_steps,
                         agent_epsilon,
                         alpha=train_alpha,
-                        strategy="softmax",
-                        init_strategy="real_start_states",
+                        strategy="greedy",
+                        init_strategy="random",
                         train_exploration_agent=False,
                     )
 
@@ -184,7 +182,7 @@ if __name__ == '__main__':
                             elif action_type == "float":
                                 test_action = test_action.astype("float32")
                             test_next_state, test_reward, test_done, test_truncated, _ = test_env.step(test_action)
-                            if t == 0 and test_counter % 50 == 0:
+                            if t == 0 and test_counter % 5 == 0:
                                 frames.append(test_env.render())
                             test_state = test_next_state
                             test_total_reward += test_reward
