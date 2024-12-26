@@ -112,8 +112,7 @@ if __name__ == '__main__':
 
     total_steps = int(15e6)
     alpha = 0.1
-    rmax = 1.0
-    rmax_alpha = 0.1
+    train_alpha = 0.25
     gamma = 0.99
     env_epsilon = 0.25
     agent_epsilon = 0.25
@@ -164,7 +163,7 @@ if __name__ == '__main__':
                     agent.update_from_transition_table(
                         inner_training_steps,
                         agent_epsilon,
-                        alpha=alpha,
+                        alpha=train_alpha,
                         strategy="softmax",
                         init_strategy="real_start_states",
                         train_exploration_agent=False,
@@ -206,7 +205,7 @@ if __name__ == '__main__':
                     if len(frames) > 0:
                         agent.transition_table_env.print_transition_table_info()
                         generate_test_gif(frames, gif_path)
-                        agent.transition_table_env.save_mdp_graph(graph_path)
+                        # agent.transition_table_env.save_mdp_graph(graph_path)
                         agent.save_agent(save_csv_file)
                     test_counter += 1
 
