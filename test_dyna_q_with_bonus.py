@@ -63,24 +63,26 @@ if __name__ == '__main__':
     #
     # action_type = "int"
 
-    # env = gym.make("LunarLander-v3")
-    # test_env = gym.make("LunarLander-v3")
-    # save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_lunarlander.csv"
+    env = gym.make("LunarLander-v3", render_mode="rgb_array")
+    test_env = gym.make("LunarLander-v3", render_mode="rgb_array")
+    save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_lunarlander.csv"
 
-    # state_discretizer = Discretizer(
-    #     ranges=[
-    #         (-1.5, 1.5), (-1.5, 1.5), (-5.0, 5.0), (-5.0, 5.0),
-    #         (-3.14, 3.14), (-5.0, 5.0), (0, 1), (0, 1),
-    #     ],
-    #     num_buckets=[16, 16, 32, 32, 24, 32, 0, 0,],
-    #     normal_params=[None, None, None, None, None, None, None, None,],
-    # )
-    #
-    # action_discretizer = Discretizer(
-    #     ranges=[(0, 1), ],
-    #     num_buckets=[0],
-    #     normal_params=[None, ],
-    # )
+    state_discretizer = Discretizer(
+        ranges=[
+            (-1.5, 1.5), (-1.5, 1.5), (-5.0, 5.0), (-5.0, 5.0),
+            (-3.14, 3.14), (-5.0, 5.0), (0, 1), (0, 1),
+        ],
+        num_buckets=[16, 16, 32, 32, 24, 32, 0, 0,],
+        normal_params=[None, None, None, None, None, None, None, None,],
+    )
+
+    action_discretizer = Discretizer(
+        ranges=[(0, 1), ],
+        num_buckets=[0],
+        normal_params=[None, ],
+    )
+
+    action_type = "int"
 
     # env = gym.make("Acrobot-v1", render_mode="rgb_array")
     # test_env = gym.make("Acrobot-v1", render_mode="rgb_array")
@@ -128,23 +130,23 @@ if __name__ == '__main__':
     #
     # action_type = "float"
 
-    env = gym.make("Pendulum-v1", render_mode="rgb_array",)
-    test_env = gym.make("Pendulum-v1", render_mode="rgb_array",)
-    save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_pendulum.csv"
-
-    state_discretizer = Discretizer(
-        ranges=[(-1.0, 1.0), (-1.0, 1.0), (-8.0, 8.0), ],
-        num_buckets=[32, 32, 64],
-        normal_params=[None, None, None],
-    )
-
-    action_discretizer = Discretizer(
-        ranges=[(-2.0, 2.0), ],
-        num_buckets=[17],
-        normal_params=[None, ],
-    )
-
-    action_type = "float"
+    # env = gym.make("Pendulum-v1", render_mode="rgb_array",)
+    # test_env = gym.make("Pendulum-v1", render_mode="rgb_array",)
+    # save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_pendulum.csv"
+    #
+    # state_discretizer = Discretizer(
+    #     ranges=[(-1.0, 1.0), (-1.0, 1.0), (-8.0, 8.0), ],
+    #     num_buckets=[32, 32, 64],
+    #     normal_params=[None, None, None],
+    # )
+    #
+    # action_discretizer = Discretizer(
+    #     ranges=[(-2.0, 2.0), ],
+    #     num_buckets=[17],
+    #     normal_params=[None, ],
+    # )
+    #
+    # action_type = "float"
 
     total_steps = int(15e6)
     alpha = 0.1
