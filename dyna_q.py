@@ -916,8 +916,9 @@ class TabularDynaQAgent:
         return action
 
     def update_from_env(self, state: np.ndarray, action: np.ndarray, reward: float, next_state: np.ndarray, done: bool,
-               alpha: float = 0.1, gamma: float = 0.99):
-        self.q_table_agent.update(state, action, reward, next_state, done, alpha=alpha, gamma=gamma)
+               alpha: float = 0.1, gamma: float = 0.99, update_policy=True):
+        if update_policy:
+            self.q_table_agent.update(state, action, reward, next_state, done, alpha=alpha, gamma=gamma)
         self.transition_table_env.update(state, action, reward, next_state, done)
         encoded_next_state = self.state_discretizer.encode_indices(
             list(self.state_discretizer.discretize(next_state)[1]))

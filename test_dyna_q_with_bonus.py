@@ -154,7 +154,7 @@ if __name__ == '__main__':
                 elif action_type == "float":
                     action = action_vec.astype("float32")
                 next_state, reward, done, truncated, _ = env.step(action)
-                agent.update_from_env(state, action_vec, reward, next_state, done, alpha, gamma)
+                agent.update_from_env(state, action_vec, reward, next_state, done, alpha, gamma, update_policy=False)
                 state = next_state
                 total_reward += reward
                 current_steps += 1
