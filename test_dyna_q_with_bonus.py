@@ -9,41 +9,59 @@ if __name__ == '__main__':
     from parallel_training import generate_test_gif
 
 
-    env = CustomMountainCarEnv(custom_gravity=0.005, render_mode="rgb_array")
-    test_env = CustomMountainCarEnv(custom_gravity=0.005, render_mode="rgb_array")
-    save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_mountain_car.csv"
+    # env = CustomMountainCarEnv(custom_gravity=0.005, render_mode="rgb_array")
+    # test_env = CustomMountainCarEnv(custom_gravity=0.005, render_mode="rgb_array")
+    # save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_mountain_car.csv"
+    #
+    # state_discretizer = Discretizer(
+    #     ranges = [(-1.2, 0.6), (-0.07, 0.07),],
+    #     num_buckets=[64, 32],
+    #     normal_params=[None, None],
+    # )
+    #
+    # action_discretizer = Discretizer(
+    #     ranges=[(0, 2),],
+    #     num_buckets=[0],
+    #     normal_params=[None,],
+    # )
+    #
+    # action_type = "int"
 
-    state_discretizer = Discretizer(
-        ranges = [(-1.2, 0.6), (-0.07, 0.07),],
-        num_buckets=[64, 32],
-        normal_params=[None, None],
-    )
+    # env = gym.make("MountainCarContinuous-v0", render_mode="rgb_array", goal_velocity=0.1)
+    # test_env = gym.make("MountainCarContinuous-v0", render_mode="rgb_array", goal_velocity=0.1)
+    # save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_mountain_car_continuous.csv"
+    #
+    # state_discretizer = Discretizer(
+    #     ranges = [(-1.2, 0.6), (-0.07, 0.07),],
+    #     num_buckets=[64, 32],
+    #     normal_params=[None, None],
+    # )
+    #
+    # action_discretizer = Discretizer(
+    #     ranges=[(-1.0, 1.0),],
+    #     num_buckets=[16],
+    #     normal_params=[None,],
+    # )
+    #
+    # action_type = "float"
 
-    action_discretizer = Discretizer(
-        ranges=[(0, 2),],
-        num_buckets=[0],
-        normal_params=[None,],
-    )
-
-    action_type = "int"
-
-    env = CustomCartPoleEnv(render_mode="rgb_array")
-    test_env = env
-    save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_cartpole.csv"
-
-    state_discretizer = Discretizer(
-        ranges=[(-2.4, 2.4), (-2, 2), (-0.25, 0.25), (-2, 2),],
-        num_buckets=[12, 16, 16, 16],
-        normal_params=[None, None, None, None,],
-    )
-
-    action_discretizer = Discretizer(
-        ranges=[(0, 1),],
-        num_buckets=[0],
-        normal_params=[None, ],
-    )
-
-    action_type = "int"
+    # env = CustomCartPoleEnv(render_mode="rgb_array")
+    # test_env = env
+    # save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_cartpole.csv"
+    #
+    # state_discretizer = Discretizer(
+    #     ranges=[(-2.4, 2.4), (-2, 2), (-0.25, 0.25), (-2, 2),],
+    #     num_buckets=[12, 16, 16, 16],
+    #     normal_params=[None, None, None, None,],
+    # )
+    #
+    # action_discretizer = Discretizer(
+    #     ranges=[(0, 1),],
+    #     num_buckets=[0],
+    #     normal_params=[None, ],
+    # )
+    #
+    # action_type = "int"
 
     # env = gym.make("LunarLander-v3")
     # test_env = gym.make("LunarLander-v3")
@@ -109,6 +127,24 @@ if __name__ == '__main__':
     # )
     #
     # action_type = "float"
+
+    env = gym.make("Pendulum-v1", render_mode="rgb_array",)
+    test_env = gym.make("Pendulum-v1", render_mode="rgb_array",)
+    save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_pendulum.csv"
+
+    state_discretizer = Discretizer(
+        ranges=[(-1.0, 1.0), (-1.0, 1.0), (-8.0, 8.0), ],
+        num_buckets=[16, 16, 32],
+        normal_params=[None, None, None],
+    )
+
+    action_discretizer = Discretizer(
+        ranges=[(-2.0, 2.0), ],
+        num_buckets=[16],
+        normal_params=[None, ],
+    )
+
+    action_type = "float"
 
     total_steps = int(15e6)
     alpha = 0.1
