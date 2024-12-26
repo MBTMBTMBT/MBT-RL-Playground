@@ -11,6 +11,7 @@ import scipy.stats
 from typing import List, Tuple, Optional, Dict
 
 from gymnasium import spaces
+from networkx.classes import DiGraph
 from pandas import DataFrame
 import tqdm
 from pyvis.network import Network
@@ -572,7 +573,7 @@ class TransitionTable:
         self.start_set = set()
         self.reward_set_dict = defaultdict(lambda: set())
 
-        self.mdp_graph = self.make_mdp_graph()
+        self.mdp_graph: DiGraph = self.make_mdp_graph()
 
     def print_transition_table_info(self):
         print("Transition Table Information:")
@@ -594,7 +595,7 @@ class TransitionTable:
         if done:
             self.done_set.add(encoded_next_state)
 
-        self.transition_table[encoded_state][encoded_action][encoded_next_state][round(reward, 2)] += 1
+        self.transition_table[encoded_state][encoded_action][encoded_next_state][round(reward, 1)] += 1
         self.neighbour_dict[encoded_state].add(encoded_action)
         self.neighbour_dict[encoded_next_state].add(encoded_action)
         self.forward_dict[encoded_state][encoded_next_state].add(encoded_action)
@@ -607,7 +608,7 @@ class TransitionTable:
         for encoded_next_state, (avg_reward, prob) in transition_state_avg_reward_and_prob.items():
             self.transition_prob_table[encoded_state][encoded_action][encoded_next_state] = prob
 
-        self.reward_set_dict[round(reward, 2)].add(encoded_next_state)
+        self.reward_set_dict[round(reward, 1)].add(encoded_next_state)
 
     def save_transition_table(self, file_path: str = None) -> pd.DataFrame:
         transition_table_data = []
@@ -848,13 +849,15 @@ class TransitionalTableEnv(TransitionTable, gym.Env):
 
 
 class QCutTransitionalTableEnv(TransitionalTableEnv):
-    def __init__(self, state_discretizer: Discretizer, action_discretizer: Discretizer,):
+    def __init__(
+            self,
+            state_discretizer: Discretizer,
+            action_discretizer: Discretizer,
+    ):
         TransitionalTableEnv.__init__(self, state_discretizer, action_discretizer)
-        self.landmark_states = defaultdict(lambda: 0)
-        self.landmark_states_level = defaultdict(lambda: 0)
-        self.landmark_occupied_states = set()
+        self.landmark_states, self.landmark_start_states = None, None
 
-    def find_nearest_nodes_and_subgraph(self, start_node, n, weighted=True, direction='both'):
+    def find_nearest_nodes_and_subgraph(self, start_node, n, weighted=True, direction='both') -> Tuple[List[Tuple[int, float]], DiGraph]:
         """
         Find the nearest n nodes from the starting node, searching in the specified direction.
 
@@ -862,13 +865,13 @@ class QCutTransitionalTableEnv(TransitionalTableEnv):
         :param n: Number of nearest nodes to find
         :param weighted: Whether to consider weights (True: use 'prob' as weights; False: unweighted search)
         :param direction: Direction of search ('forward', 'backward', or 'both')
-        :return: Set of the nearest n nodes (node names only) and the subgraph containing these nodes
+        :return: List of the nearest n nodes (sorted by distance) and the subgraph containing these nodes
         """
         G = self.mdp_graph
 
         visited = set()  # Set to track visited nodes
         heap = []  # Min-heap to prioritize nodes by accumulated probability (log space)
-        result = set()  # Set to store the nearest nodes
+        result = []  # List to store the nearest nodes, sorted by log probability
         accumulated_prob = {start_node: 0.0}  # Cumulative log-probabilities for each node
 
         # Initialize the heap based on the specified direction
@@ -887,7 +890,7 @@ class QCutTransitionalTableEnv(TransitionalTableEnv):
 
             # Mark the current node as visited
             visited.add(current_node)
-            result.add(current_node)  # Add the node to the result set
+            result.append((current_node, log_prob))  # Add the node to the result list with its log-probability
 
             # Get neighbors based on the current search direction
             if search_direction == 'forward':
@@ -910,10 +913,14 @@ class QCutTransitionalTableEnv(TransitionalTableEnv):
                         accumulated_prob[neighbor] = new_log_prob
                         heapq.heappush(heap, (new_log_prob, neighbor, search_direction))
 
-        # Create a subgraph based on the node set
-        subgraph = self.mdp_graph.subgraph(result).copy()
+        # Sort result by distance (log probability)
+        result = sorted(result, key=lambda x: x[1])  # Sort by log probability
 
-        # Return the set of the nearest nodes and the subgraph
+        # Create a subgraph based on the nodes in the result
+        nodes_in_result = [node for node, _ in result]
+        subgraph = self.mdp_graph.subgraph(nodes_in_result).copy()
+
+        # Return the list of nearest nodes and the subgraph
         return result, subgraph
 
     @staticmethod
@@ -971,30 +978,118 @@ class QCutTransitionalTableEnv(TransitionalTableEnv):
 
         return cut_value, reachable, non_reachable, edges_in_cut, quality_factor
 
+    # def get_landmark_states(
+    #         self,
+    #         num_targets: int,
+    #         min_cut_max_flow_search_space: int,
+    #         nums_in_layers: List[int],
+    #         init_state_reward_prob_below_threshold: float = 0.2,
+    # ):
+    #     beginners = set()
+    #     total_reward_count = 0
+    #     for reward, reward_set in self.reward_set_dict.items():
+    #         total_reward_count += len(reward_set)
+    #     for reward in self.reward_set_dict.keys():
+    #         if len(self.reward_set_dict[reward]) / total_reward_count < init_state_reward_prob_below_threshold:
+    #             for state in self.reward_set_dict[reward]:
+    #                 beginners.add(state)
+    #
+    #     if len(beginners) == 0:
+    #         print("No beginner states for Q-Cut search found.")
+    #         return
+    #
+    #     for level, num_in_layer in enumerate(nums_in_layers):
+    #         if level == 0:
+    #             pass
+
     def get_landmark_states(
             self,
-            num_landmarks: int,
+            num_targets: int,
             min_cut_max_flow_search_space: int,
-            nums_in_layers: List[int],
+            q_cut_space: int,
+            weighted_search: bool = True,
             init_state_reward_prob_below_threshold: float = 0.2,
+            quality_value_threshold: float = 1.0,
     ):
-        beginners = set()
+        landmark_states = set()
+        landmark_start_states = set()
+
+        targets = set()
         total_reward_count = 0
         for reward, reward_set in self.reward_set_dict.items():
             total_reward_count += len(reward_set)
         for reward in self.reward_set_dict.keys():
             if len(self.reward_set_dict[reward]) / total_reward_count < init_state_reward_prob_below_threshold:
                 for state in self.reward_set_dict[reward]:
-                    beginners.add(state)
+                    targets.add(state)
 
-        if len(beginners) == 0:
-            print("No beginner states for Q-Cut search found.")
+        if len(targets) == 0:
+            print("No target states for Q-Cut search found.")
             return
 
-        for level, num_in_layer in enumerate(nums_in_layers):
-            if level == 0:
-                pass
+        selected_targets = targets if len(targets) <= num_targets else random.sample(targets, num_targets)
 
+        for target in selected_targets:
+            nearest_nodes, subgraph = self.find_nearest_nodes_and_subgraph(
+                target, min_cut_max_flow_search_space, weighted=weighted_search, direction='backward'
+            )
+            start_node = random.choice(nearest_nodes[-len(nearest_nodes)//10:])[0]
+            cut_value, reachable, non_reachable, edges_in_cut, quality_factor = self.find_min_cut_max_flow(
+                subgraph, start_node, target, invert_weights=False,
+            )
+            if quality_factor > quality_value_threshold:
+                for edge in edges_in_cut:
+                    for node in edge:
+                        landmark_states.add(node)
+
+        for node in landmark_states:
+            q_cut_nodes, q_cut_subgraph = self.find_nearest_nodes_and_subgraph(
+                node, q_cut_space, weighted=False, direction='both'
+            )
+            for n in q_cut_nodes:
+                landmark_start_states.add(n[0])
+
+        return landmark_states, landmark_start_states
+
+    def reset(
+            self,
+            seed=None,
+            options=None,
+            init_state_encode: int = None,
+            init_strategy: str = "real_start_states",
+            num_targets: int = 8,
+            min_cut_max_flow_search_space: int = 128,
+            q_cut_space: int = 4,
+            weighted_search: bool = True,
+            init_state_reward_prob_below_threshold: float = 0.2,
+            quality_value_threshold: float = 1.0,
+            re_init_landmarks: bool = False,
+    ):
+        super().reset(seed=seed)
+        self.step_count = 0
+
+        if init_state_encode is None or init_state_encode in self.done_set:
+            if init_state_encode in self.done_set:
+                print("Warning: Starting from a done state, reset to a random state.")
+            if init_strategy == "random":
+                init_state_encode = random.choice(tuple(self.forward_dict.keys()))
+            elif init_strategy == "real_start_states":
+                init_state_encode = random.choice(tuple(self.start_set))
+            elif init_strategy == "landmarks":
+                if self.landmark_states is None or self.landmark_start_states is None or re_init_landmarks:
+                    self.landmark_states, self.landmark_start_states = self.get_landmark_states(
+                        num_targets=num_targets,
+                        min_cut_max_flow_search_space=min_cut_max_flow_search_space,
+                        q_cut_space=q_cut_space,
+                        weighted_search=weighted_search,
+                        init_state_reward_prob_below_threshold=init_state_reward_prob_below_threshold,
+                        quality_value_threshold=quality_value_threshold,
+                    )
+                init_state_encode = random.choice(tuple(self.landmark_start_states))
+            else:
+                raise ValueError(f"Init strategy not supported: {init_strategy}.")
+            self.current_state = init_state_encode
+        return self.current_state, {}
 
 
 class TabularDynaQAgent:
@@ -1065,7 +1160,7 @@ class TabularDynaQAgent:
     def choose_action(self, state: np.ndarray, strategy: str = "greedy", temperature: float = 1.0) -> np.ndarray:
         action_probabilities = self.get_action_probabilities(state, strategy=strategy, temperature=temperature)
         action = random.choices(self.q_table_agent.all_actions_encoded, weights=action_probabilities, k=1)[0]
-        return np.array(self.action_discretizer.decode_indices(action))
+        return np.array(self.action_discretizer.indices_to_midpoints(self.action_discretizer.decode_indices(action)))
 
     def choose_action_encoded(self, state: np.ndarray, strategy: str = "greedy", temperature: float = 1.0) -> np.ndarray:
         action_probabilities = self.get_action_probabilities(state, strategy=strategy, temperature=temperature)

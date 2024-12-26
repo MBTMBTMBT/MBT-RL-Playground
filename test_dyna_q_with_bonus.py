@@ -39,7 +39,7 @@ if __name__ == '__main__':
     #
     # action_discretizer = Discretizer(
     #     ranges=[(-1.0, 1.0),],
-    #     num_buckets=[16],
+    #     num_buckets=[5],
     #     normal_params=[None,],
     # )
     #
@@ -134,13 +134,13 @@ if __name__ == '__main__':
 
     state_discretizer = Discretizer(
         ranges=[(-1.0, 1.0), (-1.0, 1.0), (-8.0, 8.0), ],
-        num_buckets=[16, 16, 32],
+        num_buckets=[32, 32, 64],
         normal_params=[None, None, None],
     )
 
     action_discretizer = Discretizer(
         ranges=[(-2.0, 2.0), ],
-        num_buckets=[16],
+        num_buckets=[17],
         normal_params=[None, ],
     )
 
