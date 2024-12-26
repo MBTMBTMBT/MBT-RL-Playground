@@ -33,7 +33,7 @@ if __name__ == '__main__':
 
     state_discretizer = Discretizer(
         ranges=[(-2.4, 2.4), (-2, 2), (-0.25, 0.25), (-2, 2),],
-        num_buckets=[32, 64, 64, 64],
+        num_buckets=[12, 16, 16, 16],
         normal_params=[None, None, None, None,],
     )
 
@@ -117,8 +117,8 @@ if __name__ == '__main__':
     env_epsilon = 0.25
     agent_epsilon = 0.25
     rmax_agent_epsilon = 0.25
-    inner_training_per_num_steps = int(0.25e6)
-    inner_training_steps = int(1e6)
+    inner_training_per_num_steps = int(0.1e6)
+    inner_training_steps = int(0.25e6)
     test_per_num_steps = int(10e3)
     test_runs = 10
     max_steps = 200
