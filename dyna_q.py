@@ -632,7 +632,7 @@ class TransitionTable:
             print(f"Transition Table saved to {file_path}.")
         return transition_table_df
 
-    def make_mdp_graph(self):
+    def make_mdp_graph(self, use_encoded_states=False):
         # Create a directed graph
         G = nx.DiGraph()
 
@@ -647,19 +647,23 @@ class TransitionTable:
                     for reward in self.transition_table[encoded_state][encoded_action][encoded_next_state].keys():
                         count = self.transition_table[encoded_state][encoded_action][encoded_next_state][reward]
                         # Add edges and attributes
-                        state_str = str(self.state_discretizer.indices_to_midpoints(
-                            self.state_discretizer.decode_indices(encoded_state)))
-                        encoded_next_state_str = str(self.state_discretizer.indices_to_midpoints(
-                            self.state_discretizer.decode_indices(encoded_next_state)))
+                        if use_encoded_states:
+                            state = encoded_state
+                            next_state = encoded_next_state
+                        else:
+                            state = str(self.state_discretizer.indices_to_midpoints(
+                                self.state_discretizer.decode_indices(encoded_state)))
+                            next_state = str(self.state_discretizer.indices_to_midpoints(
+                                self.state_discretizer.decode_indices(encoded_next_state)))
                         G.add_edge(
-                            state_str,
-                            encoded_next_state_str,
+                            state,
+                            next_state,
                             label=f"{encoded_action}\nR={reward}\nCount={count}",
                             count=count,
                             prob=count / total_count,
                         )
-                        G.nodes[state_str]['count'] = self.state_count[encoded_state]
-                        G.nodes[encoded_next_state_str]['count'] = self.state_count[encoded_next_state]
+                        G.nodes[state]['count'] = self.state_count[encoded_state]
+                        G.nodes[next_state]['count'] = self.state_count[encoded_next_state]
 
         self.mdp_graph = G
         return G
@@ -902,7 +906,10 @@ class QCutTransitionalTableEnv(TransitionalTableEnv):
                 if neighbor not in visited:
                     if weighted:
                         # Weighted mode: Use -log(prob) for cumulative probability
-                        prob = max(G.edges[current_node, neighbor].get('prob', 0.0), 1e-8)
+                        if search_direction == 'forward':
+                            prob = max(G.edges[current_node, neighbor].get('prob', 0.0), 1e-8)
+                        else:
+                            prob = max(G.edges[neighbor, current_node].get('prob', 0.0), 1e-8)
                         new_log_prob = log_prob - math.log(prob)  # Accumulate in log space
                     else:
                         # Unweighted mode: Fixed step distance
@@ -1025,7 +1032,7 @@ class QCutTransitionalTableEnv(TransitionalTableEnv):
 
         if len(targets) == 0:
             print("No target states for Q-Cut search found.")
-            return
+            return [], []
 
         selected_targets = targets if len(targets) <= num_targets else random.sample(targets, num_targets)
 
@@ -1068,6 +1075,18 @@ class QCutTransitionalTableEnv(TransitionalTableEnv):
         super().reset(seed=seed)
         self.step_count = 0
 
+        if re_init_landmarks or self.landmark_states is None or self.landmark_start_states is None:
+            self.make_mdp_graph(use_encoded_states=True)
+            self.landmark_states, self.landmark_start_states = self.get_landmark_states(
+                num_targets=num_targets,
+                min_cut_max_flow_search_space=min_cut_max_flow_search_space,
+                q_cut_space=q_cut_space,
+                weighted_search=weighted_search,
+                init_state_reward_prob_below_threshold=init_state_reward_prob_below_threshold,
+                quality_value_threshold=quality_value_threshold,
+            )
+            print(f"Initialized: {len(self.landmark_states)} landmark states; {len(self.landmark_start_states)} start states.")
+
         if init_state_encode is None or init_state_encode in self.done_set:
             if init_state_encode in self.done_set:
                 print("Warning: Starting from a done state, reset to a random state.")
@@ -1076,16 +1095,10 @@ class QCutTransitionalTableEnv(TransitionalTableEnv):
             elif init_strategy == "real_start_states":
                 init_state_encode = random.choice(tuple(self.start_set))
             elif init_strategy == "landmarks":
-                if self.landmark_states is None or self.landmark_start_states is None or re_init_landmarks:
-                    self.landmark_states, self.landmark_start_states = self.get_landmark_states(
-                        num_targets=num_targets,
-                        min_cut_max_flow_search_space=min_cut_max_flow_search_space,
-                        q_cut_space=q_cut_space,
-                        weighted_search=weighted_search,
-                        init_state_reward_prob_below_threshold=init_state_reward_prob_below_threshold,
-                        quality_value_threshold=quality_value_threshold,
-                    )
-                init_state_encode = random.choice(tuple(self.landmark_start_states))
+                if len(self.landmark_states) == 0:
+                    init_state_encode = random.choice(tuple(self.forward_dict.keys()))
+                else:
+                    init_state_encode = random.choice(tuple(self.landmark_start_states))
             else:
                 raise ValueError(f"Init strategy not supported: {init_strategy}.")
             self.current_state = init_state_encode
@@ -1270,6 +1283,148 @@ class TabularDynaQAgent:
                 "Truncated": num_truncated,
                 "Reward (last)": reward,
                 "Avg Episode Reward": sum_episode_rewards / num_episodes
+            })
+            progress_bar.update(1)
+
+        # Close the progress bar
+        progress_bar.close()
+
+        print(f"Trained {num_episodes-1} episodes, including {num_truncated} truncated, {num_terminated} terminated.")
+        print(f"Average episode reward: {sum_episode_rewards / num_episodes}.")
+        self.transition_table_env.max_steps = old_truncate_steps
+
+
+class QCutTabularDynaQAgent(TabularDynaQAgent):
+    def __init__(self, state_discretizer: Discretizer, action_discretizer: Discretizer, bonus_decay=0.9):
+        super().__init__(state_discretizer, action_discretizer, bonus_decay)
+        self.transition_table_env = QCutTransitionalTableEnv(state_discretizer, action_discretizer)
+
+    def update_from_transition_table(
+            self,
+            steps: int,
+            epsilon: float,
+            strategy: str = "greedy",
+            alpha: float = 0.1,
+            gamma: float = 0.99,
+            transition_strategy: str = "weighted",
+            init_strategy: str = "mix",
+            train_exploration_agent: bool = False,
+            unknown_reward: float = None,
+            num_targets: int = 8,
+            min_cut_max_flow_search_space: int = 128,
+            q_cut_space: int = 4,
+            weighted_search: bool = True,
+            init_state_reward_prob_below_threshold: float = 0.01,
+            quality_value_threshold: float = 1.0,
+    ):
+        # Initialize variables
+        num_episodes = 1
+        num_truncated = 0
+        num_terminated = 0
+        sum_episode_rewards = 0
+
+        init_strategies = ["real_start_states", "landmarks", "random"]
+        init_strategy_ = init_strategy if init_strategy != "mix" else random.choice(init_strategies)
+        strategy_counts = {s: 0 for s in init_strategies}
+
+        old_truncate_steps = self.transition_table_env.max_steps
+        if train_exploration_agent:
+            self.transition_table_env.max_steps = np.inf
+            self.exploration_agent.reset_q_table()
+
+        agent = self.q_table_agent if not train_exploration_agent else self.exploration_agent
+        unknown_reward = 0.0 if not train_exploration_agent else unknown_reward
+
+        print(f"Starting for {steps} steps using transition table: ")
+        if train_exploration_agent:
+            print(f"Training unknown_reward agent with unknown_reward value: {unknown_reward}.")
+        self.transition_table_env.print_transition_table_info()
+
+        # Reset the environment and get the initial state
+        state_encoded, info = self.transition_table_env.reset(
+            init_strategy=init_strategy_,
+            num_targets=num_targets,
+            min_cut_max_flow_search_space=min_cut_max_flow_search_space,
+            q_cut_space=q_cut_space,
+            weighted_search=weighted_search,
+            init_state_reward_prob_below_threshold=init_state_reward_prob_below_threshold,
+            quality_value_threshold=quality_value_threshold,
+            re_init_landmarks=True,
+        )
+        strategy_counts[init_strategy_] += 1
+
+        # Initialize the progress bar
+        progress_bar = tqdm.tqdm(total=steps, desc="Training Progress", unit="step")
+
+        for step in range(steps):
+            # Decode and compute the midpoint of the current state
+            state = self.state_discretizer.indices_to_midpoints(self.state_discretizer.decode_indices(state_encoded))
+
+            # Select action based on epsilon-greedy strategy
+            if np.random.random() < epsilon:
+                action_encoded = random.choice(agent.all_actions_encoded)
+            else:
+                action_encoded = self.choose_action_encoded(state, strategy=strategy, temperature=1.0)
+
+            # Take a step in the environment
+            next_state_encoded, reward, terminated, truncated, info = self.transition_table_env.step(
+                action_encoded, transition_strategy, unknown_reward=unknown_reward,
+            )
+            if train_exploration_agent:
+                if reward != unknown_reward:
+                    reward = 0.0
+                else:
+                    terminated = True
+            else:
+                # if reward >= unknown_reward:
+                #     reward += 1.0
+                pass
+
+            # Decode and compute the midpoint of the action and next state
+            action = self.action_discretizer.indices_to_midpoints(
+                self.action_discretizer.decode_indices(action_encoded))
+            next_state = self.state_discretizer.indices_to_midpoints(
+                self.state_discretizer.decode_indices(next_state_encoded))
+
+            # Update Q-table using the chosen action
+            agent.update(state, action, reward, next_state, terminated, alpha=alpha, gamma=gamma)
+
+            # Update the current state
+            state_encoded = next_state_encoded
+
+            # Update counters and rewards
+            if terminated:
+                num_terminated += 1
+            if truncated:
+                num_truncated += 1
+            sum_episode_rewards += reward
+
+            # Reset the environment if an episode ends
+            if terminated or truncated:
+                num_episodes += 1
+                init_strategy_ = init_strategy if init_strategy != "mix" else random.choice(init_strategies)
+                state_encoded, info = self.transition_table_env.reset(
+                    init_strategy=init_strategy_,
+                    num_targets=num_targets,
+                    min_cut_max_flow_search_space=min_cut_max_flow_search_space,
+                    q_cut_space=q_cut_space,
+                    weighted_search=weighted_search,
+                    init_state_reward_prob_below_threshold=init_state_reward_prob_below_threshold,
+                    quality_value_threshold=quality_value_threshold,
+                    re_init_landmarks=False,
+                )
+                strategy_counts[init_strategy_] += 1
+
+            # Update the progress bar
+            progress_bar.set_postfix({
+                "Episodes": num_episodes,
+                "Terminated": num_terminated,
+                "Truncated": num_truncated,
+                "Rwd (last)": reward,
+                "Avg Episode Rwd": sum_episode_rewards / num_episodes,
+                "Real Starts": strategy_counts["real_start_states"],
+                "Landmarks": strategy_counts["landmarks"],
+                "Random": strategy_counts["random"],
             })
             progress_bar.update(1)
 
