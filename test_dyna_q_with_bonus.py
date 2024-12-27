@@ -9,34 +9,9 @@ if __name__ == '__main__':
     from parallel_training import generate_test_gif
 
 
-    # env = CustomMountainCarEnv(custom_gravity=0.005, render_mode="rgb_array")
-    # test_env = CustomMountainCarEnv(custom_gravity=0.005, render_mode="rgb_array")
-    # save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_mountain_car.csv"
-    #
-    # state_discretizer = Discretizer(
-    #     ranges = [(-1.2, 0.6), (-0.07, 0.07),],
-    #     num_buckets=[64, 32],
-    #     normal_params=[None, None],
-    # )
-    #
-    # action_discretizer = Discretizer(
-    #     ranges=[(0, 2),],
-    #     num_buckets=[0],
-    #     normal_params=[None,],
-    # )
-    #
-    # action_type = "int"
-    #
-    # num_targets: int = 16
-    # min_cut_max_flow_search_space: int = 256
-    # q_cut_space: int = 4
-    # weighted_search: bool = True
-    # init_state_reward_prob_below_threshold: float = 0.1
-    # quality_value_threshold: float = 1.0
-
-    env = gym.make("MountainCarContinuous-v0", render_mode="rgb_array", goal_velocity=0.1)
-    test_env = gym.make("MountainCarContinuous-v0", render_mode="rgb_array", goal_velocity=0.1)
-    save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_mountain_car_continuous.csv"
+    env = CustomMountainCarEnv(custom_gravity=0.005, render_mode="rgb_array")
+    test_env = CustomMountainCarEnv(custom_gravity=0.005, render_mode="rgb_array")
+    save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_mountain_car.csv"
 
     state_discretizer = Discretizer(
         ranges = [(-1.2, 0.6), (-0.07, 0.07),],
@@ -45,12 +20,12 @@ if __name__ == '__main__':
     )
 
     action_discretizer = Discretizer(
-        ranges=[(-1.0, 1.0),],
-        num_buckets=[5],
+        ranges=[(0, 2),],
+        num_buckets=[0],
         normal_params=[None,],
     )
 
-    action_type = "float"
+    action_type = "int"
 
     num_targets: int = 16
     min_cut_max_flow_search_space: int = 256
@@ -58,6 +33,31 @@ if __name__ == '__main__':
     weighted_search: bool = True
     init_state_reward_prob_below_threshold: float = 0.1
     quality_value_threshold: float = 1.0
+
+    # env = gym.make("MountainCarContinuous-v0", render_mode="rgb_array", goal_velocity=0.1)
+    # test_env = gym.make("MountainCarContinuous-v0", render_mode="rgb_array", goal_velocity=0.1)
+    # save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_mountain_car_continuous.csv"
+    #
+    # state_discretizer = Discretizer(
+    #     ranges = [(-1.2, 0.6), (-0.07, 0.07),],
+    #     num_buckets=[64, 32],
+    #     normal_params=[None, None],
+    # )
+    #
+    # action_discretizer = Discretizer(
+    #     ranges=[(-1.0, 1.0),],
+    #     num_buckets=[5],
+    #     normal_params=[None,],
+    # )
+    #
+    # action_type = "float"
+    #
+    # num_targets: int = 16
+    # min_cut_max_flow_search_space: int = 256
+    # q_cut_space: int = 4
+    # weighted_search: bool = True
+    # init_state_reward_prob_below_threshold: float = 0.1
+    # quality_value_threshold: float = 1.0
 
     # env = CustomCartPoleEnv(render_mode="rgb_array")
     # test_env = env
@@ -283,7 +283,7 @@ if __name__ == '__main__':
                     if len(frames) > 0:
                         agent.transition_table_env.print_transition_table_info()
                         generate_test_gif(frames, gif_path)
-                        # agent.transition_table_env.save_mdp_graph(graph_path)
+                        agent.transition_table_env.save_mdp_graph(graph_path, use_encoded_states=True)
                         agent.save_agent(save_csv_file)
                     test_counter += 1
 

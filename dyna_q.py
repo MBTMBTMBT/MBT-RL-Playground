@@ -647,14 +647,16 @@ class TransitionTable:
                     for reward in self.transition_table[encoded_state][encoded_action][encoded_next_state].keys():
                         count = self.transition_table[encoded_state][encoded_action][encoded_next_state][reward]
                         # Add edges and attributes
+                        state_str = str(self.state_discretizer.indices_to_midpoints(
+                            self.state_discretizer.decode_indices(encoded_state)))
+                        next_state_str = str(self.state_discretizer.indices_to_midpoints(
+                            self.state_discretizer.decode_indices(encoded_next_state)))
                         if use_encoded_states:
-                            state = encoded_state
-                            next_state = encoded_next_state
+                            state = int(encoded_state)
+                            next_state = int(encoded_next_state)
                         else:
-                            state = str(self.state_discretizer.indices_to_midpoints(
-                                self.state_discretizer.decode_indices(encoded_state)))
-                            next_state = str(self.state_discretizer.indices_to_midpoints(
-                                self.state_discretizer.decode_indices(encoded_next_state)))
+                            state = state_str
+                            next_state = next_state_str
                         G.add_edge(
                             state,
                             next_state,
@@ -664,6 +666,10 @@ class TransitionTable:
                         )
                         G.nodes[state]['count'] = self.state_count[encoded_state]
                         G.nodes[next_state]['count'] = self.state_count[encoded_next_state]
+                        G.nodes[state]['code'] = int(encoded_state)
+                        G.nodes[next_state]['code'] = int(encoded_next_state)
+                        G.nodes[state]['str'] = state_str
+                        G.nodes[next_state]['str'] = next_state_str
 
         self.mdp_graph = G
         return G
@@ -684,7 +690,6 @@ class TransitionTable:
         edge_norm = mcolors.Normalize(vmin=min(all_edge_counts), vmax=max(all_edge_counts))
 
         cmap = LinearSegmentedColormap.from_list("custom_blues", ['#ADD8E6', '#00008B'])  # LightBlue to DarkBlue
-
 
         # Set edge colors based on counts
         for edge in net.edges:
@@ -1103,6 +1108,48 @@ class QCutTransitionalTableEnv(TransitionalTableEnv):
                 raise ValueError(f"Init strategy not supported: {init_strategy}.")
             self.current_state = init_state_encode
         return self.current_state, {}
+
+    def save_mdp_graph(self, output_file='mdp_visualization.html', use_encoded_states=True):
+        # Create a directed graph
+        G = self.make_mdp_graph(use_encoded_states=use_encoded_states)
+
+        # Use Pyvis for visualization
+        net = Network(height='1000px', width='100%', directed=True)
+        net.from_nx(G)
+
+        # Normalize counts for coloring
+        all_node_counts = [data['count'] for _, data in G.nodes(data=True)]
+        all_edge_counts = [data['count'] for _, _, data in G.edges(data=True)]
+
+        node_norm = mcolors.Normalize(vmin=min(all_node_counts), vmax=max(all_node_counts))
+        edge_norm = mcolors.Normalize(vmin=min(all_edge_counts), vmax=max(all_edge_counts))
+
+        cmap = LinearSegmentedColormap.from_list("custom_blues", ['#ADD8E6', '#00008B'])  # LightBlue to DarkBlue
+
+        # Set edge colors based on counts
+        for edge in net.edges:
+            edge_count = G.edges[edge['from'], edge['to']]['count']
+            edge_color = mcolors.to_hex(cmap(edge_norm(edge_count)))
+            edge['color'] = edge_color
+
+        # Set node colors based on counts
+        for node in G.nodes():
+            node_count = G.nodes[node]['count']
+            node_color = mcolors.to_hex(cmap(node_norm(node_count)))
+            net.get_node(node)['color'] = node_color
+            net.get_node(node)['title'] = f"State: {net.get_node(node)['str']}, Count: {node_count}"
+
+        if self.landmark_states is not None:
+            for node in self.landmark_states:
+                net.get_node(node)['color'] = '#FF0000'
+
+        if self.landmark_start_states is not None:
+            for node in self.landmark_start_states:
+                net.get_node(node)['color'] = '#00FF00'
+
+        # Save and display
+        net.write_html(output_file, notebook=False, open_browser=False)
+        print(f"Saved transition graph at {output_file}.")
 
 
 class TabularDynaQAgent:
