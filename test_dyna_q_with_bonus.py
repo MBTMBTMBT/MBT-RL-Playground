@@ -11,7 +11,7 @@ if __name__ == '__main__':
 
     env = CustomMountainCarEnv(custom_gravity=0.005, render_mode="rgb_array")
     test_env = CustomMountainCarEnv(custom_gravity=0.005, render_mode="rgb_array")
-    save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_mountain_car.csv"
+    save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_mountain_car_lm.csv"
 
     state_discretizer = Discretizer(
         ranges = [(-1.2, 0.6), (-0.07, 0.07),],
@@ -29,7 +29,7 @@ if __name__ == '__main__':
 
     num_targets: int = 16
     min_cut_max_flow_search_space: int = 256
-    q_cut_space: int = 16
+    q_cut_space: int = 32
     weighted_search: bool = True
     init_state_reward_prob_below_threshold: float = 0.1
     quality_value_threshold: float = 1.0
@@ -196,7 +196,7 @@ if __name__ == '__main__':
     test_runs = 10
     max_steps = 200
     bonus_decay = 0.9
-    init_strategy_distribution = [0.0, 0.75, 0.25]
+    init_strategy_distribution = (0.75, 0.0, 0.25)
 
     agent = QCutTabularDynaQAgent(state_discretizer, action_discretizer, bonus_decay=bonus_decay)
     agent.transition_table_env.max_steps = max_steps
