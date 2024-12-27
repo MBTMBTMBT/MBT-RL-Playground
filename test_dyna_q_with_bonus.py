@@ -15,7 +15,7 @@ if __name__ == '__main__':
 
     state_discretizer = Discretizer(
         ranges = [(-1.2, 0.6), (-0.07, 0.07),],
-        num_buckets=[64, 32],
+        num_buckets=[65, 33],
         normal_params=[None, None],
     )
 
@@ -29,7 +29,7 @@ if __name__ == '__main__':
 
     num_targets: int = 16
     min_cut_max_flow_search_space: int = 256
-    q_cut_space: int = 4
+    q_cut_space: int = 16
     weighted_search: bool = True
     init_state_reward_prob_below_threshold: float = 0.1
     quality_value_threshold: float = 1.0
@@ -283,7 +283,7 @@ if __name__ == '__main__':
                     if len(frames) > 0:
                         agent.transition_table_env.print_transition_table_info()
                         generate_test_gif(frames, gif_path)
-                        agent.transition_table_env.save_mdp_graph(graph_path, use_encoded_states=True)
+                        # agent.transition_table_env.save_mdp_graph(graph_path, use_encoded_states=True)
                         agent.save_agent(save_csv_file)
                     test_counter += 1
 

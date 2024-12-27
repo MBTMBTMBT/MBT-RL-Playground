@@ -864,7 +864,7 @@ class QCutTransitionalTableEnv(TransitionalTableEnv):
             action_discretizer: Discretizer,
     ):
         TransitionalTableEnv.__init__(self, state_discretizer, action_discretizer)
-        self.landmark_states, self.landmark_start_states = None, None
+        self.landmark_states, self.landmark_start_states, self.targets = None, None, None
 
     def find_nearest_nodes_and_subgraph(self, start_node, n, weighted=True, direction='both') -> Tuple[List[Tuple[int, float]], DiGraph]:
         """
@@ -1061,7 +1061,7 @@ class QCutTransitionalTableEnv(TransitionalTableEnv):
             for n in q_cut_nodes:
                 landmark_start_states.add(n[0])
 
-        return landmark_states, landmark_start_states
+        return landmark_states, landmark_start_states, targets
 
     def reset(
             self,
@@ -1080,9 +1080,9 @@ class QCutTransitionalTableEnv(TransitionalTableEnv):
         super().reset(seed=seed)
         self.step_count = 0
 
-        if re_init_landmarks or self.landmark_states is None or self.landmark_start_states is None:
+        if re_init_landmarks or self.landmark_states is None or self.landmark_start_states is None or self.targets is None:
             self.make_mdp_graph(use_encoded_states=True)
-            self.landmark_states, self.landmark_start_states = self.get_landmark_states(
+            self.landmark_states, self.landmark_start_states, self.targets = self.get_landmark_states(
                 num_targets=num_targets,
                 min_cut_max_flow_search_space=min_cut_max_flow_search_space,
                 q_cut_space=q_cut_space,
@@ -1139,12 +1139,20 @@ class QCutTransitionalTableEnv(TransitionalTableEnv):
             net.get_node(node)['color'] = node_color
             net.get_node(node)['title'] = f"State: {net.get_node(node)['str']}, Count: {node_count}"
 
+        if self.targets is not None:
+            for node in self.targets:
+                net.get_node(node)['color'] = '#FF0000'
+
         if self.landmark_states is not None:
             for node in self.landmark_states:
-                net.get_node(node)['color'] = '#FF0000'
+                if node in self.targets:
+                    continue
+                net.get_node(node)['color'] = '#FFA500'
 
         if self.landmark_start_states is not None:
             for node in self.landmark_start_states:
+                if node in self.landmark_states or node in self.targets:
+                    continue
                 net.get_node(node)['color'] = '#00FF00'
 
         # Save and display
