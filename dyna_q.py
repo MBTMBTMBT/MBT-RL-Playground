@@ -1457,7 +1457,7 @@ class QCutTabularDynaQAgent(TabularDynaQAgent):
             # Reset the environment if an episode ends
             if terminated or truncated:
                 num_episodes += 1
-                init_strategy = init_strategy if init_strategy != "mix" else random.choice(init_strategies)
+                init_strategy = random.choices(init_strategies, weights=init_strategy_distribution, k=1)[0]
                 state_encoded, info = self.transition_table_env.reset(
                     init_strategy=init_strategy,
                     num_targets=num_targets,
