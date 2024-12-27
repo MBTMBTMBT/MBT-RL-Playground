@@ -196,6 +196,7 @@ if __name__ == '__main__':
     test_runs = 10
     max_steps = 200
     bonus_decay = 0.9
+    init_strategy_distribution = [0.0, 0.75, 0.25]
 
     agent = QCutTabularDynaQAgent(state_discretizer, action_discretizer, bonus_decay=bonus_decay)
     agent.transition_table_env.max_steps = max_steps
@@ -237,7 +238,7 @@ if __name__ == '__main__':
                         agent_epsilon,
                         alpha=train_alpha,
                         strategy="greedy",
-                        init_strategy="mix",
+                        init_strategy_distribution=init_strategy_distribution,
                         train_exploration_agent=False,
                         num_targets=num_targets,
                         min_cut_max_flow_search_space=min_cut_max_flow_search_space,
