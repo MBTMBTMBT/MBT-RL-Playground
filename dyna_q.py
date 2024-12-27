@@ -1037,7 +1037,7 @@ class QCutTransitionalTableEnv(TransitionalTableEnv):
 
         if len(targets) == 0:
             print("No target states for Q-Cut search found.")
-            return [], []
+            return [], [], []
 
         selected_targets = targets if len(targets) <= num_targets else random.sample(targets, num_targets)
 
@@ -1362,7 +1362,7 @@ class QCutTabularDynaQAgent(TabularDynaQAgent):
             alpha: float = 0.1,
             gamma: float = 0.99,
             transition_strategy: str = "weighted",
-            init_strategy: str = "mix",
+            init_strategy_distribution: Tuple[float] = (0.33, 0.33, 0.33),
             train_exploration_agent: bool = False,
             unknown_reward: float = None,
             num_targets: int = 8,
@@ -1378,8 +1378,8 @@ class QCutTabularDynaQAgent(TabularDynaQAgent):
         num_terminated = 0
         sum_episode_rewards = 0
 
-        init_strategies = ["real_start_states", "landmarks", "random"]
-        init_strategy_ = init_strategy if init_strategy != "mix" else random.choice(init_strategies)
+        init_strategies = ["real_start_states", "random", "landmarks"]
+        init_strategy = random.choices(init_strategies, weights=init_strategy_distribution, k=1)[0]
         strategy_counts = {s: 0 for s in init_strategies}
 
         old_truncate_steps = self.transition_table_env.max_steps
@@ -1397,7 +1397,7 @@ class QCutTabularDynaQAgent(TabularDynaQAgent):
 
         # Reset the environment and get the initial state
         state_encoded, info = self.transition_table_env.reset(
-            init_strategy=init_strategy_,
+            init_strategy=init_strategy,
             num_targets=num_targets,
             min_cut_max_flow_search_space=min_cut_max_flow_search_space,
             q_cut_space=q_cut_space,
@@ -1406,7 +1406,7 @@ class QCutTabularDynaQAgent(TabularDynaQAgent):
             quality_value_threshold=quality_value_threshold,
             re_init_landmarks=True,
         )
-        strategy_counts[init_strategy_] += 1
+        strategy_counts[init_strategy] += 1
 
         # Initialize the progress bar
         progress_bar = tqdm.tqdm(total=steps, desc="Training Progress", unit="step")
@@ -1457,9 +1457,9 @@ class QCutTabularDynaQAgent(TabularDynaQAgent):
             # Reset the environment if an episode ends
             if terminated or truncated:
                 num_episodes += 1
-                init_strategy_ = init_strategy if init_strategy != "mix" else random.choice(init_strategies)
+                init_strategy = init_strategy if init_strategy != "mix" else random.choice(init_strategies)
                 state_encoded, info = self.transition_table_env.reset(
-                    init_strategy=init_strategy_,
+                    init_strategy=init_strategy,
                     num_targets=num_targets,
                     min_cut_max_flow_search_space=min_cut_max_flow_search_space,
                     q_cut_space=q_cut_space,
@@ -1468,7 +1468,7 @@ class QCutTabularDynaQAgent(TabularDynaQAgent):
                     quality_value_threshold=quality_value_threshold,
                     re_init_landmarks=False,
                 )
-                strategy_counts[init_strategy_] += 1
+                strategy_counts[init_strategy] += 1
 
             # Update the progress bar
             progress_bar.set_postfix({
