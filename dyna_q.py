@@ -1400,7 +1400,7 @@ class QCutTabularDynaQAgent(TabularDynaQAgent):
         self.transition_table_env.print_transition_table_info()
 
         # Reset the environment and get the initial state
-        state_encoded, info = self.transition_table_env.reset(
+        state_encoded, info, actual_strategy = self.transition_table_env.reset(
             init_strategy=init_strategy,
             num_targets=num_targets,
             min_cut_max_flow_search_space=min_cut_max_flow_search_space,
@@ -1409,8 +1409,9 @@ class QCutTabularDynaQAgent(TabularDynaQAgent):
             init_state_reward_prob_below_threshold=init_state_reward_prob_below_threshold,
             quality_value_threshold=quality_value_threshold,
             re_init_landmarks=True,
+            return_actual_strategy=True,
         )
-        strategy_counts[init_strategy] += 1
+        strategy_counts[actual_strategy] += 1
 
         # Initialize the progress bar
         progress_bar = tqdm.tqdm(total=steps, desc="Training Progress", unit="step")
