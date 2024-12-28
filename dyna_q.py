@@ -1076,6 +1076,7 @@ class QCutTransitionalTableEnv(TransitionalTableEnv):
             init_state_reward_prob_below_threshold: float = 0.2,
             quality_value_threshold: float = 1.0,
             re_init_landmarks: bool = False,
+            return_actual_strategy=False,
     ):
         super().reset(seed=seed)
         self.step_count = 0
@@ -1102,11 +1103,14 @@ class QCutTransitionalTableEnv(TransitionalTableEnv):
             elif init_strategy == "landmarks":
                 if len(self.landmark_states) == 0:
                     init_state_encode = random.choice(tuple(self.forward_dict.keys()))
+                    init_strategy = "random"
                 else:
                     init_state_encode = random.choice(tuple(self.landmark_start_states))
             else:
                 raise ValueError(f"Init strategy not supported: {init_strategy}.")
             self.current_state = init_state_encode
+            if return_actual_strategy:
+                return self.current_state, {}, init_strategy
         return self.current_state, {}
 
     def save_mdp_graph(self, output_file='mdp_visualization.html', use_encoded_states=True):
@@ -1458,7 +1462,7 @@ class QCutTabularDynaQAgent(TabularDynaQAgent):
             if terminated or truncated:
                 num_episodes += 1
                 init_strategy = random.choices(init_strategies, weights=init_strategy_distribution, k=1)[0]
-                state_encoded, info = self.transition_table_env.reset(
+                state_encoded, info, actual_strategy = self.transition_table_env.reset(
                     init_strategy=init_strategy,
                     num_targets=num_targets,
                     min_cut_max_flow_search_space=min_cut_max_flow_search_space,
@@ -1467,8 +1471,9 @@ class QCutTabularDynaQAgent(TabularDynaQAgent):
                     init_state_reward_prob_below_threshold=init_state_reward_prob_below_threshold,
                     quality_value_threshold=quality_value_threshold,
                     re_init_landmarks=False,
+                    return_actual_strategy=True,
                 )
-                strategy_counts[init_strategy] += 1
+                strategy_counts[actual_strategy] += 1
 
             # Update the progress bar
             progress_bar.set_postfix({
