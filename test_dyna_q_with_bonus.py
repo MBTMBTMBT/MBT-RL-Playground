@@ -129,7 +129,7 @@ if __name__ == '__main__':
 
     env = gym.make("LunarLander-v3", render_mode="rgb_array")
     test_env = gym.make("LunarLander-v3", render_mode="rgb_array")
-    save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_lunarlander.csv"
+    save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_lunarlander_lm.csv"
 
     state_discretizer = Discretizer(
         ranges=[
@@ -154,6 +154,9 @@ if __name__ == '__main__':
     weighted_search: bool = True
     init_state_reward_prob_below_threshold: float = 0.01
     quality_value_threshold: float = 1.0
+
+    init_strategy_distribution = (0.75, 0.0, 0.25)
+    rough_reward_resolution = 10
 
     # env = gym.make("Acrobot-v1", render_mode="rgb_array")
     # test_env = gym.make("Acrobot-v1", render_mode="rgb_array")
@@ -242,13 +245,12 @@ if __name__ == '__main__':
     rmax_agent_epsilon = 0.25
     inner_training_per_num_steps = int(0.1e6)
     inner_training_steps = int(0.5e6)
-    test_per_num_steps = int(10e3)
-    test_runs = 25
+    test_per_num_steps = int(0.1e6)
+    test_runs = 200
     max_steps = 500
     bonus_decay = 0.9
-    init_strategy_distribution = (0.75, 0.0, 0.25)
 
-    agent = QCutTabularDynaQAgent(state_discretizer, action_discretizer, bonus_decay=bonus_decay)
+    agent = QCutTabularDynaQAgent(state_discretizer, action_discretizer, bonus_decay=bonus_decay, rough_reward_resolution=rough_reward_resolution)
     agent.transition_table_env.max_steps = max_steps
 
     with tqdm(total=total_steps, leave=False) as pbar:
@@ -321,7 +323,7 @@ if __name__ == '__main__':
                             test_next_state, test_reward, test_done, test_truncated, _ = test_env.step(test_action)
                             if isinstance(test_next_state, int) or isinstance(test_next_state, float):
                                 test_next_state = [test_next_state]
-                            if t == 0 and test_counter % 50 == 0:
+                            if t == 0 and test_counter % 1 == 0:
                                 frames.append(test_env.render())
                             test_state = test_next_state
                             test_total_reward += test_reward

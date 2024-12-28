@@ -555,7 +555,7 @@ class TabularQAgent:
 
 
 class TransitionTable:
-    def __init__(self, state_discretizer: Discretizer, action_discretizer: Discretizer,):
+    def __init__(self, state_discretizer: Discretizer, action_discretizer: Discretizer, rough_reward_resolution: int = -1):
         self.state_discretizer = state_discretizer
         self.action_discretizer = action_discretizer
         self.transition_table: Dict[int, Dict[int, Dict[int, Dict[float, int]]]] \
@@ -572,6 +572,8 @@ class TransitionTable:
         self.done_set = set()
         self.start_set = set()
         self.reward_set_dict = defaultdict(lambda: set())
+        self.rough_reward_set_dict = defaultdict(lambda: set())
+        self.rough_reward_resolution = rough_reward_resolution
 
         self.mdp_graph: DiGraph = self.make_mdp_graph()
 
@@ -582,9 +584,9 @@ class TransitionTable:
         print(f"Collected termination states: {len(self.done_set)}.")
         print(f"Collected rewards:")
         total_reward_count = 0
-        for reward, reward_set in self.reward_set_dict.items():
+        for reward, reward_set in self.rough_reward_set_dict.items():
             total_reward_count += len(reward_set)
-        for reward, reward_set in sorted(self.reward_set_dict.items(), key=lambda x: x[0]):
+        for reward, reward_set in sorted(self.rough_reward_set_dict.items(), key=lambda x: x[0]):
             print(f"{reward}: {len(reward_set)} - {len(reward_set) / total_reward_count * 100:.2f}%")
 
     def update(self, state: np.ndarray, action: np.ndarray, reward: float, next_state: np.ndarray, done: bool):
@@ -608,7 +610,13 @@ class TransitionTable:
         for encoded_next_state, (avg_reward, prob) in transition_state_avg_reward_and_prob.items():
             self.transition_prob_table[encoded_state][encoded_action][encoded_next_state] = prob
 
-        self.reward_set_dict[round(reward, 1)].add(encoded_next_state)
+        self.reward_set_dict[reward].add(encoded_next_state)
+        if self.rough_reward_resolution > 0:
+            self.rough_reward_set_dict[round(reward / self.rough_reward_resolution) * self.rough_reward_resolution].add(encoded_next_state)
+        elif self.rough_reward_resolution < 0:
+            self.rough_reward_set_dict[round(reward, abs(self.rough_reward_resolution))].add(encoded_next_state)
+        else:
+            self.rough_reward_set_dict[reward].add(encoded_next_state)
 
     def save_transition_table(self, file_path: str = None) -> pd.DataFrame:
         transition_table_data = []
@@ -778,8 +786,8 @@ class TransitionTable:
 
 
 class TransitionalTableEnv(TransitionTable, gym.Env):
-    def __init__(self, state_discretizer: Discretizer, action_discretizer: Discretizer):
-        TransitionTable.__init__(self, state_discretizer, action_discretizer)
+    def __init__(self, state_discretizer: Discretizer, action_discretizer: Discretizer, rough_reward_resolution: int = -1):
+        TransitionTable.__init__(self, state_discretizer, action_discretizer, rough_reward_resolution=rough_reward_resolution)
         gym.Env.__init__(self)
 
         # State space
@@ -862,8 +870,9 @@ class QCutTransitionalTableEnv(TransitionalTableEnv):
             self,
             state_discretizer: Discretizer,
             action_discretizer: Discretizer,
+            rough_reward_resolution: int = -1,
     ):
-        TransitionalTableEnv.__init__(self, state_discretizer, action_discretizer)
+        TransitionalTableEnv.__init__(self, state_discretizer, action_discretizer, rough_reward_resolution)
         self.landmark_states, self.landmark_start_states, self.targets = None, None, None
 
     def find_nearest_nodes_and_subgraph(self, start_node, n, weighted=True, direction='both') -> Tuple[List[Tuple[int, float]], DiGraph]:
@@ -1028,11 +1037,11 @@ class QCutTransitionalTableEnv(TransitionalTableEnv):
 
         targets = set()
         total_reward_count = 0
-        for reward, reward_set in self.reward_set_dict.items():
+        for reward, reward_set in self.rough_reward_set_dict.items():
             total_reward_count += len(reward_set)
-        for reward in self.reward_set_dict.keys():
-            if len(self.reward_set_dict[reward]) / total_reward_count < init_state_reward_prob_below_threshold:
-                for state in self.reward_set_dict[reward]:
+        for reward in self.rough_reward_set_dict.keys():
+            if len(self.rough_reward_set_dict[reward]) / total_reward_count < init_state_reward_prob_below_threshold:
+                for state in self.rough_reward_set_dict[reward]:
                     targets.add(state)
 
         if len(targets) == 0:
@@ -1165,10 +1174,18 @@ class QCutTransitionalTableEnv(TransitionalTableEnv):
 
 
 class TabularDynaQAgent:
-    def __init__(self, state_discretizer: Discretizer, action_discretizer: Discretizer, bonus_decay=0.9):
+    def __init__(
+            self,
+            state_discretizer: Discretizer,
+            action_discretizer: Discretizer,
+            bonus_decay=0.9,
+            rough_reward_resolution: int = -1,
+    ):
         self.state_discretizer = state_discretizer
         self.action_discretizer = action_discretizer
-        self.transition_table_env = TransitionalTableEnv(state_discretizer, action_discretizer)
+        self.transition_table_env = TransitionalTableEnv(
+            state_discretizer, action_discretizer, rough_reward_resolution=rough_reward_resolution,
+        )
         self.q_table_agent = TabularQAgent(self.state_discretizer, self.action_discretizer)
         self.exploration_agent = TabularQAgent(self.state_discretizer, self.action_discretizer)
         self.exploration_agent.q_table = defaultdict(lambda: 1.0)
@@ -1354,8 +1371,13 @@ class TabularDynaQAgent:
 
 
 class QCutTabularDynaQAgent(TabularDynaQAgent):
-    def __init__(self, state_discretizer: Discretizer, action_discretizer: Discretizer, bonus_decay=0.9):
-        super().__init__(state_discretizer, action_discretizer, bonus_decay)
+    def __init__(
+            self,
+            state_discretizer: Discretizer,
+            action_discretizer: Discretizer,
+            bonus_decay=0.9,
+            rough_reward_resolution: int = -1,):
+        super().__init__(state_discretizer, action_discretizer, bonus_decay, rough_reward_resolution)
         self.transition_table_env = QCutTransitionalTableEnv(state_discretizer, action_discretizer)
 
     def update_from_transition_table(
