@@ -9,18 +9,43 @@ if __name__ == '__main__':
     from parallel_training import generate_test_gif
 
 
-    env = CustomMountainCarEnv(custom_gravity=0.005, render_mode="rgb_array")
-    test_env = CustomMountainCarEnv(custom_gravity=0.005, render_mode="rgb_array")
-    save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_mountain_car_lm.csv"
+    # env = CustomMountainCarEnv(custom_gravity=0.005, render_mode="rgb_array")
+    # test_env = CustomMountainCarEnv(custom_gravity=0.005, render_mode="rgb_array")
+    # save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_mountain_car_lm.csv"
+    #
+    # state_discretizer = Discretizer(
+    #     ranges = [(-1.2, 0.6), (-0.07, 0.07),],
+    #     num_buckets=[65, 33],
+    #     normal_params=[None, None],
+    # )
+    #
+    # action_discretizer = Discretizer(
+    #     ranges=[(0, 2),],
+    #     num_buckets=[0],
+    #     normal_params=[None,],
+    # )
+    #
+    # action_type = "int"
+    #
+    # num_targets: int = 16
+    # min_cut_max_flow_search_space: int = 256
+    # q_cut_space: int = 32
+    # weighted_search: bool = True
+    # init_state_reward_prob_below_threshold: float = 0.1
+    # quality_value_threshold: float = 1.0
+
+    env = gym.make("Taxi-v3", render_mode="rgb_array",)
+    test_env = gym.make("Taxi-v3", render_mode="rgb_array",)
+    save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_texi_lm.csv"
 
     state_discretizer = Discretizer(
-        ranges = [(-1.2, 0.6), (-0.07, 0.07),],
-        num_buckets=[65, 33],
-        normal_params=[None, None],
+        ranges=[(0, 499)],
+        num_buckets=[0],
+        normal_params=[None,],
     )
 
     action_discretizer = Discretizer(
-        ranges=[(0, 2),],
+        ranges=[(0, 5),],
         num_buckets=[0],
         normal_params=[None,],
     )
@@ -213,6 +238,8 @@ if __name__ == '__main__':
             state, _ = env.reset()
             done = False
             total_reward = 0
+            if isinstance(state, int) or isinstance(state, float):
+                state = [state]
             encoded_state = agent.state_discretizer.encode_indices(list(agent.state_discretizer.discretize(state)[1]))
             agent.transition_table_env.add_start_state(encoded_state)
             while not done:
@@ -226,6 +253,8 @@ if __name__ == '__main__':
                 elif action_type == "float":
                     action = action_vec.astype("float32")
                 next_state, reward, done, truncated, _ = env.step(action)
+                if isinstance(next_state, int) or isinstance(next_state, float):
+                    next_state = [next_state]
                 agent.update_from_env(state, action_vec, reward, next_state, done, alpha, gamma, update_policy=False)
                 state = next_state
                 total_reward += reward
@@ -254,6 +283,8 @@ if __name__ == '__main__':
                     frames = []
                     for t in range(test_runs):
                         test_state, _ = test_env.reset()
+                        if isinstance(test_state, int) or isinstance(test_state, float):
+                            test_state = [test_state]
                         test_total_reward = 0
                         test_done = False
                         while not test_done:
@@ -263,6 +294,8 @@ if __name__ == '__main__':
                             elif action_type == "float":
                                 test_action = test_action.astype("float32")
                             test_next_state, test_reward, test_done, test_truncated, _ = test_env.step(test_action)
+                            if isinstance(test_next_state, int) or isinstance(test_next_state, float):
+                                test_next_state = [test_next_state]
                             if t == 0 and test_counter % 50 == 0:
                                 frames.append(test_env.render())
                             test_state = test_next_state
@@ -284,7 +317,7 @@ if __name__ == '__main__':
                     if len(frames) > 0:
                         agent.transition_table_env.print_transition_table_info()
                         generate_test_gif(frames, gif_path)
-                        # agent.transition_table_env.save_mdp_graph(graph_path, use_encoded_states=True)
+                        agent.transition_table_env.save_mdp_graph(graph_path, use_encoded_states=True)
                         agent.save_agent(save_csv_file)
                     test_counter += 1
 
