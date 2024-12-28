@@ -29,10 +29,32 @@ def get_envs_discretizers_and_configs(name: str):
             "train_max_num_steps_per_episode": 200,
             "test_max_num_steps_per_episode": 200,
             "exploit_policy_reward_rate": 1e-3,
-            "exploit_policy_training_per_num_steps": int(0.1e6),
-            "exploit_policy_training_steps": int(0.5e6),
-            "exploit_policy_test_per_num_steps": int(0.1e6),
-            "exploit_policy_test_episodes": 25,
+            "exploit_policy_training_per_num_steps": int(0.05e6),
+            "exploit_policy_training_steps": int(0.25e6),
+            "exploit_policy_test_per_num_steps": int(0.25e6),
+            "exploit_policy_test_episodes": 64,
+            "init_groups": {
+                "real_start": {
+                    "init_strategy_distribution": (1.0, 0.0, 0.0),
+                },
+                "random_init": {
+                    "init_strategy_distribution": (0.0, 1.0, 0.0),
+                },
+                "real_start_random_init": {
+                    "init_strategy_distribution": (0.6, 0.4, 0.0),
+                },
+                "q_cut": {
+                    "init_strategy_distribution": (0.6, 0.2, 0.2),
+                }
+            },
+            "q_cut_params": {
+                "num_targets": 32,
+                "min_cut_max_flow_search_space": 128,
+                "q_cut_space": 16,
+                "weighted_search": True,
+                "init_state_reward_prob_below_threshold": 0.1,
+                "quality_value_threshold": 1.0,
+            },
             int(0.5e6): {
                 "explore_policy_exploit_policy_ratio": (1.0, 0.0),
                 "train_exploit_policy": False,
@@ -54,14 +76,6 @@ def get_envs_discretizers_and_configs(name: str):
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-        }
-        _configs = {
-            "num_targets": 16,
-            "min_cut_max_flow_search_space": 256,
-            "q_cut_space": 32,
-            "weighted_search": True,
-            "init_state_reward_prob_below_threshold": 0.1,
-            "quality_value_threshold": 1.0,
         }
 
     elif name == "mountain_car":
