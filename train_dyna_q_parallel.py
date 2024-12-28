@@ -171,8 +171,8 @@ def get_envs_discretizers_and_configs(name: str):
             normal_params=[None, None, None, None, None, None, None, None,],
         )
         action_discretizer = Discretizer(
-            ranges=[(0, 1), (-0.5, 0.5)],
-            num_buckets=[5, 11],
+            ranges=[(-1, 1), (-1, 1)],
+            num_buckets=[11, 11],
             normal_params=[None, None],
         )
         action_type = "float"

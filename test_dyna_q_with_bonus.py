@@ -141,8 +141,8 @@ if __name__ == '__main__':
     )
 
     action_discretizer = Discretizer(
-        ranges=[(0, 1), (-0.5, 0.5)],
-        num_buckets=[5, 11],
+        ranges=[(-1, 1), (-1, 1)],
+        num_buckets=[11, 11],
         normal_params=[None, None],
     )
 
@@ -155,7 +155,7 @@ if __name__ == '__main__':
     init_state_reward_prob_below_threshold: float = 0.01
     quality_value_threshold: float = 1.0
 
-    init_strategy_distribution = (0.50, 0.25, 0.25)
+    init_strategy_distribution = (0.33, 0.33, 0.33)
     rough_reward_resolution = 10
 
     # env = gym.make("Acrobot-v1", render_mode="rgb_array")
@@ -278,6 +278,7 @@ if __name__ == '__main__':
                 if random.random() < env_epsilon:
                     action_vec = agent.choose_action(state, strategy="random")
                 else:
+                    # strategy_ = random.choice(["explore_greedy", "greedy",])
                     action_vec = agent.choose_action(state, strategy="explore_greedy")
                 if action_type == "int":
                     action = action_vec.astype("int64")
