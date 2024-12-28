@@ -127,8 +127,8 @@ if __name__ == '__main__':
     #
     # action_type = "int"
 
-    env = gym.make("LunarLander-v3", render_mode="rgb_array")
-    test_env = gym.make("LunarLander-v3", render_mode="rgb_array")
+    env = gym.make("LunarLander-v3", render_mode="rgb_array", continuous=True,)
+    test_env = gym.make("LunarLander-v3", render_mode="rgb_array", continuous=True,)
     save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_lunarlander_lm.csv"
 
     state_discretizer = Discretizer(
@@ -141,12 +141,12 @@ if __name__ == '__main__':
     )
 
     action_discretizer = Discretizer(
-        ranges=[(0, 3), ],
-        num_buckets=[0],
-        normal_params=[None, ],
+        ranges=[(0, 1), (-0.5, 0.5)],
+        num_buckets=[5, 11],
+        normal_params=[None, None],
     )
 
-    action_type = "int"
+    action_type = "float"
 
     num_targets: int = 256
     min_cut_max_flow_search_space: int = 512
@@ -155,7 +155,7 @@ if __name__ == '__main__':
     init_state_reward_prob_below_threshold: float = 0.01
     quality_value_threshold: float = 1.0
 
-    init_strategy_distribution = (0.75, 0.0, 0.25)
+    init_strategy_distribution = (0.50, 0.25, 0.25)
     rough_reward_resolution = 10
 
     # env = gym.make("Acrobot-v1", render_mode="rgb_array")
