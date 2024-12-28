@@ -21,21 +21,38 @@ def get_envs_discretizers_and_configs(name: str):
         action_type = "int"
         configs = {
             "sample_steps": [int(0.5e6), int(1e6), int(1.5e6),],
+            "explore_agent_lr": 0.1,
+            "explore_bonus_decay": 0.9,
+            "explore_epsilon": 0.25,
+            "explore_strategy": "greedy",
+            "reward_resolution": 1,
+            "train_max_num_steps_per_episode": 200,
+            "test_max_num_steps_per_episode": 200,
+            "exploit_policy_reward_rate": 1e-3,
+            "exploit_policy_training_per_num_steps": int(0.1e6),
+            "exploit_policy_training_steps": int(0.5e6),
+            "exploit_policy_test_per_num_steps": int(0.1e6),
+            "exploit_policy_test_episodes": 25,
             int(0.5e6): {
                 "explore_policy_exploit_policy_ratio": (1.0, 0.0),
                 "train_exploit_policy": False,
+                "test_exploit_policy": False,
             },
             int(1e6): {
                 "explore_policy_exploit_policy_ratio": (0.5, 0.5),
                 "train_exploit_policy": True,
                 "epsilon": 0.25,
-                "exploit_strategy": "greedy",
+                "train_exploit_strategy": "greedy",
+                "test_exploit_policy": True,
+                "test_exploit_strategy": "greedy",
             },
             int(1.5e6): {
                 "explore_policy_exploit_policy_ratio": (0.25, 0.75),
                 "train_exploit_policy": True,
                 "epsilon": 0.1,
-                "exploit_strategy": "greedy",
+                "train_exploit_strategy": "greedy",
+                "test_exploit_policy": True,
+                "test_exploit_strategy": "greedy",
             },
         }
         _configs = {
