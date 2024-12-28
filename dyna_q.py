@@ -1378,7 +1378,7 @@ class QCutTabularDynaQAgent(TabularDynaQAgent):
             bonus_decay=0.9,
             rough_reward_resolution: int = -1,):
         super().__init__(state_discretizer, action_discretizer, bonus_decay, rough_reward_resolution)
-        self.transition_table_env = QCutTransitionalTableEnv(state_discretizer, action_discretizer)
+        self.transition_table_env = QCutTransitionalTableEnv(state_discretizer, action_discretizer, rough_reward_resolution)
 
     def update_from_transition_table(
             self,
