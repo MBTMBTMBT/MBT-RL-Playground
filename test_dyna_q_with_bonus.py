@@ -250,8 +250,13 @@ if __name__ == '__main__':
     max_steps = 500
     bonus_decay = 0.9
 
-    agent = QCutTabularDynaQAgent(state_discretizer, action_discretizer, bonus_decay=bonus_decay, rough_reward_resolution=rough_reward_resolution)
-    agent.transition_table_env.max_steps = max_steps
+    agent = QCutTabularDynaQAgent(
+        state_discretizer,
+        action_discretizer,
+        bonus_decay=bonus_decay,
+        max_steps=max_steps,
+        rough_reward_resolution=rough_reward_resolution,
+    )
 
     with tqdm(total=total_steps, leave=False) as pbar:
         done = False

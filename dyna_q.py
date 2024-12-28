@@ -786,7 +786,13 @@ class TransitionTable:
 
 
 class TransitionalTableEnv(TransitionTable, gym.Env):
-    def __init__(self, state_discretizer: Discretizer, action_discretizer: Discretizer, rough_reward_resolution: int = -1):
+    def __init__(
+            self,
+            state_discretizer: Discretizer,
+            action_discretizer: Discretizer,
+            max_steps: int = 500,
+            rough_reward_resolution: int = -1,
+    ):
         TransitionTable.__init__(self, state_discretizer, action_discretizer, rough_reward_resolution=rough_reward_resolution)
         gym.Env.__init__(self)
 
@@ -800,7 +806,7 @@ class TransitionalTableEnv(TransitionTable, gym.Env):
         action_size = action_discretizer.count_possible_combinations()
         self.action_space = spaces.Discrete(action_size)
 
-        self.max_steps = np.inf
+        self.max_steps = max_steps
         self.step_count = 0
         self.current_state = None
 
@@ -870,9 +876,10 @@ class QCutTransitionalTableEnv(TransitionalTableEnv):
             self,
             state_discretizer: Discretizer,
             action_discretizer: Discretizer,
+            max_steps: int = 500,
             rough_reward_resolution: int = -1,
     ):
-        TransitionalTableEnv.__init__(self, state_discretizer, action_discretizer, rough_reward_resolution)
+        TransitionalTableEnv.__init__(self, state_discretizer, action_discretizer, max_steps, rough_reward_resolution)
         self.landmark_states, self.landmark_start_states, self.targets = None, None, None
 
     def find_nearest_nodes_and_subgraph(self, start_node, n, weighted=True, direction='both') -> Tuple[List[Tuple[int, float]], DiGraph]:
@@ -1179,12 +1186,13 @@ class TabularDynaQAgent:
             state_discretizer: Discretizer,
             action_discretizer: Discretizer,
             bonus_decay=0.9,
+            max_steps: int = 500,
             rough_reward_resolution: int = -1,
     ):
         self.state_discretizer = state_discretizer
         self.action_discretizer = action_discretizer
         self.transition_table_env = TransitionalTableEnv(
-            state_discretizer, action_discretizer, rough_reward_resolution=rough_reward_resolution,
+            state_discretizer, action_discretizer, max_steps=max_steps, rough_reward_resolution=rough_reward_resolution,
         )
         self.q_table_agent = TabularQAgent(self.state_discretizer, self.action_discretizer)
         self.exploration_agent = TabularQAgent(self.state_discretizer, self.action_discretizer)
@@ -1376,9 +1384,10 @@ class QCutTabularDynaQAgent(TabularDynaQAgent):
             state_discretizer: Discretizer,
             action_discretizer: Discretizer,
             bonus_decay=0.9,
+            max_steps: int = 500,
             rough_reward_resolution: int = -1,):
-        super().__init__(state_discretizer, action_discretizer, bonus_decay, rough_reward_resolution)
-        self.transition_table_env = QCutTransitionalTableEnv(state_discretizer, action_discretizer, rough_reward_resolution)
+        super().__init__(state_discretizer, action_discretizer, bonus_decay, max_steps, rough_reward_resolution)
+        self.transition_table_env = QCutTransitionalTableEnv(state_discretizer, action_discretizer, max_steps, rough_reward_resolution)
 
     def update_from_transition_table(
             self,
