@@ -34,30 +34,55 @@ if __name__ == '__main__':
     # init_state_reward_prob_below_threshold: float = 0.1
     # quality_value_threshold: float = 1.0
 
-    env = gym.make("Taxi-v3", render_mode="rgb_array",)
-    test_env = gym.make("Taxi-v3", render_mode="rgb_array",)
-    save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_texi_lm.csv"
+    # env = gym.make("Taxi-v3", render_mode="rgb_array",)
+    # test_env = gym.make("Taxi-v3", render_mode="rgb_array",)
+    # save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_texi_lm.csv"
+    #
+    # state_discretizer = Discretizer(
+    #     ranges=[(0, 499)],
+    #     num_buckets=[0],
+    #     normal_params=[None,],
+    # )
+    #
+    # action_discretizer = Discretizer(
+    #     ranges=[(0, 5),],
+    #     num_buckets=[0],
+    #     normal_params=[None,],
+    # )
+    #
+    # action_type = "int"
+    #
+    # num_targets: int = 16
+    # min_cut_max_flow_search_space: int = 256
+    # q_cut_space: int = 32
+    # weighted_search: bool = True
+    # init_state_reward_prob_below_threshold: float = 0.1
+    # quality_value_threshold: float = 1.0
 
-    state_discretizer = Discretizer(
-        ranges=[(0, 499)],
-        num_buckets=[0],
-        normal_params=[None,],
-    )
-
-    action_discretizer = Discretizer(
-        ranges=[(0, 5),],
-        num_buckets=[0],
-        normal_params=[None,],
-    )
-
-    action_type = "int"
-
-    num_targets: int = 16
-    min_cut_max_flow_search_space: int = 256
-    q_cut_space: int = 32
-    weighted_search: bool = True
-    init_state_reward_prob_below_threshold: float = 0.1
-    quality_value_threshold: float = 1.0
+    # env = gym.make('Blackjack-v1', natural=False, sab=False, render_mode="rgb_array")
+    # test_env = gym.make('Blackjack-v1', natural=False, sab=False, render_mode="rgb_array")
+    # save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_blackjack_lm.csv"
+    #
+    # state_discretizer = Discretizer(
+    #     ranges=[(0, 31), (0, 11), (0, 2)],
+    #     num_buckets=[0, 0, 0],
+    #     normal_params=[None, None, None,],
+    # )
+    #
+    # action_discretizer = Discretizer(
+    #     ranges=[(0, 1), ],
+    #     num_buckets=[0],
+    #     normal_params=[None,],
+    # )
+    #
+    # action_type = "int"
+    #
+    # num_targets: int = 16
+    # min_cut_max_flow_search_space: int = 256
+    # q_cut_space: int = 32
+    # weighted_search: bool = True
+    # init_state_reward_prob_below_threshold: float = 0.1
+    # quality_value_threshold: float = 1.0
 
     # env = gym.make("MountainCarContinuous-v0", render_mode="rgb_array", goal_velocity=0.1)
     # test_env = gym.make("MountainCarContinuous-v0", render_mode="rgb_array", goal_velocity=0.1)
@@ -102,33 +127,33 @@ if __name__ == '__main__':
     #
     # action_type = "int"
 
-    # env = gym.make("LunarLander-v3", render_mode="rgb_array")
-    # test_env = gym.make("LunarLander-v3", render_mode="rgb_array")
-    # save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_lunarlander.csv"
-    #
-    # state_discretizer = Discretizer(
-    #     ranges=[
-    #         (-1.5, 1.5), (-1.5, 1.5), (-5.0, 5.0), (-5.0, 5.0),
-    #         (-3.14, 3.14), (-5.0, 5.0), (0, 1), (0, 1),
-    #     ],
-    #     num_buckets=[16, 16, 32, 32, 24, 32, 0, 0,],
-    #     normal_params=[None, None, None, None, None, None, None, None,],
-    # )
-    #
-    # action_discretizer = Discretizer(
-    #     ranges=[(0, 3), ],
-    #     num_buckets=[0],
-    #     normal_params=[None, ],
-    # )
-    #
-    # action_type = "int"
-    #
-    # num_targets: int = 16
-    # min_cut_max_flow_search_space: int = 512
-    # q_cut_space: int = 8
-    # weighted_search: bool = True
-    # init_state_reward_prob_below_threshold: float = 0.01
-    # quality_value_threshold: float = 1.0
+    env = gym.make("LunarLander-v3", render_mode="rgb_array")
+    test_env = gym.make("LunarLander-v3", render_mode="rgb_array")
+    save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_lunarlander.csv"
+
+    state_discretizer = Discretizer(
+        ranges=[
+            (-1.5, 1.5), (-1.5, 1.5), (-5.0, 5.0), (-5.0, 5.0),
+            (-3.14, 3.14), (-5.0, 5.0), (0, 1), (0, 1),
+        ],
+        num_buckets=[17, 17, 49, 49, 25, 49, 0, 0,],
+        normal_params=[None, None, None, None, None, None, None, None,],
+    )
+
+    action_discretizer = Discretizer(
+        ranges=[(0, 3), ],
+        num_buckets=[0],
+        normal_params=[None, ],
+    )
+
+    action_type = "int"
+
+    num_targets: int = 256
+    min_cut_max_flow_search_space: int = 512
+    q_cut_space: int = 8
+    weighted_search: bool = True
+    init_state_reward_prob_below_threshold: float = 0.01
+    quality_value_threshold: float = 1.0
 
     # env = gym.make("Acrobot-v1", render_mode="rgb_array")
     # test_env = gym.make("Acrobot-v1", render_mode="rgb_array")
@@ -216,10 +241,10 @@ if __name__ == '__main__':
     agent_epsilon = 0.25
     rmax_agent_epsilon = 0.25
     inner_training_per_num_steps = int(0.1e6)
-    inner_training_steps = int(0.25e6)
+    inner_training_steps = int(0.5e6)
     test_per_num_steps = int(10e3)
-    test_runs = 10
-    max_steps = 200
+    test_runs = 25
+    max_steps = 500
     bonus_decay = 0.9
     init_strategy_distribution = (0.75, 0.0, 0.25)
 
@@ -317,7 +342,7 @@ if __name__ == '__main__':
                     if len(frames) > 0:
                         agent.transition_table_env.print_transition_table_info()
                         generate_test_gif(frames, gif_path)
-                        agent.transition_table_env.save_mdp_graph(graph_path, use_encoded_states=True)
+                        # agent.transition_table_env.save_mdp_graph(graph_path, use_encoded_states=True)
                         agent.save_agent(save_csv_file)
                     test_counter += 1
 
