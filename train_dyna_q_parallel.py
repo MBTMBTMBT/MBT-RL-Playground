@@ -18,7 +18,10 @@ def run_experiment(task_name: str, run_id: int):
     test_steps = {}
     final_test_rewards = {}
 
-    for init_group in configs["init_groups"].keys():
+    # Shuffle the sequence just for monitoring more possible cases simultaneously
+    init_groups = [k for k in configs["init_groups"].keys()]
+    random.shuffle(init_groups)
+    for init_group in init_groups:
         group_save_path = save_path + f"-{init_group}"
         init_distribution = configs["init_groups"][init_group]
         sample_steps = sorted([k for k in configs.keys() if isinstance(k, int)])
