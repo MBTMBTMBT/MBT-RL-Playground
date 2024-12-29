@@ -136,13 +136,13 @@ if __name__ == '__main__':
             (-1.5, 1.5), (-1.5, 1.5), (-5.0, 5.0), (-5.0, 5.0),
             (-3.14, 3.14), (-5.0, 5.0), (0, 1), (0, 1),
         ],
-        num_buckets=[17, 17, 49, 49, 25, 49, 0, 0,],
+        num_buckets=[25, 25, 13, 13, 19, 9, 0, 0,],
         normal_params=[None, None, None, None, None, None, None, None,],
     )
 
     action_discretizer = Discretizer(
-        ranges=[(-1, 1), (-1, 1)],
-        num_buckets=[11, 11],
+        ranges=[(-0.2, 1), (-1, 1)],
+        num_buckets=[6, 11],
         normal_params=[None, None],
     )
 
