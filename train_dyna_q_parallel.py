@@ -34,7 +34,7 @@ def run_experiment(task_name: str, run_id: int):
             rough_reward_resolution=configs["reward_resolution"],
         )
 
-        with tqdm(total=sample_steps[-1], desc=f"[{init_group}]-Sampling", unit="step", leave=False,) as pbar:
+        with tqdm(total=sample_steps[-1], desc=f"[{init_group}] - Sampling", unit="step", leave=False,) as pbar:
             sample_step_count = 0
             avg_test_reward = 0.0
             for sample_step in sample_steps:
@@ -42,6 +42,8 @@ def run_experiment(task_name: str, run_id: int):
                 num_steps_to_sample = sample_step - sample_step_count
                 current_step = 0
                 sample_strategy_step_count = {s: 0 for s in sample_strategies}
+
+                pbar.set_description(f"[{init_group}] - Sampling stage [{sample_step}/{sample_steps[-1]}]")
 
                 state, _ = env.reset()
                 if isinstance(state, int) or isinstance(state, float):
