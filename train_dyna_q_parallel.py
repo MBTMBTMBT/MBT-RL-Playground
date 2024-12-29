@@ -1,3 +1,4 @@
+import os
 import random
 import numpy as np
 from tqdm import tqdm
@@ -9,16 +10,21 @@ from parallel_training import generate_test_gif
 
 def run_experiment(task_name: str, run_id: int):
     env, test_env, state_discretizer, action_discretizer, action_type, configs = get_envs_discretizers_and_configs(task_name)
+    dir_path = os.path.dirname(configs["save_path"])
+    os.makedirs(dir_path, exist_ok=True)
     save_path = configs["save_path"] + f"-{run_id}"
     sample_strategies = ["explore_greedy", "greedy"]
     test_results = {}
     test_steps = {}
+    final_test_rewards = {}
 
     for init_group in configs["init_groups"].keys():
         group_save_path = save_path + f"-{init_group}"
         init_distribution = configs["init_groups"][init_group]
+        sample_steps = sorted([k for k in configs.keys() if isinstance(k, int)])
         test_results[init_group] = []
         test_steps[init_group] = []
+        final_test_rewards[init_group] = 0.0
 
         agent = QCutTabularDynaQAgent(
             state_discretizer,
@@ -28,11 +34,10 @@ def run_experiment(task_name: str, run_id: int):
             rough_reward_resolution=configs["reward_resolution"],
         )
 
-        with tqdm(total=configs["sample_steps"][-1], desc="Sampling", unit="step", leave=False,) as pbar:
+        with tqdm(total=sample_steps[-1], desc=f"[{init_group}]-Sampling", unit="step", leave=False,) as pbar:
             sample_step_count = 0
             avg_test_reward = 0.0
-            final_test_reward = 0.0
-            for sample_step in configs["sample_steps"]:
+            for sample_step in sample_steps:
                 sample_strategy_distribution = configs[sample_step]["explore_policy_exploit_policy_ratio"]
                 num_steps_to_sample = sample_step - sample_step_count
                 current_step = 0
@@ -105,7 +110,7 @@ def run_experiment(task_name: str, run_id: int):
                             )
 
                     if configs[sample_step]["test_exploit_policy"]:
-                        if current_step % configs["exploit_policy_test_per_num_steps"] == 0 or current_step == num_steps_to_sample - 1:
+                        if (current_step + 1) % configs["exploit_policy_test_per_num_steps"] == 0 or current_step == num_steps_to_sample - 1:
                             periodic_test_rewards = []
                             frames = []
                             for t in range(configs["exploit_policy_test_episodes"]):
@@ -132,20 +137,20 @@ def run_experiment(task_name: str, run_id: int):
                                         break
                                 periodic_test_rewards.append(test_total_reward)
 
-                            if current_step % configs["exploit_policy_test_per_num_steps"] == 0:
+                            if (current_step + 1) % configs["exploit_policy_test_per_num_steps"] == 0:
                                 avg_test_reward = np.mean(periodic_test_rewards)
                                 test_results[init_group].append(avg_test_reward)
                                 test_steps[init_group].append(current_step)
 
                             # If this is the last test result, use it as the final result.
                             if current_step == num_steps_to_sample - 1:
-                                final_test_reward = avg_test_reward
+                                final_test_rewards[init_group] = avg_test_reward
 
                             # Save GIF for the first test episode
                             gif_path = group_save_path + f"_{current_step}.gif"
                             generate_test_gif(frames, gif_path)
 
-                    if current_step % configs["save_per_num_steps"] == 0 or current_step == num_steps_to_sample - 1:
+                    if (current_step + 1) % configs["save_per_num_steps"] == 0 or current_step == num_steps_to_sample - 1:
                         graph_path = group_save_path + f"_{current_step}.html"
                         save_csv_file = group_save_path + f"_{current_step}.csv"
                         agent.transition_table_env.print_transition_table_info()
@@ -161,4 +166,4 @@ def run_experiment(task_name: str, run_id: int):
                     })
                     pbar.update(1)
 
-    return test_results, test_steps, final_test_reward
+    return test_results, test_steps, final_test_rewards
