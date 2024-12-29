@@ -1416,6 +1416,7 @@ class QCutTabularDynaQAgent(TabularDynaQAgent):
         init_strategies = ["real_start_states", "random", "landmarks"]
         init_strategy = random.choices(init_strategies, weights=init_strategy_distribution, k=1)[0]
         strategy_counts = {s: 0 for s in init_strategies}
+        strategy_step_counts = {s: 0 for s in init_strategies}
 
         old_truncate_steps = self.transition_table_env.max_steps
         if train_exploration_agent:
@@ -1446,7 +1447,7 @@ class QCutTabularDynaQAgent(TabularDynaQAgent):
 
         # Initialize the progress bar
         progress_bar = tqdm.tqdm(total=steps, desc="Training Progress", unit="step")
-
+        episode_step_count = 0
         for step in range(steps):
             # Decode and compute the midpoint of the current state
             state = self.state_discretizer.indices_to_midpoints(self.state_discretizer.decode_indices(state_encoded))
@@ -1493,7 +1494,14 @@ class QCutTabularDynaQAgent(TabularDynaQAgent):
             # Reset the environment if an episode ends
             if terminated or truncated:
                 num_episodes += 1
-                init_strategy = random.choices(init_strategies, weights=init_strategy_distribution, k=1)[0]
+                strategy_step_counts[init_strategy] += episode_step_count
+                strategy_selection_dict = {}
+                for i, s in enumerate(init_strategies):
+                    if init_strategy_distribution[i] != 0:
+                        strategy_selection_dict[s] = strategy_step_counts[s] / init_strategy_distribution[i]
+                    else:
+                        strategy_selection_dict[s] = np.inf
+                init_strategy = min(strategy_selection_dict, key=strategy_selection_dict.get)
                 state_encoded, info, actual_strategy = self.transition_table_env.reset(
                     init_strategy=init_strategy,
                     num_targets=num_targets,
@@ -1506,6 +1514,7 @@ class QCutTabularDynaQAgent(TabularDynaQAgent):
                     return_actual_strategy=True,
                 )
                 strategy_counts[actual_strategy] += 1
+                episode_step_count = 0
 
             # Update the progress bar
             progress_bar.set_postfix({
@@ -1519,6 +1528,7 @@ class QCutTabularDynaQAgent(TabularDynaQAgent):
                 "Random": strategy_counts["random"],
             })
             progress_bar.update(1)
+            episode_step_count += 1
 
         # Close the progress bar
         progress_bar.close()
