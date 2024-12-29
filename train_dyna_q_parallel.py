@@ -143,7 +143,7 @@ def run_experiment(task_name: str, run_id: int):
                             if (current_step + 1) % configs["exploit_policy_test_per_num_steps"] == 0:
                                 avg_test_reward = np.mean(periodic_test_rewards)
                                 test_results[init_group].append(avg_test_reward)
-                                test_steps[init_group].append(current_step)
+                                test_steps[init_group].append(sample_step_count)
 
                             # If this is the last test result, use it as the final result.
                             if current_step == num_steps_to_sample - 1:
