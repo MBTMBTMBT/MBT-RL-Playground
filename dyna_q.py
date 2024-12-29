@@ -352,6 +352,7 @@ class TabularQAgent:
 
         # Retrieve Q-values for all actions
         q_values = np.array([self.q_table[(encoded_state, a)] for a in self.all_actions_encoded])
+        visitation = sum([self.visit_table[(encoded_state, a)] for a in self.all_actions_encoded])
 
         if strategy == "greedy":
             probabilities = np.zeros_like(q_values, dtype=float)
@@ -369,6 +370,9 @@ class TabularQAgent:
                 probabilities = exp_values / (np.sum(exp_values) + 1e-10)  # Add small value to prevent division by zero
         else:
             raise ValueError("Invalid strategy. Use 'greedy' or 'softmax'.")
+
+        if visitation == 0:
+            probabilities = np.ones_like(q_values, dtype=float) / len(q_values)
 
         return probabilities
 
