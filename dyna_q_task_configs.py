@@ -22,7 +22,6 @@ def get_envs_discretizers_and_configs(name: str):
         action_type = "int"
         configs = {
             "save_path": save_path,
-            "sample_steps": [int(0.5e6), int(1e6), int(1.5e6),],
             "explore_agent_lr": 0.1,
             "explore_value_decay": 0.99,
             "explore_bonus_decay": 0.9,
@@ -34,8 +33,8 @@ def get_envs_discretizers_and_configs(name: str):
             "exploit_policy_reward_rate": 1e-3,
             "exploit_value_decay": 0.99,
             "exploit_policy_training_per_num_steps": int(0.05e6),
-            "exploit_policy_training_steps": int(0.25e6),
-            "exploit_policy_test_per_num_steps": int(0.25e6),
+            "exploit_policy_training_steps": int(0.1e6),
+            "exploit_policy_test_per_num_steps": int(0.05e6),
             "exploit_policy_test_episodes": 64,
             "save_per_num_steps": int(0.25e6),
             "save_mdp_graph": False,
@@ -54,7 +53,7 @@ def get_envs_discretizers_and_configs(name: str):
                 "quality_value_threshold": 1.0,
                 "take_done_states_as_targets": True,
             },
-            int(0.5e6): {
+            int(0.25e6): {
                 "explore_policy_exploit_policy_ratio": (1.0, 0.0),
                 "train_exploit_policy": True,
                 "epsilon": 0.3,
@@ -63,7 +62,7 @@ def get_envs_discretizers_and_configs(name: str):
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(1e6): {
+            int(0.5e6): {
                 "explore_policy_exploit_policy_ratio": (0.5, 0.5),
                 "train_exploit_policy": True,
                 "epsilon": 0.2,
@@ -72,7 +71,7 @@ def get_envs_discretizers_and_configs(name: str):
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(1.5e6): {
+            int(1.0e6): {
                 "explore_policy_exploit_policy_ratio": (0.25, 0.75),
                 "train_exploit_policy": True,
                 "epsilon": 0.1,
@@ -100,7 +99,6 @@ def get_envs_discretizers_and_configs(name: str):
         action_type = "int"
         configs = {
             "save_path": save_path,
-            "sample_steps": [int(7.5e6), int(10e6), int(15e6),],
             "explore_agent_lr": 0.1,
             "explore_value_decay": 0.99,
             "explore_bonus_decay": 0.9,

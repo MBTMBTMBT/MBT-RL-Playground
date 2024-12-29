@@ -1,6 +1,7 @@
-import gymnasium as gym
-from minigrid.wrappers import FlatObsWrapper
-env = gym.make("MiniGrid-Empty-5x5-v0", render_mode="rgb_array")
-env = FlatObsWrapper(env)
-observation, info = env.reset(seed=42)
-print(observation.shape)
+from train_dyna_q_parallel import *
+
+test_results, test_steps, final_test_reward = run_experiment("cartpole", 88)
+
+print(test_results)
+print(test_steps)
+print(final_test_reward)
