@@ -43,7 +43,7 @@ def run_experiment(task_name: str, run_id: int):
                 current_step = 0
                 sample_strategy_step_count = {s: 0 for s in sample_strategies}
 
-                pbar.set_description(f"[{init_group}] - Sampling stage [{sample_step}/{sample_steps[-1]}]")
+                pbar.set_description(f"[{init_group}] - Sampling stage [{sample_step}/{str(sample_steps)}]")
 
                 state, _ = env.reset()
                 if isinstance(state, int) or isinstance(state, float):
@@ -75,6 +75,7 @@ def run_experiment(task_name: str, run_id: int):
                     state = next_state
 
                     current_step += 1
+                    sample_step_count += 1
                     sample_strategy_step_count[init_sample_strategy] += 1
 
                     if done or truncated:
