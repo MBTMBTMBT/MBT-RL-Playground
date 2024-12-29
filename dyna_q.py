@@ -1420,6 +1420,7 @@ class QCutTabularDynaQAgent(TabularDynaQAgent):
             init_state_reward_prob_below_threshold: float = 0.01,
             quality_value_threshold: float = 1.0,
             take_done_states_as_targets: bool = False,
+            use_task_bar: bool = True,
     ):
         # Initialize variables
         num_episodes = 1
@@ -1461,7 +1462,7 @@ class QCutTabularDynaQAgent(TabularDynaQAgent):
         strategy_counts[actual_strategy] += 1
 
         # Initialize the progress bar
-        progress_bar = tqdm.tqdm(total=steps, desc="Inner Training", unit="step")
+        progress_bar = tqdm.tqdm(total=steps, desc="Inner Training", unit="step") if use_task_bar else None
         episode_step_count = 0
         for step in range(steps):
             # Decode and compute the midpoint of the current state
@@ -1532,23 +1533,26 @@ class QCutTabularDynaQAgent(TabularDynaQAgent):
                 episode_step_count = 0
 
             # Update the progress bar
-            progress_bar.set_postfix({
-                "Episodes": num_episodes,
-                "Terminated": num_terminated,
-                "Truncated": num_truncated,
-                "Rwd (last)": reward,
-                "Avg Episode Rwd": sum_episode_rewards / num_episodes,
-                "Real Starts": strategy_counts["real_start_states"],
-                "Landmarks": strategy_counts["landmarks"],
-                "Random": strategy_counts["random"],
-            })
-            progress_bar.update(1)
+            if use_task_bar:
+                progress_bar.set_postfix({
+                    "Episodes": num_episodes,
+                    "Terminated": num_terminated,
+                    "Truncated": num_truncated,
+                    "Rwd (last)": reward,
+                    "Avg Episode Rwd": sum_episode_rewards / num_episodes,
+                    "Real Starts": strategy_counts["real_start_states"],
+                    "Landmarks": strategy_counts["landmarks"],
+                    "Random": strategy_counts["random"],
+                })
+                progress_bar.update(1)
             episode_step_count += 1
 
         # Close the progress bar
-        progress_bar.close()
+        if use_task_bar:
+            progress_bar.close()
 
         print(f"Trained {num_episodes-1} episodes, including {num_truncated} truncated, {num_terminated} terminated.")
+        print(f"Real starts: {strategy_counts['real_start_states']}, Landmarks: {strategy_counts['landmarks']}, Random: {strategy_counts['random']}.")
         print(f"Average episode reward: {sum_episode_rewards / num_episodes}.")
         self.transition_table_env.max_steps = old_truncate_steps
 
