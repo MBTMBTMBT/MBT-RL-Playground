@@ -23,7 +23,7 @@ def run_experiment(task_name: str, run_id: int):
         agent = QCutTabularDynaQAgent(
             state_discretizer,
             action_discretizer,
-            bonus_decay=configs["bonus_decay"],
+            bonus_decay=configs["explore_bonus_decay"],
             max_steps=configs["train_max_num_steps_per_episode"],
             rough_reward_resolution=configs["reward_resolution"],
         )
@@ -91,8 +91,8 @@ def run_experiment(task_name: str, run_id: int):
                             agent.update_from_transition_table(
                                 configs["exploit_policy_training_steps"],
                                 configs[sample_step]["epsilon"],
-                                alpha=configs["exploit_agent_lr"],
-                                strategy=configs["train_exploit_strategy"],
+                                alpha=configs[sample_step]["train_exploit_lr"],
+                                strategy=configs[sample_step]["train_exploit_strategy"],
                                 init_strategy_distribution=init_distribution,
                                 train_exploration_agent=False,
                                 num_targets=configs["q_cut_params"]["num_targets"],
@@ -101,6 +101,7 @@ def run_experiment(task_name: str, run_id: int):
                                 weighted_search=configs["q_cut_params"]["weighted_search"],
                                 init_state_reward_prob_below_threshold=configs["q_cut_params"]["init_state_reward_prob_below_threshold"],
                                 quality_value_threshold=configs["q_cut_params"]["quality_value_threshold"],
+                                take_done_states_as_targets=configs["q_cut_params"]["take_done_states_as_targets"],
                             )
 
                     if configs[sample_step]["test_exploit_policy"]:

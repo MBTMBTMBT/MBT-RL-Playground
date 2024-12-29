@@ -1038,6 +1038,7 @@ class QCutTransitionalTableEnv(TransitionalTableEnv):
             weighted_search: bool = True,
             init_state_reward_prob_below_threshold: float = 0.2,
             quality_value_threshold: float = 1.0,
+            take_done_states_as_targets: bool = False,
     ):
         landmark_states = set()
         landmark_start_states = set()
@@ -1050,6 +1051,10 @@ class QCutTransitionalTableEnv(TransitionalTableEnv):
             if len(self.rough_reward_set_dict[reward]) / total_reward_count < init_state_reward_prob_below_threshold:
                 for state in self.rough_reward_set_dict[reward]:
                     targets.add(state)
+
+        if take_done_states_as_targets:
+            for state in self.done_set:
+                targets.add(state)
 
         if len(targets) == 0:
             print("No target states for Q-Cut search found.")
@@ -1092,7 +1097,8 @@ class QCutTransitionalTableEnv(TransitionalTableEnv):
             init_state_reward_prob_below_threshold: float = 0.2,
             quality_value_threshold: float = 1.0,
             re_init_landmarks: bool = False,
-            return_actual_strategy=False,
+            return_actual_strategy: bool = False,
+            take_done_states_as_targets: bool = False,
     ):
         super().reset(seed=seed)
         self.step_count = 0
@@ -1106,8 +1112,11 @@ class QCutTransitionalTableEnv(TransitionalTableEnv):
                 weighted_search=weighted_search,
                 init_state_reward_prob_below_threshold=init_state_reward_prob_below_threshold,
                 quality_value_threshold=quality_value_threshold,
+                take_done_states_as_targets=take_done_states_as_targets,
             )
             print(f"Initialized: {len(self.landmark_states)} landmark states; {len(self.landmark_start_states)} start states.")
+            if take_done_states_as_targets:
+                print("Done states are also used as targets for landmark generation.")
 
         if init_state_encode is None or init_state_encode in self.done_set:
             if init_state_encode in self.done_set:
@@ -1406,6 +1415,7 @@ class QCutTabularDynaQAgent(TabularDynaQAgent):
             weighted_search: bool = True,
             init_state_reward_prob_below_threshold: float = 0.01,
             quality_value_threshold: float = 1.0,
+            take_done_states_as_targets: bool = False,
     ):
         # Initialize variables
         num_episodes = 1
@@ -1442,6 +1452,7 @@ class QCutTabularDynaQAgent(TabularDynaQAgent):
             quality_value_threshold=quality_value_threshold,
             re_init_landmarks=True,
             return_actual_strategy=True,
+            take_done_states_as_targets=take_done_states_as_targets,
         )
         strategy_counts[actual_strategy] += 1
 

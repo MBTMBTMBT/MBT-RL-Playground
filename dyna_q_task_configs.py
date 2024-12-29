@@ -6,7 +6,7 @@ from dyna_q import Discretizer
 
 def get_envs_discretizers_and_configs(name: str):
     if name == "cartpole":
-        save_path = "./experiments/DynaQ_Experiments/cartpole"
+        save_path = "./experiments/DynaQ_Experiments_/cartpole"
         env = gym.make("CartPole-v1", render_mode="rgb_array")
         test_env = gym.make("CartPole-v1", render_mode="rgb_array")
         state_discretizer = Discretizer(
@@ -32,7 +32,6 @@ def get_envs_discretizers_and_configs(name: str):
             "train_max_num_steps_per_episode": 500,
             "test_max_num_steps_per_episode": 500,
             "exploit_policy_reward_rate": 1e-3,
-            "exploit_agent_lr": 0.1,
             "exploit_value_decay": 0.99,
             "exploit_policy_training_per_num_steps": int(0.05e6),
             "exploit_policy_training_steps": int(0.25e6),
@@ -53,12 +52,14 @@ def get_envs_discretizers_and_configs(name: str):
                 "weighted_search": True,
                 "init_state_reward_prob_below_threshold": 0.1,
                 "quality_value_threshold": 1.0,
+                "take_done_states_as_targets": True,
             },
             int(0.5e6): {
                 "explore_policy_exploit_policy_ratio": (1.0, 0.0),
                 "train_exploit_policy": True,
                 "epsilon": 0.3,
                 "train_exploit_strategy": "greedy",
+                "train_exploit_lr": 0.1,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
@@ -67,6 +68,7 @@ def get_envs_discretizers_and_configs(name: str):
                 "train_exploit_policy": True,
                 "epsilon": 0.2,
                 "train_exploit_strategy": "greedy",
+                "train_exploit_lr": 0.1,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
@@ -75,6 +77,7 @@ def get_envs_discretizers_and_configs(name: str):
                 "train_exploit_policy": True,
                 "epsilon": 0.1,
                 "train_exploit_strategy": "greedy",
+                "train_exploit_lr": 0.1,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
@@ -107,7 +110,6 @@ def get_envs_discretizers_and_configs(name: str):
             "train_max_num_steps_per_episode": 500,
             "test_max_num_steps_per_episode": 500,
             "exploit_policy_reward_rate": 1e-3,
-            "exploit_agent_lr": 0.25,
             "exploit_value_decay": 0.99,
             "exploit_policy_training_per_num_steps": int(0.05e6),
             "exploit_policy_training_steps": int(0.25e6),
@@ -128,6 +130,7 @@ def get_envs_discretizers_and_configs(name: str):
                 "weighted_search": True,
                 "init_state_reward_prob_below_threshold": 0.1,
                 "quality_value_threshold": 1.0,
+                "take_done_states_as_targets": True,
             },
             int(7.5e6): {
                 "explore_policy_exploit_policy_ratio": (1.0, 0.0),
@@ -139,6 +142,7 @@ def get_envs_discretizers_and_configs(name: str):
                 "train_exploit_policy": True,
                 "epsilon": 0.25,
                 "train_exploit_strategy": "greedy",
+                "train_exploit_lr": 0.1,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
@@ -147,6 +151,7 @@ def get_envs_discretizers_and_configs(name: str):
                 "train_exploit_policy": True,
                 "epsilon": 0.1,
                 "train_exploit_strategy": "greedy",
+                "train_exploit_lr": 0.1,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
