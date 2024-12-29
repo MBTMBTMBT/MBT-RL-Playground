@@ -39,10 +39,10 @@ def get_envs_discretizers_and_configs(name: str):
             "save_per_num_steps": int(0.25e6),
             "save_mdp_graph": False,
             "init_groups": {
-                "real_start": (1.0, 0.0, 0.0),
-                "random_init": (0.0, 1.0, 0.0),
-                "real_start_random_init": (0.6, 0.4, 0.0),
-                "q_cut": (0.6, 0.2, 0.2),
+                "rs": (1.0, 0.0, 0.0),
+                "rn": (0.0, 1.0, 0.0),
+                "rr": (0.6, 0.4, 0.0),
+                "qc": (0.6, 0.2, 0.2),
             },
             "q_cut_params": {
                 "num_targets": 32,
@@ -116,10 +116,10 @@ def get_envs_discretizers_and_configs(name: str):
             "save_per_num_steps": int(0.25e6),
             "save_mdp_graph": True,
             "init_groups": {
-                "real_start": (1.0, 0.0, 0.0),
-                "random_init": (0.0, 1.0, 0.0),
-                "real_start_random_init": (0.6, 0.4, 0.0),
-                "q_cut": (0.6, 0.2, 0.2),
+                "rs": (1.0, 0.0, 0.0),
+                "rn": (0.0, 1.0, 0.0),
+                "rr": (0.6, 0.4, 0.0),
+                "qc": (0.6, 0.2, 0.2),
             },
             "q_cut_params": {
                 "num_targets": 32,
