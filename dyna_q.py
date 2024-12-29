@@ -1446,7 +1446,7 @@ class QCutTabularDynaQAgent(TabularDynaQAgent):
         strategy_counts[actual_strategy] += 1
 
         # Initialize the progress bar
-        progress_bar = tqdm.tqdm(total=steps, desc="Training Progress", unit="step")
+        progress_bar = tqdm.tqdm(total=steps, desc="Inner Training", unit="step")
         episode_step_count = 0
         for step in range(steps):
             # Decode and compute the midpoint of the current state
