@@ -1310,7 +1310,7 @@ class TabularDynaQAgent:
         state_encoded, info = self.transition_table_env.reset(init_strategy=init_strategy)
 
         # Initialize the progress bar
-        progress_bar = tqdm.tqdm(total=steps, desc="Training Progress", unit="step")
+        progress_bar = tqdm.tqdm(total=steps, desc="Inner Training", unit="step")
 
         for step in range(steps):
             # Decode and compute the midpoint of the current state
