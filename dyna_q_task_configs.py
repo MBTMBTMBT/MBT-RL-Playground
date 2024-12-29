@@ -53,7 +53,7 @@ def get_envs_discretizers_and_configs(name: str):
                 "quality_value_threshold": 1.0,
                 "take_done_states_as_targets": True,
             },
-            int(0.25e6): {
+            int(0.1e6): {
                 "explore_policy_exploit_policy_ratio": (1.0, 0.0),
                 "train_exploit_policy": True,
                 "epsilon": 0.3,
@@ -62,7 +62,7 @@ def get_envs_discretizers_and_configs(name: str):
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(0.5e6): {
+            int(0.2e6): {
                 "explore_policy_exploit_policy_ratio": (0.5, 0.5),
                 "train_exploit_policy": True,
                 "epsilon": 0.2,
@@ -71,7 +71,7 @@ def get_envs_discretizers_and_configs(name: str):
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(1.0e6): {
+            int(0.3e6): {
                 "explore_policy_exploit_policy_ratio": (0.25, 0.75),
                 "train_exploit_policy": True,
                 "epsilon": 0.1,
