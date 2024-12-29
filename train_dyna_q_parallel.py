@@ -40,7 +40,7 @@ def run_experiment(task_name: str, run_id: int):
             rough_reward_resolution=configs["reward_resolution"],
         )
 
-        pbar = tqdm(total=sample_steps[-1], desc=f"[{init_group}] - Sampling", unit="step", position=run_id)
+        pbar = tqdm(total=sample_steps[-1], desc=f"[{init_group}] - Sampling", unit="step", leave=True, dynamic_ncols=True)
         sample_step_count = 0
         avg_test_reward = 0.0
         for sample_step in sample_steps:
