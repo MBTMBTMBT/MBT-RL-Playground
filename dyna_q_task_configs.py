@@ -4,7 +4,7 @@ from custom_mountain_car import CustomMountainCarEnv
 from dyna_q import Discretizer
 
 
-def get_envs_discretizers_and_configs(name: str):
+def get_envs_discretizers_and_configs(name: str, configs_only=False):
     if name == "cartpole":
         save_path = "./experiments/DynaQ_Experiments_/cartpole"
         env = gym.make("CartPole-v1", render_mode="rgb_array")
@@ -33,7 +33,7 @@ def get_envs_discretizers_and_configs(name: str):
             "exploit_policy_reward_rate": 1e-3,
             "exploit_value_decay": 0.99,
             "exploit_policy_training_per_num_steps": int(0.05e6),
-            "exploit_policy_training_steps": int(0.1e6),
+            "exploit_policy_training_steps": int(0.05e6),
             "exploit_policy_test_per_num_steps": int(0.05e6),
             "exploit_policy_test_episodes": 64,
             "save_per_num_steps": int(0.25e6),
@@ -228,4 +228,6 @@ def get_envs_discretizers_and_configs(name: str):
     else:
         raise ValueError(f"Invalid environment name: {name}.")
 
+    if configs_only:
+        return configs
     return env, test_env, state_discretizer, action_discretizer, action_type, configs
