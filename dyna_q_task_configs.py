@@ -116,10 +116,10 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "save_mdp_graph": False,
             "print_training_info": False,
             "init_groups": {
-                "rs": (1.0, 0.0, 0.0),
-                "rn": (0.0, 1.0, 0.0),
-                "rr": (0.5, 0.5, 0.0),
-                "qc": (0.5, 0.25, 0.25),
+                "realstart": (1.0, 0.0, 0.0),
+                "randstart": (0.0, 1.0, 0.0),
+                "rand_real": (0.5, 0.5, 0.0),
+                "qcutstart": (0.5, 0.25, 0.25),
             },
             "q_cut_params": {
                 "num_targets": 32,
@@ -192,10 +192,10 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "save_mdp_graph": False,
             "print_training_info": True,
             "init_groups": {
-                "rs": (1.0, 0.0, 0.0),
-                "rn": (0.0, 1.0, 0.0),
-                "rr": (0.5, 0.5, 0.0),
-                "qc": (0.33, 0.33, 0.33),
+                "realstart": (1.0, 0.0, 0.0),
+                "randstart": (0.0, 1.0, 0.0),
+                "rand_real": (0.5, 0.5, 0.0),
+                "qcutstart": (0.33, 0.33, 0.33),
             },
             "q_cut_params": {
                 "num_targets": 256,
@@ -288,10 +288,10 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "save_mdp_graph": False,
             "print_training_info": False,
             "init_groups": {
-                "rs": (1.0, 0.0, 0.0),
-                "rn": (0.0, 1.0, 0.0),
-                "rr": (0.5, 0.5, 0.0),
-                "qc": (0.5, 0.25, 0.25),
+                "realstart": (1.0, 0.0, 0.0),
+                "randstart": (0.0, 1.0, 0.0),
+                "rand_real": (0.5, 0.5, 0.0),
+                "qcutstart": (0.5, 0.25, 0.25),
             },
             "q_cut_params": {
                 "num_targets": 32,
@@ -355,16 +355,16 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "exploit_value_decay": 0.99,
             "exploit_policy_training_per_num_steps": int(0.001e6),
             "exploit_policy_training_steps": int(0.0025e6),
-            "exploit_policy_test_per_num_steps": int(0.005e6),
+            "exploit_policy_test_per_num_steps": int(0.001e6),
             "exploit_policy_test_episodes": 200,
-            "save_per_num_steps": int(0.25e6),
+            "save_per_num_steps": int(0.2e6),
             "save_mdp_graph": True,
             "print_training_info": False,
             "init_groups": {
-                "rs": (1.0, 0.0, 0.0),
-                "rn": (0.0, 1.0, 0.0),
-                "rr": (0.5, 0.5, 0.0),
-                "qc": (0.5, 0.25, 0.25),
+                "realstart": (1.0, 0.0, 0.0),
+                "randstart": (0.0, 1.0, 0.0),
+                "rand_real": (0.5, 0.5, 0.0),
+                "qcutstart": (0.5, 0.25, 0.25),
             },
             "q_cut_params": {
                 "num_targets": 32,
@@ -375,12 +375,12 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 "quality_value_threshold": 1.0,
                 "take_done_states_as_targets": True,
             },
-            int(0.05e6): {
-                "explore_policy_exploit_policy_ratio": (1.0, 0.0),
-                "train_exploit_policy": False,
-                "test_exploit_policy": True,
-            },
-            int(0.15e6): {
+            # int(0.025e6): {
+            #     "explore_policy_exploit_policy_ratio": (1.0, 0.0),
+            #     "train_exploit_policy": False,
+            #     "test_exploit_policy": True,
+            # },
+            int(0.1e6): {
                 "explore_policy_exploit_policy_ratio": (0.5, 0.5),
                 "train_exploit_policy": True,
                 "epsilon": 0.25,
@@ -389,7 +389,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(0.25e6): {
+            int(0.2e6): {
                 "explore_policy_exploit_policy_ratio": (0.25, 0.75),
                 "train_exploit_policy": True,
                 "epsilon": 0.25,
