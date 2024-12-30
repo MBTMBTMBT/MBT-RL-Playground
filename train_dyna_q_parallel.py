@@ -118,6 +118,7 @@ def run_experiment(task_name: str, run_id: int):
                             quality_value_threshold=configs["q_cut_params"]["quality_value_threshold"],
                             take_done_states_as_targets=configs["q_cut_params"]["take_done_states_as_targets"],
                             use_task_bar=False,
+                            do_print=configs["print_training_info"],
                         )
 
                 if configs[sample_step]["test_exploit_policy"]:

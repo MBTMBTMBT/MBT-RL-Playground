@@ -1103,6 +1103,7 @@ class QCutTransitionalTableEnv(TransitionalTableEnv):
             re_init_landmarks: bool = False,
             return_actual_strategy: bool = False,
             take_done_states_as_targets: bool = False,
+            do_print: bool = True,
     ):
         super().reset(seed=seed)
         self.step_count = 0
@@ -1118,9 +1119,10 @@ class QCutTransitionalTableEnv(TransitionalTableEnv):
                 quality_value_threshold=quality_value_threshold,
                 take_done_states_as_targets=take_done_states_as_targets,
             )
-            print(f"Initialized: {len(self.landmark_states)} landmark states; {len(self.landmark_start_states)} start states.")
-            if take_done_states_as_targets:
-                print("Done states are also used as targets for landmark generation.")
+            if do_print:
+                print(f"Initialized: {len(self.landmark_states)} landmark states; {len(self.landmark_start_states)} start states.")
+                if take_done_states_as_targets:
+                    print("Done states are also used as targets for landmark generation.")
 
         if init_state_encode is None or init_state_encode in self.done_set:
             if init_state_encode in self.done_set:
@@ -1421,6 +1423,7 @@ class QCutTabularDynaQAgent(TabularDynaQAgent):
             quality_value_threshold: float = 1.0,
             take_done_states_as_targets: bool = False,
             use_task_bar: bool = True,
+            do_print: bool = True,
     ):
         # Initialize variables
         num_episodes = 1
@@ -1441,10 +1444,11 @@ class QCutTabularDynaQAgent(TabularDynaQAgent):
         agent = self.q_table_agent if not train_exploration_agent else self.exploration_agent
         unknown_reward = 0.0 if not train_exploration_agent else unknown_reward
 
-        print(f"Starting for {steps} steps using transition table: ")
-        if train_exploration_agent:
-            print(f"Training unknown_reward agent with unknown_reward value: {unknown_reward}.")
-        self.transition_table_env.print_transition_table_info()
+        if do_print:
+            print(f"Starting for {steps} steps using transition table: ")
+            if train_exploration_agent:
+                print(f"Training unknown_reward agent with unknown_reward value: {unknown_reward}.")
+            self.transition_table_env.print_transition_table_info()
 
         # Reset the environment and get the initial state
         state_encoded, info, actual_strategy = self.transition_table_env.reset(
@@ -1458,6 +1462,7 @@ class QCutTabularDynaQAgent(TabularDynaQAgent):
             re_init_landmarks=True,
             return_actual_strategy=True,
             take_done_states_as_targets=take_done_states_as_targets,
+            do_print=do_print,
         )
         strategy_counts[actual_strategy] += 1
 
@@ -1528,6 +1533,7 @@ class QCutTabularDynaQAgent(TabularDynaQAgent):
                     quality_value_threshold=quality_value_threshold,
                     re_init_landmarks=False,
                     return_actual_strategy=True,
+                    do_print=do_print,
                 )
                 strategy_counts[actual_strategy] += 1
                 episode_step_count = 0
@@ -1551,9 +1557,10 @@ class QCutTabularDynaQAgent(TabularDynaQAgent):
         if use_task_bar:
             progress_bar.close()
 
-        print(f"Trained {num_episodes-1} episodes, including {num_truncated} truncated, {num_terminated} terminated.")
-        print(f"Real starts: {strategy_counts['real_start_states']}, Landmarks: {strategy_counts['landmarks']}, Random: {strategy_counts['random']}.")
-        print(f"Average episode reward: {sum_episode_rewards / num_episodes}.")
+        if do_print:
+            print(f"Trained {num_episodes-1} episodes, including {num_truncated} truncated, {num_terminated} terminated.")
+            print(f"Real starts: {strategy_counts['real_start_states']}, Landmarks: {strategy_counts['landmarks']}, Random: {strategy_counts['random']}.")
+            print(f"Average episode reward: {sum_episode_rewards / num_episodes}.")
         self.transition_table_env.max_steps = old_truncate_steps
 
 
