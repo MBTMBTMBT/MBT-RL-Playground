@@ -5,6 +5,7 @@ from typing import List, Dict
 
 import numpy as np
 from tqdm import tqdm
+import plotly.graph_objs as go
 
 from dyna_q import QCutTabularDynaQAgent
 from dyna_q_task_configs import get_envs_discretizers_and_configs
@@ -187,7 +188,7 @@ def run_experiment_unpack(args):
 
 
 # Aggregating results for consistent step-based plotting
-def run_all_experiments(task_names_and_num_experiments: Dict[str, int], max_workers):
+def run_all_experiments_and_plot(task_names_and_num_experiments: Dict[str, int], max_workers):
     tasks = []
     run_id = 0
     for task_name, runs in task_names_and_num_experiments.items():
@@ -244,5 +245,80 @@ def run_all_experiments(task_names_and_num_experiments: Dict[str, int], max_work
                 "mean_final_rewards": mean_final_rewards,
                 "std_final_rewards": std_final_rewards,
             }
+
+    # Plot results
+    for task_name, task_data in aggregated_results.items():
+        fig = go.Figure()
+
+        # Use hex color codes instead of names
+        colors = ['#1f77b4', '#2ca02c', '#d62728', '#ff7f0e', '#9467bd']  # Hex color codes
+        line_styles = ['dash', 'dot', 'longdash', 'dashdot']  # Line styles for final results
+        color_idx = 0
+
+        for subtask, subtask_data in task_data.items():
+            # Extract aggregated data
+            mean_test_results = subtask_data["mean_test_results"]
+            std_test_results = subtask_data["std_test_results"]
+            test_steps = subtask_data["test_steps"]
+            mean_final_rewards = subtask_data["mean_final_rewards"]
+
+            # Add mean test results curve
+            fig.add_trace(go.Scatter(
+                x=test_steps,
+                y=mean_test_results,
+                mode='lines',
+                name=f"{subtask} Mean Test Results",
+                line=dict(color=colors[color_idx], width=2),
+            ))
+
+            # Add shaded area for std
+            fig.add_trace(go.Scatter(
+                x=test_steps + test_steps[::-1],  # Create a filled region
+                y=(np.array(mean_test_results) + np.array(std_test_results)).tolist() +
+                  (np.array(mean_test_results) - np.array(std_test_results))[::-1].tolist(),
+                fill='toself',
+                fillcolor=f"rgba({int(colors[color_idx][1:3], 16)}, "
+                          f"{int(colors[color_idx][3:5], 16)}, "
+                          f"{int(colors[color_idx][5:], 16)}, 0.2)",  # Match line color
+                line=dict(color='rgba(255,255,255,0)'),
+                name=f"{subtask} Std Dev",
+            ))
+
+            # Add final mean result as a horizontal line
+            fig.add_trace(go.Scatter(
+                x=[test_steps[0], test_steps[-1]],
+                y=[mean_final_rewards, mean_final_rewards],
+                mode='lines',
+                name=f"{subtask} Final Mean",
+                line=dict(color='black', width=2, dash=line_styles[color_idx % len(line_styles)]),
+            ))
+
+            # Add annotation for the final mean result
+            fig.add_trace(go.Scatter(
+                x=[test_steps[-1]],  # Position at the end of the line
+                y=[mean_final_rewards],
+                mode='text',
+                text=[f"{mean_final_rewards:.2f}"],  # Format the number with two decimals
+                textposition="top right",
+                showlegend=False  # Do not show in legend
+            ))
+
+            color_idx = (color_idx + 1) % len(colors)
+
+        # Customize layout
+        fig.update_layout(
+            title=f"Results for {task_name}",
+            xaxis_title="Steps",
+            yaxis_title="Test Results",
+            legend_title="Subtasks",
+            font=dict(size=14),
+            width=1200,  # High resolution width
+            height=800,  # High resolution height
+        )
+
+        # Save plot to file using your specified path
+        plot_path = get_envs_discretizers_and_configs(task_name, configs_only=True)["save_path"] + ".png"
+        fig.write_image(plot_path, scale=2)  # High-resolution PNG
+        print(f"Saved plot for {task_name} at {plot_path}")
 
     return aggregated_results
