@@ -122,7 +122,7 @@ def run_experiment(task_name: str, run_id: int):
                         )
 
                 if configs[sample_step]["test_exploit_policy"]:
-                    if (current_step + 1) % configs["exploit_policy_test_per_num_steps"] == 0 or current_step == num_steps_to_sample - 1:
+                    if current_step == 1 or (current_step + 1) % configs["exploit_policy_test_per_num_steps"] == 0 or current_step == num_steps_to_sample - 1:
                         periodic_test_rewards = []
                         frames = []
                         for t in range(configs["exploit_policy_test_episodes"]):
@@ -149,7 +149,7 @@ def run_experiment(task_name: str, run_id: int):
                                     break
                             periodic_test_rewards.append(test_total_reward)
 
-                        if (current_step + 1) % configs["exploit_policy_test_per_num_steps"] == 0:
+                        if current_step == 1 or (current_step + 1) % configs["exploit_policy_test_per_num_steps"] == 0:
                             avg_test_reward = np.mean(periodic_test_rewards)
                             test_results[init_group].append(avg_test_reward)
                             test_steps[init_group].append(sample_step_count)
@@ -160,7 +160,7 @@ def run_experiment(task_name: str, run_id: int):
 
                         # Save GIF for the first test episode
                         gif_path = group_save_path + f"_{current_step}.gif"
-                        generate_test_gif(frames, gif_path)
+                        generate_test_gif(frames, gif_path, to_print=configs["print_training_info"])
 
                 if (current_step + 1) % configs["save_per_num_steps"] == 0 or current_step == num_steps_to_sample - 1:
                     graph_path = group_save_path + f"_{current_step}.html"

@@ -27,7 +27,7 @@ CUSTOM_ENVS = {
 
 
 # Generate GIF for the final test episode
-def generate_test_gif(frames, gif_path):
+def generate_test_gif(frames, gif_path, to_print=True):
     fig, ax = plt.subplots()
     ax.axis('off')  # Turn off axis
     img = ax.imshow(frames[0])
@@ -39,7 +39,9 @@ def generate_test_gif(frames, gif_path):
     ani = FuncAnimation(fig, update, frames=frames, interval=50, blit=True)
     ani.save(gif_path, dpi=90, writer="pillow")
     plt.close(fig)
-    print(f"GIF saved to {gif_path}")
+
+    if to_print:
+        print(f"GIF saved to {gif_path}")
 
 
 # Single experiment runner
