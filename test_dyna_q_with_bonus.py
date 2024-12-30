@@ -58,6 +58,8 @@ if __name__ == '__main__':
     # weighted_search: bool = True
     # init_state_reward_prob_below_threshold: float = 0.1
     # quality_value_threshold: float = 1.0
+    # rough_reward_resolution = 1
+    # init_strategy_distribution = (0.33, 0.33, 0.33)
 
     # env = gym.make('Blackjack-v1', natural=False, sab=False, render_mode="rgb_array")
     # test_env = gym.make('Blackjack-v1', natural=False, sab=False, render_mode="rgb_array")
@@ -83,6 +85,7 @@ if __name__ == '__main__':
     # weighted_search: bool = True
     # init_state_reward_prob_below_threshold: float = 0.1
     # quality_value_threshold: float = 1.0
+    # rough_reward_resolution = 1
 
     # env = gym.make("MountainCarContinuous-v0", render_mode="rgb_array", goal_velocity=0.1)
     # test_env = gym.make("MountainCarContinuous-v0", render_mode="rgb_array", goal_velocity=0.1)
@@ -127,36 +130,36 @@ if __name__ == '__main__':
     #
     # action_type = "int"
 
-    env = gym.make("LunarLander-v3", render_mode="rgb_array", continuous=True,)
-    test_env = gym.make("LunarLander-v3", render_mode="rgb_array", continuous=True,)
-    save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_lunarlander_lm.csv"
-
-    state_discretizer = Discretizer(
-        ranges=[
-            (-1.5, 1.5), (-1.5, 1.5), (-5.0, 5.0), (-5.0, 5.0),
-            (-3.14, 3.14), (-5.0, 5.0), (0, 1), (0, 1),
-        ],
-        num_buckets=[25, 25, 13, 13, 19, 9, 0, 0,],
-        normal_params=[None, None, None, None, None, None, None, None,],
-    )
-
-    action_discretizer = Discretizer(
-        ranges=[(-0.2, 1), (-1, 1)],
-        num_buckets=[6, 11],
-        normal_params=[None, None],
-    )
-
-    action_type = "float"
-
-    num_targets: int = 256
-    min_cut_max_flow_search_space: int = 512
-    q_cut_space: int = 8
-    weighted_search: bool = True
-    init_state_reward_prob_below_threshold: float = 0.01
-    quality_value_threshold: float = 1.0
-
-    init_strategy_distribution = (0.33, 0.33, 0.33)
-    rough_reward_resolution = 10
+    # env = gym.make("LunarLander-v3", render_mode="rgb_array", continuous=True,)
+    # test_env = gym.make("LunarLander-v3", render_mode="rgb_array", continuous=True,)
+    # save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_lunarlander_lm.csv"
+    #
+    # state_discretizer = Discretizer(
+    #     ranges=[
+    #         (-1.5, 1.5), (-1.5, 1.5), (-5.0, 5.0), (-5.0, 5.0),
+    #         (-3.14, 3.14), (-5.0, 5.0), (0, 1), (0, 1),
+    #     ],
+    #     num_buckets=[25, 25, 13, 13, 19, 9, 0, 0,],
+    #     normal_params=[None, None, None, None, None, None, None, None,],
+    # )
+    #
+    # action_discretizer = Discretizer(
+    #     ranges=[(-0.2, 1), (-1, 1)],
+    #     num_buckets=[6, 11],
+    #     normal_params=[None, None],
+    # )
+    #
+    # action_type = "float"
+    #
+    # num_targets: int = 256
+    # min_cut_max_flow_search_space: int = 512
+    # q_cut_space: int = 8
+    # weighted_search: bool = True
+    # init_state_reward_prob_below_threshold: float = 0.01
+    # quality_value_threshold: float = 1.0
+    #
+    # init_strategy_distribution = (0.33, 0.33, 0.33)
+    # rough_reward_resolution = 10
 
     # env = gym.make("Acrobot-v1", render_mode="rgb_array")
     # test_env = gym.make("Acrobot-v1", render_mode="rgb_array")
@@ -211,30 +214,32 @@ if __name__ == '__main__':
     #
     # action_type = "float"
 
-    # env = gym.make("Pendulum-v1", render_mode="rgb_array",)
-    # test_env = gym.make("Pendulum-v1", render_mode="rgb_array",)
-    # save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_pendulum.csv"
-    #
-    # state_discretizer = Discretizer(
-    #     ranges=[(-1.0, 1.0), (-1.0, 1.0), (-8.0, 8.0), ],
-    #     num_buckets=[33, 33, 65],
-    #     normal_params=[None, None, None],
-    # )
-    #
-    # action_discretizer = Discretizer(
-    #     ranges=[(-2.0, 2.0), ],
-    #     num_buckets=[17],
-    #     normal_params=[None, ],
-    # )
-    #
-    # action_type = "float"
-    #
-    # num_targets: int = 16
-    # min_cut_max_flow_search_space: int = 512
-    # q_cut_space: int = 8
-    # weighted_search: bool = True
-    # init_state_reward_prob_below_threshold: float = 0.005
-    # quality_value_threshold: float = 1.0
+    env = gym.make("Pendulum-v1", render_mode="rgb_array",)
+    test_env = gym.make("Pendulum-v1", render_mode="rgb_array",)
+    save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_pendulum.csv"
+
+    state_discretizer = Discretizer(
+        ranges=[(-1.0, 1.0), (-1.0, 1.0), (-8.0, 8.0), ],
+        num_buckets=[33, 33, 65],
+        normal_params=[None, None, None],
+    )
+
+    action_discretizer = Discretizer(
+        ranges=[(-2.0, 2.0), ],
+        num_buckets=[17],
+        normal_params=[None, ],
+    )
+
+    action_type = "float"
+
+    num_targets: int = 16
+    min_cut_max_flow_search_space: int = 512
+    q_cut_space: int = 8
+    weighted_search: bool = True
+    init_state_reward_prob_below_threshold: float = 0.005
+    quality_value_threshold: float = 1.0
+    rough_reward_resolution = -1
+    init_strategy_distribution = (0.33, 0.33, 0.33)
 
     total_steps = int(15e6)
     alpha = 0.1

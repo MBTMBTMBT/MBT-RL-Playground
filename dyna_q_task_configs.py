@@ -29,7 +29,6 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "explore_strategy": "greedy",
             "reward_resolution": 0,
             "train_max_num_steps_per_episode": 500,
-            "test_max_num_steps_per_episode": 500,
             "exploit_policy_reward_rate": 1e-3,
             "exploit_value_decay": 0.99,
             "exploit_policy_training_per_num_steps": int(0.001e6),
@@ -54,7 +53,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 "quality_value_threshold": 1.0,
                 "take_done_states_as_targets": True,
             },
-            int(0.25e6): {
+            int(1.0e6): {
                 "explore_policy_exploit_policy_ratio": (1.0, 0.0),
                 "train_exploit_policy": True,
                 "epsilon": 0.3,
@@ -63,7 +62,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(0.5e6): {
+            int(3.0e6): {
                 "explore_policy_exploit_policy_ratio": (0.5, 0.5),
                 "train_exploit_policy": True,
                 "epsilon": 0.2,
@@ -72,7 +71,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(1.0e6): {
+            int(5.0e6): {
                 "explore_policy_exploit_policy_ratio": (0.25, 0.75),
                 "train_exploit_policy": True,
                 "epsilon": 0.1,
@@ -107,16 +106,15 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "explore_strategy": "greedy",
             "reward_resolution": 0,
             "train_max_num_steps_per_episode": 200,
-            "test_max_num_steps_per_episode": 200,
             "exploit_policy_reward_rate": 1e-3,
             "exploit_value_decay": 0.99,
-            "exploit_policy_training_per_num_steps": int(0.05e6),
-            "exploit_policy_training_steps": int(0.25e6),
+            "exploit_policy_training_per_num_steps": int(0.001e6),
+            "exploit_policy_training_steps": int(0.0025e6),
             "exploit_policy_test_per_num_steps": int(0.1e6),
             "exploit_policy_test_episodes": 64,
             "save_per_num_steps": int(2.5e6),
             "save_mdp_graph": False,
-            "print_training_info": True,
+            "print_training_info": False,
             "init_groups": {
                 "rs": (1.0, 0.0, 0.0),
                 "rn": (0.0, 1.0, 0.0),
@@ -132,12 +130,12 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 "quality_value_threshold": 1.0,
                 "take_done_states_as_targets": True,
             },
-            int(7.5e6): {
+            int(5e6): {
                 "explore_policy_exploit_policy_ratio": (1.0, 0.0),
                 "train_exploit_policy": False,
                 "test_exploit_policy": False,
             },
-            int(10e6): {
+            int(7.5e6): {
                 "explore_policy_exploit_policy_ratio": (0.5, 0.5),
                 "train_exploit_policy": True,
                 "epsilon": 0.25,
@@ -146,7 +144,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(15e6): {
+            int(10e6): {
                 "explore_policy_exploit_policy_ratio": (0.25, 0.75),
                 "train_exploit_policy": True,
                 "epsilon": 0.1,
@@ -184,7 +182,6 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "explore_strategy": "greedy",
             "reward_resolution": 10,
             "train_max_num_steps_per_episode": 500,
-            "test_max_num_steps_per_episode": 500,
             "exploit_policy_reward_rate": 1e-3,
             "exploit_value_decay": 0.99,
             "exploit_policy_training_per_num_steps": int(0.025e6),
@@ -258,7 +255,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
         action_type = "int"
 
     elif name =="pendulum":
-        save_path = "./experiments/DynaQ/pendulum"
+        save_path = "./experiments/DynaQ/pendulum/pendulum"
         env = gym.make("Pendulum-v1", render_mode="rgb_array",)
         test_env = gym.make("Pendulum-v1", render_mode="rgb_array",)
         state_discretizer = Discretizer(
@@ -272,9 +269,66 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             normal_params=[None,],
         )
         action_type = "float"
+        configs = {
+            "save_path": save_path,
+            "explore_agent_lr": 0.1,
+            "explore_value_decay": 0.99,
+            "explore_bonus_decay": 0.9,
+            "explore_epsilon": 0.25,
+            "explore_strategy": "greedy",
+            "reward_resolution": -1,
+            "train_max_num_steps_per_episode": 200,
+            "exploit_policy_reward_rate": 1e-3,
+            "exploit_value_decay": 0.99,
+            "exploit_policy_training_per_num_steps": int(0.001e6),
+            "exploit_policy_training_steps": int(0.0025e6),
+            "exploit_policy_test_per_num_steps": int(0.1e6),
+            "exploit_policy_test_episodes": 500,
+            "save_per_num_steps": int(2.5e6),
+            "save_mdp_graph": False,
+            "print_training_info": False,
+            "init_groups": {
+                "rs": (1.0, 0.0, 0.0),
+                "rn": (0.0, 1.0, 0.0),
+                "rr": (0.5, 0.5, 0.0),
+                "qc": (0.5, 0.25, 0.25),
+            },
+            "q_cut_params": {
+                "num_targets": 32,
+                "min_cut_max_flow_search_space": 128,
+                "q_cut_space": 16,
+                "weighted_search": True,
+                "init_state_reward_prob_below_threshold": 0.05,
+                "quality_value_threshold": 1.0,
+                "take_done_states_as_targets": True,
+            },
+            int(0.5e6): {
+                "explore_policy_exploit_policy_ratio": (1.0, 0.0),
+                "train_exploit_policy": False,
+                "test_exploit_policy": False,
+            },
+            int(2.5e6): {
+                "explore_policy_exploit_policy_ratio": (0.5, 0.5),
+                "train_exploit_policy": True,
+                "epsilon": 0.25,
+                "train_exploit_strategy": "greedy",
+                "train_exploit_lr": 0.1,
+                "test_exploit_policy": True,
+                "test_exploit_strategy": "greedy",
+            },
+            int(5e6): {
+                "explore_policy_exploit_policy_ratio": (0.25, 0.75),
+                "train_exploit_policy": True,
+                "epsilon": 0.1,
+                "train_exploit_strategy": "greedy",
+                "train_exploit_lr": 0.1,
+                "test_exploit_policy": True,
+                "test_exploit_strategy": "greedy",
+            },
+        }
 
     elif name == "texi":
-        save_path = "./experiments/DynaQ/texi"
+        save_path = "./experiments/DynaQ/texi/texi"
         env = gym.make("Taxi-v3", render_mode="rgb_array", )
         test_env = gym.make("Taxi-v3", render_mode="rgb_array", )
         state_discretizer = Discretizer(
@@ -288,6 +342,63 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             normal_params=[None, ],
         )
         action_type = "int"
+        configs = {
+            "save_path": save_path,
+            "explore_agent_lr": 0.1,
+            "explore_value_decay": 0.99,
+            "explore_bonus_decay": 0.9,
+            "explore_epsilon": 0.25,
+            "explore_strategy": "greedy",
+            "reward_resolution": 0,
+            "train_max_num_steps_per_episode": 200,
+            "exploit_policy_reward_rate": 1e-3,
+            "exploit_value_decay": 0.99,
+            "exploit_policy_training_per_num_steps": int(0.001e6),
+            "exploit_policy_training_steps": int(0.0025e6),
+            "exploit_policy_test_per_num_steps": int(0.005e6),
+            "exploit_policy_test_episodes": 200,
+            "save_per_num_steps": int(0.25e6),
+            "save_mdp_graph": True,
+            "print_training_info": False,
+            "init_groups": {
+                "rs": (1.0, 0.0, 0.0),
+                "rn": (0.0, 1.0, 0.0),
+                "rr": (0.5, 0.5, 0.0),
+                "qc": (0.5, 0.25, 0.25),
+            },
+            "q_cut_params": {
+                "num_targets": 32,
+                "min_cut_max_flow_search_space": 64,
+                "q_cut_space": 4,
+                "weighted_search": True,
+                "init_state_reward_prob_below_threshold": 0.1,
+                "quality_value_threshold": 1.0,
+                "take_done_states_as_targets": True,
+            },
+            int(0.05e6): {
+                "explore_policy_exploit_policy_ratio": (1.0, 0.0),
+                "train_exploit_policy": False,
+                "test_exploit_policy": True,
+            },
+            int(0.15e6): {
+                "explore_policy_exploit_policy_ratio": (0.5, 0.5),
+                "train_exploit_policy": True,
+                "epsilon": 0.25,
+                "train_exploit_strategy": "greedy",
+                "train_exploit_lr": 0.1,
+                "test_exploit_policy": True,
+                "test_exploit_strategy": "greedy",
+            },
+            int(0.25e6): {
+                "explore_policy_exploit_policy_ratio": (0.25, 0.75),
+                "train_exploit_policy": True,
+                "epsilon": 0.25,
+                "train_exploit_strategy": "greedy",
+                "train_exploit_lr": 0.1,
+                "test_exploit_policy": True,
+                "test_exploit_strategy": "greedy",
+            },
+        }
 
     else:
         raise ValueError(f"Invalid environment name: {name}.")
