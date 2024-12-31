@@ -260,7 +260,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
         test_env = gym.make("Pendulum-v1", render_mode="rgb_array",)
         state_discretizer = Discretizer(
             ranges=[(-1.0, 1.0), (-1.0, 1.0), (-8.0, 8.0), ],
-            num_buckets=[33, 33, 65],
+            num_buckets=[17, 17, 33],
             normal_params=[None, None, None],
         )
         action_discretizer = Discretizer(
@@ -276,7 +276,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "explore_bonus_decay": 0.9,
             "explore_epsilon": 0.25,
             "explore_strategy": "greedy",
-            "reward_resolution": -1,
+            "reward_resolution": 1,
             "train_max_num_steps_per_episode": 200,
             "exploit_policy_reward_rate": 1e-3,
             "exploit_value_decay": 0.99,
@@ -302,16 +302,12 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 "quality_value_threshold": 1.0,
                 "take_done_states_as_targets": True,
             },
-            int(2.5e6): {
+            int(1e6): {
                 "explore_policy_exploit_policy_ratio": (1.0, 0.0),
-                "train_exploit_policy": True,
-                "epsilon": 0.25,
-                "train_exploit_strategy": "greedy",
-                "train_exploit_lr": 0.1,
-                "test_exploit_policy": True,
-                "test_exploit_strategy": "greedy",
+                "train_exploit_policy": False,
+                "test_exploit_policy": False,
             },
-            int(7.5e6): {
+            int(5e6): {
                 "explore_policy_exploit_policy_ratio": (0.5, 0.5),
                 "train_exploit_policy": True,
                 "epsilon": 0.25,
@@ -373,7 +369,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "q_cut_params": {
                 "num_targets": 32,
                 "min_cut_max_flow_search_space": 64,
-                "q_cut_space": 4,
+                "q_cut_space": 16,
                 "weighted_search": True,
                 "init_state_reward_prob_below_threshold": 0.1,
                 "quality_value_threshold": 1.0,
