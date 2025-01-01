@@ -885,6 +885,7 @@ class QCutTransitionalTableEnv(TransitionalTableEnv):
     ):
         TransitionalTableEnv.__init__(self, state_discretizer, action_discretizer, max_steps, rough_reward_resolution)
         self.landmark_states, self.landmark_start_states, self.targets = None, None, None
+        self.no_target_error_printed_times = 10
 
     def find_nearest_nodes_and_subgraph(self, start_node, n, weighted=True, direction='both') -> Tuple[List[Tuple[int, float]], DiGraph]:
         """
@@ -1061,7 +1062,11 @@ class QCutTransitionalTableEnv(TransitionalTableEnv):
                 targets.add(state)
 
         if len(targets) == 0:
-            print("No target states for Q-Cut search found.")
+            if self.no_target_error_printed_times <= 0:
+                print("No target states for Q-Cut search found.")
+                self.no_target_error_printed_times = 10
+            else:
+                self.no_target_error_printed_times -= 1
             return [], [], []
 
         selected_targets = targets if len(targets) <= num_targets else random.sample(targets, num_targets)

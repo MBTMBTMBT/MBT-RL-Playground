@@ -123,12 +123,12 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             },
             "q_cut_params": {
                 "num_targets": 32,
-                "min_cut_max_flow_search_space": 128,
+                "min_cut_max_flow_search_space": 256,
                 "q_cut_space": 32,
                 "weighted_search": True,
                 "init_state_reward_prob_below_threshold": 0.1,
                 "quality_value_threshold": 1.0,
-                "take_done_states_as_targets": True,
+                "take_done_states_as_targets": False,
             },
             int(7.5e6): {
                 "explore_policy_exploit_policy_ratio": (1.0, 0.0),
@@ -430,7 +430,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 "weighted_search": True,
                 "init_state_reward_prob_below_threshold": 0.1,
                 "quality_value_threshold": 1.0,
-                "take_done_states_as_targets": True,
+                "take_done_states_as_targets": False,
             },
             int(0.05e6): {
                 "explore_policy_exploit_policy_ratio": (1.0, 0.0),
