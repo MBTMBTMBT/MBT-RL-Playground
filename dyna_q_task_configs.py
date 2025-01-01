@@ -39,10 +39,10 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "save_mdp_graph": False,
             "print_training_info": False,
             "init_groups": {
-                "realstart": (1.0, 0.0, 0.0),
-                "randstart": (0.0, 1.0, 0.0),
-                "rand_real": (0.5, 0.5, 0.0),
-                "qcutstart": (0.5, 0.25, 0.25),
+                "real-start": (1.0, 0.0, 0.0),
+                "rand-start": (0.0, 1.0, 0.0),
+                "rand-real": (0.5, 0.5, 0.0),
+                "qcut-start": (0.5, 0.25, 0.25),
             },
             "q_cut_params": {
                 "num_targets": 32,
@@ -116,10 +116,10 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "save_mdp_graph": False,
             "print_training_info": False,
             "init_groups": {
-                "realstart": (1.0, 0.0, 0.0),
-                "randstart": (0.0, 1.0, 0.0),
-                "rand_real": (0.5, 0.5, 0.0),
-                "qcutstart": (0.5, 0.25, 0.25),
+                "real-start": (1.0, 0.0, 0.0),
+                "rand-start": (0.0, 1.0, 0.0),
+                "rand-real": (0.5, 0.5, 0.0),
+                "qcut-start": (0.5, 0.25, 0.25),
             },
             "q_cut_params": {
                 "num_targets": 32,
@@ -192,10 +192,10 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "save_mdp_graph": False,
             "print_training_info": True,
             "init_groups": {
-                "realstart": (1.0, 0.0, 0.0),
-                "randstart": (0.0, 1.0, 0.0),
-                "rand_real": (0.5, 0.5, 0.0),
-                "qcutstart": (0.33, 0.33, 0.33),
+                "real-start": (1.0, 0.0, 0.0),
+                "rand-start": (0.0, 1.0, 0.0),
+                "rand-real": (0.5, 0.5, 0.0),
+                "qcut-start": (0.5, 0.25, 0.25),
             },
             "q_cut_params": {
                 "num_targets": 256,
@@ -272,10 +272,10 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "save_mdp_graph": False,
             "print_training_info": False,
             "init_groups": {
-                "realstart": (1.0, 0.0, 0.0),
-                "randstart": (0.0, 1.0, 0.0),
-                "rand_real": (0.5, 0.5, 0.0),
-                "qcutstart": (0.5, 0.25, 0.25),
+                "real-start": (1.0, 0.0, 0.0),
+                "rand-start": (0.0, 1.0, 0.0),
+                "rand-real": (0.5, 0.5, 0.0),
+                "qcut-start": (0.5, 0.25, 0.25),
             },
             "q_cut_params": {
                 "num_targets": 32,
@@ -345,10 +345,10 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "save_mdp_graph": False,
             "print_training_info": False,
             "init_groups": {
-                "realstart": (1.0, 0.0, 0.0),
-                "randstart": (0.0, 1.0, 0.0),
-                "rand_real": (0.5, 0.5, 0.0),
-                "qcutstart": (0.5, 0.25, 0.25),
+                "real-start": (1.0, 0.0, 0.0),
+                "rand-start": (0.0, 1.0, 0.0),
+                "rand-real": (0.5, 0.5, 0.0),
+                "qcut-start": (0.5, 0.25, 0.25),
             },
             "q_cut_params": {
                 "num_targets": 32,
@@ -418,10 +418,10 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "save_mdp_graph": True,
             "print_training_info": False,
             "init_groups": {
-                "realstart": (1.0, 0.0, 0.0),
-                "randstart": (0.0, 1.0, 0.0),
-                "rand_real": (0.5, 0.5, 0.0),
-                "qcutstart": (0.5, 0.25, 0.25),
+                "real-start": (1.0, 0.0, 0.0),
+                "rand-start": (0.0, 1.0, 0.0),
+                "rand-real": (0.5, 0.5, 0.0),
+                "qcut-start": (0.5, 0.25, 0.25),
             },
             "q_cut_params": {
                 "num_targets": 32,
