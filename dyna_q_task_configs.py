@@ -300,7 +300,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(15e6): {
+            int(10e6): {
                 "explore_policy_exploit_policy_ratio": (0.25, 0.75),
                 "train_exploit_policy": True,
                 "epsilon": 0.1,
@@ -364,7 +364,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 "train_exploit_policy": False,
                 "test_exploit_policy": False,
             },
-            int(5e6): {
+            int(3e6): {
                 "explore_policy_exploit_policy_ratio": (0.5, 0.5),
                 "train_exploit_policy": True,
                 "epsilon": 0.25,
@@ -373,7 +373,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(7.5e6): {
+            int(5e6): {
                 "explore_policy_exploit_policy_ratio": (0.25, 0.75),
                 "train_exploit_policy": True,
                 "epsilon": 0.1,
