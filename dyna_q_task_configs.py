@@ -244,7 +244,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 (-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0),
                 (-6.0, 6.0), (-12.0, 12.0),
             ],
-            num_buckets=[25, 25, 25, 25, 25, 25,],
+            num_buckets=[17, 17, 17, 17, 17, 17,],
             normal_params=[None, None, None, None, None, None,],
         )
         action_discretizer = Discretizer(
@@ -280,13 +280,13 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "q_cut_params": {
                 "num_targets": 32,
                 "min_cut_max_flow_search_space": 128,
-                "q_cut_space": 16,
+                "q_cut_space": 8,
                 "weighted_search": True,
                 "init_state_reward_prob_below_threshold": 0.05,
                 "quality_value_threshold": 1.0,
                 "take_done_states_as_targets": True,
             },
-            int(2.5e6): {
+            int(1e6): {
                 "explore_policy_exploit_policy_ratio": (1.0, 0.0),
                 "train_exploit_policy": False,
                 "test_exploit_policy": False,
