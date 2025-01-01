@@ -124,7 +124,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "q_cut_params": {
                 "num_targets": 32,
                 "min_cut_max_flow_search_space": 256,
-                "q_cut_space": 32,
+                "q_cut_space": 64,
                 "weighted_search": True,
                 "init_state_reward_prob_below_threshold": 0.1,
                 "quality_value_threshold": 1.0,
