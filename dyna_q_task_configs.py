@@ -236,7 +236,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
         }
 
     elif name == "acrobot":
-        save_path = "./experiments/DynaQ/acrobot"
+        save_path = "./experiments/DynaQ/acrobot/acrobot"
         env = gym.make("Acrobot-v1", render_mode="rgb_array")
         test_env = gym.make("Acrobot-v1", render_mode="rgb_array")
         state_discretizer = Discretizer(
@@ -244,7 +244,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 (-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0),
                 (-6.0, 6.0), (-12.0, 12.0),
             ],
-            num_buckets=[17, 17, 17, 17, 17, 17,],
+            num_buckets=[25, 25, 25, 25, 25, 25,],
             normal_params=[None, None, None, None, None, None,],
         )
         action_discretizer = Discretizer(
@@ -253,6 +253,63 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             normal_params=[None,],
         )
         action_type = "int"
+        configs = {
+            "save_path": save_path,
+            "explore_agent_lr": 0.1,
+            "explore_value_decay": 0.99,
+            "explore_bonus_decay": 0.9,
+            "explore_epsilon": 0.25,
+            "explore_strategy": "greedy",
+            "reward_resolution": 1,
+            "train_max_num_steps_per_episode": 500,
+            "exploit_policy_reward_rate": 1e-3,
+            "exploit_value_decay": 0.99,
+            "exploit_policy_training_per_num_steps": int(0.005e6),
+            "exploit_policy_training_steps": int(0.025e6),
+            "exploit_policy_test_per_num_steps": int(0.1e6),
+            "exploit_policy_test_episodes": 200,
+            "save_per_num_steps": int(2.5e6),
+            "save_mdp_graph": False,
+            "print_training_info": False,
+            "init_groups": {
+                "realstart": (1.0, 0.0, 0.0),
+                "randstart": (0.0, 1.0, 0.0),
+                "rand_real": (0.5, 0.5, 0.0),
+                "qcutstart": (0.5, 0.25, 0.25),
+            },
+            "q_cut_params": {
+                "num_targets": 32,
+                "min_cut_max_flow_search_space": 128,
+                "q_cut_space": 16,
+                "weighted_search": True,
+                "init_state_reward_prob_below_threshold": 0.05,
+                "quality_value_threshold": 1.0,
+                "take_done_states_as_targets": True,
+            },
+            int(2.5e6): {
+                "explore_policy_exploit_policy_ratio": (1.0, 0.0),
+                "train_exploit_policy": False,
+                "test_exploit_policy": False,
+            },
+            int(7.5e6): {
+                "explore_policy_exploit_policy_ratio": (0.5, 0.5),
+                "train_exploit_policy": True,
+                "epsilon": 0.25,
+                "train_exploit_strategy": "greedy",
+                "train_exploit_lr": 0.1,
+                "test_exploit_policy": True,
+                "test_exploit_strategy": "greedy",
+            },
+            int(15e6): {
+                "explore_policy_exploit_policy_ratio": (0.25, 0.75),
+                "train_exploit_policy": True,
+                "epsilon": 0.1,
+                "train_exploit_strategy": "greedy",
+                "train_exploit_lr": 0.1,
+                "test_exploit_policy": True,
+                "test_exploit_strategy": "greedy",
+            },
+        }
 
     elif name =="pendulum":
         save_path = "./experiments/DynaQ/pendulum/pendulum"
@@ -375,11 +432,11 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 "quality_value_threshold": 1.0,
                 "take_done_states_as_targets": True,
             },
-            # int(0.025e6): {
-            #     "explore_policy_exploit_policy_ratio": (1.0, 0.0),
-            #     "train_exploit_policy": False,
-            #     "test_exploit_policy": True,
-            # },
+            int(0.025e6): {
+                "explore_policy_exploit_policy_ratio": (1.0, 0.0),
+                "train_exploit_policy": False,
+                "test_exploit_policy": False,
+            },
             int(0.1e6): {
                 "explore_policy_exploit_policy_ratio": (0.5, 0.5),
                 "train_exploit_policy": True,
