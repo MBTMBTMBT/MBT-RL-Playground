@@ -255,7 +255,8 @@ def run_all_experiments_and_plot(task_names_and_num_experiments: Dict[str, int],
         line_styles = ['dash', 'dot', 'longdash', 'dashdot']  # Line styles for final results
         color_idx = 0
 
-        for subtask, subtask_data in task_data.items():
+        for subtask in sorted(task_data.keys()):  # Sort subtasks alphabetically
+            subtask_data = task_data[subtask]
             # Extract aggregated data
             mean_test_results = subtask_data["mean_test_results"]
             std_test_results = subtask_data["std_test_results"]
