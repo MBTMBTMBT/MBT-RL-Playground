@@ -446,7 +446,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(0.25e6): {
+            int(0.2e6): {
                 "explore_policy_exploit_policy_ratio": (0.25, 0.75),
                 "train_exploit_policy": True,
                 "epsilon": 0.25,
