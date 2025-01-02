@@ -5,6 +5,127 @@ from torch.nn import functional as F
 from losses import FlexibleThresholdedLoss
 
 
+class SimpleTransitionModel(nn.Module):
+    def __init__(self, obs_dim: int, action_dim: int, network_layers: list = None, dropout: float = 0.0, lr: float = 1e-4,):
+        """
+        A simple fully connected neural network for transition modeling.
+
+        Args:
+            obs_dim (int): Dimension of the observation space.
+            action_dim (int): Dimension of the action space.
+            network_layers (list, optional): List defining the sizes of hidden layers. Defaults to [64, 64].
+            dropout (float, optional): Dropout rate. Defaults to 0.0.
+        """
+        super(SimpleTransitionModel, self).__init__()
+        self.obs_dim = obs_dim
+        self.action_dim = action_dim
+        self.network_layers = network_layers if network_layers else [64, 64]
+        self.dropout = dropout
+
+        layers = []
+        input_dim = obs_dim + action_dim  # Concatenate observation and action
+
+        # Add hidden layers
+        for i, layer_size in enumerate(self.network_layers):
+            layers.append(nn.Linear(input_dim, layer_size))
+            layers.append(nn.LayerNorm(layer_size))  # LayerNorm for normalization
+            if i < len(self.network_layers) - 1:
+                layers.append(nn.LeakyReLU(negative_slope=0.01))
+            else:
+                layers.append(nn.ReLU())  # ReLU for the last hidden layer
+            if self.dropout > 0:
+                layers.append(nn.Dropout(self.dropout))
+            input_dim = layer_size
+
+        # Shared feature extractor
+        self.feature_extractor = nn.Sequential(*layers)
+
+        # Separate heads for predicting next state, reward, and terminal
+        self.next_state_head = nn.Linear(self.network_layers[-1], obs_dim)  # Next state prediction
+        self.reward_head = nn.Linear(self.network_layers[-1], 1)  # Reward prediction
+        self.terminal_head = nn.Sequential(
+            nn.Linear(self.network_layers[-1], 1),  # Terminal prediction
+            nn.Sigmoid()
+        )
+
+        self.optimizer = torch.optim.Adam(self.parameters(), lr=lr)
+
+    def forward(self, obs: torch.Tensor, action: torch.Tensor):
+        """
+        Forward pass of the transition model.
+
+        Args:
+            obs (torch.Tensor): Input observations, shape (batch_size, obs_dim).
+            action (torch.Tensor): Input actions, shape (batch_size, action_dim).
+
+        Returns:
+            tuple: (next_state, reward, terminal)
+                - next_state: Predicted next state, shape (batch_size, obs_dim).
+                - reward: Predicted reward, shape (batch_size, 1).
+                - terminal: Predicted terminal state probability, shape (batch_size, 1).
+        """
+        x = torch.cat([obs, action], dim=-1)  # Concatenate observations and actions
+        features = self.feature_extractor(x)
+        next_state = self.next_state_head(features)
+        reward = self.reward_head(features)
+        terminal = self.terminal_head(features)
+        return next_state, reward, terminal
+
+    def train_batch(self, batch, recon_weight=1.0, reward_weight=1.0, termination_weight=1.0,):
+        self.train()
+
+        # Convert batch data to tensors
+        true_obs = torch.tensor(batch["state"], dtype=torch.float32, device=self.device)
+        next_obs = torch.tensor(batch["next_state"], dtype=torch.float32, device=self.device)
+        true_actions = torch.tensor(batch["action"], dtype=torch.float32, device=self.device)
+        true_rewards = torch.tensor(batch["reward"], dtype=torch.float32, device=self.device)
+        true_terminations = torch.tensor(batch["terminal"], dtype=torch.float32, device=self.device)
+        masks = torch.tensor(batch["mask"], dtype=torch.float32, device=self.device)
+
+        batch_size, seq_len, _, = true_obs.size()
+        time_weights = torch.linspace(1.0, 0.1, steps=seq_len, device=self.device)
+
+        # Initialize loss accumulators as tensors
+        recon_loss = torch.tensor(0.0, device=self.device)
+        reward_loss = torch.tensor(0.0, device=self.device)
+        termination_loss = torch.tensor(0.0, device=self.device)
+
+        state = true_obs[:, 0]
+        for t in range(seq_len):
+            next_state, reward, terminal = self.forward(state, true_actions[:, t])
+
+            # Reconstruction loss against next observation
+            recon_loss += F.mse_loss(
+                next_state * masks[:, t].unsqueeze(-1).unsqueeze(-1), next_obs[:, t] * masks[:, t].unsqueeze(-1).unsqueeze(-1)
+            ) * time_weights[t]
+            reward_loss += F.mse_loss(
+                reward * masks[:, t].unsqueeze(-1), true_rewards[:, t].squeeze() * masks[:, t].unsqueeze(-1), reduction="mean"
+            ) * time_weights[t]
+            termination_loss += F.binary_cross_entropy_with_logits(
+                terminal * masks[:, t].unsqueeze(-1), true_terminations[:, t].squeeze() * masks[:, t].unsqueeze(-1), reduction="mean"
+            ) * time_weights[t]
+            state = next_state
+
+        # Total loss
+        total_loss = (
+            recon_weight * recon_loss
+            + reward_weight * reward_loss
+            + termination_weight * termination_loss
+        )
+
+        # Backpropagation
+        self.optimizer.zero_grad()
+        total_loss.backward()
+        self.optimizer.step()
+
+        return {
+            "total_loss": total_loss.item(),
+            "recon_loss": recon_loss.item(),
+            "reward_loss": reward_loss.item(),
+            "termination_loss": termination_loss.item(),
+        }
+
+
 class ResidualBlock(nn.Module):
     def __init__(self, in_channels, out_channels, stride=1, downsample=None):
         super(ResidualBlock, self).__init__()
@@ -377,7 +498,7 @@ class WorldModel(nn.Module):
             recon_obs = self.decoder(combined_latent)
 
             # Reconstruction loss against next observation
-            recon_loss += self.pixel_loss(recon_obs, next_obs[:, t]) * time_weights[t]
+            recon_loss += self.pixel_loss(recon_obs * masks[:, t].unsqueeze(-1).unsqueeze(-1).unsqueeze(-1), next_obs[:, t] * masks[:, t].unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)) * time_weights[t]
 
             # Compute dynamic KL loss
             kl_dyn = -0.5 * torch.sum(
@@ -405,10 +526,10 @@ class WorldModel(nn.Module):
             predicted_reward, predicted_termination = self.predictor(combined_latent)
 
             reward_loss += F.mse_loss(
-                predicted_reward, true_rewards[:, t].squeeze(), reduction="mean"
+                predicted_reward * masks[:, t].unsqueeze(-1).unsqueeze(-1).unsqueeze(-1), true_rewards[:, t].squeeze() * masks[:, t].unsqueeze(-1).unsqueeze(-1).unsqueeze(-1), reduction="mean"
             ) * time_weights[t]
             termination_loss += F.binary_cross_entropy_with_logits(
-                predicted_termination, true_terminations[:, t].squeeze(), reduction="mean"
+                predicted_termination * masks[:, t].unsqueeze(-1).unsqueeze(-1).unsqueeze(-1), true_terminations[:, t].squeeze() * masks[:, t].unsqueeze(-1).unsqueeze(-1).unsqueeze(-1), reduction="mean"
             ) * time_weights[t]
 
         # Normalize losses by sequence length
