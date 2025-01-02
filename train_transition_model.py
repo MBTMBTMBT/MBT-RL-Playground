@@ -29,7 +29,7 @@ def generate_visualization_gif(env, normalization_vec, transition_model, test_ba
         # Extract test batch data
         true_obs = torch.tensor(test_batch["state"], dtype=torch.float32, device=transition_model.device)
         true_actions = torch.tensor(test_batch["action"], dtype=torch.float32, device=transition_model.device)
-        normalization_vec = normalization_vec.to(transition_model.device)
+        normalization_vec = torch.tensor(normalization_vec, dtype=torch.float32, device=transition_model.device)
         true_obs = true_obs / normalization_vec
 
         batch_size, seq_len, vec_dims = true_obs.size()
@@ -42,7 +42,6 @@ def generate_visualization_gif(env, normalization_vec, transition_model, test_ba
             # Predict next state using the transition model
             next_state, _, _ = transition_model(state, true_actions[:, t])
             next_state = (next_state * normalization_vec).squeeze()
-            state = next_state
 
             # Set the environment state and render the predicted frame
             for i in range(batch_size):
@@ -54,6 +53,8 @@ def generate_visualization_gif(env, normalization_vec, transition_model, test_ba
                     recon_obs.append([frame])  # Initialize list for each batch element
                 else:
                     recon_obs[i].append(frame)
+
+            state = next_state
 
         # Convert true observations to rendered images
         true_frames = []
@@ -116,16 +117,17 @@ def add_gif_to_tensorboard(writer, gif_path, tag, global_step):
 
 
 if __name__ == '__main__':
-    batch_size = 128
+    batch_size = 32
     test_batch_size = 8
-    buffer_size = 8192
-    data_repeat_times = 25
-    traj_len_start = 64
+    buffer_size = 16384
+    data_repeat_times = 100
+    traj_len_start = 2
     traj_len_end = 64
-    obs_dim = 6
+    obs_dim = 3
     lr = 1e-4
-    normalization_vec = torch.tensor([1.01, 1.01, 1.01, 1.01, 6.1, 12.1]).view(1, 1, -1)
-    num_epochs = 25
+    normalization_vec = np.array([1.01, 1.01, 8.01,]).reshape(1, 1, -1)
+    reward_scale_down = 1e2
+    num_epochs = 62
     log_dir = "./experiments/trans/logs"
     save_dir = "./experiments/trans/checkpoints"
     os.makedirs(log_dir, exist_ok=True)
@@ -134,7 +136,7 @@ if __name__ == '__main__':
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    env = make("Acrobot-v1", render_mode="rgb_array",)
+    env = gym.make("Pendulum-v1", render_mode="rgb_array",)
     action_space = env.action_space
     if isinstance(action_space, gym.spaces.Discrete):
         action_dim = action_space.n
@@ -153,7 +155,7 @@ if __name__ == '__main__':
     transition_model = SimpleTransitionModel(
         obs_dim=obs_dim,
         action_dim=action_dim,
-        network_layers=None,
+        network_layers=[512, 512, 512,],
         dropout=0.0,
         lr=lr,
         device=device,
@@ -176,10 +178,10 @@ if __name__ == '__main__':
         )
 
         for step in progress_bar:
-            normalization_vec = normalization_vec.to(device)
             batch = dataset.sample(batch_size=batch_size, traj_len=int(traj_len),)
             batch["state"] = batch["state"] / normalization_vec
             batch["next_state"] = batch["next_state"] / normalization_vec
+            batch["reward"] = batch["reward"] / reward_scale_down
             losses = transition_model.train_batch(batch,)  # * rnn_latent_dim)
 
             # Update total losses
@@ -227,7 +229,7 @@ if __name__ == '__main__':
         print(f"    Avg Termination Loss: {avg_termination_loss:.4f}")
 
         # Generate test batch and save visualization GIF
-        test_batch = dataset.sample(batch_size=test_batch_size, traj_len=int(traj_len_end),)
+        test_batch = dataset.sample(batch_size=test_batch_size, traj_len=int(traj_len),)
         gif_path = generate_visualization_gif(env, normalization_vec, transition_model, test_batch, epoch, save_dir)
 
         # Add GIF as a video to TensorBoard
