@@ -205,6 +205,80 @@ class ReplayBuffer:
         return action_encoded
 
 
+class ReplayBuffer1D:
+    def __init__(self, obs_dim: int, action_dim: int, buffer_size: int):
+        """
+        Replay Buffer to store and sample vector-based transitions.
+
+        Args:
+            obs_dim (int): Dimension of the observation space.
+            action_dim (int): Dimension of the action space.
+            buffer_size (int): Maximum number of transitions to store.
+        """
+        self.obs_dim = obs_dim
+        self.action_dim = action_dim
+        self.buffer_size = buffer_size
+
+        # Initialize buffer
+        self.buffer = {
+            "state": np.zeros((buffer_size, obs_dim), dtype=np.float32),
+            "next_state": np.zeros((buffer_size, obs_dim), dtype=np.float32),
+            "action": np.zeros((buffer_size, action_dim), dtype=np.float32),
+            "reward": np.zeros(buffer_size, dtype=np.float32),
+            "terminal": np.zeros(buffer_size, dtype=np.bool_),
+        }
+        self.current_index = 0
+        self.size = 0
+
+    def add(self, state: np.ndarray, next_state: np.ndarray, action: np.ndarray, reward: float, terminal: bool):
+        """Add a transition to the buffer."""
+        idx = self.current_index % self.buffer_size
+        self.buffer["state"][idx] = state
+        self.buffer["next_state"][idx] = next_state
+        self.buffer["action"][idx] = action
+        self.buffer["reward"][idx] = reward
+        self.buffer["terminal"][idx] = terminal
+
+        self.current_index += 1
+        self.size = min(self.size + 1, self.buffer_size)
+
+    def sample(self, batch_size: int):
+        """Sample a minibatch of transitions."""
+        indices = np.random.randint(0, self.size, size=batch_size)
+        batch = {key: self.buffer[key][indices] for key in self.buffer}
+        return batch
+
+    def collect_samples(self, env, num_samples: int):
+        """Fill the buffer with data from the environment."""
+        env.reset()
+        count = 0
+        with tqdm(total=num_samples, desc="Collecting Samples") as pbar:
+            while count < min(num_samples, self.buffer_size):
+                action = env.action_space.sample()
+                next_obs, reward, terminated, truncated, info = env.step(action)
+
+                # Add sample to the buffer
+                self.add(
+                    state=env.state,  # Assuming `env.state` gives current state vector
+                    next_state=next_obs,
+                    action=self._encode_action(action),
+                    reward=reward,
+                    terminal=terminated
+                )
+                pbar.update(1)
+                count += 1
+
+                if terminated or truncated:  # Reset the environment if done
+                    env.reset()
+
+    def _encode_action(self, action):
+        """Encodes the action into a one-hot vector."""
+        action_space_size = self.action_dim
+        action_encoded = np.zeros(action_space_size, dtype=np.float32)
+        action_encoded[action] = 1.0
+        return action_encoded
+
+
 if __name__ == '__main__':
     # Example usage
     from gymnasium import make
