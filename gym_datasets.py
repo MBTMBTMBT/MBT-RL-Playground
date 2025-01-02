@@ -208,11 +208,11 @@ class ReplayBuffer:
 class ReplayBuffer1D:
     def __init__(self, obs_dim: int, action_dim: int, buffer_size: int):
         """
-        Replay Buffer to store and sample vector-based transitions.
+        Replay Buffer to store vector-based transitions and sample trajectory segments.
 
         Args:
             obs_dim (int): Dimension of the observation space.
-            action_dim (int): Dimension of the action space.
+            action_dim (int): Dimension of the action space (arbitrary vector format).
             buffer_size (int): Maximum number of transitions to store.
         """
         self.obs_dim = obs_dim
@@ -242,41 +242,85 @@ class ReplayBuffer1D:
         self.current_index += 1
         self.size = min(self.size + 1, self.buffer_size)
 
-    def sample(self, batch_size: int):
-        """Sample a minibatch of transitions."""
-        indices = np.random.randint(0, self.size, size=batch_size)
-        batch = {key: self.buffer[key][indices] for key in self.buffer}
+    def sample(self, batch_size: int, traj_len: int):
+        """
+        Sample a minibatch of trajectory segments.
+
+        Args:
+            batch_size (int): Number of trajectory segments to sample.
+            traj_len (int): Length of each trajectory segment.
+
+        Returns:
+            dict: Batch of sampled trajectories.
+        """
+        indices = np.random.randint(0, self.size - traj_len, size=batch_size)
+        batch = {key: [] for key in self.buffer}
+
+        masks = np.zeros((batch_size, traj_len), dtype=np.float32)
+        for i, start_idx in enumerate(indices):
+            for key in self.buffer:
+                segment = self.buffer[key][start_idx : start_idx + traj_len]
+                batch[key].append(segment)
+
+            # Generate mask for valid data (no padding)
+            masks[i, :traj_len] = 1.0
+
+        # Convert list of arrays to a single numpy array
+        batch = {key: np.stack(batch[key]) for key in batch}
+        batch["mask"] = masks
+
         return batch
 
     def collect_samples(self, env, num_samples: int):
-        """Fill the buffer with data from the environment."""
-        env.reset()
+        """
+        Fill the buffer with data from the environment.
+
+        Args:
+            env: Gymnasium environment instance.
+            num_samples (int): Number of samples to collect.
+        """
+        state, _ = env.reset()
         count = 0
         with tqdm(total=num_samples, desc="Collecting Samples") as pbar:
             while count < min(num_samples, self.buffer_size):
                 action = env.action_space.sample()
-                next_obs, reward, terminated, truncated, info = env.step(action)
+                action_vector = self._convert_action_to_vector(action)
+                next_obs, reward, terminated, truncated, _ = env.step(action)
 
-                # Add sample to the buffer
+                # Collect and add sample
                 self.add(
-                    state=env.state,  # Assuming `env.state` gives current state vector
+                    state=state,
                     next_state=next_obs,
-                    action=self._encode_action(action),
+                    action=action_vector,
                     reward=reward,
                     terminal=terminated
                 )
+                state = next_obs
                 pbar.update(1)
                 count += 1
 
                 if terminated or truncated:  # Reset the environment if done
                     env.reset()
 
-    def _encode_action(self, action):
-        """Encodes the action into a one-hot vector."""
-        action_space_size = self.action_dim
-        action_encoded = np.zeros(action_space_size, dtype=np.float32)
-        action_encoded[action] = 1.0
-        return action_encoded
+    def _convert_action_to_vector(self, action):
+        """
+        Convert action into a vector format.
+
+        Args:
+            action: Action from the environment (can be scalar or other format).
+
+        Returns:
+            np.ndarray: Action in vector format.
+        """
+        # Example: Convert scalar action to a vector (customize as needed)
+        if isinstance(action, (int, np.integer)):
+            action_vector = np.zeros(self.action_dim, dtype=np.float32)
+            action_vector[action] = 1.0  # Default one-hot encoding
+        elif isinstance(action, np.ndarray):
+            action_vector = action.astype(np.float32)
+        else:
+            raise ValueError("Unsupported action format.")
+        return action_vector
 
 
 if __name__ == '__main__':

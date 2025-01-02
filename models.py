@@ -6,7 +6,15 @@ from losses import FlexibleThresholdedLoss
 
 
 class SimpleTransitionModel(nn.Module):
-    def __init__(self, obs_dim: int, action_dim: int, network_layers: list = None, dropout: float = 0.0, lr: float = 1e-4,):
+    def __init__(
+            self,
+            obs_dim: int,
+            action_dim: int,
+            network_layers: list = None,
+            dropout: float = 0.0,
+            lr: float = 1e-4,
+            device=torch.device("cpu"),
+    ):
         """
         A simple fully connected neural network for transition modeling.
 
@@ -21,6 +29,7 @@ class SimpleTransitionModel(nn.Module):
         self.action_dim = action_dim
         self.network_layers = network_layers if network_layers else [64, 64]
         self.dropout = dropout
+        self.device=device
 
         layers = []
         input_dim = obs_dim + action_dim  # Concatenate observation and action
@@ -49,6 +58,7 @@ class SimpleTransitionModel(nn.Module):
         )
 
         self.optimizer = torch.optim.Adam(self.parameters(), lr=lr)
+        self.to(self.device)
 
     def forward(self, obs: torch.Tensor, action: torch.Tensor):
         """
@@ -99,10 +109,10 @@ class SimpleTransitionModel(nn.Module):
                 next_state * masks[:, t].unsqueeze(-1).unsqueeze(-1), next_obs[:, t] * masks[:, t].unsqueeze(-1).unsqueeze(-1)
             ) * time_weights[t]
             reward_loss += F.mse_loss(
-                reward * masks[:, t].unsqueeze(-1), true_rewards[:, t].squeeze() * masks[:, t].unsqueeze(-1), reduction="mean"
+                reward.squeeze() * masks[:, t].unsqueeze(-1), true_rewards[:, t] * masks[:, t].unsqueeze(-1), reduction="mean"
             ) * time_weights[t]
             termination_loss += F.binary_cross_entropy_with_logits(
-                terminal * masks[:, t].unsqueeze(-1), true_terminations[:, t].squeeze() * masks[:, t].unsqueeze(-1), reduction="mean"
+                terminal.squeeze() * masks[:, t].unsqueeze(-1), true_terminations[:, t] * masks[:, t].unsqueeze(-1), reduction="mean"
             ) * time_weights[t]
             state = next_state
 

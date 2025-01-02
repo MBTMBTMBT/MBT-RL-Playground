@@ -4,15 +4,16 @@ import imageio
 import numpy as np
 import torch
 import gymnasium as gym
+from PIL import Image
 from gymnasium import make
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from gym_datasets import ReplayBuffer
-from models import RSSM, MultiHeadPredictor, WorldModel, Encoder, Decoder
+from gym_datasets import ReplayBuffer, ReplayBuffer1D
+from models import RSSM, MultiHeadPredictor, WorldModel, Encoder, Decoder, SimpleTransitionModel
 
 
-def generate_visualization_gif(env, transition_model, test_batch, epoch, save_dir):
+def generate_visualization_gif(env, transition_model, test_batch, epoch, save_dir, resize_shape=(80, 60)):
     """
     Generate a GIF visualizing the prediction results of a transition model.
 
@@ -22,6 +23,7 @@ def generate_visualization_gif(env, transition_model, test_batch, epoch, save_di
         test_batch: Dictionary containing test data with keys "state", "action", "next_state".
         epoch: Current training epoch (for naming the GIF).
         save_dir: Directory to save the GIF.
+        resize_shape: Tuple (height, width) to resize each frame, or None to keep original size.
     """
     with torch.no_grad():
         # Extract test batch data
@@ -44,6 +46,8 @@ def generate_visualization_gif(env, transition_model, test_batch, epoch, save_di
             for i in range(batch_size):
                 env.unwrapped.state = state[i].cpu().numpy()  # Set the environment's internal state
                 frame = env.render()  # Render the current environment frame
+                if resize_shape:
+                    frame = np.array(Image.fromarray(frame).resize(resize_shape))  # Resize frame
                 if t == 0:
                     recon_obs.append([frame])  # Initialize list for each batch element
                 else:
@@ -53,11 +57,17 @@ def generate_visualization_gif(env, transition_model, test_batch, epoch, save_di
         true_frames = []
         for i in range(batch_size):
             env.unwrapped.state = true_obs[i, 0].cpu().numpy()
-            true_frames.append([env.render()])  # Render initial state
+            frame = env.render()
+            if resize_shape:
+                frame = np.array(Image.fromarray(frame).resize(resize_shape))  # Resize frame
+            true_frames.append([frame])  # Render initial state
 
             for t in range(1, seq_len):
                 env.unwrapped.state = true_obs[i, t].cpu().numpy()
-                true_frames[i].append(env.render())
+                frame = env.render()
+                if resize_shape:
+                    frame = np.array(Image.fromarray(frame).resize(resize_shape))  # Resize frame
+                true_frames[i].append(frame)
 
         # Combine true, predicted, and difference images
         combined_frames = []
@@ -104,23 +114,17 @@ def add_gif_to_tensorboard(writer, gif_path, tag, global_step):
 
 
 if __name__ == '__main__':
-    batch_size = 8
+    batch_size = 128
     test_batch_size = 8
-    buffer_size = 8192
-    data_repeat_times = 25
+    buffer_size = 1024
+    data_repeat_times = 100
     traj_len_start = 32
     traj_len_end = 32
-    frame_size = (60, 80)
-    is_color = True
-    input_channels = 3
-    ae_latent_dim = 32
-    latent_dim = 64
-    rnn_latent_dim = 256 - 64
-    encoder_hidden_net_dims = [16, 32, 64,]
+    obs_dim = 6
     lr = 1e-4
     num_epochs = 25
-    log_dir = "./experiments/worldmodel/logs"
-    save_dir = "./experiments/worldmodel/checkpoints"
+    log_dir = "./experiments/trans/logs"
+    save_dir = "./experiments/trans/checkpoints"
     os.makedirs(log_dir, exist_ok=True)
     os.makedirs(save_dir, exist_ok=True)
     writer = SummaryWriter(log_dir)
@@ -137,43 +141,17 @@ if __name__ == '__main__':
         raise NotImplementedError("Unsupported action space type")
     print("Action dimension:", action_dim)
 
-    dataset = ReplayBuffer(
-        env=env,
-        buffer_size=buffer_size,
-        frame_size=frame_size,
-        is_color=is_color,
-    )
-
-    encoder = Encoder(
-        in_channels=input_channels,
-        latent_dim=ae_latent_dim,
-        hidden_net_dims=encoder_hidden_net_dims,
-        input_size=frame_size,
-    )
-
-    decoder = Decoder(
-        latent_dim=latent_dim + rnn_latent_dim,
-        out_channels=input_channels,
-        hidden_net_dims=encoder_hidden_net_dims,
-        input_size=frame_size,
-    )
-
-    rssm = RSSM(
-        latent_dim=latent_dim,
+    dataset = ReplayBuffer1D(
+        obs_dim=obs_dim,
         action_dim=action_dim,
-        rnn_hidden_dim=rnn_latent_dim,
-        embedded_obs_dim=ae_latent_dim,
+        buffer_size=buffer_size,
     )
 
-    predictor = MultiHeadPredictor(
-        rnn_hidden_dim=latent_dim + rnn_latent_dim,  # * rnn_layers,
-    )
-
-    world_model = WorldModel(
-        encoder=encoder,
-        decoder=decoder,
-        rssm=rssm,
-        predictor=predictor,
+    transition_model = SimpleTransitionModel(
+        obs_dim=obs_dim,
+        action_dim=action_dim,
+        network_layers=None,
+        dropout=0.0,
         lr=lr,
         device=device,
     )
@@ -183,11 +161,9 @@ if __name__ == '__main__':
     # step_count = 0
     # Training Loop
     for epoch, traj_len in zip(range(num_epochs), traj_lens):
-        dataset.collect_samples(num_samples=buffer_size)
+        dataset.collect_samples(env=env, num_samples=buffer_size)
         total_loss = 0
         total_recon_loss = 0
-        total_kl_dyn_loss = 0
-        total_kl_rep_loss = 0
         total_reward_loss = 0
         total_termination_loss = 0
 
@@ -198,13 +174,11 @@ if __name__ == '__main__':
 
         for step in progress_bar:
             batch = dataset.sample(batch_size=batch_size, traj_len=int(traj_len),)
-            losses = world_model.train_batch(batch, kl_min=1.0)  # * rnn_latent_dim)
+            losses = transition_model.train_batch(batch,)  # * rnn_latent_dim)
 
             # Update total losses
             total_loss += losses["total_loss"]
             total_recon_loss += losses["recon_loss"]
-            total_kl_dyn_loss += losses["kl_dyn_loss"]
-            total_kl_rep_loss += losses["kl_rep_loss"]
             total_reward_loss += losses["reward_loss"]
             total_termination_loss += losses["termination_loss"]
 
@@ -212,13 +186,6 @@ if __name__ == '__main__':
             previous_steps = epoch * (buffer_size // batch_size) * data_repeat_times
             writer.add_scalar("Loss/Total", losses["total_loss"], previous_steps + step)
             writer.add_scalar("Loss/Reconstruction", losses["recon_loss"], previous_steps + step)
-            writer.add_scalar("Loss/KL_Dynamic", losses["kl_dyn_loss"], previous_steps + step)
-            writer.add_scalar("Loss/KL_Representation", losses["kl_rep_loss"],
-                              previous_steps + step)
-            writer.add_scalar("Loss/KL_Dynamic_Raw", losses["kl_dyn_loss_raw"],
-                              previous_steps + step)
-            writer.add_scalar("Loss/KL_Representation_Raw", losses["kl_rep_loss_raw"],
-                              previous_steps + step)
             writer.add_scalar("Loss/Reward", losses["reward_loss"], previous_steps + step)
             writer.add_scalar("Loss/Termination", losses["termination_loss"],
                               previous_steps + step)
@@ -227,10 +194,6 @@ if __name__ == '__main__':
             progress_bar.set_postfix({
                 "Total": f"{losses['total_loss']:.4f}",
                 "Recon": f"{losses['recon_loss']:.4f}",
-                "KLDyn": f"{losses['kl_dyn_loss']:.2f}",
-                "KLRep": f"{losses['kl_rep_loss']:.2f}",
-                "KLDynRaw": f"{losses['kl_dyn_loss_raw']:.2f}",
-                "KLRepRaw": f"{losses['kl_rep_loss_raw']:.2f}",
                 "Reward": f"{losses['reward_loss']:.4f}",
                 "Termination": f"{losses['termination_loss']:.4f}",
             })
@@ -241,16 +204,12 @@ if __name__ == '__main__':
         num_batches = buffer_size // batch_size
         avg_total_loss = total_loss / num_batches
         avg_recon_loss = total_recon_loss / num_batches
-        avg_kl_dyn_loss = total_kl_dyn_loss / num_batches
-        avg_kl_rep_loss = total_kl_rep_loss / num_batches
         avg_reward_loss = total_reward_loss / num_batches
         avg_termination_loss = total_termination_loss / num_batches
 
         # Write average epoch losses to TensorBoard
         writer.add_scalar("Epoch_Loss/Total", avg_total_loss, epoch)
         writer.add_scalar("Epoch_Loss/Reconstruction", avg_recon_loss, epoch)
-        writer.add_scalar("Epoch_Loss/KL_Dynamic", avg_kl_dyn_loss, epoch)
-        writer.add_scalar("Epoch_Loss/KL_Representation", avg_kl_rep_loss, epoch)
         writer.add_scalar("Epoch_Loss/Reward", avg_reward_loss, epoch)
         writer.add_scalar("Epoch_Loss/Termination", avg_termination_loss, epoch)
 
@@ -258,17 +217,15 @@ if __name__ == '__main__':
         print(f"Epoch [{epoch + 1}] Completed.")
         print(f"    Avg Total Loss: {avg_total_loss:.4f}")
         print(f"    Avg Recon Loss: {avg_recon_loss:.4f}")
-        print(f"    Avg KL Dyn Loss: {avg_kl_dyn_loss:.4f}")
-        print(f"    Avg KL Rep Loss: {avg_kl_rep_loss:.4f}")
         print(f"    Avg Reward Loss: {avg_reward_loss:.4f}")
         print(f"    Avg Termination Loss: {avg_termination_loss:.4f}")
 
         # Generate test batch and save visualization GIF
         test_batch = dataset.sample(batch_size=test_batch_size, traj_len=int(traj_len_end),)
-        gif_path = generate_visualization_gif(world_model, test_batch, epoch, save_dir)
+        gif_path = generate_visualization_gif(env, transition_model, test_batch, epoch, save_dir)
 
         # Add GIF as a video to TensorBoard
         add_gif_to_tensorboard(writer, gif_path, "Visualization/GIF", epoch)
 
         # Save model parameters
-        torch.save(world_model.state_dict(), f"{save_dir}/world_model_epoch_{epoch + 1}.pth")
+        torch.save(transition_model.state_dict(), f"{save_dir}/world_model_epoch_{epoch + 1}.pth")
