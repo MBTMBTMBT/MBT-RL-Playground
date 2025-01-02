@@ -13,7 +13,7 @@ from gym_datasets import ReplayBuffer, ReplayBuffer1D
 from models import RSSM, MultiHeadPredictor, WorldModel, Encoder, Decoder, SimpleTransitionModel
 
 
-def generate_visualization_gif(env, transition_model, test_batch, epoch, save_dir, resize_shape=(80, 60)):
+def generate_visualization_gif(env, normalization_vec, transition_model, test_batch, epoch, save_dir, resize_shape=(80, 60)):
     """
     Generate a GIF visualizing the prediction results of a transition model.
 
@@ -29,7 +29,8 @@ def generate_visualization_gif(env, transition_model, test_batch, epoch, save_di
         # Extract test batch data
         true_obs = torch.tensor(test_batch["state"], dtype=torch.float32, device=transition_model.device)
         true_actions = torch.tensor(test_batch["action"], dtype=torch.float32, device=transition_model.device)
-        next_obs = torch.tensor(test_batch["next_state"], dtype=torch.float32, device=transition_model.device)
+        normalization_vec = normalization_vec.to(transition_model.device)
+        true_obs = true_obs / normalization_vec
 
         batch_size, seq_len, vec_dims = true_obs.size()
 
@@ -40,6 +41,7 @@ def generate_visualization_gif(env, transition_model, test_batch, epoch, save_di
         for t in range(seq_len):
             # Predict next state using the transition model
             next_state, _, _ = transition_model(state, true_actions[:, t])
+            next_state = (next_state * normalization_vec).squeeze()
             state = next_state
 
             # Set the environment state and render the predicted frame
@@ -116,12 +118,13 @@ def add_gif_to_tensorboard(writer, gif_path, tag, global_step):
 if __name__ == '__main__':
     batch_size = 128
     test_batch_size = 8
-    buffer_size = 1024
-    data_repeat_times = 100
-    traj_len_start = 32
-    traj_len_end = 32
+    buffer_size = 8192
+    data_repeat_times = 25
+    traj_len_start = 64
+    traj_len_end = 64
     obs_dim = 6
     lr = 1e-4
+    normalization_vec = torch.tensor([1.01, 1.01, 1.01, 1.01, 6.1, 12.1]).view(1, 1, -1)
     num_epochs = 25
     log_dir = "./experiments/trans/logs"
     save_dir = "./experiments/trans/checkpoints"
@@ -173,7 +176,10 @@ if __name__ == '__main__':
         )
 
         for step in progress_bar:
+            normalization_vec = normalization_vec.to(device)
             batch = dataset.sample(batch_size=batch_size, traj_len=int(traj_len),)
+            batch["state"] = batch["state"] / normalization_vec
+            batch["next_state"] = batch["next_state"] / normalization_vec
             losses = transition_model.train_batch(batch,)  # * rnn_latent_dim)
 
             # Update total losses
@@ -222,7 +228,7 @@ if __name__ == '__main__':
 
         # Generate test batch and save visualization GIF
         test_batch = dataset.sample(batch_size=test_batch_size, traj_len=int(traj_len_end),)
-        gif_path = generate_visualization_gif(env, transition_model, test_batch, epoch, save_dir)
+        gif_path = generate_visualization_gif(env, normalization_vec, transition_model, test_batch, epoch, save_dir)
 
         # Add GIF as a video to TensorBoard
         add_gif_to_tensorboard(writer, gif_path, "Visualization/GIF", epoch)
