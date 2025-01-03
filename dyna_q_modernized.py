@@ -19,6 +19,7 @@ from pyvis.network import Network
 
 import matplotlib.colors as mcolors
 from matplotlib.colors import LinearSegmentedColormap
+from tensorboard.compat.tensorflow_stub.dtypes import int64, float32
 
 
 class Discretizer:
@@ -78,6 +79,13 @@ class Discretizer:
                  - The first vector contains the bucket midpoints (or original value if no discretization).
                  - The second vector contains the bucket indices (or -1 if no discretization).
         """
+        if (
+                isinstance(vector, int)
+                or isinstance(vector, np.int64)
+                or isinstance(vector, float)
+                or isinstance(vector, np.float32)
+        ):
+            vector = [vector]
         assert len(vector) == len(self.ranges), "Input vector must have the same length as ranges."
 
         midpoints: List[float] = []
@@ -498,14 +506,14 @@ class TabularQAgent:
 
             if progress_bar:
                 # Update the progress bar
-                progress_bar.set_postfix({
+                pbar.set_postfix({
                     "Episodes": num_episodes,
                     "Terminated": num_terminated,
                     "Truncated": num_truncated,
                     "Reward (last)": reward,
-                    "Avg Episode Reward": sum_episode_rewards / num_episodes
+                    "Avg Episode Reward": sum_episode_rewards / num_episodes if num_episodes > 0 else 0.0,
                 })
-                progress_bar.update(1)
+                pbar.update(1)
         if progress_bar:
             pbar.close()
 
@@ -700,7 +708,6 @@ class TransitionTable:
         encoded_next_states = []
         encoded_next_state_counts = []
         avg_rewards = []
-        a = self.transition_table[encoded_state][encoded_action].keys()
         for encoded_next_state in self.transition_table[encoded_state][encoded_action].keys():
             encoded_next_state_count = 0
             _transition_state_reward_and_prob[encoded_next_state] = {}
@@ -732,7 +739,10 @@ class TransitionTable:
     def get_done_set(self) -> set[int]:
         return self.done_set
 
-    def add_start_state(self, encoded_state: int):
+    def add_start_state(self, state):
+        if isinstance(state, int) or isinstance(state, float):
+            state = [state]
+        encoded_state = self.state_discretizer.encode_indices(list(self.state_discretizer.discretize(state)[1]))
         self.start_set.add(encoded_state)
 
     def get_start_set(self) -> set[int]:
@@ -790,13 +800,11 @@ class TransitionalTableEnv(TransitionTable, gym.Env):
             else:
                 strategy_selection_dict[s] = np.inf
         self.init_strategy = min(strategy_selection_dict, key=strategy_selection_dict.get)
-        super().reset(seed=seed)
         self.step_count = 0
         if init_state_encode is None or init_state_encode in self.done_set:
             if init_state_encode in self.done_set:
-                print("Warning: Starting from a done state, reset to a random state.")
-                if self.init_strategy is None:
-                    self.init_strategy = "random"
+                # print("Warning: Starting from a done state, reset to a random state.")
+                self.init_strategy = "random"
             if self.init_strategy == "random":
                 init_state_encode = random.choice(tuple(self.forward_dict.keys()))
             elif self.init_strategy == "real_start_states":
@@ -810,7 +818,6 @@ class TransitionalTableEnv(TransitionTable, gym.Env):
         return current_state, {}
 
     def step(self, action: int,):
-        unknown_reward = 0.0
         if self.unknown_reward is None:
             r_sum = 0.0
             total_rewards = 0
@@ -825,7 +832,10 @@ class TransitionalTableEnv(TransitionTable, gym.Env):
         transition_state_avg_reward_and_prob \
             = self.get_transition_state_avg_reward_and_prob(encoded_state, encoded_action)
         if len(transition_state_avg_reward_and_prob) == 0:
-            return encoded_state, unknown_reward, True, False, {"current_step": self.step_count}
+            state = self.state_discretizer.indices_to_midpoints(
+                self.state_discretizer.decode_indices(encoded_state)
+            )
+            return state, unknown_reward, True, False, {"current_step": self.step_count}
         encoded_next_state = random.choices(
             tuple(transition_state_avg_reward_and_prob.keys()),
             weights=[v[1] for v in transition_state_avg_reward_and_prob.values()],
@@ -846,6 +856,9 @@ class TransitionalTableEnv(TransitionTable, gym.Env):
             self.state_discretizer.decode_indices(encoded_next_state)
         )
         return next_state, reward, terminated, truncated, info
+
+    def strategy_step_plus_1(self):
+        self.strategy_step_counts[self.init_strategy] += 1
 
 
 class LandmarksTransitionalTableEnv(TransitionalTableEnv):
@@ -894,7 +907,7 @@ class LandmarksTransitionalTableEnv(TransitionalTableEnv):
         :param direction: Direction of search ('forward', 'backward', or 'both')
         :return: List of the nearest n nodes (sorted by distance) and the subgraph containing these nodes
         """
-        G = self.mdp_graph if self.mdp_graph else self.make_mdp_graph()
+        G = self.mdp_graph if self.mdp_graph else self.make_mdp_graph(use_encoded_states=True)
 
         visited = set()  # Set to track visited nodes
         heap = []  # Min-heap to prioritize nodes by accumulated probability (log space)
@@ -1030,7 +1043,6 @@ class LandmarksTransitionalTableEnv(TransitionalTableEnv):
 
         selected_targets = targets if len(targets) <= self.num_targets else random.sample(targets, self.num_targets)
 
-        self.make_mdp_graph()
         for target in selected_targets:
             nearest_nodes, subgraph = self.find_nearest_nodes_and_subgraph(
                 target, self.min_cut_max_flow_search_space, weighted=self.weighted_search, direction='backward'
@@ -1059,13 +1071,13 @@ class LandmarksTransitionalTableEnv(TransitionalTableEnv):
             options=None,
             init_state: np.ndarray = None,
             reset_all: bool = False,
-            do_print: bool = True,
+            do_print: bool = False,
     ):
         if reset_all:
             self.step_count = 0
             self.current_state = None
-            self.strategy_counts = {s: 1 for s in TransitionalTableEnv.INIT_STRATEGIES}
-            self.strategy_step_counts = {s: 1 for s in TransitionalTableEnv.INIT_STRATEGIES}
+            self.strategy_counts = {s: 1 for s in LandmarksTransitionalTableEnv.INIT_STRATEGIES}
+            self.strategy_step_counts = {s: 1 for s in LandmarksTransitionalTableEnv.INIT_STRATEGIES}
 
             self.landmark_states, self.landmark_start_states, self.targets = None, None, None
             self.landmarks_inited = False
@@ -1074,20 +1086,18 @@ class LandmarksTransitionalTableEnv(TransitionalTableEnv):
             list(self.state_discretizer.discretize(init_state)[1])
         )
         strategy_selection_dict = {}
-        for i, s in enumerate(TransitionalTableEnv.INIT_STRATEGIES):
+        for i, s in enumerate(LandmarksTransitionalTableEnv.INIT_STRATEGIES):
             if self.init_strategy_distribution[i] != 0:
                 strategy_selection_dict[s] = self.strategy_step_counts[s] / self.init_strategy_distribution[i]
             else:
                 strategy_selection_dict[s] = np.inf
         self.init_strategy = min(strategy_selection_dict, key=strategy_selection_dict.get)
-        super().reset(seed=seed)
         self.step_count = 0
 
         if init_state_encode is None or init_state_encode in self.done_set:
             if init_state_encode in self.done_set:
-                print("Warning: Starting from a done state, reset to a random state.")
-                if self.init_strategy is None:
-                    self.init_strategy = "random"
+                # print("Warning: Starting from a done state, reset to a random state.")
+                self.init_strategy = "random"
             if self.init_strategy == "random":
                 init_state_encode = random.choice(tuple(self.forward_dict.keys()))
             elif self.init_strategy == "real_start_states":
@@ -1173,6 +1183,8 @@ class DoubleTransitionalTableEnv(gym.Env):
     ):
         self.transition_table_env_t = transition_table_env_t
         self.transition_table_env_b = transition_table_env_b
+        self.observation_space = self.transition_table_env_b.observation_space
+        self.action_space = self.transition_table_env_b.action_space
 
     def reset(self, seed=None, options=None, init_state: np.ndarray = None, reset_all: bool = False):
         t_state, _ = self.transition_table_env_t.reset(seed=seed, options=options, init_state=init_state, reset_all=reset_all)
@@ -1180,6 +1192,7 @@ class DoubleTransitionalTableEnv(gym.Env):
         return b_state, b_info
 
     def step(self, action):
+        self.transition_table_env_t.strategy_step_plus_1()
         return self.transition_table_env_b.step(action)
 
 
