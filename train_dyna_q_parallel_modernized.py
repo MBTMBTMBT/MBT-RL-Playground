@@ -114,7 +114,7 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
             if configs[sample_step]["test_exploit_policy"]:
                 if (
                         current_step == 1 or (current_step + 1) % configs["exploit_policy_test_per_num_steps"] == 0
-                        or (current_step == num_steps_to_sample - 1 and sample_step == sample_steps[-1])
+                        or (sample_step_count == sample_steps[-1] - 1)
                 ):
                     periodic_test_rewards = []
                     frames = []
@@ -148,7 +148,7 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
 
             if (
                     (current_step + 1) % configs["save_per_num_steps"] == 0
-                    or (current_step == num_steps_to_sample - 1 and sample_step == sample_steps[-1])
+                    or (sample_step_count == sample_steps[-1] - 1)
             ):
                 graph_path = group_save_path + f"_{current_step}.html"
                 save_csv_file = group_save_path + f"_{current_step}.csv"

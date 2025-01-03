@@ -463,7 +463,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 "real-start": (1.0, 0.0, 0.0),
                 "rand-start": (0.0, 1.0, 0.0),
                 "rand-real": (0.5, 0.5, 0.0),
-                "landmarks": (0.5, 0.25, 0.25),
+                "landmarks": (0.33, 0.33, 0.33),
             },
             "q_cut_params": {
                 "num_targets": 32,
@@ -485,7 +485,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(0.2e6): {
+            int(0.25e6): {
                 "explore_policy_exploit_policy_ratio": (0.25, 0.75),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
