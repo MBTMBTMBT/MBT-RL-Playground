@@ -159,7 +159,7 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
 
             pbar.set_postfix({
                 "Eps": f"{sum(sample_strategy_step_count.values()):.2e}",
-                "Test Rwd": avg_test_reward,
+                "Test Rwd": f"{avg_test_reward:06.1f}" if len(f"{int(avg_test_reward)}") <= 6 else f"{avg_test_reward:.1f}",
                 "Explore Eps": f"{sample_strategy_step_count['explore_greedy']:.2e}",
                 "Exploit Eps": f"{sample_strategy_step_count['greedy']:.2e}",
                 "Found Trans": f"{len(agent.transition_table_env_e.forward_dict):.2e}",
