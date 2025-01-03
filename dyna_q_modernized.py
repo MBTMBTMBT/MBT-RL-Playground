@@ -860,7 +860,6 @@ class LandmarksTransitionalTableEnv(TransitionalTableEnv):
             weighted_search: bool = True,
             init_state_reward_prob_below_threshold: float = 0.2,
             quality_value_threshold: float = 1.0,
-            re_init_landmarks: bool = False,
             take_done_states_as_targets: bool = False,
             max_steps: int = 500,
             reward_resolution: int = -1,
@@ -868,7 +867,7 @@ class LandmarksTransitionalTableEnv(TransitionalTableEnv):
             unknown_reward: float = None
     ):
         TransitionalTableEnv.__init__(
-            self, state_discretizer, action_discretizer, max_steps, reward_resolution, unknown_reward,
+            self, state_discretizer, action_discretizer, max_steps, reward_resolution, unknown_reward=unknown_reward,
         )
         assert len(init_strategy_distribution) == len(LandmarksTransitionalTableEnv.INIT_STRATEGIES), \
             "init_strategy_distribution must have the same length as INIT_STRATEGIES."
@@ -880,7 +879,6 @@ class LandmarksTransitionalTableEnv(TransitionalTableEnv):
         self.weighted_search = weighted_search
         self.init_state_reward_prob_below_threshold = init_state_reward_prob_below_threshold
         self.quality_value_threshold = quality_value_threshold
-        self.re_init_landmarks = re_init_landmarks
         self.take_done_states_as_targets = take_done_states_as_targets
 
         self.landmark_states, self.landmark_start_states, self.targets = None, None, None
@@ -1069,6 +1067,9 @@ class LandmarksTransitionalTableEnv(TransitionalTableEnv):
             self.strategy_counts = {s: 1 for s in TransitionalTableEnv.INIT_STRATEGIES}
             self.strategy_step_counts = {s: 1 for s in TransitionalTableEnv.INIT_STRATEGIES}
 
+            self.landmark_states, self.landmark_start_states, self.targets = None, None, None
+            self.landmarks_inited = False
+
         init_state_encode = None if init_state is None else self.state_discretizer.encode_indices(
             list(self.state_discretizer.discretize(init_state)[1])
         )
@@ -1092,7 +1093,7 @@ class LandmarksTransitionalTableEnv(TransitionalTableEnv):
             elif self.init_strategy == "real_start_states":
                 init_state_encode = random.choice(tuple(self.start_set))
             elif self.init_strategy == "landmarks":
-                if ((not self.landmarks_inited) and self.re_init_landmarks) or self.landmark_states is None or self.landmark_start_states is None or self.targets is None:
+                if (not self.landmarks_inited) or self.landmark_states is None or self.landmark_start_states is None or self.targets is None:
                     self.make_mdp_graph(use_encoded_states=True)
                     self.landmark_states, self.landmark_start_states, self.targets = self.get_landmark_states()
                     self.landmarks_inited = True
@@ -1195,12 +1196,12 @@ class TabularDynaQAgent:
             weighted_search: bool = True,
             init_state_reward_prob_below_threshold: float = 0.2,
             quality_value_threshold: float = 1.0,
-            re_init_landmarks: bool = False,
             take_done_states_as_targets: bool = False,
             max_steps: int = 500,
             reward_resolution: int = -1,
             init_strategy_distribution: Tuple[float] = (0.33, 0.33, 0.33),
-            lr: float = 0.1,
+            exploit_lr: float = 0.1,
+            explore_lr: float = 0.1,
             gamma: float = 0.99,
             bonus_decay: float = 0.9,
     ):
@@ -1217,7 +1218,6 @@ class TabularDynaQAgent:
             weighted_search,
             init_state_reward_prob_below_threshold,
             quality_value_threshold,
-            re_init_landmarks,
             take_done_states_as_targets,
             max_steps,
             reward_resolution,
@@ -1244,7 +1244,7 @@ class TabularDynaQAgent:
             self.state_discretizer_b,
             self.action_discretizer_b,
             n_steps=max_steps,
-            lr=lr,
+            lr=exploit_lr,
             gamma=gamma,
             print_info=False,
         )
@@ -1253,7 +1253,7 @@ class TabularDynaQAgent:
             self.state_discretizer_b,
             self.action_discretizer_b,
             n_steps=max_steps,
-            lr=lr,
+            lr=explore_lr,
             gamma=gamma,
             print_info=False,
         )
