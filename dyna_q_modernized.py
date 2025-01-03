@@ -1348,6 +1348,8 @@ class TabularDynaQAgent:
             progress_bar: bool = False,
     ):
         if train_exploration_agent:
+            self.transition_table_env_e.reset(reset_all=True)
             self.exploration_agent.learn(total_timesteps=total_timesteps, progress_bar=progress_bar)
         else:
+            self.double_env.reset(reset_all=True)
             self.q_table_agent.learn(total_timesteps=total_timesteps, progress_bar=progress_bar)
