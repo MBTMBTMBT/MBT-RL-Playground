@@ -51,13 +51,14 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
     pbar = tqdm(total=sample_steps[-1], desc=f"[{init_group}] - Sampling", unit="step", leave=True, dynamic_ncols=True)
     sample_step_count = 0
     avg_test_reward = 0.0
+    exploit_policy_updates = 0
     for sample_step in sample_steps:
         sample_strategy_distribution = configs[sample_step]["explore_policy_exploit_policy_ratio"]
         num_steps_to_sample = sample_step - sample_step_count
         current_step = 0
         sample_strategy_step_count = {s: 0 for s in sample_strategies}
 
-        pbar.set_description(f"[{run_id}-{task_name}-{init_group}] - Sampling stage [{sample_step}/{str(sample_steps)}]")
+        pbar.set_description(f"[{run_id}-{task_name}-{init_group}]-Stage-[{sample_step}/{str(sample_steps)}]")
 
         state, _ = env.reset()
         agent.transition_table_env_t.add_start_state(state)
@@ -97,6 +98,7 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
                     train_exploration_agent=True,
                     progress_bar=False,
                 )
+                exploit_policy_updates += 1
 
             if configs[sample_step]["train_exploit_policy"]:
                 if current_step % configs["exploit_policy_training_per_num_steps"] == 0 and current_step > 1:
@@ -107,7 +109,10 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
                     )
 
             if configs[sample_step]["test_exploit_policy"]:
-                if current_step == 1 or (current_step + 1) % configs["exploit_policy_test_per_num_steps"] == 0 or current_step == num_steps_to_sample - 1:
+                if (
+                        current_step == 1 or (current_step + 1) % configs["exploit_policy_test_per_num_steps"] == 0
+                        or (current_step == num_steps_to_sample - 1 and sample_step == sample_steps[-1])
+                ):
                     periodic_test_rewards = []
                     frames = []
                     for t in range(configs["exploit_policy_test_episodes"]):
@@ -138,7 +143,10 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
                     gif_path = group_save_path + f"_{current_step}.gif"
                     generate_test_gif(frames, gif_path, to_print=configs["print_training_info"])
 
-            if (current_step + 1) % configs["save_per_num_steps"] == 0 or current_step == num_steps_to_sample - 1:
+            if (
+                    (current_step + 1) % configs["save_per_num_steps"] == 0
+                    or (current_step == num_steps_to_sample - 1 and sample_step == sample_steps[-1])
+            ):
                 graph_path = group_save_path + f"_{current_step}.html"
                 save_csv_file = group_save_path + f"_{current_step}.csv"
                 agent.transition_table_env_t.print_transition_table_info()
@@ -147,10 +155,12 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
                     agent.transition_table_env_t.save_mdp_graph(graph_path, use_encoded_states=True)
 
             pbar.set_postfix({
-                "Episodes": sum(sample_strategy_step_count.values()),
-                "Avg Test Rwd": avg_test_reward,
-                "Explore Sample Episodes": sample_strategy_step_count["explore_greedy"],
-                "Exploit Sample Episodes": sample_strategy_step_count["greedy"],
+                "Eps": f"{sum(sample_strategy_step_count.values()):.2e}",
+                "Test Rwd": avg_test_reward,
+                "Explore Eps": f"{sample_strategy_step_count['explore_greedy']:.2e}",
+                "Exploit Eps": f"{sample_strategy_step_count['greedy']:.2e}",
+                "Found Trans": f"{len(agent.transition_table_env_e.forward_dict):.2e}",
+                "Updates": f"{exploit_policy_updates:.2e}",
             })
             pbar.update(1)
 
