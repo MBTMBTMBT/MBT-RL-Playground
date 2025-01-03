@@ -502,6 +502,7 @@ class TransitionTable:
         self.reward_resolution = reward_resolution
 
         self.mdp_graph: DiGraph = None
+        self.init_strategy = None
 
     def print_transition_table_info(self):
         print("Transition Table Information:")
@@ -743,29 +744,32 @@ class TransitionalTableEnv(TransitionTable, gym.Env):
         self.strategy_counts = {s: 1 for s in TransitionalTableEnv.INIT_STRATEGIES}
         self.strategy_step_counts = {s: 1 for s in TransitionalTableEnv.INIT_STRATEGIES}
 
-    def reset(self, seed=None, options=None, init_state_encode: int = None,):
+    def reset(self, seed=None, options=None, init_state: np.ndarray = None,):
+        init_state_encode = None if init_state is None else self.state_discretizer.encode_indices(
+            list(self.state_discretizer.discretize(init_state)[1])
+        )
         strategy_selection_dict = {}
         for i, s in enumerate(TransitionalTableEnv.INIT_STRATEGIES):
             if self.init_strategy_distribution[i] != 0:
                 strategy_selection_dict[s] = self.strategy_step_counts[s] / self.init_strategy_distribution[i]
             else:
                 strategy_selection_dict[s] = np.inf
-        init_strategy = min(strategy_selection_dict, key=strategy_selection_dict.get)
+        self.init_strategy = min(strategy_selection_dict, key=strategy_selection_dict.get)
         super().reset(seed=seed)
         self.step_count = 0
         if init_state_encode is None or init_state_encode in self.done_set:
             if init_state_encode in self.done_set:
                 print("Warning: Starting from a done state, reset to a random state.")
-            if init_strategy == "random":
+            if self.init_strategy == "random":
                 init_state_encode = random.choice(tuple(self.forward_dict.keys()))
-            elif init_strategy == "real_start_states":
+            elif self.init_strategy == "real_start_states":
                 init_state_encode = random.choice(tuple(self.start_set))
             else:
-                raise ValueError(f"Init strategy not supported: {init_strategy}.")
-            self.current_state = init_state_encode
+                raise ValueError(f"Init strategy not supported: {self.init_strategy}.")
+        self.current_state = init_state_encode
         return self.current_state, {}
 
-    def step(self, action: int, transition_strategy: str = "weighted", unknown_reward: float = None):
+    def step(self, action: int, unknown_reward: float = None):
         if unknown_reward is None:
             r_sum = 0.0
             total_rewards = 0
@@ -779,25 +783,11 @@ class TransitionalTableEnv(TransitionTable, gym.Env):
             = self.get_transition_state_avg_reward_and_prob(encoded_state, encoded_action)
         if len(transition_state_avg_reward_and_prob) == 0:
             return encoded_state, unknown_reward, True, False, {"current_step": self.step_count}
-        if transition_strategy == "weighted":
-            encoded_next_state = random.choices(
-                tuple(transition_state_avg_reward_and_prob.keys()),
-                weights=[v[1] for v in transition_state_avg_reward_and_prob.values()],
-                k=1,
-            )[0]
-        elif transition_strategy == "random":
-            encoded_next_state = random.choice(tuple(transition_state_avg_reward_and_prob.keys()))
-        elif transition_strategy == "inverse_weighted":
-            probabilities = [v[1] for v in transition_state_avg_reward_and_prob.values()]
-            total_weight = sum(probabilities)
-            inverse_weights = [total_weight - p for p in probabilities]
-            encoded_next_state = random.choices(
-                tuple(transition_state_avg_reward_and_prob.keys()),
-                weights=inverse_weights,
-                k=1,
-            )[0]
-        else:
-            raise ValueError(f"Transition strategy not supported: {transition_strategy}.")
+        encoded_next_state = random.choices(
+            tuple(transition_state_avg_reward_and_prob.keys()),
+            weights=[v[1] for v in transition_state_avg_reward_and_prob.values()],
+            k=1,
+        )[0]
         reward = transition_state_avg_reward_and_prob[encoded_next_state][0]
         self.step_count += 1
 
@@ -805,21 +795,46 @@ class TransitionalTableEnv(TransitionTable, gym.Env):
         truncated = self.step_count >= self.max_steps
         self.current_state = encoded_next_state
 
+        self.strategy_step_counts[self.init_strategy] += 1
+
         info = {"current_step": self.step_count}
         return encoded_next_state, reward, terminated, truncated, info
 
 
-class QCutTransitionalTableEnv(TransitionalTableEnv):
+class LandmarksTransitionalTableEnv(TransitionalTableEnv):
+    INIT_STRATEGIES = TransitionalTableEnv.INIT_STRATEGIES + ["landmarks"]
     def __init__(
             self,
             state_discretizer: Discretizer,
             action_discretizer: Discretizer,
+            num_targets: int,
+            min_cut_max_flow_search_space: int,
+            q_cut_space: int,
+            weighted_search: bool = True,
+            init_state_reward_prob_below_threshold: float = 0.2,
+            quality_value_threshold: float = 1.0,
+            re_init_landmarks: bool = False,
+            take_done_states_as_targets: bool = False,
             max_steps: int = 500,
             reward_resolution: int = -1,
+            init_strategy_distribution: Tuple[float] = (0.33, 0.33, 0.33),
     ):
         TransitionalTableEnv.__init__(self, state_discretizer, action_discretizer, max_steps, reward_resolution)
+        assert len(init_strategy_distribution) == len(LandmarksTransitionalTableEnv.INIT_STRATEGIES), \
+            "init_strategy_distribution must have the same length as INIT_STRATEGIES."
+        self.init_strategy_distribution = init_strategy_distribution
+
+        self.num_targets = num_targets
+        self.min_cut_max_flow_search_space = min_cut_max_flow_search_space
+        self.q_cut_space = q_cut_space
+        self.weighted_search = weighted_search
+        self.init_state_reward_prob_below_threshold = init_state_reward_prob_below_threshold
+        self.quality_value_threshold = quality_value_threshold
+        self.re_init_landmarks = re_init_landmarks
+        self.take_done_states_as_targets = take_done_states_as_targets
+
         self.landmark_states, self.landmark_start_states, self.targets = None, None, None
-        self.no_target_error_printed_times = 3
+        self.landmarks_inited = False
 
     def find_nearest_nodes_and_subgraph(self, start_node, n, weighted=True, direction='both') -> Tuple[List[Tuple[int, float]], DiGraph]:
         """
@@ -945,40 +960,7 @@ class QCutTransitionalTableEnv(TransitionalTableEnv):
 
         return cut_value, reachable, non_reachable, edges_in_cut, quality_factor
 
-    # def get_landmark_states(
-    #         self,
-    #         num_targets: int,
-    #         min_cut_max_flow_search_space: int,
-    #         nums_in_layers: List[int],
-    #         init_state_reward_prob_below_threshold: float = 0.2,
-    # ):
-    #     beginners = set()
-    #     total_reward_count = 0
-    #     for reward, reward_set in self.reward_set_dict.items():
-    #         total_reward_count += len(reward_set)
-    #     for reward in self.reward_set_dict.keys():
-    #         if len(self.reward_set_dict[reward]) / total_reward_count < init_state_reward_prob_below_threshold:
-    #             for state in self.reward_set_dict[reward]:
-    #                 beginners.add(state)
-    #
-    #     if len(beginners) == 0:
-    #         print("No beginner states for Q-Cut search found.")
-    #         return
-    #
-    #     for level, num_in_layer in enumerate(nums_in_layers):
-    #         if level == 0:
-    #             pass
-
-    def get_landmark_states(
-            self,
-            num_targets: int,
-            min_cut_max_flow_search_space: int,
-            q_cut_space: int,
-            weighted_search: bool = True,
-            init_state_reward_prob_below_threshold: float = 0.2,
-            quality_value_threshold: float = 1.0,
-            take_done_states_as_targets: bool = False,
-    ):
+    def get_landmark_states(self,):
         landmark_states = set()
         landmark_start_states = set()
 
@@ -987,39 +969,36 @@ class QCutTransitionalTableEnv(TransitionalTableEnv):
         for reward, reward_set in self.reward_set_dict.items():
             total_reward_count += len(reward_set)
         for reward in self.reward_set_dict.keys():
-            if len(self.reward_set_dict[reward]) / total_reward_count < init_state_reward_prob_below_threshold:
+            if len(self.reward_set_dict[reward]) / total_reward_count < self.init_state_reward_prob_below_threshold:
                 for state in self.reward_set_dict[reward]:
                     targets.add(state)
 
-        if take_done_states_as_targets:
+        if self.take_done_states_as_targets:
             for state in self.done_set:
                 targets.add(state)
 
         if len(targets) == 0:
-            if self.no_target_error_printed_times == 0:
-                print("No target states for Q-Cut search found.")
-            self.no_target_error_printed_times -= 1
             return [], [], []
 
-        selected_targets = targets if len(targets) <= num_targets else random.sample(targets, num_targets)
+        selected_targets = targets if len(targets) <= self.num_targets else random.sample(targets, self.num_targets)
 
         self.make_mdp_graph()
         for target in selected_targets:
             nearest_nodes, subgraph = self.find_nearest_nodes_and_subgraph(
-                target, min_cut_max_flow_search_space, weighted=weighted_search, direction='backward'
+                target, self.min_cut_max_flow_search_space, weighted=self.weighted_search, direction='backward'
             )
             start_node = random.choice(nearest_nodes[-len(nearest_nodes)//10:])[0]
             cut_value, reachable, non_reachable, edges_in_cut, quality_factor = self.find_min_cut_max_flow(
                 subgraph, start_node, target, invert_weights=False,
             )
-            if quality_factor > quality_value_threshold:
+            if quality_factor > self.quality_value_threshold:
                 for edge in edges_in_cut:
                     for node in edge:
                         landmark_states.add(node)
 
         for node in landmark_states:
             q_cut_nodes, q_cut_subgraph = self.find_nearest_nodes_and_subgraph(
-                node, q_cut_space, weighted=False, direction='both'
+                node, self.q_cut_space, weighted=False, direction='both'
             )
             for n in q_cut_nodes:
                 landmark_start_states.add(n[0])
@@ -1030,56 +1009,46 @@ class QCutTransitionalTableEnv(TransitionalTableEnv):
             self,
             seed=None,
             options=None,
-            init_state_encode: int = None,
-            init_strategy: str = "real_start_states",
-            num_targets: int = 8,
-            min_cut_max_flow_search_space: int = 128,
-            q_cut_space: int = 4,
-            weighted_search: bool = True,
-            init_state_reward_prob_below_threshold: float = 0.2,
-            quality_value_threshold: float = 1.0,
-            re_init_landmarks: bool = False,
-            return_actual_strategy: bool = False,
-            take_done_states_as_targets: bool = False,
+            init_state: np.ndarray = None,
             do_print: bool = True,
     ):
+        init_state_encode = None if init_state is None else self.state_discretizer.encode_indices(
+            list(self.state_discretizer.discretize(init_state)[1])
+        )
+        strategy_selection_dict = {}
+        for i, s in enumerate(TransitionalTableEnv.INIT_STRATEGIES):
+            if self.init_strategy_distribution[i] != 0:
+                strategy_selection_dict[s] = self.strategy_step_counts[s] / self.init_strategy_distribution[i]
+            else:
+                strategy_selection_dict[s] = np.inf
+        self.init_strategy = min(strategy_selection_dict, key=strategy_selection_dict.get)
         super().reset(seed=seed)
         self.step_count = 0
-
-        if re_init_landmarks or self.landmark_states is None or self.landmark_start_states is None or self.targets is None:
-            self.make_mdp_graph(use_encoded_states=True)
-            self.landmark_states, self.landmark_start_states, self.targets = self.get_landmark_states(
-                num_targets=num_targets,
-                min_cut_max_flow_search_space=min_cut_max_flow_search_space,
-                q_cut_space=q_cut_space,
-                weighted_search=weighted_search,
-                init_state_reward_prob_below_threshold=init_state_reward_prob_below_threshold,
-                quality_value_threshold=quality_value_threshold,
-                take_done_states_as_targets=take_done_states_as_targets,
-            )
-            if do_print:
-                print(f"Initialized: {len(self.landmark_states)} landmark states; {len(self.landmark_start_states)} start states.")
-                if take_done_states_as_targets:
-                    print("Done states are also used as targets for landmark generation.")
 
         if init_state_encode is None or init_state_encode in self.done_set:
             if init_state_encode in self.done_set:
                 print("Warning: Starting from a done state, reset to a random state.")
-            if init_strategy == "random":
+            if self.init_strategy == "random":
                 init_state_encode = random.choice(tuple(self.forward_dict.keys()))
-            elif init_strategy == "real_start_states":
+            elif self.init_strategy == "real_start_states":
                 init_state_encode = random.choice(tuple(self.start_set))
-            elif init_strategy == "landmarks":
+            elif self.init_strategy == "landmarks":
+                if ((not self.landmarks_inited) and self.re_init_landmarks) or self.landmark_states is None or self.landmark_start_states is None or self.targets is None:
+                    self.make_mdp_graph(use_encoded_states=True)
+                    self.landmark_states, self.landmark_start_states, self.targets = self.get_landmark_states()
+                    self.landmarks_inited = True
+                    if do_print:
+                        print(f"Initialized: {len(self.landmark_states)} landmark states; {len(self.landmark_start_states)} start states.")
+                        if self.take_done_states_as_targets:
+                            print("Done states are also used as targets for landmark generation.")
                 if len(self.landmark_states) == 0:
                     init_state_encode = random.choice(tuple(self.forward_dict.keys()))
-                    init_strategy = "random"
+                    self.init_strategy = "random"
                 else:
                     init_state_encode = random.choice(tuple(self.landmark_start_states))
             else:
-                raise ValueError(f"Init strategy not supported: {init_strategy}.")
-            self.current_state = init_state_encode
-            if return_actual_strategy:
-                return self.current_state, {}, init_strategy
+                raise ValueError(f"Init strategy not supported: {self.init_strategy}.")
+        self.current_state = init_state_encode
         return self.current_state, {}
 
     def save_mdp_graph(self, output_file='mdp_visualization.html', use_encoded_states=True):
