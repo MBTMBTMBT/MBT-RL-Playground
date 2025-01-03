@@ -58,7 +58,10 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
         current_step = 0
         sample_strategy_step_count = {s: 0 for s in sample_strategies}
 
-        pbar.set_description(f"[{run_id}-{task_name}-{init_group}]-Stage-[{sample_step}/{str(sample_steps)}]")
+        stage = ",".join(
+            f"[{step / 1e3:.0f}e3]" if step == sample_step else f"{step / 1e3:.0f}e3" for step in sample_steps
+        )
+        pbar.set_description(f"[{run_id}-{task_name}-{init_group}]-Stage-[{stage}]")
 
         state, _ = env.reset()
         agent.transition_table_env_t.add_start_state(state)
