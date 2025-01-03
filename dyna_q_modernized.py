@@ -1060,8 +1060,15 @@ class LandmarksTransitionalTableEnv(TransitionalTableEnv):
             seed=None,
             options=None,
             init_state: np.ndarray = None,
+            reset_all: bool = False,
             do_print: bool = True,
     ):
+        if reset_all:
+            self.step_count = 0
+            self.current_state = None
+            self.strategy_counts = {s: 1 for s in TransitionalTableEnv.INIT_STRATEGIES}
+            self.strategy_step_counts = {s: 1 for s in TransitionalTableEnv.INIT_STRATEGIES}
+
         init_state_encode = None if init_state is None else self.state_discretizer.encode_indices(
             list(self.state_discretizer.discretize(init_state)[1])
         )
@@ -1157,6 +1164,24 @@ class LandmarksTransitionalTableEnv(TransitionalTableEnv):
         print(f"Saved transition graph at {output_file}.")
 
 
+class DoubleTransitionalTableEnv(gym.Env):
+    def __init__(
+            self,
+            transition_table_env_t: TransitionalTableEnv or LandmarksTransitionalTableEnv,
+            transition_table_env_b: TransitionalTableEnv or LandmarksTransitionalTableEnv,
+    ):
+        self.transition_table_env_t = transition_table_env_t
+        self.transition_table_env_b = transition_table_env_b
+
+    def reset(self, seed=None, options=None, init_state: np.ndarray = None, reset_all: bool = False):
+        t_state, _ = self.transition_table_env_t.reset(seed=seed, options=options, init_state=init_state, reset_all=reset_all)
+        b_state, b_info = self.transition_table_env_b.reset(seed=seed, options=options, init_state=t_state, reset_all=reset_all)
+        return b_state, b_info
+
+    def step(self, action):
+        return self.transition_table_env_b.step(action)
+
+
 class TabularDynaQAgent:
     def __init__(
             self,
@@ -1213,8 +1238,9 @@ class TabularDynaQAgent:
             reward_resolution=reward_resolution,
             unknown_reward=1.0,
         )
+        self.double_env = DoubleTransitionalTableEnv(self.transition_table_env_t, self.transition_table_env_b)
         self.q_table_agent = TabularQAgent(
-            self.transition_table_env_b,
+            self.double_env,
             self.state_discretizer_b,
             self.action_discretizer_b,
             n_steps=max_steps,
