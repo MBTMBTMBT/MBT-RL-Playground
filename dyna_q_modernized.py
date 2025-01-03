@@ -11,8 +11,8 @@ import scipy.stats
 from typing import List, Tuple, Optional, Dict
 
 from gymnasium import spaces
-from gymnasium.spaces import Discrete
 from networkx.classes import DiGraph
+from overrides.typing_utils import unknown
 from pandas import DataFrame
 import tqdm
 from pyvis.network import Network
@@ -239,6 +239,35 @@ class Discretizer:
                         bucket_max = round(bucket_min + step, 6)
                         print(f"Dimension {i}, Bucket {j}: Range [{bucket_min}, {bucket_max})")
 
+    def get_gym_space(self) -> spaces.Space:
+        """
+        Create a Gymnasium space representing the discretized ranges.
+
+        :return: A `spaces.MultiDiscrete`, `spaces.Discrete`, or `spaces.Box` space depending on the discretization.
+        """
+        if all(buckets > 0 for buckets in self.num_buckets):
+            if len(self.num_buckets) == 1:
+                # Use Discrete if only one dimension
+                return spaces.Discrete(self.num_buckets[0])
+            else:
+                # Use MultiDiscrete for multiple dimensions
+                return spaces.MultiDiscrete(self.num_buckets)
+        else:
+            # Use Box if some dimensions are not discretized
+            low = []
+            high = []
+            for (min_val, max_val), buckets in zip(self.ranges, self.num_buckets):
+                if buckets == -1:
+                    low.append(min_val)
+                    high.append(max_val)
+                elif buckets == 0:
+                    low.append(np.ceil(min_val))
+                    high.append(np.floor(max_val))
+                else:
+                    low.append(0)
+                    high.append(buckets - 1)
+            return spaces.Box(low=np.array(low, dtype=np.float32), high=np.array(high, dtype=np.float32), dtype=np.float32)
+
 
 class TabularQAgent:
     def __init__(
@@ -392,7 +421,7 @@ class TabularQAgent:
         else:
             action_encoded = np.random.choice(self.all_actions_encoded, p=action_probabilities)
         action = np.array(self.action_discretizer.indices_to_midpoints(self.action_discretizer.decode_indices(action_encoded)))
-        if isinstance(self.env.action_space, Discrete):
+        if isinstance(self.env.action_space, spaces.Discrete):
             action = action.squeeze().item()
         return action
 
@@ -502,7 +531,6 @@ class TransitionTable:
         self.reward_resolution = reward_resolution
 
         self.mdp_graph: DiGraph = None
-        self.init_strategy = None
 
     def print_transition_table_info(self):
         print("Transition Table Information:")
@@ -719,32 +747,39 @@ class TransitionalTableEnv(TransitionTable, gym.Env):
             action_discretizer: Discretizer,
             max_steps: int = 500,
             reward_resolution: int = -1,
-            init_strategy_distribution: Tuple[float] = (0.33, 0.33),
+            init_strategy_distribution: Tuple[float] = (0.5, 0.5),
+            unknown_reward: float = None
     ):
         TransitionTable.__init__(self, state_discretizer, action_discretizer, reward_resolution=reward_resolution)
         gym.Env.__init__(self)
 
         assert len(init_strategy_distribution) == len(TransitionalTableEnv.INIT_STRATEGIES), "init_strategy_distribution must have the same length as INIT_STRATEGIES."
         self.init_strategy_distribution = init_strategy_distribution
+        self.init_strategy = None
 
         # State space
         self.state_discretizer = state_discretizer
-        state_size = state_discretizer.count_possible_combinations()
-        self.observation_space = spaces.Discrete(state_size)
+        self.observation_space = state_discretizer.get_gym_space()
 
         # Action space
         self.action_discretizer = action_discretizer
-        action_size = action_discretizer.count_possible_combinations()
-        self.action_space = spaces.Discrete(action_size)
+        self.action_space = action_discretizer.get_gym_space()
 
         self.max_steps = max_steps
+        self.unknown_reward = unknown_reward
+
         self.step_count = 0
         self.current_state = None
-
         self.strategy_counts = {s: 1 for s in TransitionalTableEnv.INIT_STRATEGIES}
         self.strategy_step_counts = {s: 1 for s in TransitionalTableEnv.INIT_STRATEGIES}
 
-    def reset(self, seed=None, options=None, init_state: np.ndarray = None,):
+    def reset(self, seed=None, options=None, init_state: np.ndarray = None, reset_all: bool = False):
+        if reset_all:
+            self.step_count = 0
+            self.current_state = None
+            self.strategy_counts = {s: 1 for s in TransitionalTableEnv.INIT_STRATEGIES}
+            self.strategy_step_counts = {s: 1 for s in TransitionalTableEnv.INIT_STRATEGIES}
+
         init_state_encode = None if init_state is None else self.state_discretizer.encode_indices(
             list(self.state_discretizer.discretize(init_state)[1])
         )
@@ -760,6 +795,8 @@ class TransitionalTableEnv(TransitionTable, gym.Env):
         if init_state_encode is None or init_state_encode in self.done_set:
             if init_state_encode in self.done_set:
                 print("Warning: Starting from a done state, reset to a random state.")
+                if self.init_strategy is None:
+                    self.init_strategy = "random"
             if self.init_strategy == "random":
                 init_state_encode = random.choice(tuple(self.forward_dict.keys()))
             elif self.init_strategy == "real_start_states":
@@ -767,16 +804,22 @@ class TransitionalTableEnv(TransitionTable, gym.Env):
             else:
                 raise ValueError(f"Init strategy not supported: {self.init_strategy}.")
         self.current_state = init_state_encode
-        return self.current_state, {}
+        current_state = self.state_discretizer.indices_to_midpoints(
+            self.state_discretizer.decode_indices(self.current_state)
+        )
+        return current_state, {}
 
-    def step(self, action: int, unknown_reward: float = None):
-        if unknown_reward is None:
+    def step(self, action: int,):
+        unknown_reward = 0.0
+        if self.unknown_reward is None:
             r_sum = 0.0
             total_rewards = 0
             for r in self.reward_set_dict.keys():
                 r_sum += r * len(self.reward_set_dict[r])
                 total_rewards += len(self.reward_set_dict[r])
             unknown_reward = r_sum / total_rewards
+        else:
+            unknown_reward = self.unknown_reward
         encoded_state = self.current_state
         encoded_action = action
         transition_state_avg_reward_and_prob \
@@ -798,7 +841,11 @@ class TransitionalTableEnv(TransitionTable, gym.Env):
         self.strategy_step_counts[self.init_strategy] += 1
 
         info = {"current_step": self.step_count}
-        return encoded_next_state, reward, terminated, truncated, info
+
+        next_state = self.state_discretizer.indices_to_midpoints(
+            self.state_discretizer.decode_indices(encoded_next_state)
+        )
+        return next_state, reward, terminated, truncated, info
 
 
 class LandmarksTransitionalTableEnv(TransitionalTableEnv):
@@ -818,8 +865,11 @@ class LandmarksTransitionalTableEnv(TransitionalTableEnv):
             max_steps: int = 500,
             reward_resolution: int = -1,
             init_strategy_distribution: Tuple[float] = (0.33, 0.33, 0.33),
+            unknown_reward: float = None
     ):
-        TransitionalTableEnv.__init__(self, state_discretizer, action_discretizer, max_steps, reward_resolution)
+        TransitionalTableEnv.__init__(
+            self, state_discretizer, action_discretizer, max_steps, reward_resolution, unknown_reward,
+        )
         assert len(init_strategy_distribution) == len(LandmarksTransitionalTableEnv.INIT_STRATEGIES), \
             "init_strategy_distribution must have the same length as INIT_STRATEGIES."
         self.init_strategy_distribution = init_strategy_distribution
@@ -1028,6 +1078,8 @@ class LandmarksTransitionalTableEnv(TransitionalTableEnv):
         if init_state_encode is None or init_state_encode in self.done_set:
             if init_state_encode in self.done_set:
                 print("Warning: Starting from a done state, reset to a random state.")
+                if self.init_strategy is None:
+                    self.init_strategy = "random"
             if self.init_strategy == "random":
                 init_state_encode = random.choice(tuple(self.forward_dict.keys()))
             elif self.init_strategy == "real_start_states":
@@ -1049,7 +1101,10 @@ class LandmarksTransitionalTableEnv(TransitionalTableEnv):
             else:
                 raise ValueError(f"Init strategy not supported: {self.init_strategy}.")
         self.current_state = init_state_encode
-        return self.current_state, {}
+        current_state = self.state_discretizer.indices_to_midpoints(
+            self.state_discretizer.decode_indices(self.current_state)
+        )
+        return current_state, {}
 
     def save_mdp_graph(self, output_file='mdp_visualization.html', use_encoded_states=True):
         # Create a directed graph
@@ -1105,19 +1160,77 @@ class LandmarksTransitionalTableEnv(TransitionalTableEnv):
 class TabularDynaQAgent:
     def __init__(
             self,
-            state_discretizer: Discretizer,
-            action_discretizer: Discretizer,
-            bonus_decay=0.9,
+            state_discretizer_t: Discretizer,
+            action_discretizer_t: Discretizer,
+            state_discretizer_b: Discretizer,
+            action_discretizer_b: Discretizer,
+            num_targets: int,
+            min_cut_max_flow_search_space: int,
+            q_cut_space: int,
+            weighted_search: bool = True,
+            init_state_reward_prob_below_threshold: float = 0.2,
+            quality_value_threshold: float = 1.0,
+            re_init_landmarks: bool = False,
+            take_done_states_as_targets: bool = False,
             max_steps: int = 500,
-            rough_reward_resolution: int = -1,
+            reward_resolution: int = -1,
+            init_strategy_distribution: Tuple[float] = (0.33, 0.33, 0.33),
+            lr: float = 0.1,
+            gamma: float = 0.99,
+            bonus_decay: float = 0.9,
     ):
-        self.state_discretizer = state_discretizer
-        self.action_discretizer = action_discretizer
-        self.transition_table_env = TransitionalTableEnv(
-            state_discretizer, action_discretizer, max_steps=max_steps, reward_resolution=rough_reward_resolution,
+        self.state_discretizer_t = state_discretizer_t
+        self.action_discretizer_t = action_discretizer_t
+        self.state_discretizer_b = state_discretizer_b
+        self.action_discretizer_b = action_discretizer_b
+        self.transition_table_env_t = LandmarksTransitionalTableEnv(
+            state_discretizer_t,
+            action_discretizer_t,
+            num_targets,
+            min_cut_max_flow_search_space,
+            q_cut_space,
+            weighted_search,
+            init_state_reward_prob_below_threshold,
+            quality_value_threshold,
+            re_init_landmarks,
+            take_done_states_as_targets,
+            max_steps,
+            reward_resolution,
+            init_strategy_distribution,
+            unknown_reward=None,
         )
-        self.q_table_agent = TabularQAgent(self.state_discretizer, self.action_discretizer)
-        self.exploration_agent = TabularQAgent(self.state_discretizer, self.action_discretizer)
+        self.transition_table_env_b = TransitionalTableEnv(
+            state_discretizer_b,
+            action_discretizer_b,
+            max_steps=max_steps,
+            reward_resolution=reward_resolution,
+            unknown_reward=None,
+        )
+        self.transition_table_env_e = TransitionalTableEnv(
+            state_discretizer_b,
+            action_discretizer_b,
+            max_steps=max_steps,
+            reward_resolution=reward_resolution,
+            unknown_reward=1.0,
+        )
+        self.q_table_agent = TabularQAgent(
+            self.transition_table_env_b,
+            self.state_discretizer_b,
+            self.action_discretizer_b,
+            n_steps=max_steps,
+            lr=lr,
+            gamma=gamma,
+            print_info=False,
+        )
+        self.exploration_agent = TabularQAgent(
+            self.transition_table_env_e,
+            self.state_discretizer_b,
+            self.action_discretizer_b,
+            n_steps=max_steps,
+            lr=lr,
+            gamma=gamma,
+            print_info=False,
+        )
         self.exploration_agent.q_table = defaultdict(lambda: 1.0)
         self.bonus_states = defaultdict(lambda: 1.0)
         self.bonus_decay = bonus_decay
@@ -1125,459 +1238,90 @@ class TabularDynaQAgent:
     def print_agent_info(self):
         self.q_table_agent.print_q_table_info()
         self.exploration_agent.print_q_table_info()
-        self.transition_table_env.print_transition_table_info()
+        self.transition_table_env_t.print_transition_table_info()
+        self.transition_table_env_b.print_transition_table_info()
 
-    def save_agent(self, file_path: str = None) -> tuple[DataFrame, DataFrame, DataFrame]:
+    def save_agent(self, file_path: str = None) -> tuple[DataFrame, DataFrame, DataFrame, DataFrame, DataFrame]:
         if file_path:
             q_table_file_path = file_path.split(".csv")[0] + "_q_table.csv"
             exploration_agent_q_table_file_path = file_path.split(".csv")[0] + "_exploration_agent_q_table.csv"
-            transition_table_file_path = file_path.split(".csv")[0] + "_transition_table.csv"
+            transition_table_t_file_path = file_path.split(".csv")[0] + "_transition_table_t.csv"
+            transition_table_b_file_path = file_path.split(".csv")[0] + "_transition_table_b.csv"
+            transition_table_e_file_path = file_path.split(".csv")[0] + "_transition_table_e.csv"
         else:
             q_table_file_path = None
             exploration_agent_q_table_file_path = None
-            transition_table_file_path = None
+            transition_table_t_file_path = None
+            transition_table_b_file_path = None
+            transition_table_e_file_path = None
         q_table_df = self.q_table_agent.save_q_table(file_path=q_table_file_path)
         exploration_agent_q_table_df = self.exploration_agent.save_q_table(file_path=exploration_agent_q_table_file_path)
-        transition_table_df = self.transition_table_env.save_transition_table(file_path=transition_table_file_path)
-        return q_table_df, transition_table_df, exploration_agent_q_table_df
+        transition_table_t_df = self.transition_table_env_t.save_transition_table(file_path=transition_table_t_file_path)
+        transition_table_b_df = self.transition_table_env_b.save_transition_table(file_path=transition_table_b_file_path)
+        transition_table_e_df = self.transition_table_env_e.save_transition_table(file_path=transition_table_e_file_path)
+        return q_table_df, transition_table_t_df, transition_table_b_df, exploration_agent_q_table_df, transition_table_e_df
 
-    def load_agent(self, file_path: str = None, dataframes: tuple[DataFrame, DataFrame, DataFrame] = (None, None, None)):
+    def load_agent(
+            self,
+            file_path: str = None,
+            dataframes: tuple[DataFrame, DataFrame, DataFrame, DataFrame, DataFrame] = (None, None, None, None, None),
+    ):
         if file_path:
             q_table_file_path = file_path.split(".csv")[0] + "_q_table.csv"
             exploration_agent_q_table_file_path = file_path.split(".csv")[0] + "_exploration_agent_q_table.csv"
-            transition_table_file_path = file_path.split(".csv")[0] + "_transition_table.csv"
+            transition_table_t_file_path = file_path.split(".csv")[0] + "_transition_table_t.csv"
+            transition_table_b_file_path = file_path.split(".csv")[0] + "_transition_table_b.csv"
+            transition_table_e_file_path = file_path.split(".csv")[0] + "_transition_table_e.csv"
         else:
             q_table_file_path = None
             exploration_agent_q_table_file_path = None
-            transition_table_file_path = None
+            transition_table_t_file_path = None
+            transition_table_b_file_path = None
+            transition_table_e_file_path = None
         self.q_table_agent.load_q_table(file_path=q_table_file_path, df=dataframes[0])
         self.exploration_agent.load_q_table(file_path=exploration_agent_q_table_file_path, df=dataframes[0])
-        self.transition_table_env.load_transition_table(
-            file_path=transition_table_file_path, transition_table_df=dataframes[1]
+        self.transition_table_env_t.load_transition_table(
+            file_path=transition_table_t_file_path, transition_table_df=dataframes[1]
+        )
+        self.transition_table_env_b.load_transition_table(
+            file_path=transition_table_b_file_path, transition_table_df=dataframes[2]
+        )
+        self.transition_table_env_e.load_transition_table(
+            file_path=transition_table_e_file_path, transition_table_df=dataframes[3]
         )
 
-    def get_action_probabilities(self, state: np.ndarray, strategy: str = "greedy",
-                                 temperature: float = 1.0) -> np.ndarray:
-        if strategy == "softmax" or strategy == "greedy":
-            return self.q_table_agent.get_action_probabilities(state, strategy=strategy, temperature=temperature)
-        elif strategy == "explore_softmax":
-            return self.exploration_agent.get_action_probabilities(state, strategy="softmax", temperature=temperature)
-        elif strategy == "explore_greedy":
-            return self.exploration_agent.get_action_probabilities(state, strategy="greedy", temperature=temperature)
-        elif strategy == "weighted":
-            encoded_state = self.state_discretizer.encode_indices([*self.state_discretizer.discretize(state)[1]])
-            state_action_counts = self.transition_table_env.get_state_action_counts(encoded_state)
-            sum_counts = sum(state_action_counts.values())
-            if sum_counts == 0:
-                return np.ones(len(self.q_table_agent.all_actions_encoded)) / len(self.q_table_agent.all_actions_encoded)
-            return np.array([state_action_counts[a]/sum_counts for a in self.q_table_agent.all_actions_encoded])
-        elif strategy == "random":
-            return np.ones(len(self.q_table_agent.all_actions_encoded)) / len(self.q_table_agent.all_actions_encoded)
+    def choose_action(
+            self, state: np.ndarray, explore_action: bool = False, temperature: float = 1.0, greedy: bool = False,
+    ) -> np.ndarray:
+        if explore_action:
+            action = self.exploration_agent.choose_action(state, temperature=temperature, greedy=greedy)
         else:
-            raise ValueError(f"Select strategy not supported: {strategy}.")
-
-    def choose_action(self, state: np.ndarray, strategy: str = "greedy", temperature: float = 1.0) -> np.ndarray:
-        action_probabilities = self.get_action_probabilities(state, strategy=strategy, temperature=temperature)
-        action = random.choices(self.q_table_agent.all_actions_encoded, weights=action_probabilities, k=1)[0]
-        return np.array(self.action_discretizer.indices_to_midpoints(self.action_discretizer.decode_indices(action)))
-
-    def choose_action_encoded(self, state: np.ndarray, strategy: str = "greedy", temperature: float = 1.0) -> np.ndarray:
-        action_probabilities = self.get_action_probabilities(state, strategy=strategy, temperature=temperature)
-        action = random.choices(self.q_table_agent.all_actions_encoded, weights=action_probabilities, k=1)[0]
+            action = self.q_table_agent.choose_action(state, temperature=temperature, greedy=greedy)
         return action
 
-    def update_from_env(self, state: np.ndarray, action: np.ndarray, reward: float, next_state: np.ndarray, done: bool,
-               alpha: float = 0.1, gamma: float = 0.99, update_policy=True):
-        if update_policy:
-            self.q_table_agent.update(state, action, reward, next_state, done, alpha=alpha, gamma=gamma)
-        self.transition_table_env.update(state, action, reward, next_state, done)
-        encoded_next_state = self.state_discretizer.encode_indices(
-            list(self.state_discretizer.discretize(next_state)[1]))
+    def update_from_env(
+            self,
+            state: np.ndarray,
+            action: np.ndarray,
+            reward: float,
+            next_state: np.ndarray,
+            done: bool,
+    ):
+        encoded_next_state = self.state_discretizer_b.encode_indices(
+            list(self.state_discretizer_b.discretize(next_state)[1]))
         reward_bonus = self.bonus_states[encoded_next_state]
         self.bonus_states[encoded_next_state] *= self.bonus_decay
-        self.exploration_agent.update(state, action, reward_bonus, next_state, done, alpha=alpha, gamma=gamma)
+        self.transition_table_env_t.update(state, action, reward, next_state, done)
+        self.transition_table_env_b.update(state, action, reward, next_state, done)
+        self.transition_table_env_e.update(state, action, reward_bonus, next_state, done)
 
     def update_from_transition_table(
             self,
-            steps: int,
-            epsilon: float,
-            strategy: str = "greedy",
-            alpha: float = 0.1,
-            gamma: float = 0.99,
-            transition_strategy: str = "weighted",
-            init_strategy: str = "real_start_states",
+            total_timesteps: int,
             train_exploration_agent: bool = False,
-            unknown_reward: float = None
+            progress_bar: bool = False,
     ):
-        # Initialize variables
-        num_episodes = 1
-        num_truncated = 0
-        num_terminated = 0
-        sum_episode_rewards = 0
-
-        old_truncate_steps = self.transition_table_env.max_steps
         if train_exploration_agent:
-            self.transition_table_env.max_steps = np.inf
-            self.exploration_agent.reset_q_table()
-
-        agent = self.q_table_agent if not train_exploration_agent else self.exploration_agent
-        unknown_reward = 0.0 if not train_exploration_agent else unknown_reward
-
-        print(f"Starting for {steps} steps using transition table: ")
-        if train_exploration_agent:
-            print(f"Training unknown_reward agent with unknown_reward value: {unknown_reward}.")
-        self.transition_table_env.print_transition_table_info()
-
-        # Reset the environment and get the initial state
-        state_encoded, info = self.transition_table_env.reset(init_strategy=init_strategy)
-
-        # Initialize the progress bar
-        progress_bar = tqdm.tqdm(total=steps, desc="Inner Training", unit="step")
-
-        for step in range(steps):
-            # Decode and compute the midpoint of the current state
-            state = self.state_discretizer.indices_to_midpoints(self.state_discretizer.decode_indices(state_encoded))
-
-            # Select action based on epsilon-greedy strategy
-            if np.random.random() < epsilon:
-                action_encoded = random.choice(agent.all_actions_encoded)
-            else:
-                action_encoded = self.choose_action_encoded(state, strategy=strategy, temperature=1.0)
-
-            # Take a step in the environment
-            next_state_encoded, reward, terminated, truncated, info = self.transition_table_env.step(
-                action_encoded, transition_strategy, unknown_reward=unknown_reward,
-            )
-            if train_exploration_agent:
-                if reward != unknown_reward:
-                    reward = 0.0
-                else:
-                    terminated = True
-            else:
-                # if reward >= unknown_reward:
-                #     reward += 1.0
-                pass
-
-            # Decode and compute the midpoint of the action and next state
-            action = self.action_discretizer.indices_to_midpoints(
-                self.action_discretizer.decode_indices(action_encoded))
-            next_state = self.state_discretizer.indices_to_midpoints(
-                self.state_discretizer.decode_indices(next_state_encoded))
-
-            # Update Q-table using the chosen action
-            agent.update(state, action, reward, next_state, terminated, alpha=alpha, gamma=gamma)
-
-            # Update the current state
-            state_encoded = next_state_encoded
-
-            # Update counters and rewards
-            if terminated:
-                num_terminated += 1
-            if truncated:
-                num_truncated += 1
-            sum_episode_rewards += reward
-
-            # Reset the environment if an episode ends
-            if terminated or truncated:
-                num_episodes += 1
-                state_encoded, info = self.transition_table_env.reset(init_strategy=init_strategy)
-
-            # Update the progress bar
-            progress_bar.set_postfix({
-                "Episodes": num_episodes,
-                "Terminated": num_terminated,
-                "Truncated": num_truncated,
-                "Reward (last)": reward,
-                "Avg Episode Reward": sum_episode_rewards / num_episodes
-            })
-            progress_bar.update(1)
-
-        # Close the progress bar
-        progress_bar.close()
-
-        print(f"Trained {num_episodes-1} episodes, including {num_truncated} truncated, {num_terminated} terminated.")
-        print(f"Average episode reward: {sum_episode_rewards / num_episodes}.")
-        self.transition_table_env.max_steps = old_truncate_steps
-
-
-class QCutTabularDynaQAgent(TabularDynaQAgent):
-    def __init__(
-            self,
-            state_discretizer: Discretizer,
-            action_discretizer: Discretizer,
-            bonus_decay=0.9,
-            max_steps: int = 500,
-            rough_reward_resolution: int = -1,):
-        super().__init__(state_discretizer, action_discretizer, bonus_decay, max_steps, rough_reward_resolution)
-        self.transition_table_env = QCutTransitionalTableEnv(state_discretizer, action_discretizer, max_steps, rough_reward_resolution)
-
-    def update_from_transition_table(
-            self,
-            steps: int,
-            epsilon: float,
-            strategy: str = "greedy",
-            alpha: float = 0.1,
-            gamma: float = 0.99,
-            transition_strategy: str = "weighted",
-            init_strategy_distribution: Tuple[float] = (0.33, 0.33, 0.33),
-            train_exploration_agent: bool = False,
-            unknown_reward: float = None,
-            num_targets: int = 8,
-            min_cut_max_flow_search_space: int = 128,
-            q_cut_space: int = 4,
-            weighted_search: bool = True,
-            init_state_reward_prob_below_threshold: float = 0.01,
-            quality_value_threshold: float = 1.0,
-            take_done_states_as_targets: bool = False,
-            use_task_bar: bool = True,
-            do_print: bool = True,
-    ):
-        # Initialize variables
-        num_episodes = 1
-        num_truncated = 0
-        num_terminated = 0
-        sum_episode_rewards = 0
-
-        init_strategies = ["real_start_states", "random", "landmarks"]
-        init_strategy = random.choices(init_strategies, weights=init_strategy_distribution, k=1)[0]
-        strategy_counts = {s: 0 for s in init_strategies}
-        strategy_step_counts = {s: 0 for s in init_strategies}
-
-        old_truncate_steps = self.transition_table_env.max_steps
-        if train_exploration_agent:
-            self.transition_table_env.max_steps = np.inf
-            self.exploration_agent.reset_q_table()
-
-        agent = self.q_table_agent if not train_exploration_agent else self.exploration_agent
-        unknown_reward = 0.0 if not train_exploration_agent else unknown_reward
-
-        if do_print:
-            print(f"Starting for {steps} steps using transition table: ")
-            if train_exploration_agent:
-                print(f"Training unknown_reward agent with unknown_reward value: {unknown_reward}.")
-            self.transition_table_env.print_transition_table_info()
-
-        # Reset the environment and get the initial state
-        state_encoded, info, actual_strategy = self.transition_table_env.reset(
-            init_strategy=init_strategy,
-            num_targets=num_targets,
-            min_cut_max_flow_search_space=min_cut_max_flow_search_space,
-            q_cut_space=q_cut_space,
-            weighted_search=weighted_search,
-            init_state_reward_prob_below_threshold=init_state_reward_prob_below_threshold,
-            quality_value_threshold=quality_value_threshold,
-            re_init_landmarks=True,
-            return_actual_strategy=True,
-            take_done_states_as_targets=take_done_states_as_targets,
-            do_print=do_print,
-        )
-        strategy_counts[actual_strategy] += 1
-
-        # Initialize the progress bar
-        progress_bar = tqdm.tqdm(total=steps, desc="Inner Training", unit="step") if use_task_bar else None
-        episode_step_count = 0
-        for step in range(steps):
-            # Decode and compute the midpoint of the current state
-            state = self.state_discretizer.indices_to_midpoints(self.state_discretizer.decode_indices(state_encoded))
-
-            # Select action based on epsilon-greedy strategy
-            if np.random.random() < epsilon:
-                action_encoded = random.choice(agent.all_actions_encoded)
-            else:
-                action_encoded = self.choose_action_encoded(state, strategy=strategy, temperature=1.0)
-
-            # Take a step in the environment
-            next_state_encoded, reward, terminated, truncated, info = self.transition_table_env.step(
-                action_encoded, transition_strategy, unknown_reward=unknown_reward,
-            )
-            if train_exploration_agent:
-                if reward != unknown_reward:
-                    reward = 0.0
-                else:
-                    terminated = True
-            else:
-                # if reward >= unknown_reward:
-                #     reward += 1.0
-                pass
-
-            # Decode and compute the midpoint of the action and next state
-            action = self.action_discretizer.indices_to_midpoints(
-                self.action_discretizer.decode_indices(action_encoded))
-            next_state = self.state_discretizer.indices_to_midpoints(
-                self.state_discretizer.decode_indices(next_state_encoded))
-
-            # Update Q-table using the chosen action
-            agent.update(state, action, reward, next_state, terminated, alpha=alpha, gamma=gamma)
-
-            # Update the current state
-            state_encoded = next_state_encoded
-
-            # Update counters and rewards
-            if terminated:
-                num_terminated += 1
-            if truncated:
-                num_truncated += 1
-            sum_episode_rewards += reward
-
-            # Reset the environment if an episode ends
-            if terminated or truncated:
-                num_episodes += 1
-                strategy_step_counts[init_strategy] += episode_step_count
-                strategy_selection_dict = {}
-                for i, s in enumerate(init_strategies):
-                    if init_strategy_distribution[i] != 0:
-                        strategy_selection_dict[s] = strategy_step_counts[s] / init_strategy_distribution[i]
-                    else:
-                        strategy_selection_dict[s] = np.inf
-                init_strategy = min(strategy_selection_dict, key=strategy_selection_dict.get)
-                state_encoded, info, actual_strategy = self.transition_table_env.reset(
-                    init_strategy=init_strategy,
-                    num_targets=num_targets,
-                    min_cut_max_flow_search_space=min_cut_max_flow_search_space,
-                    q_cut_space=q_cut_space,
-                    weighted_search=weighted_search,
-                    init_state_reward_prob_below_threshold=init_state_reward_prob_below_threshold,
-                    quality_value_threshold=quality_value_threshold,
-                    re_init_landmarks=False,
-                    return_actual_strategy=True,
-                    do_print=do_print,
-                )
-                strategy_counts[actual_strategy] += 1
-                episode_step_count = 0
-
-            # Update the progress bar
-            if use_task_bar:
-                progress_bar.set_postfix({
-                    "Episodes": num_episodes,
-                    "Terminated": num_terminated,
-                    "Truncated": num_truncated,
-                    "Rwd (last)": reward,
-                    "Avg Episode Rwd": sum_episode_rewards / num_episodes,
-                    "Real Starts": strategy_counts["real_start_states"],
-                    "Landmarks": strategy_counts["landmarks"],
-                    "Random": strategy_counts["random"],
-                })
-                progress_bar.update(1)
-            episode_step_count += 1
-
-        # Close the progress bar
-        if use_task_bar:
-            progress_bar.close()
-
-        if do_print:
-            print(f"Trained {num_episodes-1} episodes, including {num_truncated} truncated, {num_terminated} terminated.")
-            print(f"Real starts: {strategy_counts['real_start_states']}, Landmarks: {strategy_counts['landmarks']}, Random: {strategy_counts['random']}.")
-            print(f"Average episode reward: {sum_episode_rewards / num_episodes}.")
-        self.transition_table_env.max_steps = old_truncate_steps
-
-
-if __name__ == "__main__":
-    # Define test parameters
-    ranges = [(0, 10), (5, 15), (-10, 10), (-np.inf, np.inf)]
-    num_buckets = [5, 0, 3, 4]
-    normal_params = [None, None, (0, 5), (0, 1)]  # Use normal distribution for the last two dimensions
-
-    # Create Discretizer instance
-    discretizer = Discretizer(ranges, num_buckets, normal_params)
-
-    # Print bucket information
-    print("Bucket Information:")
-    discretizer.print_buckets()
-
-    # Test vectors
-    test_vectors = [
-        [2, 7, -8, -2],
-        [10, 12, 0, 0],
-        [5, 15, 10, 2],
-        [-1, 5, -5, 1],
-        [0, 10, 5, -3]
-    ]
-
-    # Apply discretization and print results
-    for vector in test_vectors:
-        midpoints, indices = discretizer.discretize(vector)
-        print(f"\nInput vector: {vector}")
-        print(f"Midpoints: {midpoints}")
-        print(f"Bucket indices: {indices}")
-
-    # Define test parameters
-    ranges = [(0, 4), (5, 6)]  # Reduced range for easier testing
-    num_buckets = [2, 0]
-    normal_params = [None, None]  # Uniform distribution
-
-    # Create Discretizer instance
-    discretizer = Discretizer(ranges, num_buckets, normal_params)
-
-    # Print bucket information
-    print("Bucket Information:")
-    discretizer.print_buckets()
-
-    # Test all possible combinations
-    midpoints_product, indices_product = discretizer.list_all_possible_combinations()
-    print("\nAll possible combinations of bucket midpoints:")
-    for combo in midpoints_product:
-        print(combo)
-
-    print("\nAll possible combinations of bucket indices:")
-    for combo in indices_product:
-        print(combo)
-
-    # Test vectors
-    test_vectors = [
-        [1, 5.2],
-        [3.5, 5.8],
-    ]
-
-    for vector in test_vectors:
-        midpoints, indices = discretizer.discretize(vector)
-        print(f"\nInput vector: {vector}")
-        print(f"Midpoints: {midpoints}")
-        print(f"Bucket indices: {indices}")
-
-    # Define test parameters
-    ranges = [(0, 4), (-1, 1), (5, 6)]  # Added an integer range example
-    num_buckets = [2, 0, 0]  # Integer range for second dimension, no discretization for the third
-    normal_params = [None, None, None]  # Uniform distribution
-
-    # Create Discretizer instance
-    discretizer = Discretizer(ranges, num_buckets, normal_params)
-
-    # Print bucket information
-    print("Bucket Information:")
-    discretizer.print_buckets()
-
-    # Test all possible combinations
-    midpoints_product, indices_product = discretizer.list_all_possible_combinations()
-    print("\nAll possible combinations of bucket midpoints:")
-    for combo in midpoints_product:
-        print(combo)
-
-    print("\nAll possible combinations of bucket indices:")
-    for combo in indices_product:
-        print(combo)
-
-    # Count possible combinations
-    total_combinations = discretizer.count_possible_combinations()
-    print(f"\nTotal number of possible combinations: {total_combinations}")
-
-    # Test encoding and decoding
-    test_indices = [1, 2, 0]
-    encoded = discretizer.encode_indices(test_indices)
-    decoded = discretizer.decode_indices(encoded)
-    midpoints = discretizer.indices_to_midpoints(test_indices)
-    print(f"\nTest indices: {test_indices}")
-    print(f"Encoded: {encoded}")
-    print(f"Decoded: {decoded}")
-    print(f"Midpoints: {midpoints}")
-
-    # Test vectors
-    test_vectors = [
-        [1, 0, 5.2],
-        [3.5, -1, 6.0],
-    ]
-
-    for vector in test_vectors:
-        midpoints, indices = discretizer.discretize(vector)
-        print(f"\nInput vector: {vector}")
-        print(f"Midpoints: {midpoints}")
-        print(f"Bucket indices: {indices}")
+            self.exploration_agent.learn(total_timesteps=total_timesteps, progress_bar=progress_bar)
+        else:
+            self.q_table_agent.learn(total_timesteps=total_timesteps, progress_bar=progress_bar)
