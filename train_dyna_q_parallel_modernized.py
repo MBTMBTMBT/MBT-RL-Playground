@@ -101,7 +101,6 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
                     train_exploration_agent=True,
                     progress_bar=False,
                 )
-                exploit_policy_updates += 1
 
             if configs[sample_step]["train_exploit_policy"]:
                 if current_step % configs["exploit_policy_training_per_num_steps"] == 0 and current_step > 1:
@@ -110,6 +109,7 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
                         train_exploration_agent=False,
                         progress_bar=False,
                     )
+                    exploit_policy_updates += 1
 
             if configs[sample_step]["test_exploit_policy"]:
                 if (
