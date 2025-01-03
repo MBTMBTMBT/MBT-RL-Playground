@@ -385,9 +385,12 @@ class TabularQAgent:
 
         return probabilities
 
-    def choose_action(self, state: np.ndarray, temperature: float = 1.0) -> np.ndarray:
+    def choose_action(self, state: np.ndarray, temperature: float = 1.0, greedy: bool = False) -> np.ndarray:
         action_probabilities = self.get_action_probabilities(state, temperature)
-        action_encoded = np.random.choice(self.all_actions_encoded, p=action_probabilities)
+        if greedy:
+            action_encoded = np.argmax(action_probabilities)
+        else:
+            action_encoded = np.random.choice(self.all_actions_encoded, p=action_probabilities)
         action = np.array(self.action_discretizer.indices_to_midpoints(self.action_discretizer.decode_indices(action_encoded)))
         if isinstance(self.env.action_space, Discrete):
             action = action.squeeze().item()
@@ -477,155 +480,9 @@ class TabularQAgent:
         if progress_bar:
             pbar.close()
 
-# # hyper-parameters
-# BATCH_SIZE = 128
-# LR = 0.01
-# GAMMA = 0.90
-# EPISILO = 0.9
-# MEMORY_CAPACITY = 2000
-# Q_NETWORK_ITERATION = 100
-#
-# env = gym.make("CartPole-v0")
-# env = env.unwrapped
-# NUM_ACTIONS = env.action_space.n
-# NUM_STATES = env.observation_space.shape[0]
-# ENV_A_SHAPE = 0 if isinstance(env.action_space.sample(), int) else env.action_space.sample.shape
-
-
-# https://github.com/sweetice/Deep-reinforcement-learning-with-pytorch/blob/master/Char01%20DQN/DQN.py
-# class Net(nn.Module):
-#     """docstring for Net"""
-#
-#     def __init__(self, num_inputs: int, num_actions: int, hidden_size=None):
-#         super(Net, self).__init__()
-#         if hidden_size is None:
-#             hidden_size = [32, 32]
-#         self.net = nn.Sequential(
-#             nn.Linear(num_inputs, hidden_size[0]),
-#             nn.InstanceNorm1d(hidden_size[0], affine=True),
-#             nn.LeakyReLU(),
-#         )
-#         for i in range(1, len(hidden_size)):
-#             self.net.append(nn.Linear(hidden_size[i - 1], hidden_size[i])),
-#             self.net.append(nn.InstanceNorm1d(hidden_size[i], affine=True)),
-#             self.net.append(nn.LeakyReLU())
-#         self.net.append(nn.Linear(hidden_size[-1], num_actions))
-#
-#     def forward(self, x):
-#         action_prob = self.net(x)
-#         return action_prob
-#
-#
-# class DQN(nn.Module):
-#     """docstring for DQN"""
-#
-#     def __init__(
-#             self,
-#             input_dims: int,
-#             num_actions: int,
-#             hidden_size=None,
-#             memory_size: int = 16384,
-#             lr: float = 1e-4,
-#     ):
-#         super(DQN, self).__init__()
-#         self.eval_net, self.target_net = Net(input_dims, num_actions, hidden_size), Net(input_dims, num_actions, hidden_size)
-#
-#         self.learn_step_counter = 0
-#         self.memory_counter = 0
-#         self.memory = np.zeros((memory_size, input_dims * 2 + 2))
-#         # why the NUM_STATE*2 +2
-#         # When we store the memory, we put the state, action, reward and next_state in the memory
-#         # here reward and action is a number, state is a ndarray
-#         self.optimizer = torch.optim.Adam(self.eval_net.parameters(), lr=lr)
-#         self.loss_func = nn.MSELoss()
-#
-#     def choose_action(self, state):
-#         state = torch.unsqueeze(torch.FloatTensor(state), 0)  # get a 1D array
-#         if np.random.randn() <= EPISILO:  # greedy policy
-#             action_value = self.eval_net.forward(state)
-#             action = torch.max(action_value, 1)[1].data.numpy()
-#             action = action[0] if ENV_A_SHAPE == 0 else action.reshape(ENV_A_SHAPE)
-#         else:  # random policy
-#             action = np.random.randint(0, NUM_ACTIONS)
-#             action = action if ENV_A_SHAPE == 0 else action.reshape(ENV_A_SHAPE)
-#         return action
-#
-#     def store_transition(self, state, action, reward, next_state):
-#         transition = np.hstack((state, [action, reward], next_state))
-#         index = self.memory_counter % MEMORY_CAPACITY
-#         self.memory[index, :] = transition
-#         self.memory_counter += 1
-#
-#     def learn(self):
-#
-#         # update the parameters
-#         if self.learn_step_counter % Q_NETWORK_ITERATION == 0:
-#             self.target_net.load_state_dict(self.eval_net.state_dict())
-#         self.learn_step_counter += 1
-#
-#         # sample batch from memory
-#         sample_index = np.random.choice(MEMORY_CAPACITY, BATCH_SIZE)
-#         batch_memory = self.memory[sample_index, :]
-#         batch_state = torch.FloatTensor(batch_memory[:, :NUM_STATES])
-#         batch_action = torch.LongTensor(batch_memory[:, NUM_STATES:NUM_STATES + 1].astype(int))
-#         batch_reward = torch.FloatTensor(batch_memory[:, NUM_STATES + 1:NUM_STATES + 2])
-#         batch_next_state = torch.FloatTensor(batch_memory[:, -NUM_STATES:])
-#
-#         # q_eval
-#         q_eval = self.eval_net(batch_state).gather(1, batch_action)
-#         q_next = self.target_net(batch_next_state).detach()
-#         q_target = batch_reward + GAMMA * q_next.max(1)[0].view(BATCH_SIZE, 1)
-#         loss = self.loss_func(q_eval, q_target)
-#
-#         self.optimizer.zero_grad()
-#         loss.backward()
-#         self.optimizer.step()
-#
-#
-# def reward_func(env, x, x_dot, theta, theta_dot):
-#     r1 = (env.x_threshold - abs(x)) / env.x_threshold - 0.5
-#     r2 = (env.theta_threshold_radians - abs(theta)) / env.theta_threshold_radians - 0.5
-#     reward = r1 + r2
-#     return reward
-#
-#
-# def main():
-#     dqn = DQN()
-#     episodes = 400
-#     print("Collecting Experience....")
-#     reward_list = []
-#     plt.ion()
-#     fig, ax = plt.subplots()
-#     for i in range(episodes):
-#         state = env.reset()
-#         ep_reward = 0
-#         while True:
-#             env.render()
-#             action = dqn.choose_action(state)
-#             next_state, _, done, info = env.step(action)
-#             x, x_dot, theta, theta_dot = next_state
-#             reward = reward_func(env, x, x_dot, theta, theta_dot)
-#
-#             dqn.store_transition(state, action, reward, next_state)
-#             ep_reward += reward
-#
-#             if dqn.memory_counter >= MEMORY_CAPACITY:
-#                 dqn.learn()
-#                 if done:
-#                     print("episode: {} , the episode reward is {}".format(i, round(ep_reward, 3)))
-#             if done:
-#                 break
-#             state = next_state
-#         r = copy.copy(reward)
-#         reward_list.append(r)
-#         ax.set_xlim(0, 300)
-#         # ax.cla()
-#         ax.plot(reward_list, 'g-', label='total_loss')
-#         plt.pause(0.001)
-
 
 class TransitionTable:
-    def __init__(self, state_discretizer: Discretizer, action_discretizer: Discretizer, rough_reward_resolution: int = -1):
+    def __init__(self, state_discretizer: Discretizer, action_discretizer: Discretizer, reward_resolution: int = -1):
         self.state_discretizer = state_discretizer
         self.action_discretizer = action_discretizer
         self.transition_table: Dict[int, Dict[int, Dict[int, Dict[float, int]]]] \
@@ -634,7 +491,7 @@ class TransitionTable:
         self.forward_dict = defaultdict(lambda: defaultdict(lambda: set()))
         self.inverse_dict = defaultdict(lambda: defaultdict(lambda: set()))
 
-        # todo: currently will not be saved!
+        # They will not be saved!
         self.state_count = defaultdict(lambda: 0)
         self.state_action_count = defaultdict(lambda: defaultdict(lambda: 0))
         self.transition_prob_table: Dict[int, Dict[int, Dict[int, float]]] \
@@ -642,10 +499,9 @@ class TransitionTable:
         self.done_set = set()
         self.start_set = set()
         self.reward_set_dict = defaultdict(lambda: set())
-        self.rough_reward_set_dict = defaultdict(lambda: set())
-        self.rough_reward_resolution = rough_reward_resolution
+        self.reward_resolution = reward_resolution
 
-        self.mdp_graph: DiGraph = self.make_mdp_graph()
+        self.mdp_graph: DiGraph = None
 
     def print_transition_table_info(self):
         print("Transition Table Information:")
@@ -654,9 +510,9 @@ class TransitionTable:
         print(f"Collected termination states: {len(self.done_set)}.")
         print(f"Collected rewards:")
         total_reward_count = 0
-        for reward, reward_set in self.rough_reward_set_dict.items():
+        for reward, reward_set in self.reward_set_dict.items():
             total_reward_count += len(reward_set)
-        for reward, reward_set in sorted(self.rough_reward_set_dict.items(), key=lambda x: x[0]):
+        for reward, reward_set in sorted(self.reward_set_dict.items(), key=lambda x: x[0]):
             print(f"{reward}: {len(reward_set)} - {len(reward_set) / total_reward_count * 100:.2f}%")
 
     def update(self, state: np.ndarray, action: np.ndarray, reward: float, next_state: np.ndarray, done: bool):
@@ -680,13 +536,12 @@ class TransitionTable:
         for encoded_next_state, (avg_reward, prob) in transition_state_avg_reward_and_prob.items():
             self.transition_prob_table[encoded_state][encoded_action][encoded_next_state] = prob
 
-        self.reward_set_dict[reward].add(encoded_next_state)
-        if self.rough_reward_resolution > 0:
-            self.rough_reward_set_dict[round(reward / self.rough_reward_resolution) * self.rough_reward_resolution].add(encoded_next_state)
-        elif self.rough_reward_resolution < 0:
-            self.rough_reward_set_dict[round(reward, abs(self.rough_reward_resolution))].add(encoded_next_state)
+        if self.reward_resolution > 0:
+            self.reward_set_dict[round(reward / self.reward_resolution) * self.reward_resolution].add(encoded_next_state)
+        elif self.reward_resolution < 0:
+            self.reward_set_dict[round(reward, abs(self.reward_resolution))].add(encoded_next_state)
         else:
-            self.rough_reward_set_dict[reward].add(encoded_next_state)
+            self.reward_set_dict[reward].add(encoded_next_state)
 
     def save_transition_table(self, file_path: str = None) -> pd.DataFrame:
         transition_table_data = []
@@ -856,15 +711,20 @@ class TransitionTable:
 
 
 class TransitionalTableEnv(TransitionTable, gym.Env):
+    INIT_STRATEGIES = ["real_start_states", "random"]
     def __init__(
             self,
             state_discretizer: Discretizer,
             action_discretizer: Discretizer,
             max_steps: int = 500,
-            rough_reward_resolution: int = -1,
+            reward_resolution: int = -1,
+            init_strategy_distribution: Tuple[float] = (0.33, 0.33),
     ):
-        TransitionTable.__init__(self, state_discretizer, action_discretizer, rough_reward_resolution=rough_reward_resolution)
+        TransitionTable.__init__(self, state_discretizer, action_discretizer, reward_resolution=reward_resolution)
         gym.Env.__init__(self)
+
+        assert len(init_strategy_distribution) == len(TransitionalTableEnv.INIT_STRATEGIES), "init_strategy_distribution must have the same length as INIT_STRATEGIES."
+        self.init_strategy_distribution = init_strategy_distribution
 
         # State space
         self.state_discretizer = state_discretizer
@@ -880,7 +740,17 @@ class TransitionalTableEnv(TransitionTable, gym.Env):
         self.step_count = 0
         self.current_state = None
 
-    def reset(self, seed=None, options=None, init_state_encode: int = None, init_strategy: str = "real_start_states"):
+        self.strategy_counts = {s: 1 for s in TransitionalTableEnv.INIT_STRATEGIES}
+        self.strategy_step_counts = {s: 1 for s in TransitionalTableEnv.INIT_STRATEGIES}
+
+    def reset(self, seed=None, options=None, init_state_encode: int = None,):
+        strategy_selection_dict = {}
+        for i, s in enumerate(TransitionalTableEnv.INIT_STRATEGIES):
+            if self.init_strategy_distribution[i] != 0:
+                strategy_selection_dict[s] = self.strategy_step_counts[s] / self.init_strategy_distribution[i]
+            else:
+                strategy_selection_dict[s] = np.inf
+        init_strategy = min(strategy_selection_dict, key=strategy_selection_dict.get)
         super().reset(seed=seed)
         self.step_count = 0
         if init_state_encode is None or init_state_encode in self.done_set:
@@ -910,8 +780,6 @@ class TransitionalTableEnv(TransitionTable, gym.Env):
         if len(transition_state_avg_reward_and_prob) == 0:
             return encoded_state, unknown_reward, True, False, {"current_step": self.step_count}
         if transition_strategy == "weighted":
-            a = tuple(transition_state_avg_reward_and_prob.keys())
-            b = [v[1] for v in transition_state_avg_reward_and_prob.values()]
             encoded_next_state = random.choices(
                 tuple(transition_state_avg_reward_and_prob.keys()),
                 weights=[v[1] for v in transition_state_avg_reward_and_prob.values()],
@@ -947,9 +815,9 @@ class QCutTransitionalTableEnv(TransitionalTableEnv):
             state_discretizer: Discretizer,
             action_discretizer: Discretizer,
             max_steps: int = 500,
-            rough_reward_resolution: int = -1,
+            reward_resolution: int = -1,
     ):
-        TransitionalTableEnv.__init__(self, state_discretizer, action_discretizer, max_steps, rough_reward_resolution)
+        TransitionalTableEnv.__init__(self, state_discretizer, action_discretizer, max_steps, reward_resolution)
         self.landmark_states, self.landmark_start_states, self.targets = None, None, None
         self.no_target_error_printed_times = 3
 
@@ -963,7 +831,7 @@ class QCutTransitionalTableEnv(TransitionalTableEnv):
         :param direction: Direction of search ('forward', 'backward', or 'both')
         :return: List of the nearest n nodes (sorted by distance) and the subgraph containing these nodes
         """
-        G = self.mdp_graph
+        G = self.mdp_graph if self.mdp_graph else self.make_mdp_graph()
 
         visited = set()  # Set to track visited nodes
         heap = []  # Min-heap to prioritize nodes by accumulated probability (log space)
@@ -1116,11 +984,11 @@ class QCutTransitionalTableEnv(TransitionalTableEnv):
 
         targets = set()
         total_reward_count = 0
-        for reward, reward_set in self.rough_reward_set_dict.items():
+        for reward, reward_set in self.reward_set_dict.items():
             total_reward_count += len(reward_set)
-        for reward in self.rough_reward_set_dict.keys():
-            if len(self.rough_reward_set_dict[reward]) / total_reward_count < init_state_reward_prob_below_threshold:
-                for state in self.rough_reward_set_dict[reward]:
+        for reward in self.reward_set_dict.keys():
+            if len(self.reward_set_dict[reward]) / total_reward_count < init_state_reward_prob_below_threshold:
+                for state in self.reward_set_dict[reward]:
                     targets.add(state)
 
         if take_done_states_as_targets:
@@ -1135,6 +1003,7 @@ class QCutTransitionalTableEnv(TransitionalTableEnv):
 
         selected_targets = targets if len(targets) <= num_targets else random.sample(targets, num_targets)
 
+        self.make_mdp_graph()
         for target in selected_targets:
             nearest_nodes, subgraph = self.find_nearest_nodes_and_subgraph(
                 target, min_cut_max_flow_search_space, weighted=weighted_search, direction='backward'
@@ -1276,7 +1145,7 @@ class TabularDynaQAgent:
         self.state_discretizer = state_discretizer
         self.action_discretizer = action_discretizer
         self.transition_table_env = TransitionalTableEnv(
-            state_discretizer, action_discretizer, max_steps=max_steps, rough_reward_resolution=rough_reward_resolution,
+            state_discretizer, action_discretizer, max_steps=max_steps, reward_resolution=rough_reward_resolution,
         )
         self.q_table_agent = TabularQAgent(self.state_discretizer, self.action_discretizer)
         self.exploration_agent = TabularQAgent(self.state_discretizer, self.action_discretizer)
