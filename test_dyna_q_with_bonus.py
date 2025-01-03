@@ -58,7 +58,7 @@ if __name__ == '__main__':
     # weighted_search: bool = True
     # init_state_reward_prob_below_threshold: float = 0.1
     # quality_value_threshold: float = 1.0
-    # rough_reward_resolution = 1
+    # reward_resolution = 1
     # init_strategy_distribution = (0.33, 0.33, 0.33)
 
     # env = gym.make('Blackjack-v1', natural=False, sab=False, render_mode="rgb_array")
@@ -85,7 +85,7 @@ if __name__ == '__main__':
     # weighted_search: bool = True
     # init_state_reward_prob_below_threshold: float = 0.1
     # quality_value_threshold: float = 1.0
-    # rough_reward_resolution = 1
+    # reward_resolution = 1
 
     # env = gym.make("MountainCarContinuous-v0", render_mode="rgb_array", goal_velocity=0.1)
     # test_env = gym.make("MountainCarContinuous-v0", render_mode="rgb_array", goal_velocity=0.1)
@@ -159,7 +159,7 @@ if __name__ == '__main__':
     # quality_value_threshold: float = 1.0
     #
     # init_strategy_distribution = (0.33, 0.33, 0.33)
-    # rough_reward_resolution = 10
+    # reward_resolution = 10
 
     # env = gym.make("Acrobot-v1", render_mode="rgb_array")
     # test_env = gym.make("Acrobot-v1", render_mode="rgb_array")
