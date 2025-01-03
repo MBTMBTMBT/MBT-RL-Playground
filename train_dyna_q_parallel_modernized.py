@@ -27,20 +27,6 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
     init_distribution = configs["init_groups"][init_group]
     sample_steps = sorted([k for k in configs.keys() if isinstance(k, int)])
 
-    # alpha = configs[sample_step]["train_exploit_lr"],
-    # strategy = configs[sample_step]["train_exploit_strategy"],
-    # init_strategy_distribution = init_distribution,
-    # train_exploration_agent = False,
-    # num_targets = configs["q_cut_params"]["num_targets"],
-    # min_cut_max_flow_search_space = configs["q_cut_params"]["min_cut_max_flow_search_space"],
-    # q_cut_space = configs["q_cut_params"]["q_cut_space"],
-    # weighted_search = configs["q_cut_params"]["weighted_search"],
-    # init_state_reward_prob_below_threshold = configs["q_cut_params"]["init_state_reward_prob_below_threshold"],
-    # quality_value_threshold = configs["q_cut_params"]["quality_value_threshold"],
-    # take_done_states_as_targets = configs["q_cut_params"]["take_done_states_as_targets"],
-    # use_task_bar = False,
-    # do_print = configs["print_training_info"],
-
     agent = TabularDynaQAgent(
         state_discretizer_t,
         action_discretizer_t,
@@ -74,32 +60,18 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
         pbar.set_description(f"[{run_id}-{task_name}-{init_group}] - Sampling stage [{sample_step}/{str(sample_steps)}]")
 
         state, _ = env.reset()
-        if isinstance(state, int) or isinstance(state, float):
-            state = [state]
-        encoded_state = agent.state_discretizer.encode_indices(
-            list(agent.state_discretizer.discretize(state)[1])
-        )
-        agent.transition_table_env.add_start_state(encoded_state)
+        agent.transition_table_env_t.add_start_state(state)
+        agent.transition_table_env_b.add_start_state(state)
+        agent.transition_table_env_e.add_start_state(state)
 
         init_sample_strategy = random.choices(sample_strategies, weights=sample_strategy_distribution, k=1)[0]
         while current_step < num_steps_to_sample:
             if random.random() < configs["explore_epsilon"]:
-                action_vec = agent.choose_action(state, strategy="random")
+                action = env.action_space.sample()
             else:
-                action_vec = agent.choose_action(state, strategy=init_sample_strategy)
-            if action_type == "int":
-                action = action_vec.astype("int64")
-                action = action[0].item()
-            elif action_type == "float":
-                action = action_vec.astype("float32")
+                action = agent.choose_action(state, explore_action=True, greedy=True)
             next_state, reward, done, truncated, _ = env.step(action)
-            if isinstance(next_state, int) or isinstance(next_state, float):
-                next_state = [next_state]
-
-            agent.update_from_env(
-                state, action_vec, reward, next_state, done, configs["explore_agent_lr"],
-                configs["explore_value_decay"], update_policy=False,
-            )
+            agent.update_from_env(state, action, reward, next_state, done,)
             state = next_state
 
             current_step += 1
@@ -108,12 +80,9 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
 
             if done or truncated:
                 state, _ = env.reset()
-                if isinstance(state, int) or isinstance(state, float):
-                    state = [state]
-                encoded_state = agent.state_discretizer.encode_indices(
-                    list(agent.state_discretizer.discretize(state)[1])
-                )
-                agent.transition_table_env.add_start_state(encoded_state)
+                agent.transition_table_env_t.add_start_state(state)
+                agent.transition_table_env_b.add_start_state(state)
+                agent.transition_table_env_e.add_start_state(state)
                 strategy_selection_dict = {}
                 for i, s in enumerate(sample_strategies):
                     if init_distribution[i] != 0:
@@ -122,24 +91,19 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
                         strategy_selection_dict[s] = np.inf
                 init_sample_strategy = min(strategy_selection_dict, key=strategy_selection_dict.get)
 
+            if current_step % configs["explore_policy_training_per_num_steps"] == 0 and current_step > 1:
+                agent.update_from_transition_table(
+                    total_timesteps=configs["explore_policy_training_steps"],
+                    train_exploration_agent=True,
+                    progress_bar=False,
+                )
+
             if configs[sample_step]["train_exploit_policy"]:
                 if current_step % configs["exploit_policy_training_per_num_steps"] == 0 and current_step > 1:
                     agent.update_from_transition_table(
-                        configs["exploit_policy_training_steps"],
-                        configs[sample_step]["epsilon"],
-                        alpha=configs[sample_step]["train_exploit_lr"],
-                        strategy=configs[sample_step]["train_exploit_strategy"],
-                        init_strategy_distribution=init_distribution,
+                        total_timesteps=configs["exploit_policy_training_steps"],
                         train_exploration_agent=False,
-                        num_targets=configs["q_cut_params"]["num_targets"],
-                        min_cut_max_flow_search_space=configs["q_cut_params"]["min_cut_max_flow_search_space"],
-                        q_cut_space=configs["q_cut_params"]["q_cut_space"],
-                        weighted_search=configs["q_cut_params"]["weighted_search"],
-                        init_state_reward_prob_below_threshold=configs["q_cut_params"]["init_state_reward_prob_below_threshold"],
-                        quality_value_threshold=configs["q_cut_params"]["quality_value_threshold"],
-                        take_done_states_as_targets=configs["q_cut_params"]["take_done_states_as_targets"],
-                        use_task_bar=False,
-                        do_print=configs["print_training_info"],
+                        progress_bar=False,
                     )
 
             if configs[sample_step]["test_exploit_policy"]:
@@ -148,20 +112,11 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
                     frames = []
                     for t in range(configs["exploit_policy_test_episodes"]):
                         test_state, _ = test_env.reset()
-                        if isinstance(test_state, int) or isinstance(test_state, float):
-                            test_state = [test_state]
                         test_total_reward = 0
                         test_done = False
                         while not test_done:
-                            test_action = agent.choose_action(test_state, strategy="greedy")
-                            if action_type == "int":
-                                test_action = test_action.astype("int64")[0].item()
-                            elif action_type == "float":
-                                test_action = test_action.astype("float32")
-                            test_next_state, test_reward, test_done, test_truncated, _ = test_env.step(
-                                test_action)
-                            if isinstance(test_next_state, int) or isinstance(test_next_state, float):
-                                test_next_state = [test_next_state]
+                            test_action = agent.choose_action(test_state, explore_action=False, greedy=True)
+                            test_next_state, test_reward, test_done, test_truncated, _ = test_env.step(test_action)
                             if t == 0:
                                 frames.append(test_env.render())
                             test_state = test_next_state
@@ -186,10 +141,10 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
             if (current_step + 1) % configs["save_per_num_steps"] == 0 or current_step == num_steps_to_sample - 1:
                 graph_path = group_save_path + f"_{current_step}.html"
                 save_csv_file = group_save_path + f"_{current_step}.csv"
-                agent.transition_table_env.print_transition_table_info()
+                agent.transition_table_env_t.print_transition_table_info()
                 agent.save_agent(save_csv_file)
                 if configs["save_mdp_graph"]:
-                    agent.transition_table_env.save_mdp_graph(graph_path, use_encoded_states=True)
+                    agent.transition_table_env_t.save_mdp_graph(graph_path, use_encoded_states=True)
 
             pbar.set_postfix({
                 "Episodes": sum(sample_strategy_step_count.values()),
@@ -226,11 +181,15 @@ def run_all_experiments_and_plot(task_names_and_num_experiments: Dict[str, int],
                 })
                 run_id += 1
 
-    print(f"Total tasks: {run_id + 1}.")
+    print(f"Total tasks: {run_id}.")
 
     # Execute tasks in parallel
-    with ProcessPoolExecutor(max_workers=max_workers) as executor:
-        all_results = list(executor.map(run_experiment_unpack, tasks))
+    if max_workers > 1:
+        with ProcessPoolExecutor(max_workers=max_workers) as executor:
+            all_results = list(executor.map(run_experiment_unpack, tasks))
+    else:
+        # Execute tasks sequentially when only one CPU is available
+        all_results = [run_experiment_unpack(task) for task in tasks]
 
     # Aggregate results for each group
     aggregated_results = {}
