@@ -95,7 +95,7 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
                         strategy_selection_dict[s] = np.inf
                 init_sample_strategy = min(strategy_selection_dict, key=strategy_selection_dict.get)
 
-            if current_step % configs["explore_policy_training_per_num_steps"] == 0 and current_step > 1:
+            if sample_step_count % configs["explore_policy_training_per_num_steps"] == 0 and sample_step_count > 1:
                 agent.update_from_transition_table(
                     total_timesteps=configs["explore_policy_training_steps"],
                     train_exploration_agent=True,
@@ -103,7 +103,7 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
                 )
 
             if configs[sample_step]["train_exploit_policy"]:
-                if current_step % configs["exploit_policy_training_per_num_steps"] == 0 and current_step > 1:
+                if sample_step_count % configs["exploit_policy_training_per_num_steps"] == 0 and sample_step_count > 1:
                     agent.update_from_transition_table(
                         total_timesteps=configs["exploit_policy_training_steps"],
                         train_exploration_agent=False,
@@ -114,7 +114,7 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
 
             if configs[sample_step]["test_exploit_policy"]:
                 if (
-                        current_step == 1 or (current_step + 1) % configs["exploit_policy_test_per_num_steps"] == 0
+                        sample_step_count == 1 or (sample_step_count + 1) % configs["exploit_policy_test_per_num_steps"] == 0
                         or (sample_step_count == sample_steps[-1] - 1)
                 ):
                     periodic_test_rewards = []
@@ -134,25 +134,25 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
                                 break
                         periodic_test_rewards.append(test_total_reward)
 
-                    if current_step == 1 or (current_step + 1) % configs["exploit_policy_test_per_num_steps"] == 0:
+                    if sample_step_count == 1 or (sample_step_count + 1) % configs["exploit_policy_test_per_num_steps"] == 0:
                         avg_test_reward = np.mean(periodic_test_rewards)
                         test_results.append(avg_test_reward)
                         test_steps.append(sample_step_count)
 
                     # If this is the last test result, use it as the final result.
-                    if current_step == num_steps_to_sample - 1:
+                    if current_step == num_steps_to_sample - 1 or sample_step_count == sample_steps[-1] - 1:
                         final_test_rewards = avg_test_reward
 
-                    # Save GIF for the first test episode
-                    gif_path = group_save_path + f"_{current_step}.gif"
-                    generate_test_gif(frames, gif_path, to_print=configs["print_training_info"])
+                        # Save GIF for the first test episode
+                        gif_path = group_save_path + f"_{sample_step_count}.gif"
+                        generate_test_gif(frames, gif_path, to_print=configs["print_training_info"])
 
             if (
-                    (current_step + 1) % configs["save_per_num_steps"] == 0
+                    (sample_step_count + 1) % configs["save_per_num_steps"] == 0
                     or (sample_step_count == sample_steps[-1] - 1)
             ):
-                graph_path = group_save_path + f"_{current_step}.html"
-                save_csv_file = group_save_path + f"_{current_step}.csv"
+                graph_path = group_save_path + f"_{sample_step_count}.html"
+                save_csv_file = group_save_path + f"_{sample_step_count}.csv"
                 agent.transition_table_env_t.print_transition_table_info()
                 agent.save_agent(save_csv_file)
                 if configs["save_mdp_graph"]:
