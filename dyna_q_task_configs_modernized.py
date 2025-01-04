@@ -115,7 +115,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "explore_value_decay": 0.99,
             "explore_bonus_decay": 0.9,
             "explore_policy_training_per_num_steps": int(0.5e3),
-            "explore_policy_training_steps": int(10e3),
+            "explore_policy_training_steps": int(5e3),
             "explore_epsilon": 0.25,
             "explore_strategy": "greedy",
             "reward_resolution": 0,
