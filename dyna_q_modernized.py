@@ -12,14 +12,12 @@ from typing import List, Tuple, Optional, Dict
 
 from gymnasium import spaces
 from networkx.classes import DiGraph
-from overrides.typing_utils import unknown
 from pandas import DataFrame
 import tqdm
 from pyvis.network import Network
 
 import matplotlib.colors as mcolors
 from matplotlib.colors import LinearSegmentedColormap
-from tensorboard.compat.tensorflow_stub.dtypes import int64, float32
 
 
 class Discretizer:
@@ -41,6 +39,7 @@ class Discretizer:
             assert len(normal_params) == len(num_buckets), "normal_params must match the length of num_buckets."
 
         self.ranges: List[Tuple[float, float]] = ranges
+        self.input_num_buckets: List[int] = num_buckets
         self.num_buckets: List[int] = [
             int(np.floor(max_val) - np.ceil(min_val) + 1) if buckets == 0 else buckets
             for (min_val, max_val), buckets in zip(ranges, num_buckets)
@@ -253,7 +252,7 @@ class Discretizer:
 
         :return: A `spaces.MultiDiscrete`, `spaces.Discrete`, or `spaces.Box` space depending on the discretization.
         """
-        if all(buckets > 0 for buckets in self.num_buckets):
+        if all(buckets == 0 for buckets in self.input_num_buckets):
             if len(self.num_buckets) == 1:
                 # Use Discrete if only one dimension
                 return spaces.Discrete(self.num_buckets[0])
@@ -818,7 +817,7 @@ class TransitionalTableEnv(TransitionTable, gym.Env):
         )
         return current_state, {}
 
-    def step(self, action: int,):
+    def step(self, action: int or np.ndarray,):
         if self.unknown_reward is None:
             r_sum = 0.0
             total_rewards = 0
@@ -829,7 +828,10 @@ class TransitionalTableEnv(TransitionTable, gym.Env):
         else:
             unknown_reward = self.unknown_reward
         encoded_state = self.current_state
-        encoded_action = action
+        if isinstance(action, int):
+            encoded_action = action
+        else:
+            encoded_action = self.action_discretizer.encode_indices(list(self.action_discretizer.discretize(action)[1]))
         transition_state_avg_reward_and_prob \
             = self.get_transition_state_avg_reward_and_prob(encoded_state, encoded_action)
         if len(transition_state_avg_reward_and_prob) == 0:
