@@ -399,15 +399,10 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 "quality_value_threshold": 1.0,
                 "take_done_states_as_targets": True,
             },
-            int(1e6): {
-                "explore_policy_exploit_policy_ratio": (1.0, 0.0),
-                "train_exploit_policy": False,
-                "test_exploit_policy": False,
-            },
             int(3e6): {
                 "explore_policy_exploit_policy_ratio": (0.5, 0.5),
                 "train_exploit_policy": True,
-                "epsilon": 0.25,
+                "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
             int(5e6): {
