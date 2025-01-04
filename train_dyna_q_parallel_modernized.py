@@ -108,6 +108,7 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
                         total_timesteps=configs["exploit_policy_training_steps"],
                         train_exploration_agent=False,
                         progress_bar=False,
+                        temperature=configs["exploit_softmax_temperature"],
                     )
                     exploit_policy_updates += 1
 

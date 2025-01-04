@@ -472,6 +472,7 @@ class TabularQAgent:
             total_timesteps: int,
             reset_num_timesteps: bool = True,
             progress_bar: bool = False,
+            temperature: float = 1.0,
     ):
         state, info = self.env.reset()
         episode_step_count = 0
@@ -491,9 +492,9 @@ class TabularQAgent:
                     episode_step_count = 0
                     num_episodes += 1
                     state, info = self.env.reset()
-            action = self.choose_action(state)
+            action = self.choose_action(state, temperature=temperature)
             next_state, reward, terminated, truncated, info = self.env.step(action)
-            self.update(state, action, reward, next_state, terminated, alpha=self.lr, gamma=self.gamma,)
+            self.update(state, action, reward, next_state, terminated, alpha=self.lr, gamma=self.gamma)
             state = next_state
             episode_step_count += 1
             sum_episode_rewards += reward
@@ -1359,10 +1360,11 @@ class TabularDynaQAgent:
             total_timesteps: int,
             train_exploration_agent: bool = False,
             progress_bar: bool = False,
+            temperature: float = 1.0,
     ):
         if train_exploration_agent:
             self.transition_table_env_e.reset(reset_all=True)
             self.exploration_agent.learn(total_timesteps=total_timesteps, progress_bar=progress_bar)
         else:
             self.double_env.reset(reset_all=True)
-            self.q_table_agent.learn(total_timesteps=total_timesteps, progress_bar=progress_bar)
+            self.q_table_agent.learn(total_timesteps=total_timesteps, progress_bar=progress_bar, temperature=temperature)
