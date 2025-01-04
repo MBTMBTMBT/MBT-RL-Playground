@@ -1051,6 +1051,8 @@ class LandmarksTransitionalTableEnv(TransitionalTableEnv):
                 target, self.min_cut_max_flow_search_space, weighted=self.weighted_search, direction='backward'
             )
             start_node = random.choice(nearest_nodes[-len(nearest_nodes)//10:])[0]
+            if start_node == target:
+                continue
             cut_value, reachable, non_reachable, edges_in_cut, quality_factor = self.find_min_cut_max_flow(
                 subgraph, start_node, target, invert_weights=False,
             )
