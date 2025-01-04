@@ -1,6 +1,6 @@
 if __name__ == '__main__':
     from train_dyna_q_parallel_modernized import *
-    aggregated_results = run_all_experiments_and_plot({"texi": 2}, max_workers=4)
+    aggregated_results = run_all_experiments_and_plot({"texi": 8}, max_workers=16)
     print(aggregated_results)
     aggregated_results = run_all_experiments_and_plot({"cartpole": 8}, max_workers=16)
     print(aggregated_results)
