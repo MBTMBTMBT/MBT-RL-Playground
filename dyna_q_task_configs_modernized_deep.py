@@ -47,7 +47,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "exploit_value_decay": 0.99,
             "exploit_policy_training_per_num_steps": int(2.5e3),
             "exploit_policy_training_steps": int(5e3),
-            "exploit_policy_test_per_num_steps": int(5e3),
+            "exploit_policy_test_per_num_steps": int(2.5e3),
             "exploit_policy_test_episodes": 256,
             "save_per_num_steps": int(500e3),
             "save_mdp_graph": False,
