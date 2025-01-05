@@ -86,6 +86,8 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
     sample_step_count = 0
     avg_test_reward = 0.0
     exploit_policy_updates = 0
+
+    was_testing_exploit_policy = False
     for sample_step in sample_steps:
         sample_strategy_distribution = configs[sample_step]["explore_policy_exploit_policy_ratio"]
         num_steps_to_sample = sample_step - sample_step_count
@@ -155,9 +157,11 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
 
             if configs[sample_step]["test_exploit_policy"]:
                 if (
+                        not was_testing_exploit_policy or
                         sample_step_count == 1 or (sample_step_count + 1) % configs["exploit_policy_test_per_num_steps"] == 0
                         or (sample_step_count == sample_steps[-1] - 1)
                 ):
+                    was_testing_exploit_policy = True
                     periodic_test_rewards = []
                     frames = []
                     for t in range(configs["exploit_policy_test_episodes"]):

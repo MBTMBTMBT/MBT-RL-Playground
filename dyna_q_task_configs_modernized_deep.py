@@ -45,8 +45,8 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "exploit_softmax_temperature": 0.5,
             "exploit_policy_reward_rate": 1e-3,
             "exploit_value_decay": 0.99,
-            "exploit_policy_training_per_num_steps": int(5e3),
-            "exploit_policy_training_steps": int(10e3),
+            "exploit_policy_training_per_num_steps": int(2.5e3),
+            "exploit_policy_training_steps": int(5e3),
             "exploit_policy_test_per_num_steps": int(5e3),
             "exploit_policy_test_episodes": 64,
             "save_per_num_steps": int(500e3),
@@ -67,18 +67,18 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 "quality_value_threshold": 1.0,
                 "take_done_states_as_targets": True,
             },
-            int(500e3): {
+            int(50e3): {
                 "explore_policy_exploit_policy_ratio": (1.0, 0.0),
                 "train_exploit_policy": False,
                 "test_exploit_policy": False,
             },
-            int(650e3): {
+            int(75e3): {
                 "explore_policy_exploit_policy_ratio": (0.5, 0.5),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(800e3): {
+            int(100e3): {
                 "explore_policy_exploit_policy_ratio": (0.25, 0.75),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
@@ -111,7 +111,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             normal_params=[None, ],
         )
         configs = {
-            "use_deep_agent": False,
+            "use_deep_agent": True,
             "save_path": save_path,
             "explore_agent_lr": 0.1,
             "explore_value_decay": 0.99,
@@ -126,9 +126,9 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "exploit_softmax_temperature": 0.5,
             "exploit_policy_reward_rate": 1e-3,
             "exploit_value_decay": 0.99,
-            "exploit_policy_training_per_num_steps": int(0.002e6),
-            "exploit_policy_training_steps": int(0.01e6),
-            "exploit_policy_test_per_num_steps": int(0.05e6),
+            "exploit_policy_training_per_num_steps": int(2.5e3),
+            "exploit_policy_training_steps": int(5e3),
+            "exploit_policy_test_per_num_steps": int(5e3),
             "exploit_policy_test_episodes": 200,
             "save_per_num_steps": int(2.5e6),
             "save_mdp_graph": False,
@@ -153,13 +153,13 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 "train_exploit_policy": False,
                 "test_exploit_policy": False,
             },
-            int(10e6): {
+            int(7.625e6): {
                 "explore_policy_exploit_policy_ratio": (0.5, 0.5),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(15e6): {
+            int(7.75e6): {
                 "explore_policy_exploit_policy_ratio": (0.25, 0.75),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
@@ -301,9 +301,9 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "exploit_softmax_temperature": 0.5,
             "exploit_policy_reward_rate": 1e-3,
             "exploit_value_decay": 0.99,
-            "exploit_policy_training_per_num_steps": int(0.002e6),
-            "exploit_policy_training_steps": int(0.01e6),
-            "exploit_policy_test_per_num_steps": int(0.05e6),
+            "exploit_policy_training_per_num_steps": int(2.5e3),
+            "exploit_policy_training_steps": int(5e3),
+            "exploit_policy_test_per_num_steps": int(5e3),
             "exploit_policy_test_episodes": 200,
             "save_per_num_steps": int(2.5e6),
             "save_mdp_graph": False,
