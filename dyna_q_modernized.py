@@ -86,6 +86,9 @@ class Discretizer:
                 or isinstance(vector, np.float32)
         ):
             vector = [vector]
+        elif isinstance(vector, np.ndarray) and vector.size == 1:
+            vector = vector.item()
+            vector = [vector]
         assert len(vector) == len(self.ranges), "Input vector must have the same length as ranges."
 
         midpoints: List[float] = []
@@ -419,6 +422,9 @@ class TabularQAgent:
 
         if visitation == 0:
             probabilities = np.ones_like(q_values, dtype=float) / len(q_values)
+
+        # if np.isnan(probabilities[0]):
+        #     print()
 
         return probabilities
 
@@ -1426,7 +1432,7 @@ class PPODynaQAgent:
         self.transition_table_env_e = TransitionalTableEnv(
             state_discretizer_b,
             action_discretizer_b,
-            max_steps=max_steps,
+            # n_steps=max_steps,
             reward_resolution=reward_resolution,
             unknown_reward=1.0,
         )
@@ -1434,19 +1440,23 @@ class PPODynaQAgent:
         self.exploit_agent = PPO(
             "MlpPolicy",
             self.double_env,
-            n_steps=max_steps,
+            # n_steps=max_steps,
             learning_rate=exploit_lr,
             gamma=gamma,
             verbose=0,
+            # device='cpu',
+            batch_size=32,
         )
-        self.exploration_agent = PPO(
-            "MlpPolicy",
+        self.exploration_agent = TabularQAgent(
             self.transition_table_env_e,
+            self.state_discretizer_b,
+            self.action_discretizer_b,
             n_steps=max_steps,
-            learning_rate=explore_lr,
+            lr=explore_lr,
             gamma=gamma,
-            verbose=0,
+            print_info=False,
         )
+        self.exploration_agent.q_table = defaultdict(lambda: 1.0)
         self.bonus_states = defaultdict(lambda: 1.0)
         self.bonus_decay = bonus_decay
 
@@ -1457,7 +1467,7 @@ class PPODynaQAgent:
     def save_agent(self, file_path: str = None) -> tuple[DataFrame, DataFrame, DataFrame,]:
         if file_path:
             q_table_file_path = file_path.split(".csv")[0] + "_exploit_agent"
-            exploration_agent_q_table_file_path = file_path.split(".csv")[0] + "_exploration_agent"
+            exploration_agent_q_table_file_path = file_path.split(".csv")[0] + "_exploration_agent_q_table.csv"
             transition_table_t_file_path = file_path.split(".csv")[0] + "_transition_table_t.csv"
             transition_table_b_file_path = file_path.split(".csv")[0] + "_transition_table_b.csv"
             transition_table_e_file_path = file_path.split(".csv")[0] + "_transition_table_e.csv"
@@ -1468,7 +1478,7 @@ class PPODynaQAgent:
             transition_table_b_file_path = None
             transition_table_e_file_path = None
         self.exploit_agent.save(q_table_file_path)
-        self.exploration_agent.save(exploration_agent_q_table_file_path)
+        exploration_agent_q_table_df = self.exploration_agent.save_q_table(file_path=exploration_agent_q_table_file_path)
         transition_table_t_df = self.transition_table_env_t.save_transition_table(file_path=transition_table_t_file_path)
         transition_table_b_df = self.transition_table_env_b.save_transition_table(file_path=transition_table_b_file_path)
         transition_table_e_df = self.transition_table_env_e.save_transition_table(file_path=transition_table_e_file_path)
@@ -1480,7 +1490,7 @@ class PPODynaQAgent:
     ):
         if file_path:
             q_table_file_path = file_path.split(".csv")[0] + "_exploit_agent"
-            exploration_agent_q_table_file_path = file_path.split(".csv")[0] + "_exploration_agent"
+            exploration_agent_q_table_file_path = file_path.split(".csv")[0] + "_exploration_agent_q_table.csv"
             transition_table_t_file_path = file_path.split(".csv")[0] + "_transition_table_t.csv"
             transition_table_b_file_path = file_path.split(".csv")[0] + "_transition_table_b.csv"
             transition_table_e_file_path = file_path.split(".csv")[0] + "_transition_table_e.csv"
@@ -1491,7 +1501,7 @@ class PPODynaQAgent:
             transition_table_b_file_path = None
             transition_table_e_file_path = None
         self.exploit_agent.load(q_table_file_path)
-        self.exploration_agent.load(exploration_agent_q_table_file_path)
+        self.exploration_agent.load_q_table(file_path=exploration_agent_q_table_file_path,)
         self.transition_table_env_t.load_transition_table(
             file_path=transition_table_t_file_path,
         )
@@ -1503,10 +1513,10 @@ class PPODynaQAgent:
         )
 
     def choose_action(
-            self, state: np.ndarray, explore_action: bool = False, greedy: bool = False,
+            self, state: np.ndarray, explore_action: bool = False, temperature: float = 1.0, greedy: bool = False,
     ) -> np.ndarray:
         if explore_action:
-            action, _ = self.exploration_agent.predict(state, deterministic=greedy)
+            action = self.exploration_agent.choose_action(state, temperature=temperature, greedy=greedy)
         else:
             action, _ = self.exploit_agent.predict(state, deterministic=greedy)
         return action

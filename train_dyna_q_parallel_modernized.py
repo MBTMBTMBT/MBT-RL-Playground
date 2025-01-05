@@ -7,9 +7,12 @@ import numpy as np
 from tqdm import tqdm
 import plotly.graph_objs as go
 
-from dyna_q_modernized import TabularDynaQAgent
-from dyna_q_task_configs_modernized import get_envs_discretizers_and_configs
+from dyna_q_modernized import TabularDynaQAgent, PPODynaQAgent
+from dyna_q_task_configs_modernized import get_envs_discretizers_and_configs as tabular_configs
+from dyna_q_task_configs_modernized_deep import get_envs_discretizers_and_configs as deep_configs
 from parallel_training import generate_test_gif
+
+get_envs_discretizers_and_configs = deep_configs
 
 
 def run_experiment(task_name: str, run_id: int, init_group: str):
@@ -27,26 +30,48 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
     init_distribution = configs["init_groups"][init_group]
     sample_steps = sorted([k for k in configs.keys() if isinstance(k, int)])
 
-    agent = TabularDynaQAgent(
-        state_discretizer_t,
-        action_discretizer_t,
-        state_discretizer_b,
-        action_discretizer_b,
-        num_targets=configs["q_cut_params"]["num_targets"],
-        min_cut_max_flow_search_space=configs["q_cut_params"]["min_cut_max_flow_search_space"],
-        q_cut_space=configs["q_cut_params"]["q_cut_space"],
-        weighted_search=configs["q_cut_params"]["weighted_search"],
-        init_state_reward_prob_below_threshold=configs["q_cut_params"]["init_state_reward_prob_below_threshold"],
-        quality_value_threshold=configs["q_cut_params"]["quality_value_threshold"],
-        take_done_states_as_targets=configs["q_cut_params"]["take_done_states_as_targets"],
-        max_steps=configs["train_max_num_steps_per_episode"],
-        reward_resolution=configs["reward_resolution"],
-        init_strategy_distribution=init_distribution,
-        explore_lr=configs["explore_agent_lr"],
-        exploit_lr=configs["exploit_agent_lr"],
-        gamma=configs["exploit_value_decay"],
-        bonus_decay=configs["explore_bonus_decay"],
-    )
+    if configs["use_deep_agent"]:
+        agent = PPODynaQAgent(
+            state_discretizer_t,
+            action_discretizer_t,
+            state_discretizer_b,
+            action_discretizer_b,
+            num_targets=configs["q_cut_params"]["num_targets"],
+            min_cut_max_flow_search_space=configs["q_cut_params"]["min_cut_max_flow_search_space"],
+            q_cut_space=configs["q_cut_params"]["q_cut_space"],
+            weighted_search=configs["q_cut_params"]["weighted_search"],
+            init_state_reward_prob_below_threshold=configs["q_cut_params"]["init_state_reward_prob_below_threshold"],
+            quality_value_threshold=configs["q_cut_params"]["quality_value_threshold"],
+            take_done_states_as_targets=configs["q_cut_params"]["take_done_states_as_targets"],
+            max_steps=configs["train_max_num_steps_per_episode"],
+            reward_resolution=configs["reward_resolution"],
+            init_strategy_distribution=init_distribution,
+            explore_lr=configs["explore_agent_lr"],
+            exploit_lr=configs["exploit_agent_lr"],
+            gamma=configs["exploit_value_decay"],
+            bonus_decay=configs["explore_bonus_decay"],
+        )
+    else:
+        agent = TabularDynaQAgent(
+            state_discretizer_t,
+            action_discretizer_t,
+            state_discretizer_b,
+            action_discretizer_b,
+            num_targets=configs["q_cut_params"]["num_targets"],
+            min_cut_max_flow_search_space=configs["q_cut_params"]["min_cut_max_flow_search_space"],
+            q_cut_space=configs["q_cut_params"]["q_cut_space"],
+            weighted_search=configs["q_cut_params"]["weighted_search"],
+            init_state_reward_prob_below_threshold=configs["q_cut_params"]["init_state_reward_prob_below_threshold"],
+            quality_value_threshold=configs["q_cut_params"]["quality_value_threshold"],
+            take_done_states_as_targets=configs["q_cut_params"]["take_done_states_as_targets"],
+            max_steps=configs["train_max_num_steps_per_episode"],
+            reward_resolution=configs["reward_resolution"],
+            init_strategy_distribution=init_distribution,
+            explore_lr=configs["explore_agent_lr"],
+            exploit_lr=configs["exploit_agent_lr"],
+            gamma=configs["exploit_value_decay"],
+            bonus_decay=configs["explore_bonus_decay"],
+        )
 
     pbar = tqdm(total=sample_steps[-1], desc=f"[{init_group}] - Sampling", unit="step", leave=True, dynamic_ncols=True)
     sample_step_count = 0
@@ -104,12 +129,20 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
 
             if configs[sample_step]["train_exploit_policy"]:
                 if sample_step_count % configs["exploit_policy_training_per_num_steps"] == 0 and sample_step_count > 1:
-                    agent.update_from_transition_table(
-                        total_timesteps=configs["exploit_policy_training_steps"],
-                        train_exploration_agent=False,
-                        progress_bar=False,
-                        temperature=configs["exploit_softmax_temperature"],
-                    )
+                    if configs["use_deep_agent"]:
+                        agent.update_from_transition_table(
+                            total_timesteps=configs["exploit_policy_training_steps"],
+                            train_exploration_agent=False,
+                            temperature=configs["exploit_softmax_temperature"],
+                            progress_bar=True,
+                        )
+                    else:
+                        agent.update_from_transition_table(
+                            total_timesteps=configs["exploit_policy_training_steps"],
+                            train_exploration_agent=False,
+                            progress_bar=False,
+                            temperature=configs["exploit_softmax_temperature"],
+                        )
                     exploit_policy_updates += 1
 
             if configs[sample_step]["test_exploit_policy"]:
