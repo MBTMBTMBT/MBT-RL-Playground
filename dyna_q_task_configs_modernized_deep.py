@@ -48,7 +48,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "exploit_policy_training_per_num_steps": int(2.5e3),
             "exploit_policy_training_steps": int(5e3),
             "exploit_policy_test_per_num_steps": int(5e3),
-            "exploit_policy_test_episodes": 64,
+            "exploit_policy_test_episodes": 256,
             "save_per_num_steps": int(500e3),
             "save_mdp_graph": False,
             "print_training_info": False,
@@ -59,26 +59,26 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 "landmarks": (0.33, 0.33, 0.33),
             },
             "q_cut_params": {
-                "num_targets": 32,
+                "num_targets": 64,
                 "min_cut_max_flow_search_space": 128,
-                "q_cut_space": 16,
+                "q_cut_space": 128,
                 "weighted_search": True,
                 "init_state_reward_prob_below_threshold": 0.1,
                 "quality_value_threshold": 1.0,
                 "take_done_states_as_targets": True,
             },
-            int(50e3): {
+            int(100e3): {
                 "explore_policy_exploit_policy_ratio": (1.0, 0.0),
                 "train_exploit_policy": False,
                 "test_exploit_policy": False,
             },
-            int(75e3): {
+            int(125e3): {
                 "explore_policy_exploit_policy_ratio": (0.5, 0.5),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(100e3): {
+            int(150e3): {
                 "explore_policy_exploit_policy_ratio": (0.25, 0.75),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
