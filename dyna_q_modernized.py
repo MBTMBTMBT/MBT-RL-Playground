@@ -18,6 +18,7 @@ from pyvis.network import Network
 
 import matplotlib.colors as mcolors
 from matplotlib.colors import LinearSegmentedColormap
+from stable_baselines3 import PPO
 
 
 class Discretizer:
@@ -1257,7 +1258,7 @@ class TabularDynaQAgent:
             unknown_reward=1.0,
         )
         self.double_env = DoubleTransitionalTableEnv(self.transition_table_env_t, self.transition_table_env_b)
-        self.q_table_agent = TabularQAgent(
+        self.exploit_agent = TabularQAgent(
             self.double_env,
             self.state_discretizer_b,
             self.action_discretizer_b,
@@ -1280,7 +1281,7 @@ class TabularDynaQAgent:
         self.bonus_decay = bonus_decay
 
     def print_agent_info(self):
-        self.q_table_agent.print_q_table_info()
+        self.exploit_agent.print_q_table_info()
         self.exploration_agent.print_q_table_info()
         self.transition_table_env_t.print_transition_table_info()
         self.transition_table_env_b.print_transition_table_info()
@@ -1298,7 +1299,7 @@ class TabularDynaQAgent:
             transition_table_t_file_path = None
             transition_table_b_file_path = None
             transition_table_e_file_path = None
-        q_table_df = self.q_table_agent.save_q_table(file_path=q_table_file_path)
+        q_table_df = self.exploit_agent.save_q_table(file_path=q_table_file_path)
         exploration_agent_q_table_df = self.exploration_agent.save_q_table(file_path=exploration_agent_q_table_file_path)
         transition_table_t_df = self.transition_table_env_t.save_transition_table(file_path=transition_table_t_file_path)
         transition_table_b_df = self.transition_table_env_b.save_transition_table(file_path=transition_table_b_file_path)
@@ -1322,7 +1323,7 @@ class TabularDynaQAgent:
             transition_table_t_file_path = None
             transition_table_b_file_path = None
             transition_table_e_file_path = None
-        self.q_table_agent.load_q_table(file_path=q_table_file_path, df=dataframes[0])
+        self.exploit_agent.load_q_table(file_path=q_table_file_path, df=dataframes[0])
         self.exploration_agent.load_q_table(file_path=exploration_agent_q_table_file_path, df=dataframes[0])
         self.transition_table_env_t.load_transition_table(
             file_path=transition_table_t_file_path, transition_table_df=dataframes[1]
@@ -1340,7 +1341,7 @@ class TabularDynaQAgent:
         if explore_action:
             action = self.exploration_agent.choose_action(state, temperature=temperature, greedy=greedy)
         else:
-            action = self.q_table_agent.choose_action(state, temperature=temperature, greedy=greedy)
+            action = self.exploit_agent.choose_action(state, temperature=temperature, greedy=greedy)
         return action
 
     def update_from_env(
@@ -1371,4 +1372,170 @@ class TabularDynaQAgent:
             self.exploration_agent.learn(total_timesteps=total_timesteps, progress_bar=progress_bar)
         else:
             self.double_env.reset(reset_all=True)
-            self.q_table_agent.learn(total_timesteps=total_timesteps, progress_bar=progress_bar, temperature=temperature)
+            self.exploit_agent.learn(total_timesteps=total_timesteps, progress_bar=progress_bar, temperature=temperature)
+
+
+class PPODynaQAgent:
+    def __init__(
+            self,
+            state_discretizer_t: Discretizer,
+            action_discretizer_t: Discretizer,
+            state_discretizer_b: Discretizer,
+            action_discretizer_b: Discretizer,
+            num_targets: int,
+            min_cut_max_flow_search_space: int,
+            q_cut_space: int,
+            weighted_search: bool = True,
+            init_state_reward_prob_below_threshold: float = 0.2,
+            quality_value_threshold: float = 1.0,
+            take_done_states_as_targets: bool = False,
+            max_steps: int = 500,
+            reward_resolution: int = -1,
+            init_strategy_distribution: Tuple[float] = (0.33, 0.33, 0.33),
+            exploit_lr: float = 0.1,
+            explore_lr: float = 0.1,
+            gamma: float = 0.99,
+            bonus_decay: float = 0.9,
+    ):
+        self.state_discretizer_t = state_discretizer_t
+        self.action_discretizer_t = action_discretizer_t
+        self.state_discretizer_b = state_discretizer_b
+        self.action_discretizer_b = action_discretizer_b
+        self.transition_table_env_t = LandmarksTransitionalTableEnv(
+            state_discretizer_t,
+            action_discretizer_t,
+            num_targets,
+            min_cut_max_flow_search_space,
+            q_cut_space,
+            weighted_search,
+            init_state_reward_prob_below_threshold,
+            quality_value_threshold,
+            take_done_states_as_targets,
+            max_steps,
+            reward_resolution,
+            init_strategy_distribution,
+            unknown_reward=None,
+        )
+        self.transition_table_env_b = TransitionalTableEnv(
+            state_discretizer_b,
+            action_discretizer_b,
+            max_steps=max_steps,
+            reward_resolution=reward_resolution,
+            unknown_reward=None,
+        )
+        self.transition_table_env_e = TransitionalTableEnv(
+            state_discretizer_b,
+            action_discretizer_b,
+            max_steps=max_steps,
+            reward_resolution=reward_resolution,
+            unknown_reward=1.0,
+        )
+        self.double_env = DoubleTransitionalTableEnv(self.transition_table_env_t, self.transition_table_env_b)
+        self.exploit_agent = PPO(
+            "MlpPolicy",
+            self.double_env,
+            n_steps=max_steps,
+            learning_rate=exploit_lr,
+            gamma=gamma,
+            verbose=0,
+        )
+        self.exploration_agent = PPO(
+            "MlpPolicy",
+            self.transition_table_env_e,
+            n_steps=max_steps,
+            learning_rate=explore_lr,
+            gamma=gamma,
+            verbose=0,
+        )
+        self.bonus_states = defaultdict(lambda: 1.0)
+        self.bonus_decay = bonus_decay
+
+    def print_agent_info(self):
+        self.transition_table_env_t.print_transition_table_info()
+        self.transition_table_env_b.print_transition_table_info()
+
+    def save_agent(self, file_path: str = None) -> tuple[DataFrame, DataFrame, DataFrame,]:
+        if file_path:
+            q_table_file_path = file_path.split(".csv")[0] + "_exploit_agent"
+            exploration_agent_q_table_file_path = file_path.split(".csv")[0] + "_exploration_agent"
+            transition_table_t_file_path = file_path.split(".csv")[0] + "_transition_table_t.csv"
+            transition_table_b_file_path = file_path.split(".csv")[0] + "_transition_table_b.csv"
+            transition_table_e_file_path = file_path.split(".csv")[0] + "_transition_table_e.csv"
+        else:
+            q_table_file_path = None
+            exploration_agent_q_table_file_path = None
+            transition_table_t_file_path = None
+            transition_table_b_file_path = None
+            transition_table_e_file_path = None
+        self.exploit_agent.save(q_table_file_path)
+        self.exploration_agent.save(exploration_agent_q_table_file_path)
+        transition_table_t_df = self.transition_table_env_t.save_transition_table(file_path=transition_table_t_file_path)
+        transition_table_b_df = self.transition_table_env_b.save_transition_table(file_path=transition_table_b_file_path)
+        transition_table_e_df = self.transition_table_env_e.save_transition_table(file_path=transition_table_e_file_path)
+        return transition_table_t_df, transition_table_b_df, transition_table_e_df
+
+    def load_agent(
+            self,
+            file_path: str = None,
+    ):
+        if file_path:
+            q_table_file_path = file_path.split(".csv")[0] + "_exploit_agent"
+            exploration_agent_q_table_file_path = file_path.split(".csv")[0] + "_exploration_agent"
+            transition_table_t_file_path = file_path.split(".csv")[0] + "_transition_table_t.csv"
+            transition_table_b_file_path = file_path.split(".csv")[0] + "_transition_table_b.csv"
+            transition_table_e_file_path = file_path.split(".csv")[0] + "_transition_table_e.csv"
+        else:
+            q_table_file_path = None
+            exploration_agent_q_table_file_path = None
+            transition_table_t_file_path = None
+            transition_table_b_file_path = None
+            transition_table_e_file_path = None
+        self.exploit_agent.load(q_table_file_path)
+        self.exploration_agent.load(exploration_agent_q_table_file_path)
+        self.transition_table_env_t.load_transition_table(
+            file_path=transition_table_t_file_path,
+        )
+        self.transition_table_env_b.load_transition_table(
+            file_path=transition_table_b_file_path,
+        )
+        self.transition_table_env_e.load_transition_table(
+            file_path=transition_table_e_file_path,
+        )
+
+    def choose_action(
+            self, state: np.ndarray, explore_action: bool = False, greedy: bool = False,
+    ) -> np.ndarray:
+        if explore_action:
+            action, _ = self.exploration_agent.predict(state, deterministic=greedy)
+        else:
+            action, _ = self.exploit_agent.predict(state, deterministic=greedy)
+        return action
+
+    def update_from_env(
+            self,
+            state: np.ndarray,
+            action: np.ndarray,
+            reward: float,
+            next_state: np.ndarray,
+            done: bool,
+    ):
+        encoded_next_state = self.state_discretizer_b.encode_indices(
+            list(self.state_discretizer_b.discretize(next_state)[1]))
+        reward_bonus = self.bonus_states[encoded_next_state]
+        self.bonus_states[encoded_next_state] *= self.bonus_decay
+        self.transition_table_env_t.update(state, action, reward, next_state, done)
+        self.transition_table_env_b.update(state, action, reward, next_state, done)
+        self.transition_table_env_e.update(state, action, reward_bonus, next_state, done)
+
+    def update_from_transition_table(
+            self,
+            total_timesteps: int,
+            train_exploration_agent: bool = False,
+            progress_bar: bool = False,
+    ):
+        if train_exploration_agent:
+            self.transition_table_env_e.reset(reset_all=True)
+            self.exploration_agent.learn(total_timesteps=total_timesteps, progress_bar=progress_bar)
+        else:
+            self.double_env.reset(reset_all=True)
+            self.exploit_agent.learn(total_timesteps=total_timesteps, progress_bar=progress_bar)
