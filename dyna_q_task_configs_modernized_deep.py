@@ -6,7 +6,7 @@ from dyna_q_modernized import Discretizer
 
 def get_envs_discretizers_and_configs(name: str, configs_only=False):
     if name == "cartpole":
-        save_path = "./experiments/DynaQ/cartpole/cartpole"
+        save_path = "./experiments/DynaQ/deep-cartpole/cartpole"
         env = gym.make("CartPole-v1", render_mode="rgb_array")
         test_env = gym.make("CartPole-v1", render_mode="rgb_array")
         state_discretizer_t = Discretizer(
@@ -30,7 +30,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             normal_params=[None, ],
         )
         configs = {
-            "use_deep_agent": False,
+            "use_deep_agent": True,
             "save_path": save_path,
             "explore_agent_lr": 0.1,
             "explore_value_decay": 0.99,
@@ -41,15 +41,15 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "explore_strategy": "greedy",
             "reward_resolution": 0,
             "train_max_num_steps_per_episode": 500,
-            "exploit_agent_lr": 0.1,
+            "exploit_agent_lr": 2.5e4,
             "exploit_softmax_temperature": 0.5,
             "exploit_policy_reward_rate": 1e-3,
             "exploit_value_decay": 0.99,
-            "exploit_policy_training_per_num_steps": int(0.0025e6),
-            "exploit_policy_training_steps": int(0.01e6),
-            "exploit_policy_test_per_num_steps": int(0.05e6),
+            "exploit_policy_training_per_num_steps": int(10e3),
+            "exploit_policy_training_steps": int(25e3),
+            "exploit_policy_test_per_num_steps": int(10e3),
             "exploit_policy_test_episodes": 64,
-            "save_per_num_steps": int(0.25e6),
+            "save_per_num_steps": int(500e3),
             "save_mdp_graph": False,
             "print_training_info": False,
             "init_groups": {
@@ -67,18 +67,18 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 "quality_value_threshold": 1.0,
                 "take_done_states_as_targets": True,
             },
-            int(1e6): {
+            int(500e3): {
                 "explore_policy_exploit_policy_ratio": (1.0, 0.0),
                 "train_exploit_policy": False,
                 "test_exploit_policy": False,
             },
-            int(3e6): {
+            int(1000e3): {
                 "explore_policy_exploit_policy_ratio": (0.5, 0.5),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(6e6): {
+            int(2000e3): {
                 "explore_policy_exploit_policy_ratio": (0.25, 0.75),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
@@ -87,7 +87,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
         }
 
     elif name == "mountain_car":
-        save_path = "./experiments/DynaQ/mountain_car/mountain_car"
+        save_path = "./experiments/DynaQ/deep-mountain_car/mountain_car"
         env = CustomMountainCarEnv(custom_gravity=0.005, render_mode="rgb_array")
         test_env = CustomMountainCarEnv(custom_gravity=0.005, render_mode="rgb_array")
         state_discretizer_t = Discretizer(
@@ -168,7 +168,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
         }
 
     elif name == "lunarlander":
-        save_path = "./experiments/DynaQ/lunarlander/lunarlander"
+        save_path = "./experiments/DynaQ/deep-lunarlander/lunarlander"
         env = gym.make("LunarLander-v3", render_mode="rgb_array", continuous=True, )
         test_env = gym.make("LunarLander-v3", render_mode="rgb_array", continuous=True, )
         state_discretizer_t = Discretizer(
@@ -256,7 +256,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
         }
 
     elif name == "acrobot":
-        save_path = "./experiments/DynaQ/acrobot/acrobot"
+        save_path = "./experiments/DynaQ/deep-acrobot/acrobot"
         env = gym.make("Acrobot-v1", render_mode="rgb_array")
         test_env = gym.make("Acrobot-v1", render_mode="rgb_array")
         state_discretizer_t = Discretizer(
@@ -343,7 +343,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
         }
 
     elif name =="pendulum":
-        save_path = "./experiments/DynaQ/pendulum/pendulum"
+        save_path = "./experiments/DynaQ/deep-pendulum/pendulum"
         env = gym.make("Pendulum-v1", render_mode="rgb_array",)
         test_env = gym.make("Pendulum-v1", render_mode="rgb_array",)
         state_discretizer_t = Discretizer(
