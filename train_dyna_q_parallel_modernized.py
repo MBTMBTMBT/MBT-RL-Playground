@@ -73,7 +73,16 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
             bonus_decay=configs["explore_bonus_decay"],
         )
 
-    pbar = tqdm(total=sample_steps[-1], desc=f"[{init_group}] - Sampling", unit="step", leave=True, dynamic_ncols=True)
+    pbar = tqdm(
+        total=sample_steps[-1],
+        desc=f"[{init_group}] - Sampling",
+        unit="step",
+        leave=True,
+        dynamic_ncols=True,
+        smoothing=1.0,
+        mininterval=1.0,
+        maxinterval=30.0,
+    )
     sample_step_count = 0
     avg_test_reward = 0.0
     exploit_policy_updates = 0
@@ -133,8 +142,7 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
                         agent.update_from_transition_table(
                             total_timesteps=configs["exploit_policy_training_steps"],
                             train_exploration_agent=False,
-                            temperature=configs["exploit_softmax_temperature"],
-                            progress_bar=True,
+                            progress_bar=False,
                         )
                     else:
                         agent.update_from_transition_table(
@@ -176,6 +184,12 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
                     if current_step == num_steps_to_sample - 1 or sample_step_count == sample_steps[-1] - 1:
                         final_test_rewards = avg_test_reward
 
+                        if not configs["use_deep_agent"]:
+                            # Save GIF for the first test episode
+                            gif_path = group_save_path + f"_{sample_step_count}.gif"
+                            generate_test_gif(frames, gif_path, to_print=configs["print_training_info"])
+
+                    if configs["use_deep_agent"]:
                         # Save GIF for the first test episode
                         gif_path = group_save_path + f"_{sample_step_count}.gif"
                         generate_test_gif(frames, gif_path, to_print=configs["print_training_info"])
