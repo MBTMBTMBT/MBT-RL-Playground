@@ -122,7 +122,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "explore_strategy": "greedy",
             "reward_resolution": 0,
             "train_max_num_steps_per_episode": 200,
-            "exploit_agent_lr": 0.1,
+            "exploit_agent_lr": 2.5e-4,
             "exploit_softmax_temperature": 0.5,
             "exploit_policy_reward_rate": 1e-3,
             "exploit_value_decay": 0.99,
@@ -209,7 +209,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "explore_strategy": "greedy",
             "reward_resolution": 10,
             "train_max_num_steps_per_episode": 500,
-            "exploit_agent_lr": 0.1,
+            "exploit_agent_lr": 2.5e-4,
             "exploit_softmax_temperature": 0.5,
             "exploit_policy_reward_rate": 1e-3,
             "exploit_value_decay": 0.99,
@@ -297,7 +297,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "explore_strategy": "greedy",
             "reward_resolution": 1,
             "train_max_num_steps_per_episode": 500,
-            "exploit_agent_lr": 0.1,
+            "exploit_agent_lr": 2.5e-4,
             "exploit_softmax_temperature": 0.5,
             "exploit_policy_reward_rate": 1e-3,
             "exploit_value_decay": 0.99,
@@ -378,7 +378,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "explore_strategy": "greedy",
             "reward_resolution": 1,
             "train_max_num_steps_per_episode": 200,
-            "exploit_agent_lr": 0.1,
+            "exploit_agent_lr": 2.5e-4,
             "exploit_softmax_temperature": 0.5,
             "exploit_policy_reward_rate": 1e-3,
             "exploit_value_decay": 0.99,
@@ -404,18 +404,18 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 "quality_value_threshold": 1.0,
                 "take_done_states_as_targets": True,
             },
-            int(0.5e6): {
+            int(0.25e6): {
                 "explore_policy_exploit_policy_ratio": (1.0, 0.0),
                 "train_exploit_policy": False,
                 "test_exploit_policy": False,
             },
-            int(0.75e6): {
+            int(0.5e6): {
                 "explore_policy_exploit_policy_ratio": (0.5, 0.5),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(1e6): {
+            int(0.75e6): {
                 "explore_policy_exploit_policy_ratio": (0.25, 0.75),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
