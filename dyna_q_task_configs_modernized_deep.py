@@ -43,7 +43,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "train_max_num_steps_per_episode": 500,
             "exploit_agent_lr": 2.5e-4,
             "exploit_softmax_temperature": 0.5,
-            "exploit_policy_reward_rate": 1,
+            "exploit_policy_reward_rate": 1e-1,
             "exploit_value_decay": 0.99,
             "exploit_policy_training_per_num_steps": int(2.5e3),
             "exploit_policy_training_steps": int(5e3),
@@ -211,7 +211,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "train_max_num_steps_per_episode": 500,
             "exploit_agent_lr": 2.5e-4,
             "exploit_softmax_temperature": 0.5,
-            "exploit_policy_reward_rate": 1e-3,
+            "exploit_policy_reward_rate": 1e-2,
             "exploit_value_decay": 0.99,
             "exploit_policy_training_per_num_steps": int(0.025e6),
             "exploit_policy_training_steps": int(0.05e6),
@@ -380,7 +380,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "train_max_num_steps_per_episode": 200,
             "exploit_agent_lr": 2.5e-4,
             "exploit_softmax_temperature": 0.5,
-            "exploit_policy_reward_rate": 1e-1,
+            "exploit_policy_reward_rate": 1e-2,
             "exploit_value_decay": 0.99,
             "exploit_policy_training_per_num_steps": int(2.5e3),
             "exploit_policy_training_steps": int(5e3),
@@ -409,13 +409,13 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 "train_exploit_policy": False,
                 "test_exploit_policy": False,
             },
-            int(0.75e6): {
+            int(0.5e6): {
                 "explore_policy_exploit_policy_ratio": (0.5, 0.5),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(1e6): {
+            int(0.75e6): {
                 "explore_policy_exploit_policy_ratio": (0.25, 0.75),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,

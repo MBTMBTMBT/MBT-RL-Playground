@@ -192,9 +192,15 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
                     if current_step == num_steps_to_sample - 1 or sample_step_count == sample_steps[-1] - 1:
                         final_test_rewards = avg_test_reward
 
+                        # if not configs["use_deep_agent"]:
                         # Save GIF for the first test episode
                         gif_path = group_save_path + f"_{sample_step_count}.gif"
                         generate_test_gif(frames, gif_path, to_print=configs["print_training_info"])
+
+                    # if configs["use_deep_agent"]:
+                    #     # Save GIF for the first test episode
+                    #     gif_path = group_save_path + f"_{sample_step_count}.gif"
+                    #     generate_test_gif(frames, gif_path, to_print=configs["print_training_info"])
 
             if (
                     (sample_step_count + 1) % configs["save_per_num_steps"] == 0
