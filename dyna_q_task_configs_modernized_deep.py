@@ -463,9 +463,9 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "exploit_softmax_temperature": 0.5,
             "exploit_policy_reward_rate": 1e-3,
             "exploit_value_decay": 0.99,
-            "exploit_policy_training_per_num_steps": int(0.002e6),
-            "exploit_policy_training_steps": int(0.01e6),
-            "exploit_policy_test_per_num_steps": int(0.002e6),
+            "exploit_policy_training_per_num_steps": int(0.001e6),
+            "exploit_policy_training_steps": int(0.005e6),
+            "exploit_policy_test_per_num_steps": int(0.001e6),
             "exploit_policy_test_episodes": 200,
             "save_per_num_steps": int(0.2e6),
             "save_mdp_graph": True,
@@ -496,12 +496,12 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(0.25e6): {
-                "explore_policy_exploit_policy_ratio": (0.25, 0.75),
-                "train_exploit_policy": True,
-                "test_exploit_policy": True,
-                "test_exploit_strategy": "greedy",
-            },
+            # int(0.25e6): {
+            #     "explore_policy_exploit_policy_ratio": (0.25, 0.75),
+            #     "train_exploit_policy": True,
+            #     "test_exploit_policy": True,
+            #     "test_exploit_strategy": "greedy",
+            # },
         }
 
     else:
