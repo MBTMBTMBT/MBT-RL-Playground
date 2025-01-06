@@ -12,7 +12,7 @@ from dyna_q_task_configs_modernized import get_envs_discretizers_and_configs as 
 from dyna_q_task_configs_modernized_deep import get_envs_discretizers_and_configs as deep_configs
 from parallel_training import generate_test_gif
 
-get_envs_discretizers_and_configs = tabular_configs
+get_envs_discretizers_and_configs = deep_configs
 
 
 def run_experiment(task_name: str, run_id: int, init_group: str):
