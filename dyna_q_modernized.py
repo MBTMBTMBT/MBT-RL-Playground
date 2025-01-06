@@ -1192,11 +1192,13 @@ class DoubleTransitionalTableEnv(gym.Env):
             self,
             transition_table_env_t: TransitionalTableEnv or LandmarksTransitionalTableEnv,
             transition_table_env_b: TransitionalTableEnv or LandmarksTransitionalTableEnv,
+            exploit_policy_reward_rate=0.1,
     ):
         self.transition_table_env_t = transition_table_env_t
         self.transition_table_env_b = transition_table_env_b
         self.observation_space = self.transition_table_env_b.observation_space
         self.action_space = self.transition_table_env_b.action_space
+        self.exploit_policy_reward_rate = exploit_policy_reward_rate
 
     def reset(self, seed=None, options=None, init_state: np.ndarray = None, reset_all: bool = False):
         t_state, _ = self.transition_table_env_t.reset(seed=seed, options=options, init_state=init_state, reset_all=reset_all)
@@ -1205,7 +1207,8 @@ class DoubleTransitionalTableEnv(gym.Env):
 
     def step(self, action):
         self.transition_table_env_t.strategy_step_plus_1()
-        return self.transition_table_env_b.step(action)
+        next_state, reward, terminated, truncated, info = self.transition_table_env_b.step(action)
+        return next_state, reward * self.exploit_policy_reward_rate, terminated, truncated, info
 
 
 class TabularDynaQAgent:
@@ -1402,6 +1405,7 @@ class PPODynaQAgent:
             explore_lr: float = 0.1,
             gamma: float = 0.99,
             bonus_decay: float = 0.9,
+            exploit_policy_reward_rate=0.1,
     ):
         self.state_discretizer_t = state_discretizer_t
         self.action_discretizer_t = action_discretizer_t
@@ -1436,7 +1440,11 @@ class PPODynaQAgent:
             reward_resolution=reward_resolution,
             unknown_reward=1.0,
         )
-        self.double_env = DoubleTransitionalTableEnv(self.transition_table_env_t, self.transition_table_env_b)
+        self.double_env = DoubleTransitionalTableEnv(
+            self.transition_table_env_t,
+            self.transition_table_env_b,
+            exploit_policy_reward_rate=exploit_policy_reward_rate
+        )
         self.exploit_agent = PPO(
             "MlpPolicy",
             self.double_env,

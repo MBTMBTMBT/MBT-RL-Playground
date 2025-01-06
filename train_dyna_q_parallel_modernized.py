@@ -50,6 +50,7 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
             exploit_lr=configs["exploit_agent_lr"],
             gamma=configs["exploit_value_decay"],
             bonus_decay=configs["explore_bonus_decay"],
+            exploit_policy_reward_rate=configs["exploit_policy_reward_rate"],
         )
     else:
         agent = TabularDynaQAgent(
