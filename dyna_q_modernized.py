@@ -11,6 +11,7 @@ import scipy.stats
 from typing import List, Tuple, Optional, Dict
 
 from gymnasium import spaces
+from gymnasium.spaces import Box
 from networkx.classes import DiGraph
 from pandas import DataFrame
 import tqdm
@@ -1454,6 +1455,7 @@ class PPODynaQAgent:
             verbose=0,
             # device='cpu',
             batch_size=32,
+            clip_range=0.5 if isinstance(self.double_env.action_space, Box) else 0.2,  # larger clip range for discrete actions
         )
         self.exploration_agent = TabularQAgent(
             self.transition_table_env_e,
