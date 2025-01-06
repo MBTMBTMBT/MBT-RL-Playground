@@ -109,7 +109,10 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
             if random.random() < configs["explore_epsilon"]:
                 action = env.action_space.sample()
             else:
-                action = agent.choose_action(state, explore_action=True, greedy=True)
+                if init_sample_strategy == "explore_greedy":
+                    action = agent.choose_action(state, explore_action=True, greedy=True)
+                else:
+                    action = agent.choose_action(state, explore_action=False, greedy=True)
             next_state, reward, done, truncated, _ = env.step(action)
             agent.update_from_env(state, action, reward, next_state, done,)
             state = next_state
@@ -125,8 +128,8 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
                 agent.transition_table_env_e.add_start_state(state)
                 strategy_selection_dict = {}
                 for i, s in enumerate(sample_strategies):
-                    if init_distribution[i] != 0:
-                        strategy_selection_dict[s] = sample_strategy_step_count[s] / init_distribution[i]
+                    if sample_strategy_distribution[i] != 0:
+                        strategy_selection_dict[s] = sample_strategy_step_count[s] / sample_strategy_distribution[i]
                     else:
                         strategy_selection_dict[s] = np.inf
                 init_sample_strategy = min(strategy_selection_dict, key=strategy_selection_dict.get)
