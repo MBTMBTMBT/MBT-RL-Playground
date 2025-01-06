@@ -19,7 +19,7 @@ from pyvis.network import Network
 
 import matplotlib.colors as mcolors
 from matplotlib.colors import LinearSegmentedColormap
-from stable_baselines3 import PPO
+from stable_baselines3 import PPO, SAC
 
 
 class Discretizer:
@@ -276,8 +276,8 @@ class Discretizer:
                     low.append(np.ceil(min_val))
                     high.append(np.floor(max_val))
                 else:
-                    low.append(0)
-                    high.append(buckets - 1)
+                    low.append(min_val)
+                    high.append(max_val)
             return spaces.Box(low=np.array(low, dtype=np.float32), high=np.array(high, dtype=np.float32), dtype=np.float32)
 
 
@@ -1446,6 +1446,7 @@ class PPODynaQAgent:
             self.transition_table_env_b,
             exploit_policy_reward_rate=exploit_policy_reward_rate
         )
+        print(self.double_env.action_space)
         self.exploit_agent = PPO(
             "MlpPolicy",
             self.double_env,
@@ -1454,8 +1455,6 @@ class PPODynaQAgent:
             gamma=gamma,
             verbose=0,
             # device='cpu',
-            batch_size=32,
-            clip_range=1.0 if isinstance(self.double_env.action_space, Box) else 0.2,  # larger clip range for discrete actions
         )
         self.exploration_agent = TabularQAgent(
             self.transition_table_env_e,
