@@ -1446,16 +1446,26 @@ class PPODynaQAgent:
             self.transition_table_env_b,
             exploit_policy_reward_rate=exploit_policy_reward_rate
         )
-        print(self.double_env.action_space)
-        self.exploit_agent = PPO(
-            "MlpPolicy",
-            self.double_env,
-            # n_steps=max_steps,
-            learning_rate=exploit_lr,
-            gamma=gamma,
-            verbose=0,
-            # device='cpu',
-        )
+        # print(self.double_env.action_space)
+        if isinstance(self.double_env.action_space, Box):
+            self.exploit_agent = SAC(
+                "MlpPolicy",
+                self.double_env,
+                learning_rate=exploit_lr,
+                gamma=gamma,
+                verbose=0,
+                # device='cpu',
+            )
+        else:
+            self.exploit_agent = PPO(
+                "MlpPolicy",
+                self.double_env,
+                learning_rate=exploit_lr,
+                gamma=gamma,
+                verbose=0,
+                # device='cpu',
+                # clip_range=1.0 if isinstance(self.double_env.action_space, Box) else 0.2
+            )
         self.exploration_agent = TabularQAgent(
             self.transition_table_env_e,
             self.state_discretizer_b,

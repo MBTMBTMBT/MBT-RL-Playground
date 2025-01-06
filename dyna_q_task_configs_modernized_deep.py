@@ -358,12 +358,12 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
         )
         state_discretizer_b = Discretizer(
             ranges=[(-1.0, 1.0), (-1.0, 1.0), (-8.0, 8.0), ],
-            num_buckets=[17, 17, 33],
+            num_buckets=[25, 25, 49],
             normal_params=[None, None, None],
         )
         action_discretizer_b = Discretizer(
             ranges=[(-2.0, 2.0), ],
-            num_buckets=[17],
+            num_buckets=[25],
             normal_params=[None, ],
         )
         configs = {
@@ -382,9 +382,9 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "exploit_softmax_temperature": 0.5,
             "exploit_policy_reward_rate": 1e-2,
             "exploit_value_decay": 0.99,
-            "exploit_policy_training_per_num_steps": int(2.5e3),
-            "exploit_policy_training_steps": int(5e3),
-            "exploit_policy_test_per_num_steps": int(2.5e3),
+            "exploit_policy_training_per_num_steps": int(5e3),
+            "exploit_policy_training_steps": int(10e3),
+            "exploit_policy_test_per_num_steps": int(5e3),
             "exploit_policy_test_episodes": 200,
             "save_per_num_steps": int(2.5e6),
             "save_mdp_graph": False,
