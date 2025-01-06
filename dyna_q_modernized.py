@@ -1455,7 +1455,7 @@ class PPODynaQAgent:
             verbose=0,
             # device='cpu',
             batch_size=32,
-            clip_range=0.5 if isinstance(self.double_env.action_space, Box) else 0.2,  # larger clip range for discrete actions
+            clip_range=1.0 if isinstance(self.double_env.action_space, Box) else 0.2,  # larger clip range for discrete actions
         )
         self.exploration_agent = TabularQAgent(
             self.transition_table_env_e,
