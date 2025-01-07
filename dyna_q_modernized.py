@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 import scipy.stats
 from typing import List, Tuple, Optional, Dict
+import warnings
 
 from gymnasium import spaces
 from gymnasium.spaces import Box
@@ -793,6 +794,10 @@ class TransitionalTableEnv(TransitionTable, gym.Env):
         self.strategy_step_counts = {s: 1 for s in TransitionalTableEnv.INIT_STRATEGIES}
 
     def reset(self, seed=None, options=None, init_state: np.ndarray = None, reset_all: bool = False):
+        if len(self.reward_set_dict) == 0:
+            warnings.warn("Resetting empty environment, this is invalid, will return None.")
+            return None, {}
+
         if reset_all:
             self.step_count = 0
             self.current_state = None
@@ -1087,6 +1092,10 @@ class LandmarksTransitionalTableEnv(TransitionalTableEnv):
             reset_all: bool = False,
             do_print: bool = False,
     ):
+        if len(self.reward_set_dict) == 0:
+            warnings.warn("Resetting empty environment, this is invalid, will return None.")
+            return None, {}
+
         if reset_all:
             self.step_count = 0
             self.current_state = None

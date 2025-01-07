@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 
 class TianshouPPO:
-    def __init__(self, env, policy="MlpPolicy", learning_rate=3e-4, gamma=0.99, gae_lambda=0.95,
+    def __init__(self, policy, env, learning_rate=3e-4, gamma=0.99, gae_lambda=0.95,
                  n_steps=2048, batch_size=64, verbose=0, device="auto"):
         """
         Tianshou wrapper for PPO.
@@ -34,7 +34,7 @@ class TianshouPPO:
 
         # Define actor-critic network
         net = Net(self.state_shape, hidden_sizes=[64, 64], device=self.device)
-        actor_critic = ActorCritic(net, self.action_shape, device=self.device)
+        actor_critic = ActorCritic(net, self.action_shape,)
         self.optimizer = torch.optim.Adam(actor_critic.parameters(), lr=learning_rate)
 
         # Define PPO policy
@@ -78,7 +78,7 @@ class TianshouPPO:
             pbar = tqdm(total=total_timesteps, desc="Training PPO")
         while step < total_timesteps:
             self.collector.collect(n_step=self.buffer.maxsize)
-            losses = self.policy.update(self.buffer, batch_size=self.batch_size)
+            losses = self.policy.update(buffer=self.buffer, sample_size=self.batch_size)
             self.collector.reset_buffer()
             step += self.buffer.maxsize
             if self.verbose:
@@ -90,7 +90,7 @@ class TianshouPPO:
 
 
 class TianshouSAC:
-    def __init__(self, env, policy="MlpPolicy", learning_rate=3e-4, gamma=0.99, tau=0.005, alpha=0.2,
+    def __init__(self, policy, env, learning_rate=3e-4, gamma=0.99, tau=0.005, alpha=0.2,
                  buffer_size=1000000, batch_size=256, verbose=0, device="auto"):
         """
         Tianshou wrapper for SAC.
@@ -117,8 +117,8 @@ class TianshouSAC:
 
         # Define networks
         actor = ActorProb(Net(self.state_shape, hidden_sizes=[64, 64], device=self.device), self.action_shape, max_action=1.0)
-        critic1 = Critic(Net(self.state_shape + self.action_shape, hidden_sizes=[64, 64], device=self.device))
-        critic2 = Critic(Net(self.state_shape + self.action_shape, hidden_sizes=[64, 64], device=self.device))
+        critic1 = Critic(Net(self.state_shape + (self.action_shape,), hidden_sizes=[64, 64], device=self.device))
+        critic2 = Critic(Net(self.state_shape + (self.action_shape,), hidden_sizes=[64, 64], device=self.device))
 
         # Define optimizers
         self.actor_optim = torch.optim.Adam(actor.parameters(), lr=learning_rate)
@@ -168,7 +168,7 @@ class TianshouSAC:
             pbar = tqdm(total=total_timesteps, desc="Training SAC")
         while step < total_timesteps:
             self.collector.collect(n_step=1000)
-            losses = self.policy.update(self.buffer, batch_size=self.batch_size)
+            losses = self.policy.update(buffer=self.buffer, sample_size=self.batch_size)
             step += 1000
             if self.verbose:
                 print(f"Step: {step}, Losses: {losses}")
