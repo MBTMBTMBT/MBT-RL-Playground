@@ -1454,7 +1454,7 @@ class PPODynaQAgent:
                 learning_rate=exploit_lr,
                 gamma=gamma,
                 verbose=0,
-                device='cpu',
+                # device='cpu',
             )
         else:
             self.exploit_agent = PPO(
@@ -1463,7 +1463,7 @@ class PPODynaQAgent:
                 learning_rate=exploit_lr,
                 gamma=gamma,
                 verbose=0,
-                device='cpu',
+                # device='cpu',
                 # clip_range=1.0 if isinstance(self.double_env.action_space, Box) else 0.2
             )
         self.exploration_agent = TabularQAgent(
