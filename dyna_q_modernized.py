@@ -21,7 +21,6 @@ from pyvis.network import Network
 import matplotlib.colors as mcolors
 from matplotlib.colors import LinearSegmentedColormap
 from stable_baselines3 import PPO, SAC
-from tianshou_models import TianshouPPO, TianshouSAC
 
 
 class Discretizer:
@@ -1417,7 +1416,6 @@ class DeepDynaQAgent:
             gamma: float = 0.99,
             bonus_decay: float = 0.9,
             exploit_policy_reward_rate: float = 1e-1,
-            use_sb3: bool = False,
     ):
         self.state_discretizer_t = state_discretizer_t
         self.action_discretizer_t = action_discretizer_t
@@ -1458,44 +1456,24 @@ class DeepDynaQAgent:
             exploit_policy_reward_rate=exploit_policy_reward_rate
         )
         # print(self.double_env.action_space)
-        if use_sb3:
-            if isinstance(self.double_env.action_space, Box):
-                self.exploit_agent = SAC(
-                    "MlpPolicy",
-                    self.double_env,
-                    learning_rate=exploit_lr,
-                    gamma=gamma,
-                    verbose=0,
-                    device='auto',
-                )
-            else:
-                self.exploit_agent = PPO(
-                    "MlpPolicy",
-                    self.double_env,
-                    learning_rate=exploit_lr,
-                    gamma=gamma,
-                    verbose=0,
-                    device='auto',
-                )
+        if isinstance(self.double_env.action_space, Box):
+            self.exploit_agent = SAC(
+                "MlpPolicy",
+                self.double_env,
+                learning_rate=exploit_lr,
+                gamma=gamma,
+                verbose=0,
+                device='auto',
+            )
         else:
-            if isinstance(self.double_env.action_space, Box):
-                self.exploit_agent = TianshouSAC(
-                    "MlpPolicy",
-                    self.double_env,
-                    learning_rate=exploit_lr,
-                    gamma=gamma,
-                    verbose=0,
-                    device='auto',
-                )
-            else:
-                self.exploit_agent = TianshouPPO(
-                    "MlpPolicy",
-                    self.double_env,
-                    learning_rate=exploit_lr,
-                    gamma=gamma,
-                    verbose=0,
-                    device='auto',
-                )
+            self.exploit_agent = PPO(
+                "MlpPolicy",
+                self.double_env,
+                learning_rate=exploit_lr,
+                gamma=gamma,
+                verbose=0,
+                device='auto',
+            )
         self.exploration_agent = TabularQAgent(
             self.transition_table_env_e,
             self.state_discretizer_b,
