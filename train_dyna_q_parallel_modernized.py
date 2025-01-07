@@ -148,7 +148,7 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
                         agent.update_from_transition_table(
                             total_timesteps=configs["exploit_policy_training_steps"],
                             train_exploration_agent=False,
-                            progress_bar=True,
+                            progress_bar=False,
                         )
                     else:
                         agent.update_from_transition_table(
