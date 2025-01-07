@@ -7,7 +7,7 @@ import numpy as np
 from tqdm import tqdm
 import plotly.graph_objs as go
 
-from dyna_q_modernized import TabularDynaQAgent, PPODynaQAgent
+from dyna_q_modernized import TabularDynaQAgent, DeepDynaQAgent
 from dyna_q_task_configs_modernized import get_envs_discretizers_and_configs as tabular_configs
 from dyna_q_task_configs_modernized_deep import get_envs_discretizers_and_configs as deep_configs
 from parallel_training import generate_test_gif
@@ -31,7 +31,7 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
     sample_steps = sorted([k for k in configs.keys() if isinstance(k, int)])
 
     if configs["use_deep_agent"]:
-        agent = PPODynaQAgent(
+        agent = DeepDynaQAgent(
             state_discretizer_t,
             action_discretizer_t,
             state_discretizer_b,
