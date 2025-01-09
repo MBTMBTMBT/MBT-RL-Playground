@@ -136,11 +136,18 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
                             use_redistribution=False,
                         )
                     else:
-                        agent.update_from_real_env(
-                            total_timesteps=configs["exploit_policy_training_steps"],
-                            real_env=env,
-                            progress_bar=False,
-                        )
+                        if init_group == "baseline":
+                            agent.update_from_real_env(
+                                total_timesteps=configs["exploit_policy_training_per_num_steps"],
+                                real_env=env,
+                                progress_bar=False,
+                            )
+                        else:
+                            agent.update_from_real_env(
+                                total_timesteps=configs["exploit_policy_training_steps"],
+                                real_env=env,
+                                progress_bar=False,
+                            )
                     exploit_policy_updates += 1
 
             if configs[sample_step]["test_exploit_policy"]:
