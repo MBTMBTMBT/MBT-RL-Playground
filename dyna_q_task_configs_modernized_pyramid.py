@@ -428,7 +428,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
         }
 
     elif name == "lunarlander":
-        save_path = "./experiments/DynaQ/deep-lunarlander/lunarlander"
+        save_path = "./experiments/DynaQ/pyramid-lunarlander/lunarlander"
         env = gym.make("LunarLander-v3", render_mode="rgb_array", continuous=True, )
         test_env = gym.make("LunarLander-v3", render_mode="rgb_array", continuous=True, )
         state_discretizers = [
