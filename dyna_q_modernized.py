@@ -790,8 +790,8 @@ class TransitionalTableEnv(TransitionTable, gym.Env):
             init_strategy_distribution: Tuple[float] = (0.5, 0.5),
             unknown_reward: float = None,
             use_redistribution: bool = False,
-            max_delta_reward: float = 0.25,
-            max_self_loop_prob: float = 0.2,
+            max_delta_reward: float = 10,
+            max_self_loop_prob: float = 0.25,
     ):
         TransitionTable.__init__(self, state_discretizer, action_discretizer, reward_resolution=reward_resolution)
         gym.Env.__init__(self)
