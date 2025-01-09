@@ -281,6 +281,27 @@ class Discretizer:
                     high.append(max_val)
             return spaces.Box(low=np.array(low, dtype=np.float32), high=np.array(high, dtype=np.float32), dtype=np.float32)
 
+    def add_noise(self, vector: np.ndarray) -> np.ndarray:
+        """
+        Add noise to the input vector. The noise is uniformly sampled within the range
+        of the corresponding bucket size for dimensions with buckets > 1.
+
+        :param vector: Input vector to add noise. Must have the same length as ranges.
+        :return: A new vector with added noise.
+        """
+        assert len(vector) == len(self.ranges), "Input vector must have the same length as ranges."
+
+        noisy_vector = np.copy(vector)
+
+        for i, (value, (min_val, max_val), buckets) in enumerate(zip(vector, self.ranges, self.num_buckets)):
+            if buckets > 1:
+                # Discretized dimension: Calculate bucket size and add noise
+                bucket_size = (max_val - min_val) / buckets
+                noise = np.random.uniform(-bucket_size / 2, bucket_size / 2)
+                noisy_vector[i] = np.clip(value + noise, min_val, max_val)
+
+        return noisy_vector
+
 
 class TabularQAgent:
     def __init__(
@@ -943,6 +964,12 @@ class TransitionalTableEnv(TransitionTable, gym.Env):
     def strategy_step_plus_1(self):
         self.strategy_step_counts[self.init_strategy] += 1
 
+    def activate_redistribution(self):
+        self.use_redistribution = True
+
+    def deactivate_redistribution(self):
+        self.use_redistribution = False
+
 
 class LandmarksTransitionalTableEnv(TransitionalTableEnv):
     INIT_STRATEGIES = TransitionalTableEnv.INIT_STRATEGIES + ["landmarks"]
@@ -1287,6 +1314,53 @@ class DoubleTransitionalTableEnv(gym.Env):
         next_state, reward, terminated, truncated, info = self.transition_table_env_b.step(action)
         return next_state, reward * self.exploit_policy_reward_rate, terminated, truncated, info
 
+
+class PyramidTransitionalTableEnv(gym.Env):
+    def __init__(
+            self,
+            transition_table_envs: List[TransitionalTableEnv] or List[LandmarksTransitionalTableEnv],
+            exploit_policy_reward_rate: float = 0.1,
+            add_noise: bool = False,
+            leader_env_index: int = 0,
+    ):
+        self.transition_table_envs = transition_table_envs
+        self.exploit_policy_reward_rate = exploit_policy_reward_rate
+        self.add_noise = add_noise
+        self.observation_space = self.transition_table_envs[0].observation_space
+        self.action_space = self.transition_table_envs[0].action_space
+        self.leader_env = self.transition_table_envs[leader_env_index]
+        self.slave_env: Optional[TransitionalTableEnv] = None
+
+    def reset(
+            self,
+            seed=None,
+            options=None,
+            init_state: np.ndarray = None,
+            reset_all: bool = False,
+            slave_env_index: int = 0,
+            add_noise: bool = None,
+            use_redistribution: bool = None,
+    ):
+        if add_noise is not None:
+            self.add_noise = add_noise
+        self.slave_env = self.transition_table_envs[slave_env_index]
+        if use_redistribution is not None:
+            if use_redistribution:
+                self.slave_env.activate_redistribution()
+            else:
+                self.slave_env.deactivate_redistribution()
+        leader_state, _ = self.leader_env.reset(seed=seed, options=options, init_state=init_state, reset_all=reset_all)
+        state, info = self.slave_env.reset(seed=seed, options=options, init_state=leader_state, reset_all=reset_all)
+        if self.add_noise:
+            state = self.slave_env.state_discretizer.add_noise(state)
+        return state, info
+
+    def step(self, action):
+        self.leader_env.strategy_step_plus_1()
+        next_state, reward, terminated, truncated, info = self.slave_env.step(action)
+        if self.add_noise:
+            next_state = self.slave_env.state_discretizer.add_noise(next_state)
+        return next_state, reward * self.exploit_policy_reward_rate, terminated, truncated, info
 
 class TabularDynaQAgent:
     def __init__(
