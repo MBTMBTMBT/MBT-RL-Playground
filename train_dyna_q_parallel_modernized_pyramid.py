@@ -108,12 +108,19 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
                         strategy_selection_dict[s] = np.inf
                 init_sample_strategy = min(strategy_selection_dict, key=strategy_selection_dict.get)
 
-            if (init_group == "pyramid" or init_group == "dynatrans") and sample_step_count % configs["explore_policy_training_per_num_steps"] == 0 and sample_step_count > 1:
-                agent.update_from_transition_table(
-                    total_timesteps=configs["explore_policy_training_steps"],
-                    train_exploration_agent=True,
-                    progress_bar=False,
-                )
+            if (
+                    (init_group == "pyramid" or init_group == "dynatrans")
+                    and sample_step_count % configs["explore_policy_training_per_num_steps"] == 0
+                    and sample_step_count > 1
+            ):
+                if "pyramid_index" in configs[sample_step].keys() and configs[sample_step]["pyramid_index"] >= 0:
+                    agent.update_from_transition_table(
+                        total_timesteps=configs["explore_policy_training_steps"],
+                        train_exploration_agent=True,
+                        progress_bar=False,
+                    )
+                else:
+                    pass  # Learning directly from real env so no need to update transition model
 
             if configs[sample_step]["train_exploit_policy"] or init_group == "baseline":
                 if sample_step_count % configs["exploit_policy_training_per_num_steps"] == 0 and sample_step_count > 1:
@@ -136,18 +143,11 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
                             use_redistribution=False,
                         )
                     else:
-                        if init_group == "baseline":
-                            agent.update_from_real_env(
-                                total_timesteps=configs["exploit_policy_training_per_num_steps"],
-                                real_env=env,
-                                progress_bar=False,
-                            )
-                        else:
-                            agent.update_from_real_env(
-                                total_timesteps=configs["exploit_policy_training_steps"],
-                                real_env=env,
-                                progress_bar=False,
-                            )
+                        agent.update_from_real_env(
+                            total_timesteps=configs["exploit_policy_training_per_num_steps"],
+                            real_env=env,
+                            progress_bar=False,
+                        )
                     exploit_policy_updates += 1
 
             if configs[sample_step]["test_exploit_policy"]:
@@ -233,10 +233,20 @@ def run_all_experiments_and_plot(task_names_and_num_experiments: Dict[str, int],
         random.shuffle(init_groups)
         for init_group in init_groups:
             for _ in range(runs):
+                if init_group != "baseline":
+                    tasks.append({
+                        "task_name": task_name,
+                        "run_id": run_id,
+                        "init_group": init_group,
+                    })
+                    run_id += 1
+
+            # Do only one run of baseline...
+            if "baseline" in init_groups:
                 tasks.append({
                     "task_name": task_name,
                     "run_id": run_id,
-                    "init_group": init_group,
+                    "init_group": "baseline",
                 })
                 run_id += 1
 
