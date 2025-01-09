@@ -1353,7 +1353,7 @@ class PyramidTransitionalTableEnv(gym.Env):
                     self.slave_env.deactivate_redistribution()
         leader_state, _ = self.leader_env.reset(seed=seed, options=options, init_state=init_state, reset_all=reset_all)
         if add_noise_from_leader:
-            leader_state = self.leader_env.add_noise_to_state(leader_state)
+            leader_state = self.leader_env.state_discretizer.add_noise(leader_state)
         state, info = self.slave_env.reset(seed=seed, options=options, init_state=leader_state, reset_all=reset_all)
         if self.add_noise:
             state = self.slave_env.state_discretizer.add_noise(state)
@@ -1730,7 +1730,7 @@ class DeepPyramidDynaQAgent:
             action_discretizers: List[Discretizer],
             max_steps: int = 500,
             reward_resolution: int = -1,
-            init_strategy_distribution: Tuple[float] = (0.5, 0.5,),
+            init_strategy_distribution: Tuple[float, float] = (0.5, 0.5,),
             exploit_lr: float = 2.5e-4,
             explore_lr: float = 0.1,
             gamma: float = 0.99,
