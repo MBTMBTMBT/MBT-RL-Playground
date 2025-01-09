@@ -113,7 +113,10 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
                     and sample_step_count % configs["explore_policy_training_per_num_steps"] == 0
                     and sample_step_count > 1
             ):
-                if "pyramid_index" in configs[sample_step].keys() and configs[sample_step]["pyramid_index"] >= 0:
+                if (
+                        not "pyramid_index" in configs[sample_step].keys()
+                        or configs[sample_step]["pyramid_index"] >= 0
+                ):
                     agent.update_from_transition_table(
                         total_timesteps=configs["explore_policy_training_steps"],
                         train_exploration_agent=True,
