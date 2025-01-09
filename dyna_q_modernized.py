@@ -1340,16 +1340,20 @@ class PyramidTransitionalTableEnv(gym.Env):
             slave_env_index: int = 0,
             add_noise: bool = None,
             use_redistribution: bool = None,
+            add_noise_from_leader: bool = True,
     ):
-        if add_noise is not None:
-            self.add_noise = add_noise
-        self.slave_env = self.transition_table_envs[slave_env_index]
-        if use_redistribution is not None:
-            if use_redistribution:
-                self.slave_env.activate_redistribution()
-            else:
-                self.slave_env.deactivate_redistribution()
+        if reset_all:
+            if add_noise is not None:
+                self.add_noise = add_noise
+            self.slave_env = self.transition_table_envs[slave_env_index]
+            if use_redistribution is not None:
+                if use_redistribution:
+                    self.slave_env.activate_redistribution()
+                else:
+                    self.slave_env.deactivate_redistribution()
         leader_state, _ = self.leader_env.reset(seed=seed, options=options, init_state=init_state, reset_all=reset_all)
+        if add_noise_from_leader:
+            leader_state = self.leader_env.add_noise_to_state(leader_state)
         state, info = self.slave_env.reset(seed=seed, options=options, init_state=leader_state, reset_all=reset_all)
         if self.add_noise:
             state = self.slave_env.state_discretizer.add_noise(state)
@@ -1716,4 +1720,128 @@ class DeepDynaQAgent:
             self.exploration_agent.learn(total_timesteps=total_timesteps, progress_bar=progress_bar)
         else:
             self.double_env.reset(reset_all=True)
+            self.exploit_agent.learn(total_timesteps=total_timesteps, progress_bar=progress_bar)
+
+
+class DeepPyramidDynaQAgent:
+    def __init__(
+            self,
+            state_discretizers: List[Discretizer],
+            action_discretizers: List[Discretizer],
+            max_steps: int = 500,
+            reward_resolution: int = -1,
+            init_strategy_distribution: Tuple[float] = (0.5, 0.5,),
+            exploit_lr: float = 2.5e-4,
+            explore_lr: float = 0.1,
+            gamma: float = 0.99,
+            bonus_decay: float = 0.9,
+            exploit_policy_reward_rate: float = 1e-1,
+            add_noise: bool = False,
+    ):
+        self.transition_table_envs = []
+        for state_discretizer, action_discretizer in zip(state_discretizers, action_discretizers):
+            self.transition_table_envs.append(
+                TransitionalTableEnv(
+                    state_discretizer,
+                    action_discretizer,
+                    max_steps=max_steps,
+                    reward_resolution=reward_resolution,
+                    unknown_reward=None,
+                    init_strategy_distribution=init_strategy_distribution,
+                )
+            )
+        self.pyramid_env = PyramidTransitionalTableEnv(
+            self.transition_table_envs,
+            exploit_policy_reward_rate=exploit_policy_reward_rate,
+            add_noise=add_noise,
+            leader_env_index=0,
+        )
+        self.transition_table_env_e = TransitionalTableEnv(
+            state_discretizers[-1],
+            action_discretizers[-1],
+            # n_steps=max_steps,
+            reward_resolution=reward_resolution,
+            unknown_reward=1.0,
+        )
+        # print(self.double_env.action_space)
+        if isinstance(self.pyramid_env.action_space, Box):
+            self.exploit_agent = SAC(
+                "MlpPolicy",
+                self.pyramid_env,
+                learning_rate=exploit_lr,
+                gamma=gamma,
+                verbose=0,
+                device='auto',
+            )
+        else:
+            self.exploit_agent = PPO(
+                "MlpPolicy",
+                self.pyramid_env,
+                learning_rate=exploit_lr,
+                gamma=gamma,
+                verbose=0,
+                device='auto',
+            )
+        self.exploration_agent = TabularQAgent(
+            self.transition_table_env_e,
+            state_discretizers[-1],
+            action_discretizers[-1],
+            n_steps=max_steps,
+            lr=explore_lr,
+            gamma=gamma,
+            print_info=False,
+        )
+        self.exploration_agent.q_table = defaultdict(lambda: 1.0)
+        self.bonus_states = defaultdict(lambda: 1.0)
+        self.bonus_decay = bonus_decay
+
+    def print_agent_info(self):
+        for transition_table_env in self.transition_table_envs:
+            transition_table_env.print_transition_table_info()
+
+    def choose_action(
+            self, state: np.ndarray, explore_action: bool = False, temperature: float = 1.0, greedy: bool = False,
+    ) -> np.ndarray:
+        if explore_action:
+            action = self.exploration_agent.choose_action(state, temperature=temperature, greedy=greedy)
+        else:
+            action, _ = self.exploit_agent.predict(state, deterministic=greedy)
+        return action
+
+    def update_from_env(
+            self,
+            state: np.ndarray,
+            action: np.ndarray,
+            reward: float,
+            next_state: np.ndarray,
+            done: bool,
+    ):
+        encoded_next_state = self.transition_table_env_e.state_discretizer.encode_indices(
+            list(self.transition_table_env_e.state_discretizer.discretize(next_state)[1]))
+        reward_bonus = self.bonus_states[encoded_next_state]
+        self.bonus_states[encoded_next_state] *= self.bonus_decay
+        for transition_table_env in self.transition_table_envs:
+            transition_table_env.update(state, action, reward, next_state, done)
+        self.transition_table_env_e.update(state, action, reward_bonus, next_state, done)
+
+    def update_from_transition_table(
+            self,
+            total_timesteps: int,
+            train_exploration_agent: bool = False,
+            progress_bar: bool = False,
+            slave_env_index: int = 0,
+            add_noise: bool = False,
+            use_redistribution: bool = False,
+    ):
+        if train_exploration_agent:
+            self.transition_table_env_e.reset(reset_all=True)
+            self.exploration_agent.learn(total_timesteps=total_timesteps, progress_bar=progress_bar)
+        else:
+            self.pyramid_env.reset(
+                reset_all=True,
+                slave_env_index=slave_env_index,
+                add_noise=add_noise,
+                use_redistribution=use_redistribution,
+                add_noise_from_leader=True,
+            )
             self.exploit_agent.learn(total_timesteps=total_timesteps, progress_bar=progress_bar)
