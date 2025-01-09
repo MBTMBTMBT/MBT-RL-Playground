@@ -244,14 +244,14 @@ def run_all_experiments_and_plot(task_names_and_num_experiments: Dict[str, int],
                     })
                     run_id += 1
 
-            # Do only one run of baseline...
-            if "baseline" in init_groups:
-                tasks.append({
-                    "task_name": task_name,
-                    "run_id": run_id,
-                    "init_group": "baseline",
-                })
-                run_id += 1
+        # Do only one run of baseline...
+        if "baseline" in init_groups:
+            tasks.append({
+                "task_name": task_name,
+                "run_id": run_id,
+                "init_group": "baseline",
+            })
+            run_id += 1
 
     print(f"Total tasks: {run_id}.")
     random.shuffle(tasks)
