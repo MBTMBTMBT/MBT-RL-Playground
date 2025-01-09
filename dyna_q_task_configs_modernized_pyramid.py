@@ -426,6 +426,110 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 "pyramid_index": -1,
             },
         }
+
+    elif name == "lunarlander":
+        save_path = "./experiments/DynaQ/deep-lunarlander/lunarlander"
+        env = gym.make("LunarLander-v3", render_mode="rgb_array", continuous=True, )
+        test_env = gym.make("LunarLander-v3", render_mode="rgb_array", continuous=True, )
+        state_discretizers = [
+            Discretizer(
+                ranges=[
+                    (-1.5, 1.5), (-1.5, 1.5), (-5.0, 5.0), (-5.0, 5.0),
+                    (-3.14, 3.14), (-5.0, 5.0), (0, 1), (0, 1),
+                ],
+                num_buckets=[5, 5, 5, 5, 9, 5, 0, 0, ],
+                normal_params=[None, None, None, None, None, None, None, None, ],
+            ),
+            Discretizer(
+                ranges=[
+                    (-1.5, 1.5), (-1.5, 1.5), (-5.0, 5.0), (-5.0, 5.0),
+                    (-3.14, 3.14), (-5.0, 5.0), (0, 1), (0, 1),
+                ],
+                num_buckets=[9, 9, 9, 9, 13, 9, 0, 0, ],
+                normal_params=[None, None, None, None, None, None, None, None, ],
+            ),
+            Discretizer(
+                ranges=[
+                    (-1.5, 1.5), (-1.5, 1.5), (-5.0, 5.0), (-5.0, 5.0),
+                    (-3.14, 3.14), (-5.0, 5.0), (0, 1), (0, 1),
+                ],
+                num_buckets=[13, 13, 13, 13, 17, 13, 0, 0, ],
+                normal_params=[None, None, None, None, None, None, None, None, ],
+            ),
+        ]
+        action_discretizers = [
+            Discretizer(
+                ranges=[(-1, 1), (-1, 1)],
+                num_buckets=[5, 5],
+                normal_params=[None, None],
+            ),
+            Discretizer(
+                ranges=[(-1, 1), (-1, 1)],
+                num_buckets=[7, 7],
+                normal_params=[None, None],
+            ),
+            Discretizer(
+                ranges=[(-1, 1), (-1, 1)],
+                num_buckets=[9, 9],
+                normal_params=[None, None],
+            )
+        ]
+        configs = {
+            "save_path": save_path,
+            "explore_agent_lr": 0.1,
+            "explore_value_decay": 0.99,
+            "explore_bonus_decay": 0.9,
+            "explore_policy_training_per_num_steps": int(0.5e3),
+            "explore_policy_training_steps": int(5e3),
+            "explore_epsilon": 0.25,
+            "explore_strategy": "greedy",
+            "reward_resolution": 10,
+            "train_max_num_steps_per_episode": 500,
+            "exploit_agent_lr": 2.5e-4,
+            "exploit_softmax_temperature": 0.5,
+            "exploit_policy_reward_rate": 1e-2,
+            "exploit_value_decay": 0.99,
+            "exploit_policy_training_per_num_steps": int(0.025e6),
+            "exploit_policy_training_steps": int(0.05e6),
+            "exploit_policy_test_per_num_steps": int(0.1e6),
+            "exploit_policy_test_episodes": 200,
+            "save_per_num_steps": int(2.5e6),
+            "save_mdp_graph": False,
+            "print_training_info": True,
+            int(500e3): {
+                "explore_policy_exploit_policy_ratio": (1.0, 0.0),
+                "train_exploit_policy": False,
+                "test_exploit_policy": False,
+            },
+            int(750e3): {
+                "explore_policy_exploit_policy_ratio": (0.75, 0.25),
+                "train_exploit_policy": True,
+                "test_exploit_policy": True,
+                "test_exploit_strategy": "greedy",
+                "pyramid_index": 0,
+            },
+            int(1_000e3): {
+                "explore_policy_exploit_policy_ratio": (0.5, 0.5),
+                "train_exploit_policy": True,
+                "test_exploit_policy": True,
+                "test_exploit_strategy": "greedy",
+                "pyramid_index": 1,
+            },
+            int(1_500e3): {
+                "explore_policy_exploit_policy_ratio": (0.25, 0.75),
+                "train_exploit_policy": True,
+                "test_exploit_policy": True,
+                "test_exploit_strategy": "greedy",
+                "pyramid_index": 2,
+            },
+            int(2_000e3): {
+                "explore_policy_exploit_policy_ratio": (0.25, 0.75),
+                "train_exploit_policy": True,
+                "test_exploit_policy": True,
+                "test_exploit_strategy": "greedy",
+                "pyramid_index": -1,
+            },
+        }
     else:
         raise ValueError(f"Invalid environment name: {name}.")
 
