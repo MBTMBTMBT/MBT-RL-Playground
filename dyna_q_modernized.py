@@ -1765,24 +1765,15 @@ class DeepPyramidDynaQAgent:
             unknown_reward=1.0,
         )
         # print(self.double_env.action_space)
-        if isinstance(self.pyramid_env.action_space, Box):
-            self.exploit_agent = SAC(
-                "MlpPolicy",
-                self.pyramid_env,
-                learning_rate=exploit_lr,
-                gamma=gamma,
-                verbose=0,
-                device='auto',
-            )
-        else:
-            self.exploit_agent = PPO(
-                "MlpPolicy",
-                self.pyramid_env,
-                learning_rate=exploit_lr,
-                gamma=gamma,
-                verbose=0,
-                device='auto',
-            )
+        self.exploit_agent = PPO(
+            "MlpPolicy",
+            self.pyramid_env,
+            learning_rate=exploit_lr,
+            gamma=gamma,
+            verbose=0,
+            n_epochs=5,
+            device='auto',
+        )
         self.exploration_agent = TabularQAgent(
             self.transition_table_env_e,
             state_discretizers[-1],
@@ -1846,3 +1837,10 @@ class DeepPyramidDynaQAgent:
                 add_noise_from_leader=True,
             )
             self.exploit_agent.learn(total_timesteps=total_timesteps, progress_bar=progress_bar)
+
+    def update_from_real_env(self, total_timesteps: int, real_env: gym.Env, progress_bar: bool = False,):
+        current_env = self.exploit_agent.env
+        real_env = PPO._wrap_env(real_env, verbose=self.exploit_agent.verbose, monitor_wrapper=True)
+        self.exploit_agent.env = real_env
+        self.exploit_agent.learn(total_timesteps=total_timesteps, progress_bar=progress_bar)
+        self.exploit_agent.env = current_env
