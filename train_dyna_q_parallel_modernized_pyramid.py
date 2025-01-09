@@ -65,7 +65,7 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
             f"[{step / 1e3:.0f}e3]" if step == sample_step else f"{step / 1e3:.0f}e3" for step in sample_steps
         )
 
-        if init_group == "pyramid":
+        if init_group == "pyramid" and "pyramid_index" in configs[sample_step]:
             pbar.set_description(
                 f"[{run_id}-{task_name}-{init_group}]-Stage-[{stage}-Idx-{configs[sample_step]['pyramid_index']}]"
             )
@@ -88,7 +88,8 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
                 else:
                     action = agent.choose_action(state, explore_action=False, greedy=True)
             next_state, reward, done, truncated, _ = env.step(action)
-            agent.update_from_env(state, action, reward, next_state, done,)
+            if init_group == "pyramid" or init_group == "dynatrans":
+                agent.update_from_env(state, action, reward, next_state, done,)
             state = next_state
 
             current_step += 1
@@ -107,32 +108,38 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
                         strategy_selection_dict[s] = np.inf
                 init_sample_strategy = min(strategy_selection_dict, key=strategy_selection_dict.get)
 
-            if sample_step_count % configs["explore_policy_training_per_num_steps"] == 0 and sample_step_count > 1:
+            if (init_group == "pyramid" or init_group == "dynatrans") and sample_step_count % configs["explore_policy_training_per_num_steps"] == 0 and sample_step_count > 1:
                 agent.update_from_transition_table(
                     total_timesteps=configs["explore_policy_training_steps"],
                     train_exploration_agent=True,
                     progress_bar=False,
                 )
 
-            if configs[sample_step]["train_exploit_policy"]:
+            if configs[sample_step]["train_exploit_policy"] or init_group == "baseline":
                 if sample_step_count % configs["exploit_policy_training_per_num_steps"] == 0 and sample_step_count > 1:
-                    if init_group == "pyramid":
+                    if init_group == "pyramid" and configs[sample_step]["pyramid_index"] >= 0:
                         agent.update_from_transition_table(
                             total_timesteps=configs["exploit_policy_training_steps"],
                             train_exploration_agent=False,
                             progress_bar=False,
                             slave_env_index=configs[sample_step]["pyramid_index"],
-                            add_noise=sample_step != sample_steps[-1],
-                            use_redistribution=sample_step != sample_steps[-1],
+                            add_noise=True,
+                            use_redistribution=sample_step < sample_steps[-2],
                         )
-                    else:
+                    elif init_group == "dynatrans" and configs[sample_step]["pyramid_index"] >= 0:
                         agent.update_from_transition_table(
                             total_timesteps=configs["exploit_policy_training_steps"],
                             train_exploration_agent=False,
                             progress_bar=False,
-                            slave_env_index=configs[sample_steps[-1]]["pyramid_index"],
-                            add_noise=False,
+                            slave_env_index=configs[sample_steps[-2]]["pyramid_index"],
+                            add_noise=True,
                             use_redistribution=False,
+                        )
+                    else:
+                        agent.update_from_real_env(
+                            total_timesteps=configs["exploit_policy_training_steps"],
+                            real_env=env,
+                            progress_bar=False,
                         )
                     exploit_policy_updates += 1
 
@@ -215,7 +222,7 @@ def run_all_experiments_and_plot(task_names_and_num_experiments: Dict[str, int],
     run_id = 0
     for task_name, runs in task_names_and_num_experiments.items():
         # Shuffle the sequence just for monitoring more possible cases simultaneously
-        init_groups = ["pyramid", "baseline"]
+        init_groups = ["dynatrans", "pyramid", "baseline",]
         random.shuffle(init_groups)
         for init_group in init_groups:
             for _ in range(runs):
@@ -227,6 +234,7 @@ def run_all_experiments_and_plot(task_names_and_num_experiments: Dict[str, int],
                 run_id += 1
 
     print(f"Total tasks: {run_id}.")
+    random.shuffle(tasks)
 
     # Execute tasks in parallel
     if max_workers > 1:
