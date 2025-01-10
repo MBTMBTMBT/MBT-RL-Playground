@@ -508,21 +508,21 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 "test_exploit_strategy": "greedy",
                 "pyramid_index": 0,
             },
-            int(300e3): {
+            int(200e3): {
                 "explore_policy_exploit_policy_ratio": (0.5, 0.5),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
                 "pyramid_index": 1,
             },
-            int(500e3): {
+            int(300e3): {
                 "explore_policy_exploit_policy_ratio": (0.25, 0.75),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
                 "pyramid_index": 2,
             },
-            int(750e3): {
+            int(500e3): {
                 "explore_policy_exploit_policy_ratio": (0.25, 0.75),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
