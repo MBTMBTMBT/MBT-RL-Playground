@@ -356,7 +356,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
         action_discretizers = [
             Discretizer(
                 ranges=[(-2.0, 2.0), ],
-                num_buckets=[9],
+                num_buckets=[13],
                 normal_params=[None, ],
             ),
             Discretizer(
