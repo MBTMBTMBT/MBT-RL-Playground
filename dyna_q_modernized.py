@@ -906,11 +906,11 @@ class TransitionalTableEnv(TransitionTable, gym.Env):
 
                 # Step 3: Adjust probabilities if necessary
                 if should_adjust and self_loop_prob > self.max_self_loop_prob:
+                    total_prob = sum(transition_probabilities.values())
                     adjustment = self_loop_prob - self.max_self_loop_prob
                     transition_probabilities[encoded_state] = self.max_self_loop_prob
 
                     # Redistribute the remaining probability to other states
-                    total_prob = sum(transition_probabilities.values())
                     for state in transition_probabilities:
                         if state != encoded_state:
                             transition_probabilities[state] += adjustment * (
