@@ -460,17 +460,17 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
         action_discretizers = [
             Discretizer(
                 ranges=[(-1, 1), (-1, 1)],
-                num_buckets=[5, 5],
-                normal_params=[None, None],
-            ),
-            Discretizer(
-                ranges=[(-1, 1), (-1, 1)],
-                num_buckets=[7, 7],
-                normal_params=[None, None],
-            ),
-            Discretizer(
-                ranges=[(-1, 1), (-1, 1)],
                 num_buckets=[9, 9],
+                normal_params=[None, None],
+            ),
+            Discretizer(
+                ranges=[(-1, 1), (-1, 1)],
+                num_buckets=[13, 13],
+                normal_params=[None, None],
+            ),
+            Discretizer(
+                ranges=[(-1, 1), (-1, 1)],
+                num_buckets=[17, 17],
                 normal_params=[None, None],
             )
         ]
