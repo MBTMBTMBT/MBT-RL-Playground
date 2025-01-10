@@ -230,9 +230,9 @@ def run_experiment_unpack(args):
 def run_all_experiments_and_plot(task_names_and_num_experiments: Dict[str, int], max_workers):
     tasks = []
     run_id = 0
+    init_groups = ["dynatrans", "pyramid", "baseline",]
     for task_name, runs in task_names_and_num_experiments.items():
         # Shuffle the sequence just for monitoring more possible cases simultaneously
-        init_groups = ["dynatrans", "pyramid", "baseline",]
         random.shuffle(init_groups)
         for init_group in init_groups:
             for _ in range(runs):
@@ -244,8 +244,9 @@ def run_all_experiments_and_plot(task_names_and_num_experiments: Dict[str, int],
                     })
                     run_id += 1
 
-        random.shuffle(tasks)
+    random.shuffle(tasks)
 
+    for task_name, runs in task_names_and_num_experiments.items():
         # Do only one run of baseline...
         if "baseline" in init_groups:
             tasks.insert(0, {
