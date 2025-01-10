@@ -337,11 +337,11 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
         env = gym.make("Pendulum-v1", render_mode="rgb_array", )
         test_env = gym.make("Pendulum-v1", render_mode="rgb_array", )
         state_discretizers = [
-            Discretizer(
-                ranges=[(-1.0, 1.0), (-1.0, 1.0), (-8.0, 8.0), ],
-                num_buckets=[9, 9, 13],
-                normal_params=[None, None, None],
-            ),
+            # Discretizer(
+            #     ranges=[(-1.0, 1.0), (-1.0, 1.0), (-8.0, 8.0), ],
+            #     num_buckets=[9, 9, 13],
+            #     normal_params=[None, None, None],
+            # ),
             Discretizer(
                 ranges=[(-1.0, 1.0), (-1.0, 1.0), (-8.0, 8.0), ],
                 num_buckets=[15, 15, 25],
@@ -354,14 +354,14 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             )
         ]
         action_discretizers = [
+            # Discretizer(
+            #     ranges=[(-2.0, 2.0), ],
+            #     num_buckets=[13],
+            #     normal_params=[None, ],
+            # ),
             Discretizer(
                 ranges=[(-2.0, 2.0), ],
-                num_buckets=[13],
-                normal_params=[None, ],
-            ),
-            Discretizer(
-                ranges=[(-2.0, 2.0), ],
-                num_buckets=[13],
+                num_buckets=[17],
                 normal_params=[None, ],
             ),
             Discretizer(
@@ -398,27 +398,27 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 "test_exploit_policy": False,
             },
             int(150e3): {
-                "explore_policy_exploit_policy_ratio": (0.75, 0.25),
+                "explore_policy_exploit_policy_ratio": (0.5, 0.5),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
                 "pyramid_index": 0,
             },
             int(300e3): {
-                "explore_policy_exploit_policy_ratio": (0.5, 0.5),
+                "explore_policy_exploit_policy_ratio": (0.25, 0.75),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
                 "pyramid_index": 1,
             },
+            # int(500e3): {
+            #     "explore_policy_exploit_policy_ratio": (0.25, 0.75),
+            #     "train_exploit_policy": True,
+            #     "test_exploit_policy": True,
+            #     "test_exploit_strategy": "greedy",
+            #     "pyramid_index": 2,
+            # },
             int(500e3): {
-                "explore_policy_exploit_policy_ratio": (0.25, 0.75),
-                "train_exploit_policy": True,
-                "test_exploit_policy": True,
-                "test_exploit_strategy": "greedy",
-                "pyramid_index": 2,
-            },
-            int(750e3): {
                 "explore_policy_exploit_policy_ratio": (0.25, 0.75),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
