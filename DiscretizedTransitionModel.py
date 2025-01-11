@@ -489,6 +489,80 @@ class TransitionModel(nn.Module):
         terminal = self.terminal_head(features)
         return next_state, reward, terminal
 
+    def normalize_batch(self, batch,):
+        obs_space, action_space = self.obs_space, self.action_space
+        # Normalize observations
+        true_obs = torch.tensor(batch["state"], dtype=torch.float32, device=self.device)
+        if isinstance(obs_space, spaces.Discrete):
+            normalized_obs = torch.nn.functional.one_hot(true_obs.long(), num_classes=obs_space.n).float()
+        elif isinstance(obs_space, spaces.MultiDiscrete):
+            split_obs = torch.split(true_obs.long(), 1, dim=-1)
+            one_hot_obs_list = [
+                torch.nn.functional.one_hot(dim.squeeze(-1), num_classes=n).float()
+                for dim, n in zip(split_obs, obs_space.nvec)
+            ]
+            normalized_obs = torch.cat(one_hot_obs_list, dim=-1)
+        elif isinstance(obs_space, spaces.Box):
+            low = torch.tensor(obs_space.low, dtype=torch.float32, device=self.device)
+            high = torch.tensor(obs_space.high, dtype=torch.float32, device=self.device)
+            finite_mask = torch.isfinite(low) & torch.isfinite(high)
+            normalized_obs = true_obs.clone()
+            normalized_obs[..., finite_mask] = 2 * (true_obs[..., finite_mask] - low[finite_mask]) / (
+                    high[finite_mask] - low[finite_mask]
+            ) - 1
+        else:
+            raise NotImplementedError(f"Observation space {type(obs_space)} not supported.")
+
+        next_obs = torch.tensor(batch["next_state"], dtype=torch.float32, device=self.device)
+        if isinstance(obs_space, spaces.Discrete):
+            normalized_next_obs = torch.nn.functional.one_hot(next_obs.long(), num_classes=obs_space.n).float()
+        elif isinstance(obs_space, spaces.MultiDiscrete):
+            split_next_obs = torch.split(next_obs.long(), 1, dim=-1)
+            one_hot_next_obs_list = [
+                torch.nn.functional.one_hot(dim.squeeze(-1), num_classes=n).float()
+                for dim, n in zip(split_next_obs, obs_space.nvec)
+            ]
+            normalized_next_obs = torch.cat(one_hot_next_obs_list, dim=-1)
+        elif isinstance(obs_space, spaces.Box):
+            low = torch.tensor(obs_space.low, dtype=torch.float32, device=self.device)
+            high = torch.tensor(obs_space.high, dtype=torch.float32, device=self.device)
+            finite_mask = torch.isfinite(low) & torch.isfinite(high)
+            normalized_next_obs = next_obs.clone()
+            normalized_next_obs[..., finite_mask] = 2 * (next_obs[..., finite_mask] - low[finite_mask]) / (
+                    high[finite_mask] - low[finite_mask]
+            ) - 1
+        else:
+            raise NotImplementedError(f"Observation space {type(obs_space)} not supported.")
+
+        # Normalize actions
+        true_actions = torch.tensor(batch["action"], dtype=torch.float32, device=self.device)
+        if isinstance(action_space, spaces.Discrete):
+            normalized_actions = torch.nn.functional.one_hot(true_actions.long(), num_classes=action_space.n).float()
+        elif isinstance(action_space, spaces.MultiDiscrete):
+            split_actions = torch.split(true_actions.long(), 1, dim=-1)
+            one_hot_action_list = [
+                torch.nn.functional.one_hot(dim.squeeze(-1), num_classes=n).float()
+                for dim, n in zip(split_actions, action_space.nvec)
+            ]
+            normalized_actions = torch.cat(one_hot_action_list, dim=-1)
+        elif isinstance(action_space, spaces.Box):
+            normalized_actions = true_actions
+        else:
+            raise NotImplementedError(f"Action space {type(action_space)} not supported.")
+
+        # Process rewards and terminations
+        true_rewards = torch.tensor(batch["reward"], dtype=torch.float32, device=self.device)
+        true_terminations = torch.tensor(batch["terminal"], dtype=torch.float32, device=self.device)
+
+        # Return the processed batch
+        return {
+            "state": normalized_obs,
+            "next_state": normalized_next_obs,
+            "action": normalized_actions,
+            "reward": true_rewards,
+            "terminal": true_terminations,
+        }
+
     def train_batch(self, batch, recon_weight=1.0, reward_weight=1.0, termination_weight=1.0,):
         self.train()
 
@@ -542,3 +616,6 @@ class TransitionModel(nn.Module):
             "reward_loss": reward_loss.item(),
             "termination_loss": termination_loss.item(),
         }
+
+    def predict(self, state: np.ndarray, action: np.ndarray or int):
+        pass
