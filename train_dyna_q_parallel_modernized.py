@@ -90,7 +90,10 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
 
     was_testing_exploit_policy = False
     for sample_step in sample_steps:
-        sample_strategy_distribution = configs[sample_step]["explore_policy_exploit_policy_ratio"]
+        if not init_group == "baseline":
+            sample_strategy_distribution = configs[sample_step]["explore_policy_exploit_policy_ratio"]
+        else:
+            sample_strategy_distribution = (0.5, 0.5)
         train_from_real_env = configs[sample_step]["train_from_real_environment"] or init_group == "baseline"
         num_steps_to_sample = sample_step - sample_step_count
         current_step = 0
