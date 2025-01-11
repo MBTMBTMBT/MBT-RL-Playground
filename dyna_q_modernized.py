@@ -1383,7 +1383,7 @@ class TabularDynaQAgent:
             take_done_states_as_targets: bool = False,
             max_steps: int = 500,
             reward_resolution: int = -1,
-            init_strategy_distribution: Tuple[float] = (0.33, 0.33, 0.33),
+            init_strategy_distribution: Tuple[float] = None,
             exploit_lr: float = 0.1,
             explore_lr: float = 0.1,
             gamma: float = 0.99,
@@ -1393,6 +1393,8 @@ class TabularDynaQAgent:
         self.action_discretizer_t = action_discretizer_t
         self.state_discretizer_b = state_discretizer_b
         self.action_discretizer_b = action_discretizer_b
+        if init_strategy_distribution is None:
+            init_strategy_distribution = (0.33, 0.33, 0.33)
         self.transition_table_env_t = LandmarksTransitionalTableEnv(
             state_discretizer_t,
             action_discretizer_t,
@@ -1539,6 +1541,12 @@ class TabularDynaQAgent:
             self.double_env.reset(reset_all=True)
             self.exploit_agent.learn(total_timesteps=total_timesteps, progress_bar=progress_bar, temperature=temperature)
 
+    def update_from_real_env(self, total_timesteps: int, real_env: gym.Env, progress_bar: bool = False,):
+        current_env = self.exploit_agent.env
+        self.exploit_agent.env = real_env
+        self.exploit_agent.learn(total_timesteps=total_timesteps, progress_bar=progress_bar)
+        self.exploit_agent.env = current_env
+
 
 class DeepDynaQAgent:
     def __init__(
@@ -1556,7 +1564,7 @@ class DeepDynaQAgent:
             take_done_states_as_targets: bool = False,
             max_steps: int = 500,
             reward_resolution: int = -1,
-            init_strategy_distribution: Tuple[float] = (0.33, 0.33, 0.33),
+            init_strategy_distribution: Tuple[float] = None,
             exploit_lr: float = 0.1,
             explore_lr: float = 0.1,
             gamma: float = 0.99,
@@ -1567,6 +1575,8 @@ class DeepDynaQAgent:
         self.action_discretizer_t = action_discretizer_t
         self.state_discretizer_b = state_discretizer_b
         self.action_discretizer_b = action_discretizer_b
+        if init_strategy_distribution is None:
+            init_strategy_distribution = (0.33, 0.33, 0.33)
         self.transition_table_env_t = LandmarksTransitionalTableEnv(
             state_discretizer_t,
             action_discretizer_t,
@@ -1722,6 +1732,13 @@ class DeepDynaQAgent:
         else:
             self.double_env.reset(reset_all=True)
             self.exploit_agent.learn(total_timesteps=total_timesteps, progress_bar=progress_bar)
+
+    def update_from_real_env(self, total_timesteps: int, real_env: gym.Env, progress_bar: bool = False,):
+        current_env = self.exploit_agent.env
+        real_env = PPO._wrap_env(real_env, verbose=self.exploit_agent.verbose, monitor_wrapper=True)
+        self.exploit_agent.env = real_env
+        self.exploit_agent.learn(total_timesteps=total_timesteps, progress_bar=progress_bar)
+        self.exploit_agent.env = current_env
 
 
 class DeepPyramidDynaQAgent:
