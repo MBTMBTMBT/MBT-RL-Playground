@@ -281,6 +281,22 @@ class Discretizer:
                     high.append(max_val)
             return spaces.Box(low=np.array(low, dtype=np.float32), high=np.array(high, dtype=np.float32), dtype=np.float32)
 
+    def get_space_length(self,):
+        """
+        Return the flattened vector length of a given Gymnasium space.
+        """
+        space = self.get_gym_space()
+        if isinstance(space, spaces.Discrete):
+            return space.n
+        elif isinstance(space, spaces.MultiDiscrete):
+            return sum(space.nvec)
+        elif isinstance(space, spaces.Box):
+            return int(np.prod(space.shape))
+        elif isinstance(space, spaces.MultiBinary):
+            return space.n
+        else:
+            raise NotImplementedError(f"Space type {type(space)} is not supported.")
+
     def add_noise(self, vector: np.ndarray) -> np.ndarray:
         """
         Add noise to the input vector. The noise is uniformly sampled within the range

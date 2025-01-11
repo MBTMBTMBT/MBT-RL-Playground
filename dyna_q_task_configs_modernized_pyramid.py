@@ -199,7 +199,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "save_mdp_graph": False,
             "print_training_info": False,
 
-            int(250e3): {
+            int(750e3): {
                 "explore_policy_exploit_policy_ratio": (1.0, 0.0),
                 "train_exploit_policy": False,
                 "test_exploit_policy": False,
@@ -211,35 +211,35 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             #     "test_exploit_strategy": "greedy",
             #     "pyramid_index": 0,
             # },
-            int(500e3): {
+            int(800e3): {
                 "explore_policy_exploit_policy_ratio": (0.75, 0.25),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
                 "pyramid_index": 1,
             },
-            int(750e3): {
+            int(900e3): {
                 "explore_policy_exploit_policy_ratio": (0.5, 0.5),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
                 "pyramid_index": 2,
             },
-            int(900e3): {
+            int(1_000e3): {
                 "explore_policy_exploit_policy_ratio": (0.25, 0.75),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
                 "pyramid_index": 3,
             },
-            int(1_200e3): {
+            int(1_100e3): {
                 "explore_policy_exploit_policy_ratio": (0.25, 0.75),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
                 "pyramid_index": -4,
             },
-            int(1_500e3): {
+            int(1_250e3): {
                 "explore_policy_exploit_policy_ratio": (0.25, 0.75),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
@@ -305,26 +305,26 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "save_mdp_graph": False,
             "print_training_info": False,
 
-            int(250e3): {
+            int(150e3): {
                 "explore_policy_exploit_policy_ratio": (1.0, 0.0),
                 "train_exploit_policy": False,
                 "test_exploit_policy": False,
             },
-            int(350e3): {
+            int(200e3): {
                 "explore_policy_exploit_policy_ratio": (0.75, 0.25),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
                 "pyramid_index": 0,
             },
-            int(450e3): {
+            int(300e3): {
                 "explore_policy_exploit_policy_ratio": (0.5, 0.5),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
                 "pyramid_index": 1,
             },
-            int(750e3): {
+            int(500e3): {
                 "explore_policy_exploit_policy_ratio": (0.25, 0.75),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
@@ -404,20 +404,13 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 "test_exploit_strategy": "greedy",
                 "pyramid_index": 0,
             },
-            int(300e3): {
+            int(250e3): {
                 "explore_policy_exploit_policy_ratio": (0.25, 0.75),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
                 "pyramid_index": 1,
             },
-            # int(500e3): {
-            #     "explore_policy_exploit_policy_ratio": (0.25, 0.75),
-            #     "train_exploit_policy": True,
-            #     "test_exploit_policy": True,
-            #     "test_exploit_strategy": "greedy",
-            #     "pyramid_index": 2,
-            # },
             int(500e3): {
                 "explore_policy_exploit_policy_ratio": (0.25, 0.75),
                 "train_exploit_policy": True,

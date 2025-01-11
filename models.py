@@ -29,7 +29,7 @@ class SimpleTransitionModel(nn.Module):
         self.action_dim = action_dim
         self.network_layers = network_layers if network_layers else [64, 64]
         self.dropout = dropout
-        self.device=device
+        self.device = device
 
         layers = []
         input_dim = obs_dim + action_dim  # Concatenate observation and action
