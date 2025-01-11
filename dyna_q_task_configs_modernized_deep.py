@@ -87,6 +87,9 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             },
             int(100e3): {
                 "train_from_real_environment": True,
+                "train_exploit_policy": True,
+                "test_exploit_policy": True,
+                "test_exploit_strategy": "greedy",
             },
         }
 
@@ -165,6 +168,9 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             },
             int(1_250e3): {
                 "train_from_real_environment": True,
+                "train_exploit_policy": True,
+                "test_exploit_policy": True,
+                "test_exploit_strategy": "greedy",
             },
         }
 
@@ -255,6 +261,9 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             },
             int(500e3): {
                 "train_from_real_environment": True,
+                "train_exploit_policy": True,
+                "test_exploit_policy": True,
+                "test_exploit_strategy": "greedy",
             },
         }
 
@@ -339,6 +348,9 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             },
             int(500e3): {
                 "train_from_real_environment": True,
+                "train_exploit_policy": True,
+                "test_exploit_policy": True,
+                "test_exploit_strategy": "greedy",
             },
         }
 
@@ -424,6 +436,9 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             },
             int(500e3): {
                 "train_from_real_environment": True,
+                "train_exploit_policy": True,
+                "test_exploit_policy": True,
+                "test_exploit_strategy": "greedy",
             },
         }
 
