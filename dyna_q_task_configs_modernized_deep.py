@@ -96,7 +96,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
         test_env = CustomMountainCarEnv(custom_gravity=0.005, render_mode="rgb_array")
         state_discretizer_t = Discretizer(
             ranges=[(-1.2, 0.6), (-0.07, 0.07), ],
-            num_buckets=[33, 9],
+            num_buckets=[17, 9],
             normal_params=[None, None],
         )
         action_discretizer_t = Discretizer(
@@ -139,11 +139,11 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "print_training_info": False,
             "init_groups": {
                 "rand-real": (0.5, 0.5, 0.0),
-                # "landmarks": (0.33, 0.33, 0.33),
+                "landmarks": (0.5, 0.25, 0.25),
             },
             "landmark_params": {
                 "num_targets": 32,
-                "min_cut_max_flow_search_space": 256,
+                "min_cut_max_flow_search_space": 32,
                 "q_cut_space": 64,
                 "weighted_search": True,
                 "init_state_reward_prob_below_threshold": 0.1,
@@ -223,12 +223,12 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "print_training_info": True,
             "init_groups": {
                 "rand-real": (0.5, 0.5, 0.0),
-                # "landmarks": (0.33, 0.33, 0.33),
+                "landmarks": (0.5, 0.25, 0.25),
             },
             "landmark_params": {
-                "num_targets": 256,
-                "min_cut_max_flow_search_space": 512,
-                "q_cut_space": 16,
+                "num_targets": 128,
+                "min_cut_max_flow_search_space": 256,
+                "q_cut_space": 32,
                 "weighted_search": True,
                 "init_state_reward_prob_below_threshold": 0.1,
                 "quality_value_threshold": 1.0,
@@ -317,7 +317,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             },
             "landmark_params": {
                 "num_targets": 32,
-                "min_cut_max_flow_search_space": 128,
+                "min_cut_max_flow_search_space": 64,
                 "q_cut_space": 32,
                 "weighted_search": True,
                 "init_state_reward_prob_below_threshold": 0.05,
@@ -391,12 +391,12 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "print_training_info": False,
             "init_groups": {
                 "rand-real": (0.5, 0.5, 0.0),
-                # "landmarks": (0.33, 0.33, 0.33),
+                "landmarks": (0.5, 0.25, 0.25),
             },
             "landmark_params": {
                 "num_targets": 32,
-                "min_cut_max_flow_search_space": 128,
-                "q_cut_space": 16,
+                "min_cut_max_flow_search_space": 64,
+                "q_cut_space": 32,
                 "weighted_search": True,
                 "init_state_reward_prob_below_threshold": 0.05,
                 "quality_value_threshold": 1.0,

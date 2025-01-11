@@ -1357,7 +1357,7 @@ class PyramidTransitionalTableEnv(gym.Env):
             slave_env_index: int = 0,
             add_noise: bool = None,
             use_redistribution: bool = None,
-            add_noise_from_leader: bool = True,
+            add_noise_from_leader: bool = False,
     ):
         if reset_all:
             if add_noise is not None:
@@ -1867,7 +1867,7 @@ class DeepPyramidDynaQAgent:
                 slave_env_index=slave_env_index,
                 add_noise=add_noise,
                 use_redistribution=use_redistribution,
-                add_noise_from_leader=True,
+                add_noise_from_leader=False,
             )
             self.exploit_agent.learn(total_timesteps=total_timesteps, progress_bar=progress_bar)
 
