@@ -90,7 +90,7 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
 
     was_testing_exploit_policy = False
     for sample_step in sample_steps:
-        if not init_group == "baseline":
+        if not init_group == "baseline" and "explore_policy_exploit_policy_ratio" in configs[sample_step]:
             sample_strategy_distribution = configs[sample_step]["explore_policy_exploit_policy_ratio"]
         else:
             sample_strategy_distribution = (0.5, 0.5)
@@ -262,12 +262,12 @@ def run_all_experiments_and_plot(task_names_and_num_experiments: Dict[str, int],
                         "init_group": init_group,
                     })
                     run_id += 1
-        baseline_tasks.append({
-            "task_name": task_name,
-            "run_id": run_id,
-            "init_group": "baseline",
-        })
-        run_id += 1
+        # baseline_tasks.append({
+        #     "task_name": task_name,
+        #     "run_id": run_id,
+        #     "init_group": "baseline",
+        # })
+        # run_id += 1
 
     tasks = baseline_tasks + tasks
 
