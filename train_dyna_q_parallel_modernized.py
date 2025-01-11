@@ -27,7 +27,7 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
     final_test_rewards = 0.0
 
     group_save_path = save_path + f"-{init_group}"
-    init_distribution = configs["init_groups"][init_group]
+    init_distribution = configs["init_groups"][init_group] if init_group != "baseline" else None
     sample_steps = sorted([k for k in configs.keys() if isinstance(k, int)])
 
     if configs["use_deep_agent"]:
@@ -36,13 +36,13 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
             action_discretizer_t,
             state_discretizer_b,
             action_discretizer_b,
-            num_targets=configs["q_cut_params"]["num_targets"],
-            min_cut_max_flow_search_space=configs["q_cut_params"]["min_cut_max_flow_search_space"],
-            q_cut_space=configs["q_cut_params"]["q_cut_space"],
-            weighted_search=configs["q_cut_params"]["weighted_search"],
-            init_state_reward_prob_below_threshold=configs["q_cut_params"]["init_state_reward_prob_below_threshold"],
-            quality_value_threshold=configs["q_cut_params"]["quality_value_threshold"],
-            take_done_states_as_targets=configs["q_cut_params"]["take_done_states_as_targets"],
+            num_targets=configs["landmark_params"]["num_targets"],
+            min_cut_max_flow_search_space=configs["landmark_params"]["min_cut_max_flow_search_space"],
+            q_cut_space=configs["landmark_params"]["q_cut_space"],
+            weighted_search=configs["landmark_params"]["weighted_search"],
+            init_state_reward_prob_below_threshold=configs["landmark_params"]["init_state_reward_prob_below_threshold"],
+            quality_value_threshold=configs["landmark_params"]["quality_value_threshold"],
+            take_done_states_as_targets=configs["landmark_params"]["take_done_states_as_targets"],
             max_steps=configs["train_max_num_steps_per_episode"],
             reward_resolution=configs["reward_resolution"],
             init_strategy_distribution=init_distribution,
@@ -58,13 +58,13 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
             action_discretizer_t,
             state_discretizer_b,
             action_discretizer_b,
-            num_targets=configs["q_cut_params"]["num_targets"],
-            min_cut_max_flow_search_space=configs["q_cut_params"]["min_cut_max_flow_search_space"],
-            q_cut_space=configs["q_cut_params"]["q_cut_space"],
-            weighted_search=configs["q_cut_params"]["weighted_search"],
-            init_state_reward_prob_below_threshold=configs["q_cut_params"]["init_state_reward_prob_below_threshold"],
-            quality_value_threshold=configs["q_cut_params"]["quality_value_threshold"],
-            take_done_states_as_targets=configs["q_cut_params"]["take_done_states_as_targets"],
+            num_targets=configs["landmark_params"]["num_targets"],
+            min_cut_max_flow_search_space=configs["landmark_params"]["min_cut_max_flow_search_space"],
+            q_cut_space=configs["landmark_params"]["q_cut_space"],
+            weighted_search=configs["landmark_params"]["weighted_search"],
+            init_state_reward_prob_below_threshold=configs["landmark_params"]["init_state_reward_prob_below_threshold"],
+            quality_value_threshold=configs["landmark_params"]["quality_value_threshold"],
+            take_done_states_as_targets=configs["landmark_params"]["take_done_states_as_targets"],
             max_steps=configs["train_max_num_steps_per_episode"],
             reward_resolution=configs["reward_resolution"],
             init_strategy_distribution=init_distribution,
@@ -91,9 +91,10 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
     was_testing_exploit_policy = False
     for sample_step in sample_steps:
         sample_strategy_distribution = configs[sample_step]["explore_policy_exploit_policy_ratio"]
+        train_from_real_env = configs[sample_step]["train_from_real_environment"] or init_group == "baseline"
         num_steps_to_sample = sample_step - sample_step_count
         current_step = 0
-        sample_strategy_step_count = {s: 0 for s in sample_strategies}
+        sample_strategy_step_count = {s: 1 for s in sample_strategies}
 
         stage = ",".join(
             f"[{step / 1e3:.0f}e3]" if step == sample_step else f"{step / 1e3:.0f}e3" for step in sample_steps
@@ -107,56 +108,66 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
 
         init_sample_strategy = random.choices(sample_strategies, weights=sample_strategy_distribution, k=1)[0]
         while current_step < num_steps_to_sample:
-            if random.random() < configs["explore_epsilon"]:
-                action = env.action_space.sample()
-            else:
-                if init_sample_strategy == "explore_greedy":
-                    action = agent.choose_action(state, explore_action=True, greedy=True)
+            if not train_from_real_env:
+                if random.random() < configs["explore_epsilon"]:
+                    action = env.action_space.sample()
                 else:
-                    action = agent.choose_action(state, explore_action=False, greedy=True)
-            next_state, reward, done, truncated, _ = env.step(action)
-            agent.update_from_env(state, action, reward, next_state, done,)
-            state = next_state
+                    if init_sample_strategy == "explore_greedy":
+                        action = agent.choose_action(state, explore_action=True, greedy=True)
+                    else:
+                        action = agent.choose_action(state, explore_action=False, greedy=True)
+                next_state, reward, done, truncated, _ = env.step(action)
+                agent.update_from_env(state, action, reward, next_state, done,)
+                state = next_state
+
+                sample_strategy_step_count[init_sample_strategy] += 1
+
+                if done or truncated:
+                    state, _ = env.reset()
+                    agent.transition_table_env_t.add_start_state(state)
+                    agent.transition_table_env_b.add_start_state(state)
+                    agent.transition_table_env_e.add_start_state(state)
+                    strategy_selection_dict = {}
+                    for i, s in enumerate(sample_strategies):
+                        if sample_strategy_distribution[i] != 0:
+                            strategy_selection_dict[s] = sample_strategy_step_count[s] / sample_strategy_distribution[i]
+                        else:
+                            strategy_selection_dict[s] = np.inf
+                    init_sample_strategy = min(strategy_selection_dict, key=strategy_selection_dict.get)
 
             current_step += 1
             sample_step_count += 1
-            sample_strategy_step_count[init_sample_strategy] += 1
-
-            if done or truncated:
-                state, _ = env.reset()
-                agent.transition_table_env_t.add_start_state(state)
-                agent.transition_table_env_b.add_start_state(state)
-                agent.transition_table_env_e.add_start_state(state)
-                strategy_selection_dict = {}
-                for i, s in enumerate(sample_strategies):
-                    if sample_strategy_distribution[i] != 0:
-                        strategy_selection_dict[s] = sample_strategy_step_count[s] / sample_strategy_distribution[i]
-                    else:
-                        strategy_selection_dict[s] = np.inf
-                init_sample_strategy = min(strategy_selection_dict, key=strategy_selection_dict.get)
 
             if sample_step_count % configs["explore_policy_training_per_num_steps"] == 0 and sample_step_count > 1:
-                agent.update_from_transition_table(
-                    total_timesteps=configs["explore_policy_training_steps"],
-                    train_exploration_agent=True,
-                    progress_bar=False,
-                )
+                if not train_from_real_env:
+                    agent.update_from_transition_table(
+                        total_timesteps=configs["explore_policy_training_steps"],
+                        train_exploration_agent=True,
+                        progress_bar=False,
+                    )
 
             if configs[sample_step]["train_exploit_policy"]:
                 if sample_step_count % configs["exploit_policy_training_per_num_steps"] == 0 and sample_step_count > 1:
-                    if configs["use_deep_agent"]:
-                        agent.update_from_transition_table(
+                    if train_from_real_env:
+                        agent.update_from_real_env(
                             total_timesteps=configs["exploit_policy_training_steps"],
-                            train_exploration_agent=False,
+                            real_env=env,
                             progress_bar=False,
                         )
                     else:
-                        agent.update_from_transition_table(
-                            total_timesteps=configs["exploit_policy_training_steps"],
-                            train_exploration_agent=False,
-                            progress_bar=False,
-                            temperature=configs["exploit_softmax_temperature"],
-                        )
+                        if configs["use_deep_agent"]:
+                            agent.update_from_transition_table(
+                                total_timesteps=configs["exploit_policy_training_steps"],
+                                train_exploration_agent=False,
+                                progress_bar=False,
+                            )
+                        else:
+                            agent.update_from_transition_table(
+                                total_timesteps=configs["exploit_policy_training_steps"],
+                                train_exploration_agent=False,
+                                progress_bar=False,
+                                temperature=configs["exploit_softmax_temperature"],
+                            )
                     exploit_policy_updates += 1
 
             if configs[sample_step]["test_exploit_policy"]:
@@ -192,15 +203,13 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
                     if current_step == num_steps_to_sample - 1 or sample_step_count == sample_steps[-1] - 1:
                         final_test_rewards = avg_test_reward
 
-                        if not configs["use_deep_agent"]:
-                            # Save GIF for the first test episode
-                            gif_path = group_save_path + f"_{sample_step_count}.gif"
-                            generate_test_gif(frames, gif_path, to_print=configs["print_training_info"])
-
-                    if configs["use_deep_agent"]:
                         # Save GIF for the first test episode
                         gif_path = group_save_path + f"_{sample_step_count}.gif"
                         generate_test_gif(frames, gif_path, to_print=configs["print_training_info"])
+
+                    # Save GIF for the first test episode
+                    gif_path = group_save_path + f"_latest.gif"
+                    generate_test_gif(frames, gif_path, to_print=configs["print_training_info"])
 
             if (
                     (sample_step_count + 1) % configs["save_per_num_steps"] == 0
@@ -236,19 +245,28 @@ def run_experiment_unpack(args):
 # Aggregating results for consistent step-based plotting
 def run_all_experiments_and_plot(task_names_and_num_experiments: Dict[str, int], max_workers):
     tasks = []
+    baseline_tasks = []
     run_id = 0
     for task_name, runs in task_names_and_num_experiments.items():
         # Shuffle the sequence just for monitoring more possible cases simultaneously
         init_groups = [k for k in get_envs_discretizers_and_configs(task_name, configs_only=True)["init_groups"]]
         random.shuffle(init_groups)
         for init_group in init_groups:
-            for _ in range(runs):
-                tasks.append({
-                    "task_name": task_name,
-                    "run_id": run_id,
-                    "init_group": init_group,
-                })
-                run_id += 1
+                for _ in range(runs):
+                    tasks.append({
+                        "task_name": task_name,
+                        "run_id": run_id,
+                        "init_group": init_group,
+                    })
+                    run_id += 1
+        baseline_tasks.append({
+            "task_name": task_name,
+            "run_id": run_id,
+            "init_group": "baseline",
+        })
+        run_id += 1
+
+    tasks = baseline_tasks + tasks
 
     print(f"Total tasks: {run_id}.")
 
