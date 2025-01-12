@@ -241,6 +241,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 "take_done_states_as_targets": False,
             },
             int(100e3): {
+                "train_from_real_environment": False,
                 "explore_policy_exploit_policy_ratio": (1.0, 0.0),
                 "train_exploit_policy": False,
                 "test_exploit_policy": False,
