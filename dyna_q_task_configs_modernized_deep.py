@@ -205,7 +205,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             normal_params=[None, None],
         )
         configs = {
-            "use_deep_agent": False,
+            "use_deep_agent": True,
             "save_path": save_path,
             "explore_agent_lr": 0.1,
             "explore_value_decay": 0.99,
