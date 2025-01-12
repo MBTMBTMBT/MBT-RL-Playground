@@ -246,21 +246,21 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 "train_exploit_policy": False,
                 "test_exploit_policy": False,
             },
-            int(200e3): {
+            int(300e3): {
                 "train_from_real_environment": False,
                 "explore_policy_exploit_policy_ratio": (0.5, 0.5),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(300e3): {
+            int(500e3): {
                 "train_from_real_environment": False,
                 "explore_policy_exploit_policy_ratio": (0.75, 0.25),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(500e3): {
+            int(1_000e3): {
                 "train_from_real_environment": True,
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
