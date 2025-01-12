@@ -1,7 +1,7 @@
 if __name__ == '__main__':
     from train_dyna_q_parallel_modernized import *
-    # aggregated_results = run_all_experiments_and_plot({"cartpole": 3}, max_workers=3)
-    # print(aggregated_results)
+    aggregated_results = run_all_experiments_and_plot({"cartpole": 3}, max_workers=3)
+    print(aggregated_results)
     aggregated_results = run_all_experiments_and_plot({"lunarlander": 3}, max_workers=3)
     print(aggregated_results)
     aggregated_results = run_all_experiments_and_plot({"pendulum": 3}, max_workers=3)
