@@ -1646,24 +1646,15 @@ class DeepDynaQAgent:
             exploit_policy_reward_rate=exploit_policy_reward_rate
         )
         # print(self.double_env.action_space)
-        if isinstance(self.double_env.action_space, Box):
-            self.exploit_agent = SAC(
-                "MlpPolicy",
-                self.double_env,
-                learning_rate=exploit_lr,
-                gamma=gamma,
-                verbose=0,
-                device='auto',
-            )
-        else:
-            self.exploit_agent = PPO(
-                "MlpPolicy",
-                self.double_env,
-                learning_rate=exploit_lr,
-                gamma=gamma,
-                verbose=0,
-                device='auto',
-            )
+        self.exploit_agent = PPO(
+            "MlpPolicy",
+            self.double_env,
+            learning_rate=exploit_lr,
+            gamma=gamma,
+            verbose=0,
+            n_epochs=5,
+            device='auto',
+        )
         self.exploration_agent = TabularQAgent(
             self.transition_table_env_e,
             self.state_discretizer_b,
