@@ -1,3 +1,4 @@
+import gc
 import os
 import random
 from concurrent.futures import ProcessPoolExecutor
@@ -236,6 +237,9 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
             pbar.update(1)
 
     pbar.close()
+
+    del agent
+    gc.collect()
 
     return task_name, run_id, init_group, test_results, test_steps, final_test_rewards
 
