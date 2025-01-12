@@ -10,5 +10,5 @@ if __name__ == '__main__':
     print(aggregated_results)
     aggregated_results = run_all_experiments_and_plot({"mountain_car": 3}, max_workers=3)
     print(aggregated_results)
-    # aggregated_results = run_all_experiments_and_plot({"texi": 8}, max_workers=32)
-    # print(aggregated_results)
+    aggregated_results = run_all_experiments_and_plot({"texi": 8}, max_workers=32)
+    print(aggregated_results)

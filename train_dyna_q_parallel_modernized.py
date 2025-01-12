@@ -11,9 +11,10 @@ import plotly.graph_objs as go
 from dyna_q_modernized import TabularDynaQAgent, DeepDynaQAgent
 from dyna_q_task_configs_modernized import get_envs_discretizers_and_configs as tabular_configs
 from dyna_q_task_configs_modernized_deep import get_envs_discretizers_and_configs as deep_configs
+from dyna_q_task_configs_modernized_real_env import get_envs_discretizers_and_configs as real_env_configs
 from parallel_training import generate_test_gif
 
-get_envs_discretizers_and_configs = deep_configs
+get_envs_discretizers_and_configs = real_env_configs
 
 
 def run_experiment(task_name: str, run_id: int, init_group: str):
@@ -52,6 +53,8 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
             gamma=configs["exploit_value_decay"],
             bonus_decay=configs["explore_bonus_decay"],
             exploit_policy_reward_rate=configs["exploit_policy_reward_rate"],
+            use_real_env=configs["train_from_real_env"],
+            real_env=env if configs["train_from_real_env"] else None
         )
     else:
         agent = TabularDynaQAgent(
@@ -73,6 +76,8 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
             exploit_lr=configs["exploit_agent_lr"],
             gamma=configs["exploit_value_decay"],
             bonus_decay=configs["explore_bonus_decay"],
+            use_real_env=configs["train_from_real_env"],
+            real_env=env if configs["train_from_real_env"] else None
         )
 
     pbar = tqdm(

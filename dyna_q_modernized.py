@@ -1350,6 +1350,31 @@ class DoubleTransitionalTableEnv(gym.Env):
         return next_state, reward * self.exploit_policy_reward_rate, terminated, truncated, info
 
 
+class HybridEnv(gym.Env):
+    def __init__(
+            self,
+            transition_table_env_t: TransitionalTableEnv or LandmarksTransitionalTableEnv,
+            real_env: gym.Env,
+            exploit_policy_reward_rate=0.1,
+    ):
+        self.transition_table_env_t = transition_table_env_t
+        self.real_env = real_env
+        self.observation_space = self.real_env.observation_space
+        self.action_space = self.real_env.action_space
+        self.exploit_policy_reward_rate = exploit_policy_reward_rate
+
+    def reset(self, seed=None, options=None, init_state: np.ndarray = None, reset_all: bool = False):
+        t_state, _ = self.transition_table_env_t.reset(seed=seed, options=options, init_state=init_state, reset_all=reset_all)
+        b_state, b_info = self.real_env.reset(seed=seed, options=options,)
+        self.real_env.unwrapped.state = t_state
+        return t_state, b_info
+
+    def step(self, action):
+        self.transition_table_env_t.strategy_step_plus_1()
+        next_state, reward, terminated, truncated, info = self.real_env.step(action)
+        return next_state, reward * self.exploit_policy_reward_rate, terminated, truncated, info
+
+
 class PyramidTransitionalTableEnv(gym.Env):
     def __init__(
             self,
@@ -1422,6 +1447,8 @@ class TabularDynaQAgent:
             explore_lr: float = 0.1,
             gamma: float = 0.99,
             bonus_decay: float = 0.9,
+            use_real_env: bool = False,
+            real_env: gym.Env = None,
     ):
         self.state_discretizer_t = state_discretizer_t
         self.action_discretizer_t = action_discretizer_t
@@ -1458,7 +1485,17 @@ class TabularDynaQAgent:
             reward_resolution=reward_resolution,
             unknown_reward=1.0,
         )
-        self.double_env = DoubleTransitionalTableEnv(self.transition_table_env_t, self.transition_table_env_b)
+        if use_real_env:
+            assert real_env is not None, "real_env must be provided if use_real_env is True."
+            self.double_env = HybridEnv(
+                self.transition_table_env_t,
+                real_env,
+            )
+        else:
+            self.double_env = DoubleTransitionalTableEnv(
+                self.transition_table_env_t,
+                self.transition_table_env_b,
+            )
         self.exploit_agent = TabularQAgent(
             self.double_env,
             self.state_discretizer_b,
@@ -1604,6 +1641,8 @@ class DeepDynaQAgent:
             gamma: float = 0.99,
             bonus_decay: float = 0.9,
             exploit_policy_reward_rate: float = 1e-1,
+            use_real_env: bool = False,
+            real_env: gym.Env = None,
     ):
         self.state_discretizer_t = state_discretizer_t
         self.action_discretizer_t = action_discretizer_t
@@ -1640,11 +1679,19 @@ class DeepDynaQAgent:
             reward_resolution=reward_resolution,
             unknown_reward=1.0,
         )
-        self.double_env = DoubleTransitionalTableEnv(
-            self.transition_table_env_t,
-            self.transition_table_env_b,
-            exploit_policy_reward_rate=exploit_policy_reward_rate
-        )
+        if use_real_env:
+            assert real_env is not None, "real_env must be provided if use_real_env is True."
+            self.double_env = HybridEnv(
+                self.transition_table_env_t,
+                real_env,
+                exploit_policy_reward_rate=exploit_policy_reward_rate,
+            )
+        else:
+            self.double_env = DoubleTransitionalTableEnv(
+                self.transition_table_env_t,
+                self.transition_table_env_b,
+                exploit_policy_reward_rate=exploit_policy_reward_rate,
+            )
         # print(self.double_env.action_space)
         self.exploit_agent = PPO(
             "MlpPolicy",

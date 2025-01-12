@@ -6,7 +6,7 @@ from dyna_q_modernized import Discretizer
 
 def get_envs_discretizers_and_configs(name: str, configs_only=False):
     if name == "cartpole":
-        save_path = "./experiments/DynaQ/deep-cartpole/cartpole"
+        save_path = "./experiments/DynaQ/real_env-cartpole/cartpole"
         env = gym.make("CartPole-v1", render_mode="rgb_array")
         test_env = gym.make("CartPole-v1", render_mode="rgb_array")
         state_discretizer_t = Discretizer(
@@ -31,7 +31,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
         )
         configs = {
             "use_deep_agent": True,
-            "train_from_real_env": False,
+            "train_from_real_env": True,
             "save_path": save_path,
             "explore_agent_lr": 0.1,
             "explore_value_decay": 0.99,
@@ -47,7 +47,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "exploit_policy_reward_rate": 1e-1,
             "exploit_value_decay": 0.99,
             "exploit_policy_training_per_num_steps": int(2.5e3),
-            "exploit_policy_training_steps": int(5e3),
+            "exploit_policy_training_steps": int(2.5e3),
             "exploit_policy_test_per_num_steps": int(2.5e3),
             "exploit_policy_test_episodes": 256,
             "save_per_num_steps": int(500e3),
@@ -68,25 +68,26 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             },
             int(10e3): {
                 "train_from_real_environment": False,
-                "explore_policy_exploit_policy_ratio": (1.0, 0.0),
-                "train_exploit_policy": False,
-                "test_exploit_policy": False,
+                "explore_policy_exploit_policy_ratio": (0.75, 0.25),
+                "train_exploit_policy": True,
+                "test_exploit_policy": True,
+                "test_exploit_strategy": "greedy",
             },
-            int(50e3): {
+            int(20e3): {
                 "train_from_real_environment": False,
                 "explore_policy_exploit_policy_ratio": (0.5, 0.5),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(75e3): {
+            int(30e3): {
                 "train_from_real_environment": False,
                 "explore_policy_exploit_policy_ratio": (0.25, 0.75),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(100e3): {
+            int(50e3): {
                 "train_from_real_environment": True,
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
@@ -95,7 +96,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
         }
 
     elif name == "mountain_car":
-        save_path = "./experiments/DynaQ/deep-mountain_car/mountain_car"
+        save_path = "./experiments/DynaQ/real_env-mountain_car/mountain_car"
         env = CustomMountainCarEnv(custom_gravity=0.005, render_mode="rgb_array")
         test_env = CustomMountainCarEnv(custom_gravity=0.005, render_mode="rgb_array")
         state_discretizer_t = Discretizer(
@@ -120,7 +121,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
         )
         configs = {
             "use_deep_agent": True,
-            "train_from_real_env": False,
+            "train_from_real_env": True,
             "save_path": save_path,
             "explore_agent_lr": 0.1,
             "explore_value_decay": 0.99,
@@ -136,7 +137,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "exploit_policy_reward_rate": 1,
             "exploit_value_decay": 0.99,
             "exploit_policy_training_per_num_steps": int(2.5e3),
-            "exploit_policy_training_steps": int(5e3),
+            "exploit_policy_training_steps": int(2.5e3),
             "exploit_policy_test_per_num_steps": int(2.5e3),
             "exploit_policy_test_episodes": 200,
             "save_per_num_steps": int(2.5e6),
@@ -157,13 +158,14 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             },
             int(1_500e3): {
                 "train_from_real_environment": False,
-                "explore_policy_exploit_policy_ratio": (1.0, 0.0),
-                "train_exploit_policy": False,
-                "test_exploit_policy": False,
+                "explore_policy_exploit_policy_ratio": (0.75, 0.25),
+                "train_exploit_policy": True,
+                "test_exploit_policy": True,
+                "test_exploit_strategy": "greedy",
             },
             int(1_650e3): {
                 "train_from_real_environment": False,
-                "explore_policy_exploit_policy_ratio": (0.5, 0.5),
+                "explore_policy_exploit_policy_ratio": (0.25, 0.75),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
@@ -177,7 +179,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
         }
 
     elif name == "lunarlander":
-        save_path = "./experiments/DynaQ/deep-lunarlander/lunarlander"
+        save_path = "./experiments/DynaQ/real_env-lunarlander/lunarlander"
         env = gym.make("LunarLander-v3", render_mode="rgb_array", continuous=True, )
         test_env = gym.make("LunarLander-v3", render_mode="rgb_array", continuous=True, )
         state_discretizer_t = Discretizer(
@@ -208,7 +210,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
         )
         configs = {
             "use_deep_agent": True,
-            "train_from_real_env": False,
+            "train_from_real_env": True,
             "save_path": save_path,
             "explore_agent_lr": 0.1,
             "explore_value_decay": 0.99,
@@ -224,7 +226,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "exploit_policy_reward_rate": 1e-2,
             "exploit_value_decay": 0.99,
             "exploit_policy_training_per_num_steps": int(2.5e3),
-            "exploit_policy_training_steps": int(5e3),
+            "exploit_policy_training_steps": int(2.5e3),
             "exploit_policy_test_per_num_steps": int(2.5e3),
             "exploit_policy_test_episodes": 200,
             "save_per_num_steps": int(2.5e6),
@@ -243,11 +245,12 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 "quality_value_threshold": 1.0,
                 "take_done_states_as_targets": False,
             },
-            int(100e3): {
+            int(75e3): {
                 "train_from_real_environment": False,
-                "explore_policy_exploit_policy_ratio": (1.0, 0.0),
-                "train_exploit_policy": False,
-                "test_exploit_policy": False,
+                "explore_policy_exploit_policy_ratio": (0.75, 0.25),
+                "train_exploit_policy": True,
+                "test_exploit_policy": True,
+                "test_exploit_strategy": "greedy",
             },
             int(150e3): {
                 "train_from_real_environment": False,
@@ -256,14 +259,14 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(300e3): {
+            int(225e3): {
                 "train_from_real_environment": False,
-                "explore_policy_exploit_policy_ratio": (0.75, 0.25),
+                "explore_policy_exploit_policy_ratio": (0.25, 0.75),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(500e3): {
+            int(300e3): {
                 "train_from_real_environment": True,
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
@@ -272,7 +275,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
         }
 
     elif name == "acrobot":
-        save_path = "./experiments/DynaQ/deep-acrobot/acrobot"
+        save_path = "./experiments/DynaQ/real_env-acrobot/acrobot"
         env = gym.make("Acrobot-v1", render_mode="rgb_array")
         test_env = gym.make("Acrobot-v1", render_mode="rgb_array")
         state_discretizer_t = Discretizer(
@@ -303,7 +306,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
         )
         configs = {
             "use_deep_agent": True,
-            "train_from_real_env": False,
+            "train_from_real_env": True,
             "save_path": save_path,
             "explore_agent_lr": 0.1,
             "explore_value_decay": 0.99,
@@ -319,7 +322,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "exploit_policy_reward_rate": 1,
             "exploit_value_decay": 0.99,
             "exploit_policy_training_per_num_steps": int(2.5e3),
-            "exploit_policy_training_steps": int(5e3),
+            "exploit_policy_training_steps": int(2.5e3),
             "exploit_policy_test_per_num_steps": int(2.5e3),
             "exploit_policy_test_episodes": 200,
             "save_per_num_steps": int(2.5e6),
@@ -338,20 +341,21 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 "quality_value_threshold": 1.0,
                 "take_done_states_as_targets": True,
             },
-            int(150e3): {
+            int(100e3): {
                 "train_from_real_environment": False,
-                "explore_policy_exploit_policy_ratio": (1.0, 0.0),
-                "train_exploit_policy": False,
-                "test_exploit_policy": False,
-            },
-            int(300e3): {
-                "train_from_real_environment": False,
-                "explore_policy_exploit_policy_ratio": (0.5, 0.5),
+                "explore_policy_exploit_policy_ratio": (0.75, 0.25),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(500e3): {
+            int(200e3): {
+                "train_from_real_environment": False,
+                "explore_policy_exploit_policy_ratio": (0.25, 0.75),
+                "train_exploit_policy": True,
+                "test_exploit_policy": True,
+                "test_exploit_strategy": "greedy",
+            },
+            int(300e3): {
                 "train_from_real_environment": True,
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
@@ -360,7 +364,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
         }
 
     elif name =="pendulum":
-        save_path = "./experiments/DynaQ/deep-pendulum/pendulum"
+        save_path = "./experiments/DynaQ/real_env-pendulum/pendulum"
         env = gym.make("Pendulum-v1", render_mode="rgb_array",)
         test_env = gym.make("Pendulum-v1", render_mode="rgb_array",)
         state_discretizer_t = Discretizer(
@@ -385,7 +389,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
         )
         configs = {
             "use_deep_agent": True,
-            "train_from_real_env": False,
+            "train_from_real_env": True,
             "save_path": save_path,
             "explore_agent_lr": 0.1,
             "explore_value_decay": 0.99,
@@ -401,7 +405,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "exploit_policy_reward_rate": 1e-2,
             "exploit_value_decay": 0.99,
             "exploit_policy_training_per_num_steps": int(2.5e3),
-            "exploit_policy_training_steps": int(5e3),
+            "exploit_policy_training_steps": int(2.5e3),
             "exploit_policy_test_per_num_steps": int(2.5e3),
             "exploit_policy_test_episodes": 200,
             "save_per_num_steps": int(2.5e6),
@@ -422,25 +426,26 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             },
             int(100e3): {
                 "train_from_real_environment": False,
-                "explore_policy_exploit_policy_ratio": (1.0, 0.0),
-                "train_exploit_policy": False,
-                "test_exploit_policy": False,
+                "explore_policy_exploit_policy_ratio": (0.75, 0.25),
+                "train_exploit_policy": True,
+                "test_exploit_policy": True,
+                "test_exploit_strategy": "greedy",
             },
-            int(150e3): {
+            int(200e3): {
+                "train_from_real_environment": False,
+                "explore_policy_exploit_policy_ratio": (0.5, 0.5),
+                "train_exploit_policy": True,
+                "test_exploit_policy": True,
+                "test_exploit_strategy": "greedy",
+            },
+            int(300e3): {
                 "train_from_real_environment": False,
                 "explore_policy_exploit_policy_ratio": (0.25, 0.75),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(250e3): {
-                "train_from_real_environment": False,
-                "explore_policy_exploit_policy_ratio": (0.75, 0.25),
-                "train_exploit_policy": True,
-                "test_exploit_policy": True,
-                "test_exploit_strategy": "greedy",
-            },
-            int(500e3): {
+            int(400e3): {
                 "train_from_real_environment": True,
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
@@ -474,7 +479,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
         )
         configs = {
             "use_deep_agent": False,
-            "train_from_real_env": False,
+            "train_from_real_env": True,
             "save_path": save_path,
             "explore_agent_lr": 0.1,
             "explore_value_decay": 0.99,
@@ -490,7 +495,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "exploit_policy_reward_rate": 1,
             "exploit_value_decay": 0.99,
             "exploit_policy_training_per_num_steps": int(0.001e6),
-            "exploit_policy_training_steps": int(0.005e6),
+            "exploit_policy_training_steps": int(0.001e6),
             "exploit_policy_test_per_num_steps": int(0.001e6),
             "exploit_policy_test_episodes": 200,
             "save_per_num_steps": int(0.2e6),
@@ -511,9 +516,10 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             },
             int(0.05e6): {
                 "train_from_real_environment": False,
-                "explore_policy_exploit_policy_ratio": (1.0, 0.0),
-                "train_exploit_policy": False,
-                "test_exploit_policy": False,
+                "explore_policy_exploit_policy_ratio": (0.75, 0.25),
+                "train_exploit_policy": True,
+                "test_exploit_policy": True,
+                "test_exploit_strategy": "greedy",
             },
             int(0.15e6): {
                 "train_from_real_environment": False,
@@ -522,13 +528,13 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            # int(0.25e6): {
-            #     "train_from_real_environment": False,
-            #     "explore_policy_exploit_policy_ratio": (0.25, 0.75),
-            #     "train_exploit_policy": True,
-            #     "test_exploit_policy": True,
-            #     "test_exploit_strategy": "greedy",
-            # },
+            int(0.25e6): {
+                "train_from_real_environment": False,
+                "explore_policy_exploit_policy_ratio": (0.25, 0.75),
+                "train_exploit_policy": True,
+                "test_exploit_policy": True,
+                "test_exploit_strategy": "greedy",
+            },
         }
 
     else:
