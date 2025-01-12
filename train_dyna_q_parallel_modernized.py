@@ -153,7 +153,7 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
                 if sample_step_count % configs["exploit_policy_training_per_num_steps"] == 0 and sample_step_count > 1:
                     if train_from_real_env:
                         agent.update_from_real_env(
-                            total_timesteps=configs["exploit_policy_training_steps"],
+                            total_timesteps=configs["exploit_policy_training_per_num_steps"],
                             real_env=env,
                             progress_bar=False,
                         )
