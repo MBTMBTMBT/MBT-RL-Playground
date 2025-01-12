@@ -21,7 +21,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
         )
         state_discretizer_b = Discretizer(
             ranges=[(-2.4, 2.4), (-2, 2), (-0.25, 0.25), (-2, 2), ],
-            num_buckets=[25, 65, 25, 65],
+            num_buckets=[25, 65, 65, 65],
             normal_params=[None, None, None, None, ],
         )
         action_discretizer_b = Discretizer(
