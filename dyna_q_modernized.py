@@ -933,26 +933,44 @@ class TransitionalTableEnv(TransitionTable, gym.Env):
                                     transition_probabilities[state] / (total_prob - self_loop_prob)
                             )
 
-                # Normalize probabilities to ensure they sum to 1
-                total_prob = sum(transition_probabilities.values())
-                transition_probabilities = {
-                    state: prob / total_prob for state, prob in transition_probabilities.items()
-                }
+                    # Normalize probabilities to ensure they sum to 1
+                    total_prob = sum(transition_probabilities.values())
+                    transition_probabilities = {
+                        state: prob / total_prob for state, prob in transition_probabilities.items()
+                    }
 
-                # Step 4: Compute KL divergence between original and new distributions
-                original_probs = [
-                    v[1] for v in transition_state_avg_reward_and_prob.values()
-                ]
-                new_probs = [
-                    transition_probabilities[state]
-                    for state in transition_state_avg_reward_and_prob.keys()
-                ]
+                    # Step 4: Adjust rewards to maintain expected reward consistency
+                    adjusted_rewards = {}
+                    for state, prob in transition_probabilities.items():
+                        original_prob = transition_state_avg_reward_and_prob[state][1]
+                        original_reward = transition_state_avg_reward_and_prob[state][0]
+                        if prob > 0:
+                            # Adjust reward based on new probability
+                            adjusted_rewards[state] = (original_prob * original_reward) / prob
+                        else:
+                            adjusted_rewards[state] = 0  # For zero-probability states
 
-                kl_divergence = sum(
-                    p * math.log(p / q) for p, q in zip(original_probs, new_probs) if p > 0 and q > 0
-                )
+                    # Update the original dictionary with adjusted rewards
+                    for state in transition_state_avg_reward_and_prob:
+                        transition_state_avg_reward_and_prob[state] = (
+                            adjusted_rewards[state],
+                            transition_probabilities[state],
+                        )
 
-        # Step 5: Sample next state from adjusted probabilities
+                    # Step 5: Compute KL divergence between original and new distributions
+                    original_probs = [
+                        v[1] for v in transition_state_avg_reward_and_prob.values()
+                    ]
+                    new_probs = [
+                        transition_probabilities[state]
+                        for state in transition_state_avg_reward_and_prob.keys()
+                    ]
+
+                    kl_divergence = sum(
+                        p * math.log(p / q) for p, q in zip(original_probs, new_probs) if p > 0 and q > 0
+                    )
+
+        # Step 6: Sample next state from adjusted probabilities
         encoded_next_state = random.choices(
             population=list(transition_probabilities.keys()),
             weights=list(transition_probabilities.values()),
