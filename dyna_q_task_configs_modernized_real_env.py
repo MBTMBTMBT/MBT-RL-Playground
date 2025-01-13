@@ -341,21 +341,21 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 "quality_value_threshold": 1.0,
                 "take_done_states_as_targets": True,
             },
-            int(100e3): {
+            int(50e3): {
                 "train_from_real_environment": False,
                 "explore_policy_exploit_policy_ratio": (0.75, 0.25),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(200e3): {
+            int(125e3): {
                 "train_from_real_environment": False,
                 "explore_policy_exploit_policy_ratio": (0.25, 0.75),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(300e3): {
+            int(150e3): {
                 "train_from_real_environment": True,
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
