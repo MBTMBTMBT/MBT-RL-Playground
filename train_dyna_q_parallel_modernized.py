@@ -279,8 +279,8 @@ def run_all_experiments_and_plot(task_names_and_num_experiments: Dict[str, int],
             })
             run_id += 1
 
+    tasks = tasks + baseline_tasks
     random.shuffle(tasks)
-    tasks = baseline_tasks + tasks
 
     print(f"Total tasks: {run_id}.")
 
