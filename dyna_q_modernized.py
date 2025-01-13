@@ -1366,7 +1366,11 @@ class HybridEnv(gym.Env):
     def reset(self, seed=None, options=None, init_state: np.ndarray = None, reset_all: bool = False):
         t_state, _ = self.transition_table_env_t.reset(seed=seed, options=options, init_state=init_state, reset_all=reset_all)
         b_state, b_info = self.real_env.reset(seed=seed, options=options,)
-        self.real_env.unwrapped.state = t_state
+        if self.real_env.spec.id == "Pendulum-v1":
+            t_state_ = np.arccos(t_state[0]), t_state[1]
+        else:
+            t_state_ = t_state
+        self.real_env.unwrapped.state = t_state_
         return t_state, b_info
 
     def step(self, action):
