@@ -154,7 +154,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 "weighted_search": True,
                 "init_state_reward_prob_below_threshold": 0.1,
                 "quality_value_threshold": 1.0,
-                "take_done_states_as_targets": False,
+                "take_done_states_as_targets": True,
             },
             int(250e3): {
                 "train_from_real_environment": False,
