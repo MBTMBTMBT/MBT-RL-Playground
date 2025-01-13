@@ -1,7 +1,7 @@
 import gc
 import os
 import random
-from concurrent.futures import ProcessPoolExecutor
+from multiprocessing import Pool
 from typing import List, Dict
 
 import numpy as np
@@ -286,10 +286,9 @@ def run_all_experiments_and_plot(task_names_and_num_experiments: Dict[str, int],
 
     # Execute tasks in parallel
     if max_workers > 1:
-        with ProcessPoolExecutor(max_workers=max_workers) as executor:
-            all_results = list(executor.map(run_experiment_unpack, tasks))
+        with Pool(processes=max_workers, maxtasksperchild=1) as pool:
+            all_results = pool.map(run_experiment_unpack, tasks)
     else:
-        # Execute tasks sequentially when only one CPU is available
         all_results = [run_experiment_unpack(task) for task in tasks]
 
     # Aggregate results for each group
