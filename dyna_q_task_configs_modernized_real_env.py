@@ -330,7 +330,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "print_training_info": False,
             "init_groups": {
                 "rand-real": (0.5, 0.5, 0.0),
-                # "landmarks": (0.33, 0.33, 0.33),
+                "landmarks": (0.5, 0.25, 0.25),
             },
             "landmark_params": {
                 "num_targets": 32,
@@ -341,21 +341,21 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 "quality_value_threshold": 1.0,
                 "take_done_states_as_targets": True,
             },
-            int(50e3): {
+            int(10e3): {
                 "train_from_real_environment": False,
                 "explore_policy_exploit_policy_ratio": (0.75, 0.25),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(125e3): {
+            int(20e3): {
                 "train_from_real_environment": False,
                 "explore_policy_exploit_policy_ratio": (0.25, 0.75),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(150e3): {
+            int(30e3): {
                 "train_from_real_environment": True,
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
