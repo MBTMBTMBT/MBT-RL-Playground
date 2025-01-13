@@ -271,13 +271,13 @@ def run_all_experiments_and_plot(task_names_and_num_experiments: Dict[str, int],
                         "init_group": init_group,
                     })
                     run_id += 1
-        # for _ in range(runs):
-        baseline_tasks.append({
-            "task_name": task_name,
-            "run_id": run_id,
-            "init_group": "baseline",
-        })
-        run_id += 1
+        for _ in range(runs):
+            baseline_tasks.append({
+                "task_name": task_name,
+                "run_id": run_id,
+                "init_group": "baseline",
+            })
+            run_id += 1
 
     random.shuffle(tasks)
     tasks = baseline_tasks + tasks
