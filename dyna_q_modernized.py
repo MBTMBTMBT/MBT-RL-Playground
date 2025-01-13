@@ -1368,6 +1368,8 @@ class HybridEnv(gym.Env):
         b_state, b_info = self.real_env.reset(seed=seed, options=options,)
         if self.real_env.spec.id == "Pendulum-v1":
             t_state_ = np.arccos(t_state[0]), t_state[1]
+        elif self.real_env.spec.id == "Acrobot-v1":
+            t_state_ = np.arccos(t_state[0]), np.arccos(t_state[1]), t_state[2], t_state[3]
         else:
             t_state_ = t_state
         self.real_env.unwrapped.state = t_state_

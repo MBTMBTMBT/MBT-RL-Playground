@@ -97,8 +97,8 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
 
     elif name == "mountain_car":
         save_path = "./experiments/DynaQ/real_env-mountain_car/mountain_car"
-        env = CustomMountainCarEnv(custom_gravity=0.005, render_mode="rgb_array")
-        test_env = CustomMountainCarEnv(custom_gravity=0.005, render_mode="rgb_array")
+        env = gym.make("MountainCar-v0", render_mode="rgb_array",)
+        test_env = gym.make("MountainCar-v0", render_mode="rgb_array",)
         state_discretizer_t = Discretizer(
             ranges=[(-1.2, 0.6), (-0.07, 0.07), ],
             num_buckets=[17, 9],
@@ -156,21 +156,21 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 "quality_value_threshold": 1.0,
                 "take_done_states_as_targets": False,
             },
-            int(1_500e3): {
+            int(250e3): {
                 "train_from_real_environment": False,
                 "explore_policy_exploit_policy_ratio": (0.75, 0.25),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(1_600e3): {
+            int(500e3): {
                 "train_from_real_environment": False,
                 "explore_policy_exploit_policy_ratio": (0.25, 0.75),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(1_700e3): {
+            int(750e3): {
                 "train_from_real_environment": True,
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
@@ -245,28 +245,28 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 "quality_value_threshold": 1.0,
                 "take_done_states_as_targets": False,
             },
-            int(75e3): {
+            int(100e3): {
                 "train_from_real_environment": False,
                 "explore_policy_exploit_policy_ratio": (0.75, 0.25),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(150e3): {
+            int(200e3): {
                 "train_from_real_environment": False,
                 "explore_policy_exploit_policy_ratio": (0.5, 0.5),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(225e3): {
+            int(300e3): {
                 "train_from_real_environment": False,
                 "explore_policy_exploit_policy_ratio": (0.25, 0.75),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(300e3): {
+            int(500e3): {
                 "train_from_real_environment": True,
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
@@ -531,6 +531,95 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             int(0.25e6): {
                 "train_from_real_environment": False,
                 "explore_policy_exploit_policy_ratio": (0.25, 0.75),
+                "train_exploit_policy": True,
+                "test_exploit_policy": True,
+                "test_exploit_strategy": "greedy",
+            },
+        }
+
+    elif name == "bipedalWalker":
+        save_path = "./experiments/DynaQ/real_env-bipedalWalker/bipedalWalker"
+        env = gym.make("BipedalWalker-v3", hardcore=True, render_mode="rgb_array")
+        test_env = gym.make("BipedalWalker-v3", hardcore=True, render_mode="rgb_array")
+        state_discretizer_t = Discretizer(
+            ranges=[
+                (-3.14, 3.14), (-5.0, 5.0), (-5.0, 5.0), (-5.0, 5.0),
+                (-3.14, 3.14), (-5.0, 5.0), (-3.14, 3.14), (-5.0, 5.0),
+                (-0.0, 5.0), (-3.14, 3.14), (-5.0, 5.0), (-3.14, 3.14),
+                (-5.0, 5.0), (-0.0, 5.0), (-1.0, 1.0), (-1.0, 1.0),
+                (-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0),
+                (-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0),
+            ],
+            num_buckets=[5 for _ in range(14)] + [3 for _ in range(10)],
+            normal_params=[None for _ in range(24)],
+        )
+        state_discretizer_b = state_discretizer_t
+        action_discretizer_t = Discretizer(
+            ranges=[(-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0),],
+            num_buckets=[4, 4, 4, 4,],
+            normal_params=[None, None, None, None,],
+        )
+        action_discretizer_b = action_discretizer_t
+        configs = {
+            "use_deep_agent": True,
+            "train_from_real_env": True,
+            "save_path": save_path,
+            "explore_agent_lr": 0.1,
+            "explore_value_decay": 0.99,
+            "explore_bonus_decay": 0.9,
+            "explore_policy_training_per_num_steps": int(0.5e3),
+            "explore_policy_training_steps": int(5e3),
+            "explore_epsilon": 0.25,
+            "explore_strategy": "greedy",
+            "reward_resolution": 10,
+            "train_max_num_steps_per_episode": 2000,
+            "exploit_agent_lr": 2.5e-4,
+            "exploit_softmax_temperature": 0.5,
+            "exploit_policy_reward_rate": 1e-2,
+            "exploit_value_decay": 0.99,
+            "exploit_policy_training_per_num_steps": int(2.5e3),
+            "exploit_policy_training_steps": int(2.5e3),
+            "exploit_policy_test_per_num_steps": int(2.5e3),
+            "exploit_policy_test_episodes": 200,
+            "save_per_num_steps": int(2.5e6),
+            "save_mdp_graph": False,
+            "print_training_info": True,
+            "init_groups": {
+                "rand-real": (0.5, 0.5, 0.0),
+                "landmarks": (0.5, 0.25, 0.25),
+            },
+            "landmark_params": {
+                "num_targets": 128,
+                "min_cut_max_flow_search_space": 256,
+                "q_cut_space": 32,
+                "weighted_search": True,
+                "init_state_reward_prob_below_threshold": 0.1,
+                "quality_value_threshold": 1.0,
+                "take_done_states_as_targets": False,
+            },
+            int(100e3): {
+                "train_from_real_environment": False,
+                "explore_policy_exploit_policy_ratio": (0.75, 0.25),
+                "train_exploit_policy": True,
+                "test_exploit_policy": True,
+                "test_exploit_strategy": "greedy",
+            },
+            int(500e3): {
+                "train_from_real_environment": False,
+                "explore_policy_exploit_policy_ratio": (0.5, 0.5),
+                "train_exploit_policy": True,
+                "test_exploit_policy": True,
+                "test_exploit_strategy": "greedy",
+            },
+            int(1_750e3): {
+                "train_from_real_environment": False,
+                "explore_policy_exploit_policy_ratio": (0.25, 0.75),
+                "train_exploit_policy": True,
+                "test_exploit_policy": True,
+                "test_exploit_strategy": "greedy",
+            },
+            int(2_000e3): {
+                "train_from_real_environment": True,
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",

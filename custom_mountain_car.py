@@ -20,6 +20,7 @@ class CustomMountainCarEnv(MountainCarEnv):
         self.max_episode_steps = max_episode_steps
         self.current_step = 0
         self.reward_type = reward_type
+        self.spec.id = "MountainCar-v0"
 
     def step(self, action: int):
         # Override the step function to include a step counter for custom episode duration
