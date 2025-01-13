@@ -243,7 +243,8 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
 
     pbar.close()
 
-    del agent
+    del agent, pbar
+    del env, test_env, state_discretizer_t, action_discretizer_t, state_discretizer_b, action_discretizer_b, configs
     gc.collect()
 
     return task_name, run_id, init_group, test_results, test_steps, final_test_rewards
