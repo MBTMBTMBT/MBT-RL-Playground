@@ -128,7 +128,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "explore_value_decay": 0.99,
             "explore_bonus_decay": 0.9,
             "explore_policy_training_per_num_steps": int(0.5e3),
-            "explore_policy_training_steps": int(5e3),
+            "explore_policy_training_steps": int(10e3),
             "explore_epsilon": 0.25,
             "explore_strategy": "greedy",
             "reward_resolution": 0,
@@ -157,21 +157,21 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 "quality_value_threshold": 1.0,
                 "take_done_states_as_targets": True,
             },
-            int(250e3): {
+            int(750e3): {
                 "train_from_real_environment": False,
                 "explore_policy_exploit_policy_ratio": (0.75, 0.25),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(500e3): {
+            int(900e3): {
                 "train_from_real_environment": False,
                 "explore_policy_exploit_policy_ratio": (0.25, 0.75),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(750e3): {
+            int(1_000e3): {
                 "train_from_real_environment": True,
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
@@ -818,28 +818,28 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 "quality_value_threshold": 1.0,
                 "take_done_states_as_targets": False,
             },
-            int(25e3): {
+            int(50e3): {
                 "train_from_real_environment": False,
                 "explore_policy_exploit_policy_ratio": (0.75, 0.25),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(50e3): {
+            int(100e3): {
                 "train_from_real_environment": False,
                 "explore_policy_exploit_policy_ratio": (0.5, 0.5),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(75e3): {
+            int(150e3): {
                 "train_from_real_environment": False,
                 "explore_policy_exploit_policy_ratio": (0.25, 0.75),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(100e3): {
+            int(175e3): {
                 "train_from_real_environment": True,
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
