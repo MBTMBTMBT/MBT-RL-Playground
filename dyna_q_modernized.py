@@ -1375,14 +1375,16 @@ class HybridEnv(gym.Env):
     def reset(self, seed=None, options=None, init_state: np.ndarray = None, reset_all: bool = False):
         t_state, _ = self.transition_table_env_t.reset(seed=seed, options=options, init_state=init_state, reset_all=reset_all)
         b_state, b_info = self.real_env.reset(seed=seed, options=options,)
-        t_state = self.transition_table_env_t.state_discretizer.add_noise(t_state)
         if self.real_env.spec.id == "Pendulum-v1":
+            t_state = self.transition_table_env_t.state_discretizer.add_noise(t_state)
             t_state_ = np.arccos(t_state[0]), t_state[1]
             self.real_env.unwrapped.state = t_state_
         elif self.real_env.spec.id == "Acrobot-v1":
+            t_state = self.transition_table_env_t.state_discretizer.add_noise(t_state)
             t_state_ = np.arccos(t_state[0]), np.arccos(t_state[1]), t_state[2], t_state[3]
             self.real_env.unwrapped.state = t_state_
         elif "HalfCheetah" in self.real_env.spec.id:
+            t_state = self.transition_table_env_t.state_discretizer.add_noise(t_state)
             # Ensure the state vector has the correct observation dimensions (17)
             assert len(t_state) == 17, \
                 f"State vector length must be 17 for HalfCheetah observation space."
@@ -1403,6 +1405,7 @@ class HybridEnv(gym.Env):
                 self.real_env.unwrapped.data.qvel
             ])
         elif "Hopper" in self.real_env.spec.id:
+            t_state = self.transition_table_env_t.state_discretizer.add_noise(t_state)
             # Ensure the observation vector length is 11
             assert len(t_state) == 11, \
                 f"Observation vector length must be 11 for Hopper, but got {len(t_state)}."
@@ -1429,6 +1432,46 @@ class HybridEnv(gym.Env):
             t_state = np.concatenate([
                 self.real_env.unwrapped.data.qpos[1:],  # Exclude rootx
                 self.real_env.unwrapped.data.qvel
+            ])
+        elif "Reacher" in self.real_env.spec.id:
+            # Ensure the observation vector length is 10
+            assert len(t_state) == 10, \
+                f"Observation vector length must be 10 for Reacher, but got {len(t_state)}."
+
+            # Retrieve the model's qpos and qvel dimensions
+            nq = self.real_env.unwrapped.model.nq  # qpos has 4 elements
+            nv = self.real_env.unwrapped.model.nv  # qvel has 4 elements
+
+            # Initialize target qpos and qvel
+            target_qpos = np.zeros(nq)
+            target_qvel = np.zeros(nv)
+
+            # Map the observation vector to qpos and qvel
+            # qpos: [joint0_angle, joint1_angle, target_x, target_y]
+            # qvel: [joint0_velocity, joint1_velocity, 0, 0] (last two are not used)
+
+            # Calculate joint angles from sin and cos values
+            target_qpos[0] = np.arctan2(t_state[2], t_state[0])  # joint0_angle
+            target_qpos[1] = np.arctan2(t_state[3], t_state[1])  # joint1_angle
+
+            # Set target positions
+            target_qpos[2] = t_state[4]  # target_x
+            target_qpos[3] = t_state[5]  # target_y
+
+            # Set joint velocities
+            target_qvel[0] = t_state[6]  # joint0_velocity
+            target_qvel[1] = t_state[7]  # joint1_velocity
+
+            # Set the state using the environment's set_state method
+            self.real_env.unwrapped.set_state(target_qpos, target_qvel)
+
+            # Update t_state to reflect the new state
+            t_state = np.concatenate([
+                [np.cos(target_qpos[0]), np.cos(target_qpos[1])],  # cos(joint0), cos(joint1)
+                [np.sin(target_qpos[0]), np.sin(target_qpos[1])],  # sin(joint0), sin(joint1)
+                target_qpos[2:],  # target_x, target_y
+                target_qvel[:2],  # joint0_velocity, joint1_velocity
+                t_state[8:]  # fingertip-target vector
             ])
         return t_state, b_info
 
