@@ -686,7 +686,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "explore_value_decay": 0.99,
             "explore_bonus_decay": 0.9,
             "explore_policy_training_per_num_steps": int(0.5e3),
-            "explore_policy_training_steps": int(1e3),
+            "explore_policy_training_steps": int(5e3),
             "explore_epsilon": 0.25,
             "explore_strategy": "greedy",
             "reward_resolution": 0.5,
@@ -715,28 +715,28 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 "quality_value_threshold": 1.0,
                 "take_done_states_as_targets": False,
             },
-            int(100e3): {
+            int(50e3): {
                 "train_from_real_environment": False,
                 "explore_policy_exploit_policy_ratio": (0.75, 0.25),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(250e3): {
+            int(100e3): {
                 "train_from_real_environment": False,
                 "explore_policy_exploit_policy_ratio": (0.5, 0.5),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(750e3): {
+            int(200e3): {
                 "train_from_real_environment": False,
                 "explore_policy_exploit_policy_ratio": (0.25, 0.75),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(1_000e3): {
+            int(250e3): {
                 "train_from_real_environment": True,
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
@@ -771,13 +771,13 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 (-10.0, 10.0),  # angular velocity of the foot hinge
             ]
             ,
-            num_buckets=[5 for _ in range(11)],
+            num_buckets=[7 for _ in range(11)],
             normal_params=[None for _ in range(11)],
         )
         state_discretizer_b = state_discretizer_t
         action_discretizer_t = Discretizer(
             ranges=[(-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0),],
-            num_buckets=[5, 5, 5,],
+            num_buckets=[7, 7, 7,],
             normal_params=[None, None, None,],
         )
         action_discretizer_b = action_discretizer_t
@@ -789,7 +789,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "explore_value_decay": 0.99,
             "explore_bonus_decay": 0.9,
             "explore_policy_training_per_num_steps": int(0.5e3),
-            "explore_policy_training_steps": int(1e3),
+            "explore_policy_training_steps": int(5e3),
             "explore_epsilon": 0.25,
             "explore_strategy": "greedy",
             "reward_resolution": 0.5,
@@ -814,32 +814,134 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 "min_cut_max_flow_search_space": 128,
                 "q_cut_space": 128,
                 "weighted_search": True,
-                "init_state_reward_prob_below_threshold": 0.1,
+                "init_state_reward_prob_below_threshold": 0.075,
                 "quality_value_threshold": 1.0,
                 "take_done_states_as_targets": False,
             },
-            int(100e3): {
+            int(25e3): {
                 "train_from_real_environment": False,
                 "explore_policy_exploit_policy_ratio": (0.75, 0.25),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(250e3): {
+            int(50e3): {
                 "train_from_real_environment": False,
                 "explore_policy_exploit_policy_ratio": (0.5, 0.5),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(750e3): {
+            int(75e3): {
                 "train_from_real_environment": False,
                 "explore_policy_exploit_policy_ratio": (0.25, 0.75),
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
                 "test_exploit_strategy": "greedy",
             },
-            int(1_000e3): {
+            int(100e3): {
+                "train_from_real_environment": True,
+                "train_exploit_policy": True,
+                "test_exploit_policy": True,
+                "test_exploit_strategy": "greedy",
+            },
+        }
+
+    elif name == "reacher":
+        save_path = "./experiments/DynaQ/real_env-reacher/reacher"
+        env = NoMovementTruncateWrapper(
+            gym.make("Reacher-v5", render_mode="rgb_array"),
+            n=25,
+            mse_threshold=1e-5,
+        )
+        test_env = NoMovementTruncateWrapper(
+            gym.make("Reacher-v5", render_mode="rgb_array"),
+            n=25,
+            mse_threshold=1e-5,
+        )
+        state_discretizer_t = Discretizer(
+            ranges=[
+                (-1.0, 1.0),  # cos(joint0)
+                (-1.0, 1.0),  # cos(joint1)
+                (-1.0, 1.0),  # sin(joint0)
+                (-1.0, 1.0),  # sin(joint1)
+                (-0.2, 0.2),  # target_x
+                (-0.2, 0.2),  # target_y
+                (-8.0, 8.0),  # joint0_velocity
+                (-8.0, 8.0),  # joint1_velocity
+                (-0.2, 0.2),  # fingertip-target x distance
+                (-0.2, 0.2)  # fingertip-target y distance
+            ]
+            ,
+            num_buckets=[9 for _ in range(10)],
+            normal_params=[None for _ in range(10)],
+        )
+        state_discretizer_b = state_discretizer_t
+        action_discretizer_t = Discretizer(
+            ranges=[(-1.0, 1.0), (-1.0, 1.0),],
+            num_buckets=[7, 7,],
+            normal_params=[None, None,],
+        )
+        action_discretizer_b = action_discretizer_t
+        configs = {
+            "use_deep_agent": True,
+            "train_from_real_env": True,
+            "save_path": save_path,
+            "explore_agent_lr": 0.1,
+            "explore_value_decay": 0.99,
+            "explore_bonus_decay": 0.9,
+            "explore_policy_training_per_num_steps": int(0.5e3),
+            "explore_policy_training_steps": int(5e3),
+            "explore_epsilon": 0.25,
+            "explore_strategy": "greedy",
+            "reward_resolution": 0.25,
+            "train_max_num_steps_per_episode": 200,
+            "exploit_agent_lr": 2.5e-4,
+            "exploit_softmax_temperature": 0.5,
+            "exploit_policy_reward_rate": 1,
+            "exploit_value_decay": 0.99,
+            "exploit_policy_training_per_num_steps": int(2.5e3),
+            "exploit_policy_training_steps": int(2.5e3),
+            "exploit_policy_test_per_num_steps": int(2.5e3),
+            "exploit_policy_test_episodes": 200,
+            "save_per_num_steps": int(2.5e6),
+            "save_mdp_graph": False,
+            "print_training_info": True,
+            "init_groups": {
+                "rand-real": (0.5, 0.5, 0.0),
+                "landmarks": (0.5, 0.25, 0.25),
+            },
+            "landmark_params": {
+                "num_targets": 64,
+                "min_cut_max_flow_search_space": 128,
+                "q_cut_space": 128,
+                "weighted_search": True,
+                "init_state_reward_prob_below_threshold": 0.1,
+                "quality_value_threshold": 1.0,
+                "take_done_states_as_targets": True,
+            },
+            int(50e3): {
+                "train_from_real_environment": False,
+                "explore_policy_exploit_policy_ratio": (0.75, 0.25),
+                "train_exploit_policy": True,
+                "test_exploit_policy": True,
+                "test_exploit_strategy": "greedy",
+            },
+            int(100e3): {
+                "train_from_real_environment": False,
+                "explore_policy_exploit_policy_ratio": (0.5, 0.5),
+                "train_exploit_policy": True,
+                "test_exploit_policy": True,
+                "test_exploit_strategy": "greedy",
+            },
+            int(150e3): {
+                "train_from_real_environment": False,
+                "explore_policy_exploit_policy_ratio": (0.25, 0.75),
+                "train_exploit_policy": True,
+                "test_exploit_policy": True,
+                "test_exploit_strategy": "greedy",
+            },
+            int(200e3): {
                 "train_from_real_environment": True,
                 "train_exploit_policy": True,
                 "test_exploit_policy": True,
