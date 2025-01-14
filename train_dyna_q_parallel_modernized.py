@@ -216,6 +216,7 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
                         gif_path = group_save_path + f"_{sample_step_count}.gif"
                         generate_test_gif(frames, gif_path, to_print=configs["print_training_info"])
 
+                    # agent.transition_table_env_t.print_transition_table_info()
                     # Save GIF for the first test episode
                     gif_path = group_save_path + f"_latest.gif"
                     generate_test_gif(frames, gif_path, to_print=configs["print_training_info"])
