@@ -299,8 +299,8 @@ class Discretizer:
 
     def add_noise(self, vector: np.ndarray) -> np.ndarray:
         """
-        Add noise to the input vector. The noise is uniformly sampled within the range
-        of the corresponding bucket size for dimensions with buckets > 1.
+        Add noise to the input vector. The noise is uniformly sampled within the current bucket's range
+        for dimensions with buckets > 1.
 
         :param vector: Input vector to add noise. Must have the same length as ranges.
         :return: A new vector with added noise.
@@ -311,10 +311,19 @@ class Discretizer:
 
         for i, (value, (min_val, max_val), buckets) in enumerate(zip(vector, self.ranges, self.num_buckets)):
             if buckets > 1:
-                # Discretized dimension: Calculate bucket size and add noise
+                # Calculate bucket size
                 bucket_size = (max_val - min_val) / buckets
-                noise = np.random.uniform(-bucket_size / 2, bucket_size / 2)
-                noisy_vector[i] = np.clip(value + noise, min_val, max_val)
+
+                # Find the current bucket index
+                bucket_index = int((value - min_val) / bucket_size)
+                bucket_index = min(max(bucket_index, 0), buckets - 1)  # Ensure index is within bounds
+
+                # Calculate the current bucket's range
+                bucket_start = min_val + bucket_index * bucket_size
+                bucket_end = bucket_start + bucket_size
+
+                # Add noise within the bucket's range
+                noisy_vector[i] = np.random.uniform(bucket_start, bucket_end)
 
         return noisy_vector
 
@@ -1366,13 +1375,61 @@ class HybridEnv(gym.Env):
     def reset(self, seed=None, options=None, init_state: np.ndarray = None, reset_all: bool = False):
         t_state, _ = self.transition_table_env_t.reset(seed=seed, options=options, init_state=init_state, reset_all=reset_all)
         b_state, b_info = self.real_env.reset(seed=seed, options=options,)
+        t_state = self.transition_table_env_t.state_discretizer.add_noise(t_state)
         if self.real_env.spec.id == "Pendulum-v1":
             t_state_ = np.arccos(t_state[0]), t_state[1]
+            self.real_env.unwrapped.state = t_state_
         elif self.real_env.spec.id == "Acrobot-v1":
             t_state_ = np.arccos(t_state[0]), np.arccos(t_state[1]), t_state[2], t_state[3]
-        else:
-            t_state_ = t_state
-        self.real_env.unwrapped.state = t_state_
+            self.real_env.unwrapped.state = t_state_
+        elif "HalfCheetah" in self.real_env.spec.id:
+            # Ensure the state vector has the correct observation dimensions (17)
+            assert len(t_state) == 17, \
+                f"State vector length must be 17 for HalfCheetah observation space."
+            # Retrieve the model dimensions
+            nq = self.real_env.unwrapped.model.nq  # Number of qpos (9)
+            nv = self.real_env.unwrapped.model.nv  # Number of qvel (9)
+            # Initialize qpos and qvel
+            target_qpos = np.zeros(nq)
+            target_qvel = np.zeros(nv)
+            # Fill qpos and qvel based on t_state
+            target_qpos[1:] = t_state[:nq - 1]  # Skip rootx for qpos
+            target_qvel[:] = t_state[nq - 1:]  # Full qvel from t_state
+            # Set the state using the environment's set_state method
+            self.real_env.unwrapped.set_state(target_qpos, target_qvel)
+            # Update the t_state to reflect the new state
+            t_state = np.concatenate([
+                self.real_env.unwrapped.data.qpos[1:],  # Exclude rootx
+                self.real_env.unwrapped.data.qvel
+            ])
+        elif "Hopper" in self.real_env.spec.id:
+            # Ensure the observation vector length is 11
+            assert len(t_state) == 11, \
+                f"Observation vector length must be 11 for Hopper, but got {len(t_state)}."
+
+            # Retrieve the model's qpos and qvel dimensions
+            nq = self.real_env.unwrapped.model.nq  # qpos has 6 elements
+            nv = self.real_env.unwrapped.model.nv  # qvel has 6 elements
+
+            # Initialize target qpos and qvel
+            target_qpos = np.zeros(nq)
+            target_qvel = np.zeros(nv)
+
+            # Set a default value for rootx (e.g., 0.0)
+            target_qpos[0] = 0.0  # Horizontal position of the torso
+
+            # Map the observation vector to qpos and qvel
+            target_qpos[1:] = t_state[:nq - 1]  # Skip rootx for qpos
+            target_qvel[:] = t_state[nq - 1:]  # Set qvel from observation
+
+            # Set the state using the environment's set_state method
+            self.real_env.unwrapped.set_state(target_qpos, target_qvel)
+
+            # Update t_state to reflect the new state (exclude rootx from qpos)
+            t_state = np.concatenate([
+                self.real_env.unwrapped.data.qpos[1:],  # Exclude rootx
+                self.real_env.unwrapped.data.qvel
+            ])
         return t_state, b_info
 
     def step(self, action):
