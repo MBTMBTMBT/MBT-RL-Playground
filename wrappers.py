@@ -405,3 +405,60 @@ if __name__ == "__main__":
     df = wrapped_env.export_counts()
     print("Re-imported State-Action Counts:")
     print(df)
+
+
+class NoMovementTruncateWrapper(gym.Wrapper):
+    """
+    A wrapper that terminates the environment early if the observation
+    does not change significantly for `n` consecutive steps.
+    """
+
+    def __init__(self, env, n: int = 10, mse_threshold: float = 0.0):
+        """
+        Initialize the NoMovementTruncateWrapper.
+
+        Args:
+            env (gym.Env): The environment to wrap.
+            n (int): Number of consecutive steps to trigger truncation.
+            mse_threshold (float): The MSE threshold to trigger truncation.
+        """
+        super().__init__(env)
+        self.n = n
+        self.mse_threshold = mse_threshold
+        self.obs_buffer = []
+
+    def reset(self, **kwargs):
+        """Reset the environment and clear the observation buffer."""
+        self.obs_buffer = []
+        return self.env.reset(**kwargs)
+
+    def step(self, action):
+        """
+        Perform a step in the environment and check for no-movement condition.
+
+        Args:
+            action: The action to take.
+
+        Returns:
+            observation, reward, done, truncated, info: The environment step output.
+        """
+        obs, reward, done, truncated, info = self.env.step(action)
+        self.obs_buffer.append(obs)
+
+        # Only check when the buffer is full
+        if len(self.obs_buffer) == self.n:
+            # Compute MSE between all consecutive observations in the buffer
+            mse = np.sum([(np.array(self.obs_buffer[i]) - np.array(self.obs_buffer[i + 1])) ** 2
+                           for i in range(len(self.obs_buffer) - 1)])
+
+            if mse <= self.mse_threshold:
+                # Truncate if no significant movement
+                truncated = True
+                info["truncate_reason"] = "no_movement"
+                self.obs_buffer = []  # Clear the buffer to avoid redundant checks
+            else:
+                # Clear the oldest observation to make room for the next step
+                self.obs_buffer.pop(0)
+
+        return obs, reward, done, truncated, info
+
