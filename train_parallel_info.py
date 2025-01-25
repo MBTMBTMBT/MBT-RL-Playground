@@ -253,7 +253,7 @@ def run_all_experiments_and_plot(task_names_and_num_experiments: Dict[str, int],
 if __name__ == '__main__':
     run_all_experiments_and_plot(
         task_names_and_num_experiments={
-            "frozen_lake": 3,
+            "frozen_lake": 16,
         },
-        max_workers=6,
+        max_workers=16,
     )

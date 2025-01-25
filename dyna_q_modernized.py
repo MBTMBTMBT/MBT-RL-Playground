@@ -504,7 +504,7 @@ class TabularQAgent:
         next_state_encoded = self.state_discretizer.encode_indices([*self.state_discretizer.discretize(next_state)[1]])
         action_encoded = self.action_discretizer.encode_indices([*self.action_discretizer.discretize(action)[1]])
 
-        reward /= 10.
+        # reward /= 10.
 
         if done:
             td_target = reward  # No future reward if the episode is done
@@ -2183,6 +2183,70 @@ class Agent:
                     # Set standard deviation to 0 for greedy policy
                     std = np.zeros_like(mean)
                 return mean, std
+
+    def get_greedy_weighted_distribution(
+            self,
+            state: np.ndarray,
+            p: float = 0.5,
+    ):
+        """
+        Get a greedy-weighted distribution for actions.
+
+        :param state: The current state as a NumPy array.
+        :param p: Weight for the greedy action distribution. Must be in [0, 1].
+        :return: A distribution for the actions:
+                 - For discrete actions: A single probability array.
+                 - For continuous actions: Two arrays, mean and std of the distribution.
+        """
+        assert 0 <= p <= 1, "p must be between 0 and 1 (inclusive)."
+
+        if not self.use_deep_agent:
+            action_probabilities = self.exploit_agent.get_action_probabilities(state,)
+            if isinstance(self.action_discretizer.get_gym_space(), spaces.Discrete):
+                # Greedy discrete action
+                greedy_action = np.argmax(action_probabilities)
+                greedy_distribution = np.zeros_like(action_probabilities)
+                greedy_distribution[greedy_action] = 1.0
+
+                # Uniform distribution for non-greedy
+                uniform_distribution = np.ones_like(action_probabilities) / len(action_probabilities)
+
+                # Weighted combination
+                weighted_distribution = p * greedy_distribution + (1 - p) * uniform_distribution
+                return weighted_distribution
+            else:
+                raise NotImplementedError("Non-deep agents for continuous actions are not supported.")
+        else:
+            if isinstance(self.double_env.action_space, spaces.Discrete):
+                # Deep agent with discrete action space
+                action_distribution = self.exploit_agent.policy.get_distribution(state)
+                logits = action_distribution.distribution.logits
+
+                # Greedy distribution
+                greedy_action = np.argmax(logits)
+                greedy_distribution = np.zeros_like(logits)
+                greedy_distribution[greedy_action] = 1.0
+
+                # Uniform distribution
+                uniform_distribution = np.ones_like(logits) / len(logits)
+
+                # Weighted combination
+                weighted_distribution = p * greedy_distribution + (1 - p) * uniform_distribution
+                return weighted_distribution
+            else:
+                # Deep agent with continuous action space
+                action_distribution = self.exploit_agent.policy.get_distribution(state)
+                greedy_mean = action_distribution.distribution.mean.detach().cpu().numpy()
+
+                # Continuous uniform distribution based on action space
+                low, high = self.double_env.action_space.low, self.double_env.action_space.high
+                uniform_mean = (low + high) / 2
+                uniform_std = (high - low) / 2
+
+                # Weighted combination
+                weighted_mean = p * greedy_mean + (1 - p) * uniform_mean
+                weighted_std = uniform_std
+                return weighted_mean, weighted_std
 
     def learn(
             self,
