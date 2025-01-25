@@ -791,6 +791,12 @@ class TransitionTable:
     def get_inverse_neighbours(self, encoded_state: int) -> Dict[int, set[int]]:
         return self.inverse_dict[encoded_state]
 
+    def add_done_state(self, state):
+        if isinstance(state, int) or isinstance(state, float):
+            state = [state]
+        encoded_state = self.state_discretizer.encode_indices(list(self.state_discretizer.discretize(state)[1]))
+        self.done_set.add(encoded_state)
+
     def get_done_set(self) -> set[int]:
         return self.done_set
 
@@ -848,6 +854,7 @@ class TransitionalTableEnv(TransitionTable, gym.Env):
     def reset(self, seed=None, options=None, init_state: np.ndarray = None, reset_all: bool = False):
         if len(self.reward_set_dict) == 0:
             warnings.warn("Resetting empty environment, this is invalid, will return None.")
+            self.init_strategy = "real_start_states"  # it doesn't really matter in this case.
             return None, {}
 
         if reset_all:
@@ -1362,29 +1369,32 @@ class DoubleTransitionalTableEnv(gym.Env):
 class HybridEnv(gym.Env):
     def __init__(
             self,
-            transition_table_env_t: TransitionalTableEnv or LandmarksTransitionalTableEnv,
+            transition_table_env: TransitionalTableEnv or LandmarksTransitionalTableEnv,
             real_env: gym.Env,
             exploit_policy_reward_rate=0.1,
     ):
-        self.transition_table_env_t = transition_table_env_t
+        self.transition_table_env = transition_table_env
         self.real_env = real_env
         self.observation_space = self.real_env.observation_space
         self.action_space = self.real_env.action_space
         self.exploit_policy_reward_rate = exploit_policy_reward_rate
+        self.current_state = None
 
     def reset(self, seed=None, options=None, init_state: np.ndarray = None, reset_all: bool = False):
-        t_state, _ = self.transition_table_env_t.reset(seed=seed, options=options, init_state=init_state, reset_all=reset_all)
+        t_state, _ = self.transition_table_env.reset(seed=seed, options=options, init_state=init_state, reset_all=reset_all)
         b_state, b_info = self.real_env.reset(seed=seed, options=options,)
+        if t_state is None:
+            t_state = b_state
         if self.real_env.spec.id == "Pendulum-v1":
-            t_state = self.transition_table_env_t.state_discretizer.add_noise(t_state)
+            t_state = self.transition_table_env.state_discretizer.add_noise(t_state)
             t_state_ = np.arccos(t_state[0]), t_state[1]
             self.real_env.unwrapped.state = t_state_
         elif self.real_env.spec.id == "Acrobot-v1":
-            t_state = self.transition_table_env_t.state_discretizer.add_noise(t_state)
+            t_state = self.transition_table_env.state_discretizer.add_noise(t_state)
             t_state_ = np.arccos(t_state[0]), np.arccos(t_state[1]), t_state[2], t_state[3]
             self.real_env.unwrapped.state = t_state_
         elif "HalfCheetah" in self.real_env.spec.id:
-            t_state = self.transition_table_env_t.state_discretizer.add_noise(t_state)
+            t_state = self.transition_table_env.state_discretizer.add_noise(t_state)
             # Ensure the state vector has the correct observation dimensions (17)
             assert len(t_state) == 17, \
                 f"State vector length must be 17 for HalfCheetah observation space."
@@ -1405,7 +1415,7 @@ class HybridEnv(gym.Env):
                 self.real_env.unwrapped.data.qvel
             ])
         elif "Hopper" in self.real_env.spec.id:
-            t_state = self.transition_table_env_t.state_discretizer.add_noise(t_state)
+            t_state = self.transition_table_env.state_discretizer.add_noise(t_state)
             # Ensure the observation vector length is 11
             assert len(t_state) == 11, \
                 f"Observation vector length must be 11 for Hopper, but got {len(t_state)}."
@@ -1473,11 +1483,21 @@ class HybridEnv(gym.Env):
                 target_qvel[:2],  # joint0_velocity, joint1_velocity
                 t_state[8:]  # fingertip-target vector
             ])
+        elif "FrozenLake" in self.real_env.spec.id:
+            if isinstance(t_state, list):
+                t_state = t_state[0]
+            self.real_env.unwrapped.s = t_state
+        self.current_state = t_state
+        self.transition_table_env.add_start_state(t_state)
         return t_state, b_info
 
     def step(self, action):
-        self.transition_table_env_t.strategy_step_plus_1()
+        self.transition_table_env.strategy_step_plus_1()
         next_state, reward, terminated, truncated, info = self.real_env.step(action)
+        if terminated:
+            self.transition_table_env.add_done_state(next_state)
+        self.transition_table_env.update(self.current_state, action, reward, next_state, terminated)
+        self.current_state = next_state
         return next_state, reward * self.exploit_policy_reward_rate, terminated, truncated, info
 
 
@@ -1592,7 +1612,7 @@ class TabularDynaQAgent:
             unknown_reward=1.0,
         )
         if use_real_env:
-            assert real_env is not None, "real_env must be provided if use_real_env is True."
+            assert real_env is not None, "env must be provided if use_real_env is True."
             self.double_env = HybridEnv(
                 self.transition_table_env_t,
                 real_env,
@@ -1786,7 +1806,7 @@ class DeepDynaQAgent:
             unknown_reward=1.0,
         )
         if use_real_env:
-            assert real_env is not None, "real_env must be provided if use_real_env is True."
+            assert real_env is not None, "env must be provided if use_real_env is True."
             self.double_env = HybridEnv(
                 self.transition_table_env_t,
                 real_env,
@@ -2039,3 +2059,135 @@ class DeepPyramidDynaQAgent:
         self.exploit_agent.env = real_env
         self.exploit_agent.learn(total_timesteps=total_timesteps, progress_bar=progress_bar)
         self.exploit_agent.env = current_env
+
+
+class Agent:
+    def __init__(
+            self,
+            state_discretizer: Discretizer,
+            action_discretizer: Discretizer,
+            env: gym.Env,
+            use_deep_agent: bool,
+            max_steps: int = 500,
+            init_strategy_distribution: Tuple[float] = None,
+            exploit_lr: float = 0.1,
+            gamma: float = 0.99,
+            exploit_policy_reward_rate: float = 1.0,
+    ):
+        self.state_discretizer = state_discretizer
+        self.action_discretizer = action_discretizer
+        if init_strategy_distribution is None:
+            init_strategy_distribution = (0.5, 0.5,)
+        self.transition_table_env = TransitionalTableEnv(
+            state_discretizer,
+            action_discretizer,
+            max_steps,
+            reward_resolution=0,
+            init_strategy_distribution=init_strategy_distribution,
+            unknown_reward=None,
+        )
+        self.double_env = HybridEnv(
+            self.transition_table_env,
+            env,
+            exploit_policy_reward_rate=exploit_policy_reward_rate,
+        )
+        # print(self.double_env.action_space)
+        self.use_deep_agent = use_deep_agent
+        if use_deep_agent:
+            self.exploit_agent = PPO(
+                "MlpPolicy",
+                self.double_env,
+                learning_rate=exploit_lr,
+                gamma=gamma,
+                verbose=0,
+                n_epochs=5,
+                device='auto',
+            )
+        else:
+            self.exploit_agent = TabularQAgent(
+                self.double_env,
+                self.state_discretizer,
+                self.action_discretizer,
+                n_steps=max_steps,
+                lr=exploit_lr,
+                gamma=gamma,
+                print_info=False,
+            )
+
+    def print_agent_info(self):
+        self.transition_table_env.print_transition_table_info()
+
+    def save_agent(self, file_path: str):
+        q_table_file_path = file_path + "_exploit_agent.csv"
+        deep_model_file_path = file_path + "_deep_model.zip"
+        transition_table_file_path = file_path + "_transition_table.csv"
+        if self.use_deep_agent:
+            self.exploit_agent.save(deep_model_file_path)
+        else:
+            self.exploit_agent.save_q_table(file_path=q_table_file_path)
+        self.transition_table_env.save_transition_table(file_path=transition_table_file_path)
+
+    def load_agent(self, file_path: str):
+        q_table_file_path = file_path + "_exploit_agent.csv"
+        deep_model_file_path = file_path + "_deep_model.zip"
+        transition_table_file_path = file_path + "_transition_table.csv"
+        if self.use_deep_agent:
+            self.exploit_agent.load(deep_model_file_path)
+        else:
+            self.exploit_agent.load_q_table(file_path=q_table_file_path)
+        self.transition_table_env.load_transition_table(file_path=transition_table_file_path)
+
+    def choose_action(
+            self, state: np.ndarray, temperature: float = 1.0, greedy: bool = False,
+    ) -> np.ndarray:
+        if not self.use_deep_agent:
+            action = self.exploit_agent.choose_action(state, temperature=temperature, greedy=greedy)
+        else:
+            action, _ = self.exploit_agent.predict(state, deterministic=greedy)
+        if isinstance(self.action_discretizer.get_gym_space(), spaces.Discrete):
+            action = int(action)
+        return action
+
+    def get_action_probabilities(self, state: np.ndarray, temperature: float = 1.0, greedy: bool = False):
+        if not self.use_deep_agent:
+            action_probabilities = self.exploit_agent.get_action_probabilities(state, temperature)
+            if greedy:
+                # Only consider the case that it is discrete action space for q table agent
+                # Make the optimal action probability 1, others 0
+                optimal_action = np.argmax(action_probabilities)
+                action_probabilities = np.zeros_like(action_probabilities)
+                action_probabilities[optimal_action] = 1.0
+            return action_probabilities
+        else:
+            if isinstance(self.double_env.action_space, spaces.Discrete):
+                # Discrete action space
+                action_distribution = self.exploit_agent.policy.get_distribution(state)
+                logits = action_distribution.distribution.logits
+                if greedy:
+                    # Make the optimal action probability 1, others 0
+                    optimal_action = np.argmax(logits)
+                    action_probabilities = np.zeros_like(logits)
+                    action_probabilities[optimal_action] = 1.0
+                else:
+                    # Apply temperature to logits and compute probabilities
+                    logits = logits / temperature
+                    exp_logits = np.exp(logits - np.max(logits))  # For numerical stability
+                    action_probabilities = exp_logits / np.sum(exp_logits)
+                return action_probabilities
+            else:
+                # Continuous action space
+                action_distribution = self.exploit_agent.policy.get_distribution(state)
+                mean = action_distribution.distribution.mean.detach().cpu().numpy()
+                std = action_distribution.distribution.stddev.detach().cpu().numpy()
+                if greedy:
+                    # Set standard deviation to 0 for greedy policy
+                    std = np.zeros_like(mean)
+                return mean, std
+
+    def learn(
+            self,
+            total_timesteps: int,
+            progress_bar: bool = False,
+    ):
+        self.double_env.reset(reset_all=True)
+        self.exploit_agent.learn(total_timesteps=total_timesteps, progress_bar=progress_bar)

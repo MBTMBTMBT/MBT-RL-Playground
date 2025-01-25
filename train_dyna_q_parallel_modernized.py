@@ -216,7 +216,7 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
                         gif_path = group_save_path + f"_{sample_step_count}.gif"
                         generate_test_gif(frames, gif_path, to_print=configs["print_training_info"])
 
-                    # agent.transition_table_env_t.print_transition_table_info()
+                    # agent.transition_table_env.print_transition_table_info()
                     # Save GIF for the first test episode
                     gif_path = group_save_path + f"_latest.gif"
                     generate_test_gif(frames, gif_path, to_print=configs["print_training_info"])
@@ -230,7 +230,10 @@ def run_experiment(task_name: str, run_id: int, init_group: str):
                 agent.transition_table_env_t.print_transition_table_info()
                 agent.save_agent(save_csv_file)
                 if configs["save_mdp_graph"]:
-                    agent.transition_table_env_t.save_mdp_graph(graph_path, use_encoded_states=True)
+                    try:
+                        agent.transition_table_env_t.save_mdp_graph(graph_path, use_encoded_states=False)
+                    except Exception as e:
+                        pass
 
             pbar.set_postfix({
                 "Eps": f"{sum(sample_strategy_step_count.values()):.2e}",

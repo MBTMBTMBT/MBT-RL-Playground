@@ -14,6 +14,39 @@ from sb3_vec_dataset import GymDataset
 from ae import DeterministicAE, ae_total_correlation_uniform_loss, contrastive_loss_v2
 
 
+# class SparseRewardWrapper(gym.Wrapper):
+#     def __init__(self, env, mode="positive"):
+#         """
+#         A wrapper to transform the reward into a sparse reward.
+#
+#         Args:
+#             env (gym.Env): The environment to wrap.
+#             mode (str): The reward mode. Either "positive" or "negative".
+#         """
+#         super().__init__(env)
+#         assert mode in {"positive", "negative"}, "Mode must be 'positive' or 'negative'."
+#         self.mode = mode
+#
+#     def step(self, action):
+#         """
+#         Perform one step in the environment.
+#
+#         Args:
+#             action: The action to take in the environment.
+#
+#         Returns:
+#             tuple: A tuple of (obs, sparse_reward, done, info).
+#         """
+#         obs, reward, done, truncated, info = self.env.step(action)
+#
+#         if self.mode == "positive":
+#             sparse_reward = 1.0 if reward > 0 else 0.0
+#         elif self.mode == "negative":
+#             sparse_reward = 0.0 if reward > 0 else -1.0
+#
+#         return obs, sparse_reward, done, truncated, info
+
+
 class AddNoiseDimensionWrapper(gym.Wrapper):
     """
     A wrapper for gymnasium environments that adds an extra observation dimension
