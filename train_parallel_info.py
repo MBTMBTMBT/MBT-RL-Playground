@@ -1,6 +1,5 @@
 import gc
 import os
-import random
 from multiprocessing import Pool
 from typing import List, Dict
 
@@ -47,6 +46,7 @@ def run_training(task_name: str, env_idx: int, run_id: int,):
     final_test_rewards = 0.0
 
     first_test = True
+    frames = []
     while sample_step_count < configs["exploit_policy_training_steps"]:
         if not first_test:
             agent.learn(configs["exploit_policy_test_per_num_steps"], False)
@@ -73,10 +73,6 @@ def run_training(task_name: str, env_idx: int, run_id: int,):
         test_results.append(avg_test_reward)
         test_steps.append(sample_step_count)
 
-        # Save GIF for the first test episode
-        gif_path = save_path + f"_latest.gif"
-        generate_test_gif(frames, gif_path, to_print=configs["print_training_info"])
-
         first_test = False
 
         if sample_step_count % configs["save_per_num_steps"] == 0 and sample_step_count > 0:
@@ -89,6 +85,14 @@ def run_training(task_name: str, env_idx: int, run_id: int,):
         pbar.update(configs["exploit_policy_test_per_num_steps"])
 
     agent.save_agent(save_path + f"_final")
+
+    # Save GIF for the first test episode
+    if len(frames) > 0:
+        gif_path = save_path + f"_final.gif"
+        try:
+            generate_test_gif(frames, gif_path, to_print=configs["print_training_info"])
+        except Exception as e:
+            print(f"Error generating GIF: {e}")
 
     pbar.close()
 
@@ -184,7 +188,6 @@ def run_all_trainings_and_plot(task_names_and_num_experiments: Dict[str, int], m
                 })
                 run_id += 1
 
-    random.shuffle(tasks)
     print(f"Total tasks: {run_id}.")
 
     # Execute tasks in parallel
@@ -331,7 +334,6 @@ def run_all_evals_and_plot(task_names_and_num_experiments: Dict[str, int], max_w
                 })
                 run_id += 1
 
-    random.shuffle(tasks)
     print(f"Total tasks: {run_id}.")
 
     # Execute tasks in parallel
