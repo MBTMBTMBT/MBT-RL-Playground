@@ -1,5 +1,6 @@
 import gc
 import os
+import random
 from multiprocessing import Pool
 from typing import List, Dict
 
@@ -173,7 +174,6 @@ def run_all_trainings_and_plot(task_names_and_num_experiments: Dict[str, int], m
     tasks = []
     run_id = 0
     for task_name, runs in task_names_and_num_experiments.items():
-        # Shuffle the sequence just for monitoring more possible cases simultaneously
         num_envs = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)["num_envs"]
         for env_idx in range(num_envs):
             for _ in range(runs):
@@ -184,6 +184,7 @@ def run_all_trainings_and_plot(task_names_and_num_experiments: Dict[str, int], m
                 })
                 run_id += 1
 
+    random.shuffle(tasks)
     print(f"Total tasks: {run_id}.")
 
     # Execute tasks in parallel
@@ -330,6 +331,7 @@ def run_all_evals_and_plot(task_names_and_num_experiments: Dict[str, int], max_w
                 })
                 run_id += 1
 
+    random.shuffle(tasks)
     print(f"Total tasks: {run_id}.")
 
     # Execute tasks in parallel
@@ -434,19 +436,27 @@ def run_all_evals_and_plot(task_names_and_num_experiments: Dict[str, int], max_w
 
 
 if __name__ == '__main__':
+    # run_all_trainings_and_plot(
+    #     task_names_and_num_experiments={"frozen_lake-44": 16,},
+    #     max_workers=16,
+    # )
+    # run_all_evals_and_plot(
+    #     task_names_and_num_experiments={"frozen_lake-44": 16,},
+    #     max_workers=16,
+    # )
+    # run_all_trainings_and_plot(
+    #     task_names_and_num_experiments={"frozen_lake-88": 16,},
+    #     max_workers=16,
+    # )
+    # run_all_evals_and_plot(
+    #     task_names_and_num_experiments={"frozen_lake-88": 16,},
+    #     max_workers=16,
+    # )
     run_all_trainings_and_plot(
-        task_names_and_num_experiments={"frozen_lake-44": 16,},
+        task_names_and_num_experiments={"frozen_lake-custom": 16, },
         max_workers=16,
     )
     run_all_evals_and_plot(
-        task_names_and_num_experiments={"frozen_lake-44": 16,},
-        max_workers=16,
-    )
-    run_all_trainings_and_plot(
-        task_names_and_num_experiments={"frozen_lake-88": 16,},
-        max_workers=16,
-    )
-    run_all_evals_and_plot(
-        task_names_and_num_experiments={"frozen_lake-88": 16,},
+        task_names_and_num_experiments={"frozen_lake-custom": 16, },
         max_workers=16,
     )
