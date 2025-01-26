@@ -438,27 +438,27 @@ def run_all_evals_and_plot(task_names_and_num_experiments: Dict[str, int], max_w
 
 
 if __name__ == '__main__':
-    # run_all_trainings_and_plot(
-    #     task_names_and_num_experiments={"frozen_lake-44": 16,},
-    #     max_workers=16,
-    # )
-    # run_all_evals_and_plot(
-    #     task_names_and_num_experiments={"frozen_lake-44": 16,},
-    #     max_workers=16,
-    # )
-    # run_all_trainings_and_plot(
-    #     task_names_and_num_experiments={"frozen_lake-88": 16,},
-    #     max_workers=16,
-    # )
-    # run_all_evals_and_plot(
-    #     task_names_and_num_experiments={"frozen_lake-88": 16,},
-    #     max_workers=16,
-    # )
     run_all_trainings_and_plot(
         task_names_and_num_experiments={"frozen_lake-custom": 16, },
-        max_workers=16,
+        max_workers=24,
     )
     run_all_evals_and_plot(
         task_names_and_num_experiments={"frozen_lake-custom": 16, },
+        max_workers=24,
+    )
+    run_all_trainings_and_plot(
+        task_names_and_num_experiments={"frozen_lake-44": 16,},
+        max_workers=16,
+    )
+    run_all_evals_and_plot(
+        task_names_and_num_experiments={"frozen_lake-44": 16,},
+        max_workers=16,
+    )
+    run_all_trainings_and_plot(
+        task_names_and_num_experiments={"frozen_lake-88": 16,},
+        max_workers=16,
+    )
+    run_all_evals_and_plot(
+        task_names_and_num_experiments={"frozen_lake-88": 16,},
         max_workers=16,
     )
