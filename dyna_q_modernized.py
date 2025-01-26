@@ -2184,7 +2184,28 @@ class Agent:
                     std = np.zeros_like(mean)
                 return mean, std
 
-    def get_greedy_weighted_distribution(
+    def get_default_policy_distribution(self, state: np.ndarray):
+        """
+        Get the default policy distribution for actions.
+
+        :param state: The current state as a NumPy array.
+        :return: The default distribution:
+                 - For discrete actions: Uniform distribution.
+                 - For continuous actions: Mean and standard deviation based on the action space.
+        """
+        if isinstance(self.action_discretizer.get_gym_space(), spaces.Discrete):
+            # Discrete action space: Uniform distribution
+            action_space_size = self.double_env.action_space.n
+            default_distribution = np.ones(action_space_size) / action_space_size
+            return default_distribution
+        else:
+            # Continuous action space: Uniform mean and std
+            low, high = self.double_env.action_space.low, self.double_env.action_space.high
+            uniform_mean = (low + high) / 2
+            uniform_std = (high - low) / 2
+            return uniform_mean, uniform_std
+
+    def get_greedy_weighted_action_distribution(
             self,
             state: np.ndarray,
             p: float = 0.5,
@@ -2201,15 +2222,15 @@ class Agent:
         assert 0 <= p <= 1, "p must be between 0 and 1 (inclusive)."
 
         if not self.use_deep_agent:
-            action_probabilities = self.exploit_agent.get_action_probabilities(state,)
+            action_probabilities = self.exploit_agent.get_action_probabilities(state)
             if isinstance(self.action_discretizer.get_gym_space(), spaces.Discrete):
                 # Greedy discrete action
                 greedy_action = np.argmax(action_probabilities)
                 greedy_distribution = np.zeros_like(action_probabilities)
                 greedy_distribution[greedy_action] = 1.0
 
-                # Uniform distribution for non-greedy
-                uniform_distribution = np.ones_like(action_probabilities) / len(action_probabilities)
+                # Default distribution
+                uniform_distribution = self.get_default_policy_distribution(state)
 
                 # Weighted combination
                 weighted_distribution = p * greedy_distribution + (1 - p) * uniform_distribution
@@ -2227,8 +2248,8 @@ class Agent:
                 greedy_distribution = np.zeros_like(logits)
                 greedy_distribution[greedy_action] = 1.0
 
-                # Uniform distribution
-                uniform_distribution = np.ones_like(logits) / len(logits)
+                # Default distribution
+                uniform_distribution = self.get_default_policy_distribution(state)
 
                 # Weighted combination
                 weighted_distribution = p * greedy_distribution + (1 - p) * uniform_distribution
@@ -2238,10 +2259,8 @@ class Agent:
                 action_distribution = self.exploit_agent.policy.get_distribution(state)
                 greedy_mean = action_distribution.distribution.mean.detach().cpu().numpy()
 
-                # Continuous uniform distribution based on action space
-                low, high = self.double_env.action_space.low, self.double_env.action_space.high
-                uniform_mean = (low + high) / 2
-                uniform_std = (high - low) / 2
+                # Default distribution
+                uniform_mean, uniform_std = self.get_default_policy_distribution(state)
 
                 # Weighted combination
                 weighted_mean = p * greedy_mean + (1 - p) * uniform_mean
@@ -2262,14 +2281,14 @@ class Agent:
 
         if isinstance(self.double_env.action_space, spaces.Discrete):
             # Get the weighted distribution
-            action_probabilities = self.get_greedy_weighted_distribution(state, p=p)
+            action_probabilities = self.get_greedy_weighted_action_distribution(state, p=p)
 
             # Sample an action based on the distribution
             action = np.random.choice(len(action_probabilities), p=action_probabilities)
             return int(action)
         else:
             # Continuous action space
-            mean, std = self.get_greedy_weighted_distribution(state, p=p)
+            mean, std = self.get_greedy_weighted_action_distribution(state, p=p)
 
             # Sample an action from the Gaussian distribution
             action = np.random.normal(mean, std)

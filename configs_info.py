@@ -120,7 +120,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                 "FFHFFFFF",
                 "FFFFFFHF",
                 "FFFHFFFF",
-                "FFFFHHFF",
+                "FFFFHFFF",
                 "FHFHHGFF",
                 "FFFFHFHF",
                 "FFFFFFFF",
@@ -142,7 +142,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                 desc=descs[0],
                 map_name=None,
                 is_slippery=True,
-                slipperiness=0.25,
+                slipperiness=0.10,
                 render_mode="rgb_array",
             ),
             dict(
@@ -150,7 +150,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                 desc=descs[1],
                 map_name=None,
                 is_slippery=True,
-                slipperiness=0.25,
+                slipperiness=0.10,
                 render_mode="rgb_array",
             ),
             dict(
@@ -158,7 +158,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                 desc=descs[2],
                 map_name=None,
                 is_slippery=True,
-                slipperiness=0.25,
+                slipperiness=0.10,
                 render_mode="rgb_array",
             ),
             dict(
@@ -166,7 +166,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                 desc=descs[3],
                 map_name=None,
                 is_slippery=True,
-                slipperiness=0.25,
+                slipperiness=0.10,
                 render_mode="rgb_array",
             ),
             dict(
@@ -204,10 +204,10 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
         ]
         test_envs = envs
         env_descs = [
-            "difficulty-1-sl25",
-            "difficulty-2-sl25",
-            "difficulty-3-sl25",
-            "difficulty-4-sl25",
+            "difficulty-1-sl10",
+            "difficulty-2-sl10",
+            "difficulty-3-sl10",
+            "difficulty-4-sl10",
             "difficulty-1-sl50",
             "difficulty-2-sl50",
             "difficulty-3-sl50",
