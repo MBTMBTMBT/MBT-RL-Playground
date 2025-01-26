@@ -107,7 +107,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                     "FFFFFFFF",
                 ],
                 map_name=None,
-                is_slippery=False,
+                is_slippery=True,
                 render_mode="rgb_array",
             ),
             gym.make(
@@ -123,7 +123,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                     "FFFFFFFF",
                 ],
                 map_name=None,
-                is_slippery=False,
+                is_slippery=True,
                 render_mode="rgb_array",
             ),
             gym.make(
@@ -139,7 +139,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                     "FFFFFFFF",
                 ],
                 map_name=None,
-                is_slippery=False,
+                is_slippery=True,
                 render_mode="rgb_array",
             ),
             gym.make(
@@ -155,7 +155,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                     "FFFFFFFF",
                 ],
                 map_name=None,
-                is_slippery=False,
+                is_slippery=True,
                 render_mode="rgb_array",
             ),
         ]
@@ -173,7 +173,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                     "FFFFFFFF",
                 ],
                 map_name=None,
-                is_slippery=False,
+                is_slippery=True,
                 render_mode="rgb_array",
             ),
             gym.make(
@@ -189,7 +189,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                     "FFFFFFFF",
                 ],
                 map_name=None,
-                is_slippery=False,
+                is_slippery=True,
                 render_mode="rgb_array",
             ),
             gym.make(
@@ -205,7 +205,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                     "FFFFFFFF",
                 ],
                 map_name=None,
-                is_slippery=False,
+                is_slippery=True,
                 render_mode="rgb_array",
             ),
             gym.make(
@@ -221,7 +221,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                     "FFFFFFFF",
                 ],
                 map_name=None,
-                is_slippery=False,
+                is_slippery=True,
                 render_mode="rgb_array",
             ),
         ]
