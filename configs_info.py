@@ -7,19 +7,19 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
     if name == "frozen_lake-44":
         save_path = "./experiments/env-info/frozen_lake-44/frozen_lake-44"
         envs = [
-            gym.make('FrozenLake-v1', desc=None, map_name="4x4", is_slippery=False, render_mode="rgb_array"),
-            gym.make('FrozenLake-v1', desc=None, map_name="4x4", is_slippery=True, render_mode="rgb_array"),
+            dict(id='FrozenLake-v1', desc=None, map_name="4x4", is_slippery=False, render_mode="rgb_array"),
+            dict(id='FrozenLake-v1', desc=None, map_name="4x4", is_slippery=True, render_mode="rgb_array"),
         ]
         test_envs = [
-            gym.make('FrozenLake-v1', desc=None, map_name="4x4", is_slippery=False, render_mode="rgb_array"),
-            gym.make('FrozenLake-v1', desc=None, map_name="4x4", is_slippery=True, render_mode="rgb_array"),
+            dict(id='FrozenLake-v1', desc=None, map_name="4x4", is_slippery=False, render_mode="rgb_array"),
+            dict(id='FrozenLake-v1', desc=None, map_name="4x4", is_slippery=True, render_mode="rgb_array"),
         ]
         env_descs = [
             "44-not-slippery",
             "44-slippery",
         ]
         state_discretizer = Discretizer(
-            ranges=[(0, envs[0].observation_space.n)],
+            ranges=[(0, gym.make(**envs[0]).observation_space.n)],
             num_buckets=[0],
             normal_params=[None, ],
         )
@@ -51,19 +51,19 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
     elif name == "frozen_lake-88":
         save_path = "./experiments/env-info/frozen_lake-88/frozen_lake-88"
         envs = [
-            gym.make('FrozenLake-v1', desc=None, map_name="8x8", is_slippery=False, render_mode="rgb_array"),
-            gym.make('FrozenLake-v1', desc=None, map_name="8x8", is_slippery=True, render_mode="rgb_array"),
+            dict(id='FrozenLake-v1', desc=None, map_name="8x8", is_slippery=False, render_mode="rgb_array"),
+            dict(id='FrozenLake-v1', desc=None, map_name="8x8", is_slippery=True, render_mode="rgb_array"),
         ]
         test_envs = [
-            gym.make('FrozenLake-v1', desc=None, map_name="8x8", is_slippery=False, render_mode="rgb_array"),
-            gym.make('FrozenLake-v1', desc=None, map_name="8x8", is_slippery=True, render_mode="rgb_array"),
+            dict(id='FrozenLake-v1', desc=None, map_name="8x8", is_slippery=False, render_mode="rgb_array"),
+            dict(id='FrozenLake-v1', desc=None, map_name="8x8", is_slippery=True, render_mode="rgb_array"),
         ]
         env_descs = [
             "88-not-slippery",
             "88-slippery",
         ]
         state_discretizer = Discretizer(
-            ranges=[(0, envs[0].observation_space.n)],
+            ranges=[(0, gym.make(**envs[0]).observation_space.n)],
             num_buckets=[0],
             normal_params=[None, ],
         )
@@ -94,206 +94,140 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
 
     elif name == "frozen_lake-custom":
         save_path = "./experiments/env-info/frozen_lake-custom/frozen_lake-custom"
+        descs = [
+            [
+                "SFFFFFFF",
+                "FFFFFFFF",
+                "FFFFFFFF",
+                "FFFFFFFF",
+                "FFFFFFFF",
+                "FFFFFGFF",
+                "FFFFFFFF",
+                "FFFFFFFF",
+            ],
+            [
+                "SFFFFFFF",
+                "FFHFFFFF",
+                "FFFFFFHF",
+                "FFFHFFFF",
+                "FFFFFFFF",
+                "FHFFFGFF",
+                "FFFFFFFF",
+                "FFFFFFFF",
+            ],
+            [
+                "SFFFFHFF",
+                "FFHFFFFF",
+                "FFFFFFHF",
+                "FFFHFFFF",
+                "FFFFHHFF",
+                "FHFHHGFF",
+                "FFFFHFHF",
+                "FFFFFFFF",
+            ],
+            [
+                "SFFFFHFF",
+                "FFHFFFFF",
+                "FFFFFFHF",
+                "FFFHFFFF",
+                "FFFFHHFF",
+                "FHFHHGFF",
+                "FFFFHFHF",
+                "FFFFFFFF",
+            ],
+        ]
         envs = [
-            gym.make(
-                'CustomFrozenLake-v1',
-                desc=[
-                    "SFFFFFFF",
-                    "FFFFFFFF",
-                    "FFFFFFFF",
-                    "FFFFFFFF",
-                    "FFFFFFFF",
-                    "FFFFFGFF",
-                    "FFFFFFFF",
-                    "FFFFFFFF",
-                ],
+            dict(
+                id='CustomFrozenLake-v1',
+                desc=descs[0],
                 map_name=None,
                 is_slippery=True,
                 slipperiness=0.25,
                 render_mode="rgb_array",
             ),
-            gym.make(
-                'CustomFrozenLake-v1',
-                desc=[
-                    "SFFFFFFF",
-                    "FFHFFFFF",
-                    "FFFFFFHF",
-                    "FFFHFFFF",
-                    "FFFFFFFF",
-                    "FHFFFGFF",
-                    "FFFFFFFF",
-                    "FFFFFFFF",
-                ],
+            dict(
+                id='CustomFrozenLake-v1',
+                desc=descs[1],
                 map_name=None,
                 is_slippery=True,
                 slipperiness=0.25,
                 render_mode="rgb_array",
             ),
-            gym.make(
-                'CustomFrozenLake-v1',
-                desc=[
-                    "SFFFFHFF",
-                    "FFHFFFFF",
-                    "FFFFFFHF",
-                    "FFFHFFFF",
-                    "FFFFFHFF",
-                    "FHFHFGFF",
-                    "FFFFFFHF",
-                    "FFFFFFFF",
-                ],
+            dict(
+                id='CustomFrozenLake-v1',
+                desc=descs[2],
                 map_name=None,
                 is_slippery=True,
                 slipperiness=0.25,
                 render_mode="rgb_array",
             ),
-            gym.make(
-                'CustomFrozenLake-v1',
-                desc=[
-                    "SFFFFHFF",
-                    "FFHFFFFF",
-                    "FFFFFFHF",
-                    "FFFHFFFF",
-                    "FFFFHHFF",
-                    "FHFHHGFF",
-                    "FFFFHFHF",
-                    "FFFFFFFF",
-                ],
+            dict(
+                id='CustomFrozenLake-v1',
+                desc=descs[3],
                 map_name=None,
                 is_slippery=True,
                 slipperiness=0.25,
                 render_mode="rgb_array",
             ),
-            gym.make(
-                'CustomFrozenLake-v1',
-                desc=[
-                    "SFFFFFFF",
-                    "FFFFFFFF",
-                    "FFFFFFFF",
-                    "FFFFFFFF",
-                    "FFFFFFFF",
-                    "FFFFFGFF",
-                    "FFFFFFFF",
-                    "FFFFFFFF",
-                ],
+            dict(
+                id='CustomFrozenLake-v1',
+                desc=descs[0],
                 map_name=None,
                 is_slippery=True,
                 slipperiness=0.50,
                 render_mode="rgb_array",
             ),
-            gym.make(
-                'CustomFrozenLake-v1',
-                desc=[
-                    "SFFFFFFF",
-                    "FFHFFFFF",
-                    "FFFFFFHF",
-                    "FFFHFFFF",
-                    "FFFFFFFF",
-                    "FHFFFGFF",
-                    "FFFFFFFF",
-                    "FFFFFFFF",
-                ],
+            dict(
+                id='CustomFrozenLake-v1',
+                desc=descs[1],
                 map_name=None,
                 is_slippery=True,
                 slipperiness=0.50,
                 render_mode="rgb_array",
             ),
-            gym.make(
-                'CustomFrozenLake-v1',
-                desc=[
-                    "SFFFFHFF",
-                    "FFHFFFFF",
-                    "FFFFFFHF",
-                    "FFFHFFFF",
-                    "FFFFFHFF",
-                    "FHFHFGFF",
-                    "FFFFFFHF",
-                    "FFFFFFFF",
-                ],
+            dict(
+                id='CustomFrozenLake-v1',
+                desc=descs[2],
                 map_name=None,
                 is_slippery=True,
                 slipperiness=0.50,
                 render_mode="rgb_array",
             ),
-            gym.make(
-                'CustomFrozenLake-v1',
-                desc=[
-                    "SFFFFHFF",
-                    "FFHFFFFF",
-                    "FFFFFFHF",
-                    "FFFHFFFF",
-                    "FFFFHHFF",
-                    "FHFHHGFF",
-                    "FFFFHFHF",
-                    "FFFFFFFF",
-                ],
+            dict(
+                id='CustomFrozenLake-v1',
+                desc=descs[3],
                 map_name=None,
                 is_slippery=True,
                 slipperiness=0.50,
                 render_mode="rgb_array",
             ),
-            gym.make(
-                'CustomFrozenLake-v1',
-                desc=[
-                    "SFFFFFFF",
-                    "FFFFFFFF",
-                    "FFFFFFFF",
-                    "FFFFFFFF",
-                    "FFFFFFFF",
-                    "FFFFFGFF",
-                    "FFFFFFFF",
-                    "FFFFFFFF",
-                ],
+            dict(
+                id='CustomFrozenLake-v1',
+                desc=descs[0],
                 map_name=None,
                 is_slippery=True,
                 slipperiness=0.75,
                 render_mode="rgb_array",
             ),
-            gym.make(
-                'CustomFrozenLake-v1',
-                desc=[
-                    "SFFFFFFF",
-                    "FFHFFFFF",
-                    "FFFFFFHF",
-                    "FFFHFFFF",
-                    "FFFFFFFF",
-                    "FHFFFGFF",
-                    "FFFFFFFF",
-                    "FFFFFFFF",
-                ],
+            dict(
+                id='CustomFrozenLake-v1',
+                desc=descs[1],
                 map_name=None,
                 is_slippery=True,
                 slipperiness=0.75,
                 render_mode="rgb_array",
             ),
-            gym.make(
-                'CustomFrozenLake-v1',
-                desc=[
-                    "SFFFFHFF",
-                    "FFHFFFFF",
-                    "FFFFFFHF",
-                    "FFFHFFFF",
-                    "FFFFFHFF",
-                    "FHFHFGFF",
-                    "FFFFFFHF",
-                    "FFFFFFFF",
-                ],
+            dict(
+                id='CustomFrozenLake-v1',
+                desc=descs[2],
                 map_name=None,
                 is_slippery=True,
                 slipperiness=0.75,
                 render_mode="rgb_array",
             ),
-            gym.make(
-                'CustomFrozenLake-v1',
-                desc=[
-                    "SFFFFHFF",
-                    "FFHFFFFF",
-                    "FFFFFFHF",
-                    "FFFHFFFF",
-                    "FFFFHHFF",
-                    "FHFHHGFF",
-                    "FFFFHFHF",
-                    "FFFFFFFF",
-                ],
+            dict(
+                id='CustomFrozenLake-v1',
+                desc=descs[3],
                 map_name=None,
                 is_slippery=True,
                 slipperiness=0.75,
@@ -301,205 +235,97 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             ),
         ]
         test_envs = [
-            gym.make(
-                'CustomFrozenLake-v1',
-                desc=[
-                    "SFFFFFFF",
-                    "FFFFFFFF",
-                    "FFFFFFFF",
-                    "FFFFFFFF",
-                    "FFFFFFFF",
-                    "FFFFFGFF",
-                    "FFFFFFFF",
-                    "FFFFFFFF",
-                ],
+            dict(
+                id='CustomFrozenLake-v1',
+                desc=descs[0],
                 map_name=None,
                 is_slippery=True,
                 slipperiness=0.25,
                 render_mode="rgb_array",
             ),
-            gym.make(
-                'CustomFrozenLake-v1',
-                desc=[
-                    "SFFFFFFF",
-                    "FFHFFFFF",
-                    "FFFFFFHF",
-                    "FFFHFFFF",
-                    "FFFFFFFF",
-                    "FHFFFGFF",
-                    "FFFFFFFF",
-                    "FFFFFFFF",
-                ],
+            dict(
+                id='CustomFrozenLake-v1',
+                desc=descs[1],
                 map_name=None,
                 is_slippery=True,
                 slipperiness=0.25,
                 render_mode="rgb_array",
             ),
-            gym.make(
-                'CustomFrozenLake-v1',
-                desc=[
-                    "SFFFFHFF",
-                    "FFHFFFFF",
-                    "FFFFFFHF",
-                    "FFFHFFFF",
-                    "FFFFFHFF",
-                    "FHFHFGFF",
-                    "FFFFFFHF",
-                    "FFFFFFFF",
-                ],
+            dict(
+                id='CustomFrozenLake-v1',
+                desc=descs[2],
                 map_name=None,
                 is_slippery=True,
                 slipperiness=0.25,
                 render_mode="rgb_array",
             ),
-            gym.make(
-                'CustomFrozenLake-v1',
-                desc=[
-                    "SFFFFHFF",
-                    "FFHFFFFF",
-                    "FFFFFFHF",
-                    "FFFHFFFF",
-                    "FFFFHHFF",
-                    "FHFHHGFF",
-                    "FFFFHFHF",
-                    "FFFFFFFF",
-                ],
+            dict(
+                id='CustomFrozenLake-v1',
+                desc=descs[3],
                 map_name=None,
                 is_slippery=True,
                 slipperiness=0.25,
                 render_mode="rgb_array",
             ),
-            gym.make(
-                'CustomFrozenLake-v1',
-                desc=[
-                    "SFFFFFFF",
-                    "FFFFFFFF",
-                    "FFFFFFFF",
-                    "FFFFFFFF",
-                    "FFFFFFFF",
-                    "FFFFFGFF",
-                    "FFFFFFFF",
-                    "FFFFFFFF",
-                ],
+            dict(
+                id='CustomFrozenLake-v1',
+                desc=descs[0],
                 map_name=None,
                 is_slippery=True,
                 slipperiness=0.50,
                 render_mode="rgb_array",
             ),
-            gym.make(
-                'CustomFrozenLake-v1',
-                desc=[
-                    "SFFFFFFF",
-                    "FFHFFFFF",
-                    "FFFFFFHF",
-                    "FFFHFFFF",
-                    "FFFFFFFF",
-                    "FHFFFGFF",
-                    "FFFFFFFF",
-                    "FFFFFFFF",
-                ],
+            dict(
+                id='CustomFrozenLake-v1',
+                desc=descs[1],
                 map_name=None,
                 is_slippery=True,
                 slipperiness=0.50,
                 render_mode="rgb_array",
             ),
-            gym.make(
-                'CustomFrozenLake-v1',
-                desc=[
-                    "SFFFFHFF",
-                    "FFHFFFFF",
-                    "FFFFFFHF",
-                    "FFFHFFFF",
-                    "FFFFFHFF",
-                    "FHFHFGFF",
-                    "FFFFFFHF",
-                    "FFFFFFFF",
-                ],
+            dict(
+                id='CustomFrozenLake-v1',
+                desc=descs[2],
                 map_name=None,
                 is_slippery=True,
                 slipperiness=0.50,
                 render_mode="rgb_array",
             ),
-            gym.make(
-                'CustomFrozenLake-v1',
-                desc=[
-                    "SFFFFHFF",
-                    "FFHFFFFF",
-                    "FFFFFFHF",
-                    "FFFHFFFF",
-                    "FFFFHHFF",
-                    "FHFHHGFF",
-                    "FFFFHFHF",
-                    "FFFFFFFF",
-                ],
+            dict(
+                id='CustomFrozenLake-v1',
+                desc=descs[3],
                 map_name=None,
                 is_slippery=True,
                 slipperiness=0.50,
                 render_mode="rgb_array",
             ),
-            gym.make(
-                'CustomFrozenLake-v1',
-                desc=[
-                    "SFFFFFFF",
-                    "FFFFFFFF",
-                    "FFFFFFFF",
-                    "FFFFFFFF",
-                    "FFFFFFFF",
-                    "FFFFFGFF",
-                    "FFFFFFFF",
-                    "FFFFFFFF",
-                ],
+            dict(
+                id='CustomFrozenLake-v1',
+                desc=descs[0],
                 map_name=None,
                 is_slippery=True,
                 slipperiness=0.75,
                 render_mode="rgb_array",
             ),
-            gym.make(
-                'CustomFrozenLake-v1',
-                desc=[
-                    "SFFFFFFF",
-                    "FFHFFFFF",
-                    "FFFFFFHF",
-                    "FFFHFFFF",
-                    "FFFFFFFF",
-                    "FHFFFGFF",
-                    "FFFFFFFF",
-                    "FFFFFFFF",
-                ],
+            dict(
+                id='CustomFrozenLake-v1',
+                desc=descs[1],
                 map_name=None,
                 is_slippery=True,
                 slipperiness=0.75,
                 render_mode="rgb_array",
             ),
-            gym.make(
-                'CustomFrozenLake-v1',
-                desc=[
-                    "SFFFFHFF",
-                    "FFHFFFFF",
-                    "FFFFFFHF",
-                    "FFFHFFFF",
-                    "FFFFFHFF",
-                    "FHFHFGFF",
-                    "FFFFFFHF",
-                    "FFFFFFFF",
-                ],
+            dict(
+                id='CustomFrozenLake-v1',
+                desc=descs[2],
                 map_name=None,
                 is_slippery=True,
                 slipperiness=0.75,
                 render_mode="rgb_array",
             ),
-            gym.make(
-                'CustomFrozenLake-v1',
-                desc=[
-                    "SFFFFHFF",
-                    "FFHFFFFF",
-                    "FFFFFFHF",
-                    "FFFHFFFF",
-                    "FFFFHHFF",
-                    "FHFHHGFF",
-                    "FFFFHFHF",
-                    "FFFFFFFF",
-                ],
+            dict(
+                id='CustomFrozenLake-v1',
+                desc=descs[3],
                 map_name=None,
                 is_slippery=True,
                 slipperiness=0.75,
@@ -521,7 +347,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             "difficulty-4-sl75",
         ]
         state_discretizer = Discretizer(
-            ranges=[(0, envs[0].observation_space.n)],
+            ranges=[(0, gym.make(**envs[0]).observation_space.n)],
             num_buckets=[0],
             normal_params=[None, ],
         )
@@ -555,4 +381,4 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
 
     if configs_only:
         return configs
-    return envs[env_idx], test_envs[env_idx], env_descs[env_idx], state_discretizer, action_discretizer, configs
+    return gym.make(**envs[env_idx]), gym.make(**test_envs[env_idx]), env_descs[env_idx], state_discretizer, action_discretizer, configs
