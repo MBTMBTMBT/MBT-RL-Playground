@@ -151,7 +151,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                 desc=[
                     "SFFFFHFF",
                     "FFHFFFFF",
-                    "HFFFFFHF",
+                    "FFFFFFHF",
                     "FFFHFFFF",
                     "FFFFHHFF",
                     "FHFHHGFF",
@@ -219,7 +219,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                 desc=[
                     "SFFFFHFF",
                     "FFHFFFFF",
-                    "HFFFFFHF",
+                    "FFFFFFHF",
                     "FFFHFFFF",
                     "FFFFHHFF",
                     "FHFHHGFF",
@@ -287,7 +287,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                 desc=[
                     "SFFFFHFF",
                     "FFHFFFFF",
-                    "HFFFFFHF",
+                    "FFFFFFHF",
                     "FFFHFFFF",
                     "FFFFHHFF",
                     "FHFHHGFF",
@@ -357,7 +357,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                 desc=[
                     "SFFFFHFF",
                     "FFHFFFFF",
-                    "HFFFFFHF",
+                    "FFFFFFHF",
                     "FFFHFFFF",
                     "FFFFHHFF",
                     "FHFHHGFF",
@@ -425,7 +425,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                 desc=[
                     "SFFFFHFF",
                     "FFHFFFFF",
-                    "HFFFFFHF",
+                    "FFFFFFHF",
                     "FFFHFFFF",
                     "FFFFHHFF",
                     "FHFHHGFF",
@@ -493,7 +493,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                 desc=[
                     "SFFFFHFF",
                     "FFHFFFFF",
-                    "HFFFFFHF",
+                    "FFFFFFHF",
                     "FFFHFFFF",
                     "FFFFHHFF",
                     "FHFHHGFF",
