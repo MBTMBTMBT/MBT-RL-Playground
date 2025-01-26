@@ -164,9 +164,11 @@ def run_eval(task_name: str, env_idx: int, run_id: int):
 
     test_results = []
     test_weights = []
+    test_control_infos = []
     test_free_energies = []
     for p in weights:
         periodic_test_rewards = []
+        periodic_test_control_infos = []
         periodic_test_free_energies = []
         for t in range(configs["exploit_policy_eval_episodes"]):
             test_state, _ = test_env.reset()
@@ -185,6 +187,7 @@ def run_eval(task_name: str, env_idx: int, run_id: int):
             trajectory.reverse()
             value = test_total_reward
             free_energy = 0.0
+            control_info = 0.0
             if isinstance(action_space, spaces.Discrete):
                 for state in trajectory:
                     weighted_action_distribution = agent.get_greedy_weighted_action_distribution(state, p)
@@ -192,28 +195,33 @@ def run_eval(task_name: str, env_idx: int, run_id: int):
                     kl_divergence = compute_discrete_kl_divergence(
                         weighted_action_distribution, default_action_distribution
                     )
+                    control_info += kl_weight * kl_divergence
                     free_energy += kl_weight * kl_divergence - value
                     value *= configs["exploit_value_decay"]
             else:
                 pass
+            periodic_test_control_infos.append(control_info)
             periodic_test_free_energies.append(free_energy)
 
         avg_test_reward = np.mean(periodic_test_rewards)
+        avg_test_control_info = np.mean(periodic_test_control_infos)
         avg_test_free_energy = np.mean(periodic_test_free_energies)
         test_results.append(avg_test_reward)
+        test_control_infos.append(avg_test_control_info)
         test_free_energies.append(avg_test_free_energy)
         test_weights.append(p)
 
         pbar.set_postfix({
             "Weight": f"{p:.2f}",
-            "Test Reward": f"{avg_test_reward:05.3f}",
-            "Test Free Energy": f"{avg_test_free_energy:05.2f}",
+            "Rwd": f"{avg_test_reward:05.3f}",
+            "CI": f"{avg_test_control_info:05.1f}",
+            "FE": f"{avg_test_free_energy:05.1f}",
         })
         pbar.update(1)
 
     pbar.close()
 
-    return task_name, run_id, env_idx, test_results, test_free_energies, test_weights
+    return task_name, run_id, env_idx, test_results, test_control_infos, test_free_energies, test_weights
 
 
 # A wrapper function for unpacking arguments
@@ -401,18 +409,20 @@ def run_all_evals_and_plot(task_names_and_num_experiments: Dict[str, int], max_w
 
     # Group results by task_name and env_idx
     grouped_results = {}
-    for task_name, run_id, env_idx, test_results, test_free_energies, test_weights in all_results:
+    for task_name, run_id, env_idx, test_results, test_control_infos, test_free_energies, test_weights in all_results:
         if task_name not in grouped_results:
             grouped_results[task_name] = {}
         if env_idx not in grouped_results[task_name]:
             grouped_results[task_name][env_idx] = {
                 "test_results": [],
+                "test_control_infos": [],
                 "test_free_energies": [],
                 "test_weights": []
             }
 
         # Append results to the corresponding group
         grouped_results[task_name][env_idx]["test_results"].append(test_results)
+        grouped_results[task_name][env_idx]["test_control_infos"].append(test_control_infos)
         grouped_results[task_name][env_idx]["test_free_energies"].append(test_free_energies)
         grouped_results[task_name][env_idx]["test_weights"].append(test_weights)
 
@@ -421,12 +431,16 @@ def run_all_evals_and_plot(task_names_and_num_experiments: Dict[str, int], max_w
         aggregated_results[task_name] = {}
         for env_idx, data in env_idxs.items():
             test_results_array = np.array(data["test_results"])  # Shape: (runs, weights)
+            test_control_infos_array = np.array(data["test_control_infos"])  # Shape: (runs, weights)
             test_free_energies_array = np.array(data["test_free_energies"])  # Shape: (runs, weights)
             test_weights = data["test_weights"][0]  # Assume all runs share the same weights
 
             # Compute mean and std for test_results and test_free_energies
             mean_test_results = test_results_array.mean(axis=0)
             std_test_results = test_results_array.std(axis=0)
+
+            mean_test_control_infos = test_control_infos_array.mean(axis=0)
+            std_test_control_infos = test_control_infos_array.std(axis=0)
 
             mean_test_free_energies = test_free_energies_array.mean(axis=0)
             std_test_free_energies = test_free_energies_array.std(axis=0)
@@ -435,6 +449,8 @@ def run_all_evals_and_plot(task_names_and_num_experiments: Dict[str, int], max_w
             aggregated_results[task_name][env_idx] = {
                 "mean_test_results": mean_test_results.tolist(),
                 "std_test_results": std_test_results.tolist(),
+                "mean_test_control_infos": mean_test_control_infos.tolist(),
+                "std_test_control_infos": std_test_control_infos.tolist(),
                 "mean_test_free_energies": mean_test_free_energies.tolist(),
                 "std_test_free_energies": std_test_free_energies.tolist(),
                 "test_weights": test_weights,
@@ -500,6 +516,56 @@ def run_all_evals_and_plot(task_names_and_num_experiments: Dict[str, int], max_w
                         "save_path"] + "_eval.png"
         fig.write_image(plot_path, scale=2)  # High-resolution PNG
         print(f"Saved evaluation plot for {task_name} at {plot_path}")
+
+        # Plot Control Information
+        fig_control_info = go.Figure()
+        color_idx = 0
+
+        for env_idx in sorted(env_idxs.keys()):
+            subtask_data = env_idxs[env_idx]
+            mean_test_control_infos = subtask_data["mean_test_control_infos"]
+            std_test_control_infos = subtask_data["std_test_control_infos"]
+            test_weights = subtask_data["test_weights"]
+
+            _, _, env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, env_idx)
+
+            fig_control_info.add_trace(go.Scatter(
+                x=test_weights,
+                y=mean_test_control_infos,
+                mode='lines',
+                name=f"{env_desc} Mean Control Information",
+                line=dict(color=colors[color_idx], width=2),
+            ))
+
+            fig_control_info.add_trace(go.Scatter(
+                x=test_weights + test_weights[::-1],
+                y=(np.array(mean_test_control_infos) + np.array(std_test_control_infos)).tolist() +
+                  (np.array(mean_test_control_infos) - np.array(std_test_control_infos))[::-1].tolist(),
+                fill='toself',
+                fillcolor=f"rgba({int(colors[color_idx][1:3], 16)}, "
+                          f"{int(colors[color_idx][3:5], 16)}, "
+                          f"{int(colors[color_idx][5:], 16)}, 0.2)",
+                line=dict(color='rgba(255,255,255,0)'),
+                name=f"{env_desc} Control Information Std Dev",
+            ))
+
+            color_idx = (color_idx + 1) % len(colors)
+
+        fig_control_info.update_layout(
+            title=f"Control Information for {task_name}",
+            xaxis_title="Weight (p)",
+            yaxis_title="Average Control Information",
+            legend_title="Subtasks",
+            font=dict(size=14),
+            width=1200,
+            height=800,
+        )
+
+        plot_path_control_info = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)[
+                                     "save_path"] + "_control_info.png"
+        fig_control_info.write_image(plot_path_control_info, scale=2)
+
+        print(f"Saved evaluation plot for control information: {plot_path_control_info}")
 
         # Plot results for free energy
         fig_free_energy = go.Figure()
