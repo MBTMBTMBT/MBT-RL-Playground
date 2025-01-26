@@ -98,13 +98,78 @@ def run_training(task_name: str, env_idx: int, run_id: int,):
     return task_name, run_id, env_idx, test_results, test_steps, final_test_rewards
 
 
+def run_eval(task_name: str, env_idx: int, run_id: int):
+    env, test_env, env_desc, state_discretizer, action_discretizer, configs = get_envs_discretizers_and_configs(
+        task_name, env_idx)
+    dir_path = os.path.dirname(configs["save_path"])
+    os.makedirs(dir_path, exist_ok=True)
+    save_path = configs["save_path"] + f"-{env_desc}-id-{run_id}"
+
+    agent = Agent(
+        state_discretizer,
+        action_discretizer,
+        env,
+        configs["use_deep_agent"],
+        configs["train_max_num_steps_per_episode"],
+        configs["initialization_distribution"],
+        configs["exploit_agent_lr"],
+        configs["exploit_value_decay"],
+        configs["exploit_policy_reward_rate"],
+    )
+
+    agent.load_agent(save_path + f"_final")
+
+    weights = np.linspace(0, 1, 100)
+
+    pbar = tqdm(
+        total=len(weights),
+        desc=f"[{run_id}-{env_desc}]",
+        leave=False,
+        dynamic_ncols=True,
+    )
+
+    test_results = []
+    test_weights = []
+    for p in weights:
+        periodic_test_rewards = []
+        for t in range(configs["exploit_policy_eval_episodes"]):
+            test_state, _ = test_env.reset()
+            test_total_reward = 0
+            test_done = False
+            while not test_done:
+                test_action = agent.choose_action_by_weight(test_state, p=p)
+                test_next_state, test_reward, test_done, test_truncated, _ = test_env.step(test_action)
+                test_state = test_next_state
+                test_total_reward += test_reward
+                if test_done or test_truncated:
+                    break
+            periodic_test_rewards.append(test_total_reward)
+
+        avg_test_reward = np.mean(periodic_test_rewards)
+        test_results.append(avg_test_reward)
+        test_weights.append(p)
+
+        pbar.set_postfix({
+            "Weight": f"{p:.2f}",
+            "Test Reward": f"{avg_test_reward:04.3f}",
+        })
+        pbar.update(1)
+
+    pbar.close()
+
+    return task_name, run_id, env_idx, test_results, test_weights
+
+
 # A wrapper function for unpacking arguments
 def run_training_unpack(args):
     return run_training(**args)  # Unpack the dictionary into keyword arguments
 
+def run_eval_unpack(args):
+    return run_eval(**args)
+
 
 # Aggregating results for consistent step-based plotting
-def run_all_experiments_and_plot(task_names_and_num_experiments: Dict[str, int], max_workers):
+def run_all_trainings_and_plot(task_names_and_num_experiments: Dict[str, int], max_workers):
     tasks = []
     run_id = 0
     for task_name, runs in task_names_and_num_experiments.items():
@@ -250,10 +315,138 @@ def run_all_experiments_and_plot(task_names_and_num_experiments: Dict[str, int],
     return aggregated_results
 
 
+def run_all_evals_and_plot(task_names_and_num_experiments: Dict[str, int], max_workers):
+    tasks = []
+    run_id = 0
+    for task_name, runs in task_names_and_num_experiments.items():
+        # Shuffle the sequence just for monitoring more possible cases simultaneously
+        num_envs = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)["num_envs"]
+        for env_idx in range(num_envs):
+            for _ in range(runs):
+                tasks.append({
+                    "task_name": task_name,
+                    "env_idx": env_idx,
+                    "run_id": run_id,
+                })
+                run_id += 1
+
+    print(f"Total tasks: {run_id}.")
+
+    # Execute tasks in parallel
+    if max_workers > 1:
+        with Pool(processes=max_workers, maxtasksperchild=1) as pool:
+            all_results = pool.map(run_eval_unpack, tasks)
+    else:
+        all_results = [run_eval_unpack(task) for task in tasks]
+
+    # Aggregate results for each group
+    aggregated_results = {}
+
+    # Group results by task_name and env_idx
+    grouped_results = {}
+    for task_name, run_id, env_idx, test_results, test_weights in all_results:
+        if task_name not in grouped_results:
+            grouped_results[task_name] = {}
+        if env_idx not in grouped_results[task_name]:
+            grouped_results[task_name][env_idx] = {"test_results": [], "test_weights": []}
+
+        # Append results to the corresponding group
+        grouped_results[task_name][env_idx]["test_results"].append(test_results)
+        grouped_results[task_name][env_idx]["test_weights"].append(test_weights)
+
+    # Aggregate data for each task_name and env_idx
+    for task_name, env_idxs in grouped_results.items():
+        aggregated_results[task_name] = {}
+        for env_idx, data in env_idxs.items():
+            test_results_array = np.array(data["test_results"])  # Shape: (runs, weights)
+            test_weights = data["test_weights"][0]  # Assume all runs share the same weights
+
+            # Compute mean and std for test_results
+            mean_test_results = test_results_array.mean(axis=0)
+            std_test_results = test_results_array.std(axis=0)
+
+            # Store aggregated results
+            aggregated_results[task_name][env_idx] = {
+                "mean_test_results": mean_test_results.tolist(),
+                "std_test_results": std_test_results.tolist(),
+                "test_weights": test_weights,
+            }
+
+    # Plot results
+    for task_name, env_idxs in aggregated_results.items():
+        fig = go.Figure()
+
+        # Use hex color codes for consistency
+        colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']  # Hex color codes
+        color_idx = 0
+
+        for env_idx in sorted(env_idxs.keys()):  # Sort subtasks alphabetically
+            subtask_data = env_idxs[env_idx]
+            # Extract aggregated data
+            mean_test_results = subtask_data["mean_test_results"]
+            std_test_results = subtask_data["std_test_results"]
+            test_weights = subtask_data["test_weights"]
+
+            _, _, env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, env_idx)
+
+            # Add mean test results curve
+            fig.add_trace(go.Scatter(
+                x=test_weights,
+                y=mean_test_results,
+                mode='lines',
+                name=f"{env_desc} Mean Test Results",
+                line=dict(color=colors[color_idx], width=2),
+            ))
+
+            # Add shaded area for std
+            fig.add_trace(go.Scatter(
+                x=test_weights + test_weights[::-1],  # Create a filled region
+                y=(np.array(mean_test_results) + np.array(std_test_results)).tolist() +
+                  (np.array(mean_test_results) - np.array(std_test_results))[::-1].tolist(),
+                fill='toself',
+                fillcolor=f"rgba({int(colors[color_idx][1:3], 16)}, "
+                          f"{int(colors[color_idx][3:5], 16)}, "
+                          f"{int(colors[color_idx][5:], 16)}, 0.2)",  # Match line color
+                line=dict(color='rgba(255,255,255,0)'),
+                name=f"{env_desc} Std Dev",
+            ))
+
+            color_idx = (color_idx + 1) % len(colors)
+
+        # Customize layout
+        fig.update_layout(
+            title=f"Evaluation Results for {task_name}",
+            xaxis_title="Weight (p)",
+            yaxis_title="Average Test Reward",
+            legend_title="Subtasks",
+            font=dict(size=14),
+            width=1200,  # High resolution width
+            height=800,  # High resolution height
+        )
+
+        # Save plot to file
+        plot_path = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)[
+                        "save_path"] + "_eval.png"
+        fig.write_image(plot_path, scale=2)  # High-resolution PNG
+        print(f"Saved evaluation plot for {task_name} at {plot_path}")
+
+    return aggregated_results
+
+
 if __name__ == '__main__':
-    run_all_experiments_and_plot(
-        task_names_and_num_experiments={
-            "frozen_lake": 16,
-        },
+    run_all_trainings_and_plot(
+        task_names_and_num_experiments={"frozen_lake-44": 16,},
+        max_workers=16,
+    )
+    run_all_evals_and_plot(
+        task_names_and_num_experiments={"frozen_lake-44": 16,},
+        max_workers=16,
+    )
+    run_all_trainings_and_plot(
+        task_names_and_num_experiments={"frozen_lake-88": 16,},
+        max_workers=16,
+    )
+    run_all_evals_and_plot(
+        task_names_and_num_experiments={"frozen_lake-88": 16,},
         max_workers=16,
     )
