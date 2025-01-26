@@ -97,6 +97,16 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
         descs = [
             [
                 "SFFFFFFF",
+                "FFFFFFFF",
+                "FFFFFFFF",
+                "FFFFFFFF",
+                "FFFFFFFF",
+                "FFFFFGFF",
+                "FFFFFFFF",
+                "FFFFFFFF",
+            ],
+            [
+                "SFFFFFFF",
                 "FFHFFFFF",
                 "FFFFFFHF",
                 "FFFHFFFF",
@@ -153,6 +163,14 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             ),
             dict(
                 id='CustomFrozenLake-v1',
+                desc=descs[3],
+                map_name=None,
+                is_slippery=True,
+                slipperiness=0.25,
+                render_mode="rgb_array",
+            ),
+            dict(
+                id='CustomFrozenLake-v1',
                 desc=descs[0],
                 map_name=None,
                 is_slippery=True,
@@ -170,69 +188,30 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             dict(
                 id='CustomFrozenLake-v1',
                 desc=descs[2],
+                map_name=None,
+                is_slippery=True,
+                slipperiness=0.50,
+                render_mode="rgb_array",
+            ),
+            dict(
+                id='CustomFrozenLake-v1',
+                desc=descs[3],
                 map_name=None,
                 is_slippery=True,
                 slipperiness=0.50,
                 render_mode="rgb_array",
             ),
         ]
-        test_envs = [
-            dict(
-                id='CustomFrozenLake-v1',
-                desc=descs[0],
-                map_name=None,
-                is_slippery=True,
-                slipperiness=0.25,
-                render_mode="rgb_array",
-            ),
-            dict(
-                id='CustomFrozenLake-v1',
-                desc=descs[1],
-                map_name=None,
-                is_slippery=True,
-                slipperiness=0.25,
-                render_mode="rgb_array",
-            ),
-            dict(
-                id='CustomFrozenLake-v1',
-                desc=descs[2],
-                map_name=None,
-                is_slippery=True,
-                slipperiness=0.25,
-                render_mode="rgb_array",
-            ),
-            dict(
-                id='CustomFrozenLake-v1',
-                desc=descs[0],
-                map_name=None,
-                is_slippery=True,
-                slipperiness=0.50,
-                render_mode="rgb_array",
-            ),
-            dict(
-                id='CustomFrozenLake-v1',
-                desc=descs[1],
-                map_name=None,
-                is_slippery=True,
-                slipperiness=0.50,
-                render_mode="rgb_array",
-            ),
-            dict(
-                id='CustomFrozenLake-v1',
-                desc=descs[2],
-                map_name=None,
-                is_slippery=True,
-                slipperiness=0.50,
-                render_mode="rgb_array",
-            ),
-        ]
+        test_envs = envs
         env_descs = [
             "difficulty-1-sl25",
             "difficulty-2-sl25",
             "difficulty-3-sl25",
+            "difficulty-4-sl25",
             "difficulty-1-sl50",
             "difficulty-2-sl50",
             "difficulty-3-sl50",
+            "difficulty-4-sl50",
         ]
         state_discretizer = Discretizer(
             ranges=[(0, gym.make(**envs[0]).observation_space.n)],
