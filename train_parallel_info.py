@@ -70,6 +70,7 @@ def run_training(task_name: str, env_idx: int, run_id: int,):
             periodic_test_rewards.append(test_total_reward)
 
         avg_test_reward = np.mean(periodic_test_rewards)
+        final_test_rewards = avg_test_reward
         test_results.append(avg_test_reward)
         test_steps.append(sample_step_count)
 
@@ -323,7 +324,6 @@ def run_all_evals_and_plot(task_names_and_num_experiments: Dict[str, int], max_w
     tasks = []
     run_id = 0
     for task_name, runs in task_names_and_num_experiments.items():
-        # Shuffle the sequence just for monitoring more possible cases simultaneously
         num_envs = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)["num_envs"]
         for env_idx in range(num_envs):
             for _ in range(runs):
