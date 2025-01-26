@@ -2248,6 +2248,36 @@ class Agent:
                 weighted_std = uniform_std
                 return weighted_mean, weighted_std
 
+    def choose_action_by_weight(
+            self, state: np.ndarray, p: float = 0.5
+    ) -> np.ndarray:
+        """
+        Choose an action based on the greedy-weighted distribution.
+
+        :param state: The current state as a NumPy array.
+        :param p: Weight for the greedy action distribution. Must be in [0, 1].
+        :return: The chosen action as a NumPy array (or scalar for discrete actions).
+        """
+        assert 0 <= p <= 1, "p must be between 0 and 1 (inclusive)."
+
+        if isinstance(self.double_env.action_space, spaces.Discrete):
+            # Get the weighted distribution
+            action_probabilities = self.get_greedy_weighted_distribution(state, p=p)
+
+            # Sample an action based on the distribution
+            action = np.random.choice(len(action_probabilities), p=action_probabilities)
+            return int(action)
+        else:
+            # Continuous action space
+            mean, std = self.get_greedy_weighted_distribution(state, p=p)
+
+            # Sample an action from the Gaussian distribution
+            action = np.random.normal(mean, std)
+
+            # Clip action to ensure it remains within the valid range
+            action = np.clip(action, self.double_env.action_space.low, self.double_env.action_space.high)
+            return action
+
     def learn(
             self,
             total_timesteps: int,
