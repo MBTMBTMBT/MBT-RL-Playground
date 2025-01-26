@@ -2284,6 +2284,7 @@ class Agent:
             action_probabilities = self.get_greedy_weighted_action_distribution(state, p=p)
 
             # Sample an action based on the distribution
+            np.random.seed(random.randint(0, 100000000))
             action = np.random.choice(len(action_probabilities), p=action_probabilities)
             return int(action)
         else:
@@ -2291,6 +2292,7 @@ class Agent:
             mean, std = self.get_greedy_weighted_action_distribution(state, p=p)
 
             # Sample an action from the Gaussian distribution
+            np.random.seed(random.randint(0, 100000000))
             action = np.random.normal(mean, std)
 
             # Clip action to ensure it remains within the valid range
