@@ -174,7 +174,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                 desc=descs[0],
                 map_name=None,
                 is_slippery=True,
-                slipperiness=0.50,
+                slipperiness=0.90,
                 render_mode="rgb_array",
             ),
             dict(
@@ -182,7 +182,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                 desc=descs[1],
                 map_name=None,
                 is_slippery=True,
-                slipperiness=0.50,
+                slipperiness=0.90,
                 render_mode="rgb_array",
             ),
             dict(
@@ -190,7 +190,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                 desc=descs[2],
                 map_name=None,
                 is_slippery=True,
-                slipperiness=0.50,
+                slipperiness=0.90,
                 render_mode="rgb_array",
             ),
             dict(
@@ -198,7 +198,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                 desc=descs[3],
                 map_name=None,
                 is_slippery=True,
-                slipperiness=0.50,
+                slipperiness=0.90,
                 render_mode="rgb_array",
             ),
         ]
@@ -208,10 +208,10 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             "difficulty-2-sl10",
             "difficulty-3-sl10",
             "difficulty-4-sl10",
-            "difficulty-1-sl50",
-            "difficulty-2-sl50",
-            "difficulty-3-sl50",
-            "difficulty-4-sl50",
+            "difficulty-1-sl90",
+            "difficulty-2-sl90",
+            "difficulty-3-sl90",
+            "difficulty-4-sl90",
         ]
         state_discretizer = Discretizer(
             ranges=[(0, gym.make(**envs[0]).observation_space.n)],
@@ -233,9 +233,9 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             "exploit_softmax_temperature": 1.0,
             "exploit_policy_reward_rate": 1,
             "exploit_value_decay": 0.99,
-            "exploit_policy_training_steps": int(250e3),
-            "exploit_policy_test_per_num_steps": int(2.5e3),
-            "exploit_policy_test_episodes": 25,
+            "exploit_policy_training_steps": int(300e3),
+            "exploit_policy_test_per_num_steps": int(2e3),
+            "exploit_policy_test_episodes": 100,
             "exploit_policy_eval_episodes": 200,
             "save_per_num_steps": int(50e3),
             "save_mdp_graph": False,

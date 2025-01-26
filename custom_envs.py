@@ -55,21 +55,11 @@ class CustomFrozenLakeEnv(FrozenLakeEnv):
                         li.append((1.0, s, 0, True))
                     else:
                         if self.is_slippery:
-                            # Original slippery logic
+                            # Custom slippery logic controlled by slipperiness
                             for b in [(a - 1) % 4, a, (a + 1) % 4]:
-                                prob = 1.0 / 3.0
-                                new_row, new_col = self._inc(row, col, b)
-                                new_state = self._to_s(new_row, new_col)
-                                new_letter = self.desc[new_row][new_col]
-                                terminated = bytes(new_letter) in b"GH"
-                                reward = float(new_letter == b"G")
-                                li.append((prob, new_state, reward, terminated))
-                        else:
-                            # Custom slipperiness logic
-                            for b in [(a - 1) % 4, a, (a + 1) % 4]:
-                                if b == a:
+                                if b == a:  # Forward direction
                                     prob = 1 - (self.slipperiness * (2 / 3))
-                                else:
+                                else:  # Side directions
                                     prob = self.slipperiness / 3
                                 new_row, new_col = self._inc(row, col, b)
                                 new_state = self._to_s(new_row, new_col)
@@ -77,6 +67,14 @@ class CustomFrozenLakeEnv(FrozenLakeEnv):
                                 terminated = bytes(new_letter) in b"GH"
                                 reward = float(new_letter == b"G")
                                 li.append((prob, new_state, reward, terminated))
+                        else:
+                            # Deterministic logic when not slippery
+                            new_row, new_col = self._inc(row, col, a)
+                            new_state = self._to_s(new_row, new_col)
+                            new_letter = self.desc[new_row][new_col]
+                            terminated = bytes(new_letter) in b"GH"
+                            reward = float(new_letter == b"G")
+                            li.append((1.0, new_state, reward, terminated))
 
     def _inc(self, row, col, action):
         """

@@ -4,6 +4,7 @@ from multiprocessing import Pool
 from typing import List, Dict
 
 import numpy as np
+from gymnasium import spaces
 from tqdm import tqdm
 import plotly.graph_objs as go
 
@@ -104,6 +105,27 @@ def run_training(task_name: str, env_idx: int, run_id: int,):
     return task_name, run_id, env_idx, test_results, test_steps, final_test_rewards
 
 
+def compute_discrete_kl_divergence(weighted_distribution: np.ndarray, default_distribution: np.ndarray) -> float:
+    """
+    Compute the KL divergence between two distributions for a discrete action space.
+
+    :param weighted_distribution: Weighted action distribution (e.g., greedy-weighted).
+    :param default_distribution: Default action distribution (e.g., uniform or another baseline).
+    :return: KL divergence value.
+    """
+    assert weighted_distribution.shape == default_distribution.shape, \
+        "Distributions must have the same shape."
+
+    # Avoid division by zero and log(0) by adding a small constant
+    epsilon = 1e-4
+    weighted_distribution = np.clip(weighted_distribution, epsilon, 1.0)
+    default_distribution = np.clip(default_distribution, epsilon, 1.0)
+
+    # Compute KL divergence
+    kl_divergence = np.sum(weighted_distribution * np.log2(weighted_distribution / default_distribution))
+    return kl_divergence
+
+
 def run_eval(task_name: str, env_idx: int, run_id: int):
     env, test_env, env_desc, state_discretizer, action_discretizer, configs = get_envs_discretizers_and_configs(
         task_name, env_idx)
@@ -124,6 +146,12 @@ def run_eval(task_name: str, env_idx: int, run_id: int):
     )
 
     agent.load_agent(save_path + f"_final")
+    kl_weight = 1.0
+    action_space = agent.action_discretizer.get_gym_space()
+    if isinstance(action_space, spaces.Discrete):
+        kl_weight = 1.0 / np.log2(action_space.n)
+    else:
+        pass  # not implemented yet
 
     weights = np.linspace(0, 1, 100)
 
@@ -136,34 +164,56 @@ def run_eval(task_name: str, env_idx: int, run_id: int):
 
     test_results = []
     test_weights = []
+    test_free_energies = []
     for p in weights:
         periodic_test_rewards = []
+        periodic_test_free_energies = []
         for t in range(configs["exploit_policy_eval_episodes"]):
             test_state, _ = test_env.reset()
             test_total_reward = 0
             test_done = False
+            trajectory = [test_state]
             while not test_done:
                 test_action = agent.choose_action_by_weight(test_state, p=p)
                 test_next_state, test_reward, test_done, test_truncated, _ = test_env.step(test_action)
+                trajectory.append(test_next_state)
                 test_state = test_next_state
                 test_total_reward += test_reward
                 if test_done or test_truncated:
                     break
             periodic_test_rewards.append(test_total_reward)
+            trajectory.reverse()
+            value = test_total_reward
+            free_energy = 0.0
+            if isinstance(action_space, spaces.Discrete):
+                for state in trajectory:
+                    weighted_action_distribution = agent.get_greedy_weighted_action_distribution(state, p)
+                    default_action_distribution = agent.get_default_policy_distribution(state)
+                    kl_divergence = compute_discrete_kl_divergence(
+                        weighted_action_distribution, default_action_distribution
+                    )
+                    free_energy += kl_weight * kl_divergence - value
+                    value *= configs["exploit_value_decay"]
+            else:
+                pass
+            periodic_test_free_energies.append(free_energy)
 
         avg_test_reward = np.mean(periodic_test_rewards)
+        avg_test_free_energy = np.mean(periodic_test_free_energies)
         test_results.append(avg_test_reward)
+        test_free_energies.append(avg_test_free_energy)
         test_weights.append(p)
 
         pbar.set_postfix({
             "Weight": f"{p:.2f}",
-            "Test Reward": f"{avg_test_reward:04.3f}",
+            "Test Reward": f"{avg_test_reward:05.3f}",
+            "Test Free Energy": f"{avg_test_free_energy:05.2f}",
         })
         pbar.update(1)
 
     pbar.close()
 
-    return task_name, run_id, env_idx, test_results, test_weights
+    return task_name, run_id, env_idx, test_results, test_free_energies, test_weights
 
 
 # A wrapper function for unpacking arguments
@@ -244,7 +294,10 @@ def run_all_trainings_and_plot(task_names_and_num_experiments: Dict[str, int], m
         fig = go.Figure()
 
         # Use hex color codes instead of names
-        colors = ['#1f77b4', '#2ca02c', '#d62728', '#ff7f0e', '#9467bd']  # Hex color codes
+        colors = [
+            '#1f77b4', '#2ca02c', '#d62728', '#ff7f0e', '#9467bd',
+            '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf',
+        ]  # Hex color codes
         line_styles = ['dash', 'dot', 'longdash', 'dashdot']  # Line styles for final results
         color_idx = 0
 
@@ -348,14 +401,19 @@ def run_all_evals_and_plot(task_names_and_num_experiments: Dict[str, int], max_w
 
     # Group results by task_name and env_idx
     grouped_results = {}
-    for task_name, run_id, env_idx, test_results, test_weights in all_results:
+    for task_name, run_id, env_idx, test_results, test_free_energies, test_weights in all_results:
         if task_name not in grouped_results:
             grouped_results[task_name] = {}
         if env_idx not in grouped_results[task_name]:
-            grouped_results[task_name][env_idx] = {"test_results": [], "test_weights": []}
+            grouped_results[task_name][env_idx] = {
+                "test_results": [],
+                "test_free_energies": [],
+                "test_weights": []
+            }
 
         # Append results to the corresponding group
         grouped_results[task_name][env_idx]["test_results"].append(test_results)
+        grouped_results[task_name][env_idx]["test_free_energies"].append(test_free_energies)
         grouped_results[task_name][env_idx]["test_weights"].append(test_weights)
 
     # Aggregate data for each task_name and env_idx
@@ -363,16 +421,22 @@ def run_all_evals_and_plot(task_names_and_num_experiments: Dict[str, int], max_w
         aggregated_results[task_name] = {}
         for env_idx, data in env_idxs.items():
             test_results_array = np.array(data["test_results"])  # Shape: (runs, weights)
+            test_free_energies_array = np.array(data["test_free_energies"])  # Shape: (runs, weights)
             test_weights = data["test_weights"][0]  # Assume all runs share the same weights
 
-            # Compute mean and std for test_results
+            # Compute mean and std for test_results and test_free_energies
             mean_test_results = test_results_array.mean(axis=0)
             std_test_results = test_results_array.std(axis=0)
+
+            mean_test_free_energies = test_free_energies_array.mean(axis=0)
+            std_test_free_energies = test_free_energies_array.std(axis=0)
 
             # Store aggregated results
             aggregated_results[task_name][env_idx] = {
                 "mean_test_results": mean_test_results.tolist(),
                 "std_test_results": std_test_results.tolist(),
+                "mean_test_free_energies": mean_test_free_energies.tolist(),
+                "std_test_free_energies": std_test_free_energies.tolist(),
                 "test_weights": test_weights,
             }
 
@@ -381,7 +445,10 @@ def run_all_evals_and_plot(task_names_and_num_experiments: Dict[str, int], max_w
         fig = go.Figure()
 
         # Use hex color codes for consistency
-        colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']  # Hex color codes
+        colors = [
+            '#1f77b4', '#2ca02c', '#d62728', '#ff7f0e', '#9467bd',
+            '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf',
+        ]  # Hex color codes  # Hex color codes
         color_idx = 0
 
         for env_idx in sorted(env_idxs.keys()):  # Sort subtasks alphabetically
@@ -434,19 +501,64 @@ def run_all_evals_and_plot(task_names_and_num_experiments: Dict[str, int], max_w
         fig.write_image(plot_path, scale=2)  # High-resolution PNG
         print(f"Saved evaluation plot for {task_name} at {plot_path}")
 
+        # Plot results for free energy
+        fig_free_energy = go.Figure()
+
+        color_idx = 0
+        for env_idx in sorted(env_idxs.keys()):
+            subtask_data = env_idxs[env_idx]
+            mean_test_free_energies = subtask_data["mean_test_free_energies"]
+            std_test_free_energies = subtask_data["std_test_free_energies"]
+            test_weights = subtask_data["test_weights"]
+
+            _, _, env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, env_idx)
+
+            # Add mean free energy curve
+            fig_free_energy.add_trace(go.Scatter(
+                x=test_weights,
+                y=mean_test_free_energies,
+                mode='lines',
+                name=f"{env_desc} Mean Free Energy",
+                line=dict(color=colors[color_idx], width=2),
+            ))
+
+            # Add shaded area for std
+            fig_free_energy.add_trace(go.Scatter(
+                x=test_weights + test_weights[::-1],
+                y=(np.array(mean_test_free_energies) + np.array(std_test_free_energies)).tolist() +
+                  (np.array(mean_test_free_energies) - np.array(std_test_free_energies))[::-1].tolist(),
+                fill='toself',
+                fillcolor=f"rgba({int(colors[color_idx][1:3], 16)}, "
+                          f"{int(colors[color_idx][3:5], 16)}, "
+                          f"{int(colors[color_idx][5:], 16)}, 0.2)",
+                line=dict(color='rgba(255,255,255,0)'),
+                name=f"{env_desc} Free Energy Std Dev",
+            ))
+
+            color_idx = (color_idx + 1) % len(colors)
+
+        # Customize layout for free energy
+        fig_free_energy.update_layout(
+            title=f"Free Energy for {task_name}",
+            xaxis_title="Weight (p)",
+            yaxis_title="Average Free Energy",
+            legend_title="Subtasks",
+            font=dict(size=14),
+            width=1200,
+            height=800,
+        )
+
+        # Save plot for free energy
+        plot_path_free_energy = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)[
+                                    "save_path"] + "_free_energy.png"
+        fig_free_energy.write_image(plot_path_free_energy, scale=2)
+        print(f"Saved evaluation plot for free energy: {plot_path_free_energy}")
+
     return aggregated_results
 
 
 if __name__ == '__main__':
     run_all_trainings_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": 16, },
-        max_workers=24,
-    )
-    run_all_evals_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": 16, },
-        max_workers=24,
-    )
-    run_all_trainings_and_plot(
         task_names_and_num_experiments={"frozen_lake-44": 16,},
         max_workers=16,
     )
@@ -461,4 +573,12 @@ if __name__ == '__main__':
     run_all_evals_and_plot(
         task_names_and_num_experiments={"frozen_lake-88": 16,},
         max_workers=16,
+    )
+    run_all_trainings_and_plot(
+        task_names_and_num_experiments={"frozen_lake-custom": 16, },
+        max_workers=24,
+    )
+    run_all_evals_and_plot(
+        task_names_and_num_experiments={"frozen_lake-custom": 16, },
+        max_workers=24,
     )
