@@ -185,8 +185,8 @@ def run_eval(task_name: str, env_idx: int, run_id: int):
                     break
             periodic_test_rewards.append(test_total_reward)
             trajectory.reverse()
-            value = test_total_reward
-            free_energy = 0.0
+            # value = test_total_reward
+            # free_energy = 0.0
             control_info = 0.0
             if isinstance(action_space, spaces.Discrete):
                 for state in trajectory:
@@ -196,15 +196,20 @@ def run_eval(task_name: str, env_idx: int, run_id: int):
                         weighted_action_distribution, default_action_distribution
                     )
                     control_info += kl_weight * kl_divergence
-                    free_energy += kl_weight * kl_divergence - value
-                    value *= configs["exploit_value_decay"]
+                    # free_energy += kl_weight * kl_divergence - value
+                    # value *= configs["exploit_value_decay"]
             else:
                 pass
+            # free_energy = control_info - len(trajectory) * value
             periodic_test_control_infos.append(control_info)
-            periodic_test_free_energies.append(free_energy)
+            # periodic_test_free_energies.append(free_energy)
 
         avg_test_reward = np.mean(periodic_test_rewards)
         avg_test_control_info = np.mean(periodic_test_control_infos)
+        for control_info, test_total_reward in zip(periodic_test_control_infos, periodic_test_rewards):
+            periodic_test_free_energies.append(
+                (control_info - configs["train_max_num_steps_per_episode"] * test_total_reward)  / configs["train_max_num_steps_per_episode"]
+            )
         avg_test_free_energy = np.mean(periodic_test_free_energies)
         test_results.append(avg_test_reward)
         test_control_infos.append(avg_test_control_info)
