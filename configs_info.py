@@ -243,6 +243,113 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             "initialization_distribution": (0.5, 0.5),
         }
 
+    elif name == "mountaincar-custom":
+        save_path = "./experiments/env-info/mountaincar-custom/mountaincar-custom"
+        envs = [
+            dict(
+                id='CustomMountainCar-v0',
+                goal_velocity=0,
+                custom_gravity=0.0025,
+                custom_force=0.001,
+                goal_position=0.5,
+                reward_type="sparse",
+                render_mode="rgb_array",
+            ),
+            dict(
+                id='CustomMountainCar-v0',
+                goal_velocity=0,
+                custom_gravity=0.001,
+                custom_force=0.001,
+                goal_position=0.5,
+                reward_type="sparse",
+                render_mode="rgb_array",
+            ),
+            dict(
+                id='CustomMountainCar-v0',
+                goal_velocity=0,
+                custom_gravity=0.0050,
+                custom_force=0.001,
+                goal_position=0.5,
+                reward_type="sparse",
+                render_mode="rgb_array",
+            ),
+            dict(
+                id='CustomMountainCar-v0',
+                goal_velocity=0,
+                custom_gravity=0.0025,
+                custom_force=0.0025,
+                goal_position=0.5,
+                reward_type="sparse",
+                render_mode="rgb_array",
+            ),
+            dict(
+                id='CustomMountainCar-v0',
+                goal_velocity=0,
+                custom_gravity=0.0025,
+                custom_force=0.005,
+                goal_position=0.5,
+                reward_type="sparse",
+                render_mode="rgb_array",
+            ),
+            dict(
+                id='CustomMountainCar-v0',
+                goal_velocity=0,
+                custom_gravity=0.0025,
+                custom_force=0.001,
+                goal_position=0.125,
+                reward_type="sparse",
+                render_mode="rgb_array",
+            ),
+            dict(
+                id='CustomMountainCar-v0',
+                goal_velocity=0,
+                custom_gravity=0.0025,
+                custom_force=0.001,
+                goal_position=-0.25,
+                reward_type="sparse",
+                render_mode="rgb_array",
+            ),
+        ]
+        test_envs = envs
+        env_descs = [
+            "default",
+            "low-grav"
+            "high-grav",
+            "high-force",
+            "xhigh-force",
+            "low-pos",
+            "xlow-pos",
+        ]
+        state_discretizer = Discretizer(
+            ranges=[(-1.2, 0.6), (-0.07, 0.07), ],
+            num_buckets=[25, 13],
+            normal_params=[None, None],
+        )
+        action_discretizer = Discretizer(
+            ranges=[(0, 2), ],
+            num_buckets=[0],
+            normal_params=[None, ],
+        )
+        configs = {
+            "num_envs": len(env_descs),
+            "use_deep_agent": False,
+            "save_path": save_path,
+            "explore_agent_lr": 0.1,
+            "train_max_num_steps_per_episode": 200,
+            "exploit_agent_lr": 0.1,
+            "exploit_softmax_temperature": 1.0,
+            "exploit_policy_reward_rate": 1,
+            "exploit_value_decay": 0.99,
+            "exploit_policy_training_steps": int(500e3),
+            "exploit_policy_test_per_num_steps": int(0.5e3),
+            "exploit_policy_test_episodes": 25,
+            "exploit_policy_eval_episodes": 500,
+            "save_per_num_steps": int(20e3),
+            "save_mdp_graph": False,
+            "print_training_info": False,
+            "initialization_distribution": (0.5, 0.5),
+        }
+
     else:
         raise ValueError(f"Invalid environment name: {name}.")
 

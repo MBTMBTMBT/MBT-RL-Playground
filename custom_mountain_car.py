@@ -9,18 +9,27 @@ class CustomMountainCarEnv(MountainCarEnv):
     Custom version of the MountainCar environment with adjustable gravity, reward, and episode duration.
     """
 
-    def __init__(self, render_mode: Optional[str] = None, goal_velocity=0, custom_gravity=0.0025, max_episode_steps=200,
-                 goal_position=0.5, reward_type='default'):
+    def __init__(
+            self,
+            render_mode: Optional[str] = None,
+            goal_velocity=0,
+            custom_gravity=0.0025,
+            custom_force=0.001,
+            max_episode_steps=200,
+            goal_position=0.5,
+            reward_type='default',
+    ):
         super().__init__(render_mode=render_mode, goal_velocity=goal_velocity)
         # Override gravity and max_episode_steps with custom values
         self.goal_position = goal_position
         if custom_gravity >= self.gravity:
             self.max_speed = custom_gravity / self.gravity * self.max_speed
+        self.force = custom_force
         self.gravity = custom_gravity
         self.max_episode_steps = max_episode_steps
         self.current_step = 0
         self.reward_type = reward_type
-        self.spec.id = "MountainCar-v0"
+        # self.spec.id = "MountainCar-v0"
 
     def step(self, action: int):
         # Override the step function to include a step counter for custom episode duration
@@ -53,6 +62,8 @@ class CustomMountainCarEnv(MountainCarEnv):
             reward = (position - self.min_position) if position >= 0.0 else 0.0
             reward += velocity if velocity >= self.goal_velocity else 0.0
             reward += -1.0 if not terminated else 0.0
+        elif self.reward_type == 'sparse':
+            reward = -0.0 if not terminated else 1.0
         else:
             raise ValueError(f"Unknown reward_type: {self.reward_type}")
 
