@@ -1487,6 +1487,8 @@ class HybridEnv(gym.Env):
             if isinstance(t_state, list):
                 t_state = t_state[0]
             self.real_env.unwrapped.s = t_state
+        elif "MountainCar" in self.real_env.spec.id:
+            self.real_env.unwrapped.state = t_state
         self.current_state = t_state
         self.transition_table_env.add_start_state(t_state)
         return t_state, b_info
