@@ -313,7 +313,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
         test_envs = envs
         env_descs = [
             "default",
-            "low-grav"
+            "low-grav",
             "high-grav",
             "high-force",
             "xhigh-force",
@@ -332,7 +332,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
         )
         configs = {
             "num_envs": len(env_descs),
-            "use_deep_agent": False,
+            "use_deep_agent": True,
             "save_path": save_path,
             "explore_agent_lr": 0.1,
             "train_max_num_steps_per_episode": 200,
@@ -340,7 +340,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             "exploit_softmax_temperature": 1.0,
             "exploit_policy_reward_rate": 1,
             "exploit_value_decay": 0.99,
-            "exploit_policy_training_steps": int(500e3),
+            "exploit_policy_training_steps": int(50e3),
             "exploit_policy_test_per_num_steps": int(0.5e3),
             "exploit_policy_test_episodes": 25,
             "exploit_policy_eval_episodes": 500,

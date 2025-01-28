@@ -654,10 +654,10 @@ if __name__ == '__main__':
     #     max_workers=24,
     # )
     run_all_trainings_and_plot(
-        task_names_and_num_experiments={"mountaincar-custom": 8, },
-        max_workers=24,
+        task_names_and_num_experiments={"mountaincar-custom": 3, },
+        max_workers=3,
     )
     run_all_evals_and_plot(
-        task_names_and_num_experiments={"mountaincar-custom": 8, },
-        max_workers=24,
+        task_names_and_num_experiments={"mountaincar-custom": 3, },
+        max_workers=3,
     )
