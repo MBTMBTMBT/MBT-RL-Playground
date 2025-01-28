@@ -11,6 +11,7 @@ import scipy.stats
 from typing import List, Tuple, Optional, Dict
 import warnings
 
+import torch
 from gymnasium import spaces
 from gymnasium.spaces import Box
 from networkx.classes import DiGraph
@@ -2242,8 +2243,9 @@ class Agent:
         else:
             if isinstance(self.double_env.action_space, spaces.Discrete):
                 # Deep agent with discrete action space
-                action_distribution = self.exploit_agent.policy.get_distribution(state)
-                logits = action_distribution.distribution.logits
+                with torch.no_grad():
+                    action_distribution = self.exploit_agent.policy.get_distribution(torch.tensor(state).unsqueeze(0).to(self.exploit_agent.policy.device))
+                    logits = action_distribution.distribution.logits.cpu().squeeze().numpy()
 
                 # Greedy distribution
                 greedy_action = np.argmax(logits)
@@ -2258,8 +2260,9 @@ class Agent:
                 return weighted_distribution
             else:
                 # Deep agent with continuous action space
-                action_distribution = self.exploit_agent.policy.get_distribution(state)
-                greedy_mean = action_distribution.distribution.mean.detach().cpu().numpy()
+                with torch.no_grad():
+                    action_distribution = self.exploit_agent.policy.get_distribution(torch.tensor(state).unsqueeze(0).to(self.exploit_agent.policy.device))
+                    greedy_mean = action_distribution.distribution.mean.cpu().squeeze().numpy()
 
                 # Default distribution
                 uniform_mean, uniform_std = self.get_default_policy_distribution(state)

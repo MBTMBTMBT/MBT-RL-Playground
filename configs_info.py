@@ -336,14 +336,14 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             "exploit_softmax_temperature": 1.0,
             "exploit_policy_reward_rate": 1,
             "exploit_value_decay": 0.99,
-            "exploit_policy_training_steps": int(50e3),
-            "exploit_policy_test_per_num_steps": int(0.5e3),
+            "exploit_policy_training_steps": int(250e3),
+            "exploit_policy_test_per_num_steps": int(10e3),
             "exploit_policy_test_episodes": 25,
             "exploit_policy_eval_episodes": 500,
             "save_per_num_steps": int(25e3),
             "save_mdp_graph": False,
             "print_training_info": False,
-            "initialization_distribution": (0.5, 0.5),
+            "initialization_distribution": (0.25, 0.75),
         }
 
     else:

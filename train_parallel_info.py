@@ -146,6 +146,10 @@ def run_eval(task_name: str, env_idx: int, run_id: int):
     )
 
     agent.load_agent(save_path + f"_final")
+
+    if configs["use_deep_agent"]:
+        agent.exploit_agent.policy.to("cpu")
+
     kl_weight = 1.0
     action_space = agent.action_discretizer.get_gym_space()
     if isinstance(action_space, spaces.Discrete):
@@ -659,5 +663,5 @@ if __name__ == '__main__':
     )
     run_all_evals_and_plot(
         task_names_and_num_experiments={"mountaincar-custom": 3, },
-        max_workers=7,
+        max_workers=12,
     )
