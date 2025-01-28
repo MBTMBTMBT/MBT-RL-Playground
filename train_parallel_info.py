@@ -143,6 +143,7 @@ def run_eval(task_name: str, env_idx: int, run_id: int):
         configs["exploit_agent_lr"],
         configs["exploit_value_decay"],
         configs["exploit_policy_reward_rate"],
+        configs["use_balanced_random_init"],
     )
 
     agent.load_agent(save_path + f"_final")
@@ -659,9 +660,9 @@ if __name__ == '__main__':
     # )
     run_all_trainings_and_plot(
         task_names_and_num_experiments={"mountaincar-custom": 3, },
-        max_workers=7,
+        max_workers=6,
     )
     run_all_evals_and_plot(
         task_names_and_num_experiments={"mountaincar-custom": 3, },
-        max_workers=12,
+        max_workers=9,
     )

@@ -45,6 +45,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             "save_mdp_graph": False,
             "print_training_info": False,
             "initialization_distribution": (0.5, 0.5),
+            "use_balanced_random_init": True,
         }
 
     elif name == "frozen_lake-88":
@@ -88,6 +89,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             "save_mdp_graph": False,
             "print_training_info": False,
             "initialization_distribution": (0.5, 0.5),
+            "use_balanced_random_init": True,
         }
 
     elif name == "frozen_lake-custom":
@@ -238,6 +240,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             "save_mdp_graph": False,
             "print_training_info": False,
             "initialization_distribution": (0.5, 0.5),
+            "use_balanced_random_init": True,
         }
 
     elif name == "mountaincar-custom":
@@ -256,15 +259,6 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                 id='CustomMountainCar-v0',
                 goal_velocity=0,
                 custom_gravity=0.0015,
-                custom_force=0.001,
-                goal_position=0.5,
-                reward_type="sparse",
-                render_mode="rgb_array",
-            ),
-            dict(
-                id='CustomMountainCar-v0',
-                goal_velocity=0,
-                custom_gravity=0.0050,
                 custom_force=0.001,
                 goal_position=0.5,
                 reward_type="sparse",
@@ -311,7 +305,6 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
         env_descs = [
             "default",
             "low-grav",
-            "high-grav",
             "high-force",
             "xhigh-force",
             "low-pos",
@@ -337,13 +330,14 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             "exploit_policy_reward_rate": 1,
             "exploit_value_decay": 0.99,
             "exploit_policy_training_steps": int(250e3),
-            "exploit_policy_test_per_num_steps": int(10e3),
+            "exploit_policy_test_per_num_steps": int(25e3),
             "exploit_policy_test_episodes": 25,
             "exploit_policy_eval_episodes": 500,
-            "save_per_num_steps": int(25e3),
+            "save_per_num_steps": int(500e3),
             "save_mdp_graph": False,
             "print_training_info": False,
-            "initialization_distribution": (0.25, 0.75),
+            "initialization_distribution": (0.5, 0.5),
+            "use_balanced_random_init": True,
         }
 
     else:

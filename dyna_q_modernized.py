@@ -824,6 +824,7 @@ class TransitionalTableEnv(TransitionTable, gym.Env):
             use_redistribution: bool = False,
             max_delta_reward: float = 10,
             max_self_loop_prob: float = 0.25,
+            use_balanced_random_init: bool = False,
     ):
         TransitionTable.__init__(self, state_discretizer, action_discretizer, reward_resolution=reward_resolution)
         gym.Env.__init__(self)
@@ -851,6 +852,8 @@ class TransitionalTableEnv(TransitionTable, gym.Env):
         self.use_redistribution = use_redistribution
         self.max_delta_reward = max_delta_reward
         self.max_self_loop_prob = max_self_loop_prob
+
+        self.use_balanced_random_init = use_balanced_random_init
 
     def reset(self, seed=None, options=None, init_state: np.ndarray = None, reset_all: bool = False):
         if len(self.reward_set_dict) == 0:
@@ -880,7 +883,15 @@ class TransitionalTableEnv(TransitionTable, gym.Env):
                 # print("Warning: Starting from a done state, reset to a random state.")
                 self.init_strategy = "random"
             if self.init_strategy == "random":
-                init_state_encode = random.choice(tuple(self.forward_dict.keys()))
+                if not self.use_balanced_random_init:
+                    init_state_encode = random.choice(tuple(self.forward_dict.keys()))
+                else:
+                    weights = np.array([value + 1 for value in self.state_count.values()])
+                    inverse_weights = 1 / weights
+                    softmax_probs = np.exp(inverse_weights) / np.sum(np.exp(inverse_weights))
+                    np.random.seed(random.randint(0, 10000000))
+                    init_state_encode = np.random.choice(list(self.state_count.keys()), p=softmax_probs)
+
             elif self.init_strategy == "real_start_states":
                 init_state_encode = random.choice(tuple(self.start_set))
             else:
@@ -1949,7 +1960,7 @@ class DeepPyramidDynaQAgent:
             action_discretizers: List[Discretizer],
             max_steps: int = 500,
             reward_resolution: int = -1,
-            init_strategy_distribution: Tuple[float, float] = (0.5, 0.5,),
+            init_strategy_distribution: Tuple[float] = (0.5, 0.5,),
             exploit_lr: float = 2.5e-4,
             explore_lr: float = 0.1,
             gamma: float = 0.99,
@@ -2076,6 +2087,7 @@ class Agent:
             exploit_lr: float = 0.1,
             gamma: float = 0.99,
             exploit_policy_reward_rate: float = 1.0,
+            use_balanced_random_init: bool = False,
     ):
         self.state_discretizer = state_discretizer
         self.action_discretizer = action_discretizer
@@ -2088,6 +2100,7 @@ class Agent:
             reward_resolution=0,
             init_strategy_distribution=init_strategy_distribution,
             unknown_reward=None,
+            use_balanced_random_init=use_balanced_random_init,
         )
         self.double_env = HybridEnv(
             self.transition_table_env,
