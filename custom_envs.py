@@ -371,7 +371,7 @@ class CustomAcrobotEnv(AcrobotEnv):
         thetas = [s[0] - pi / 2, s[0] + s[1] - pi / 2]
         link_lengths = [self.LINK_LENGTH_1 * scale, self.LINK_LENGTH_2 * scale]
 
-        termination_y = -self.termination_height * scale + offset
+        termination_y = (self.LINK_LENGTH_1 + self.LINK_LENGTH_2 - self.termination_height) * scale + offset
         pygame.draw.line(
             surf,
             color=(0, 0, 0),
