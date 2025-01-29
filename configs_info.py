@@ -340,6 +340,86 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             "use_balanced_random_init": True,
         }
 
+    elif name == "acrobot-custom":
+        save_path = "./experiments/env-info/acrobot-custom/acrobot-custom"
+        envs = [
+            dict(
+                id='CustomAcrobot-v1',
+                termination_height=1.0,
+                friction=0.0,
+                torque_scaling=1.0,
+                gravity=9.8,
+                reward_type="sparse",
+                render_mode="rgb_array",
+            ),
+            dict(
+                id='CustomAcrobot-v1',
+                termination_height=0.75,
+                friction=0.0,
+                torque_scaling=1.0,
+                gravity=9.8,
+                reward_type="sparse",
+                render_mode="rgb_array",
+            ),
+            dict(
+                id='CustomAcrobot-v1',
+                termination_height=1.0,
+                friction=0.2,
+                torque_scaling=1.0,
+                gravity=9.8,
+                reward_type="sparse",
+                render_mode="rgb_array",
+            ),
+            dict(
+                id='CustomAcrobot-v1',
+                termination_height=1.0,
+                friction=0.0,
+                torque_scaling=1.0,
+                gravity=7.5,
+                reward_type="sparse",
+                render_mode="rgb_array",
+            ),
+        ]
+        test_envs = envs
+        env_descs = [
+            "default",
+            "low-term",
+            "friction",
+            "low-grav",
+        ]
+        state_discretizer = Discretizer(
+            ranges=[
+                (-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0),
+                (-6.0, 6.0), (-12.0, 12.0),
+            ],
+            num_buckets=[9, 9, 9, 9, 9, 9,],
+            normal_params=[None, None, None, None, None, None,],
+        )
+        action_discretizer = Discretizer(
+            ranges=[(0, 2), ],
+            num_buckets=[0],
+            normal_params=[None, ],
+        )
+        configs = {
+            "num_envs": len(env_descs),
+            "use_deep_agent": True,
+            "save_path": save_path,
+            "train_max_num_steps_per_episode": 500,
+            "exploit_agent_lr": 2.5e-4,
+            "exploit_softmax_temperature": 1.0,
+            "exploit_policy_reward_rate": 1,
+            "exploit_value_decay": 0.99,
+            "exploit_policy_training_steps": int(500e3),
+            "exploit_policy_test_per_num_steps": int(50e3),
+            "exploit_policy_test_episodes": 25,
+            "exploit_policy_eval_episodes": 500,
+            "save_per_num_steps": int(250e3),
+            "save_mdp_graph": False,
+            "print_training_info": False,
+            "initialization_distribution": (0.5, 0.5),
+            "use_balanced_random_init": True,
+        }
+
     else:
         raise ValueError(f"Invalid environment name: {name}.")
 

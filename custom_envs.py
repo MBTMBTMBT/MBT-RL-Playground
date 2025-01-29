@@ -1,9 +1,11 @@
 import math
 from typing import Optional
-
+from numpy import cos, pi, sin
+from gymnasium import spaces
 import numpy as np
 from gymnasium.envs.toy_text.frozen_lake import FrozenLakeEnv
 from gymnasium.envs.classic_control.mountain_car import MountainCarEnv
+from gymnasium.envs.classic_control.acrobot import AcrobotEnv
 from gymnasium.envs.registration import register
 
 
@@ -33,6 +35,23 @@ register(
         "reward_type": "default",
     },
     max_episode_steps=200,
+)
+
+register(
+    id="CustomAcrobot-v1",
+    entry_point="custom_envs:CustomAcrobotEnv",
+    kwargs={
+        "render_mode": None,
+        "termination_height": 1.0,
+        "friction": 0.0,
+        "torque_scaling": 1.0,
+        "gravity": 9.8,
+        "link_lengths": (1.0, 1.0),
+        "link_masses": (1.0, 1.0),
+        "max_velocities": (4 * pi, 9 * pi),
+        "reward_type": "default",
+    },
+    max_episode_steps=500,
 )
 
 
@@ -206,3 +225,151 @@ class CustomMountainCarEnv(MountainCarEnv):
         self.current_step = 0
         return super().reset(seed=seed, options=options)
 
+
+class CustomAcrobotEnv(AcrobotEnv):
+    """
+    Customizable Acrobot environment with user-defined physics parameters.
+    """
+
+    def __init__(
+            self,
+            render_mode: Optional[str] = None,
+            termination_height: float = 1.0,  # Height to trigger termination
+            friction: float = 0.0,  # Friction factor for joints
+            torque_scaling: float = 1.0,  # Scaling factor for torque
+            gravity: float = 9.8,  # Gravity value
+            link_lengths: tuple = (1.0, 1.0),  # Lengths of the links
+            link_masses: tuple = (1.0, 1.0),  # Masses of the links
+            max_velocities: tuple = (4 * pi, 9 * pi),  # Max angular velocities
+            reward_type: str = "default",
+    ):
+        super().__init__(render_mode=render_mode)
+
+        # Customizable parameters
+        self.termination_height = termination_height
+        self.friction = friction
+        self.torque_scaling = torque_scaling
+        self.gravity = gravity
+        self.LINK_LENGTH_1, self.LINK_LENGTH_2 = link_lengths
+        self.LINK_MASS_1, self.LINK_MASS_2 = link_masses
+        self.MAX_VEL_1, self.MAX_VEL_2 = max_velocities
+
+        # Update observation space with new velocity limits
+        high = np.array([1.0, 1.0, 1.0, 1.0, self.MAX_VEL_1, self.MAX_VEL_2], dtype=np.float32)
+        self.observation_space = spaces.Box(low=-high, high=high, dtype=np.float32)
+
+        # Scale available torques
+        self.AVAIL_TORQUE = [-1.0 * torque_scaling, 0.0, 1.0 * torque_scaling]
+        self.reward_type = reward_type
+
+    def step(self, a):
+        obs, reward, terminated, truncated, info = super().step(a)
+        if self.reward_type == "sparse":
+            reward = 1.0 if terminated else 0.0
+        return obs, reward, terminated, truncated, info
+
+    def _terminal(self):
+        """Check if the free end of the acrobot has reached the termination height."""
+        s = self.state
+        assert s is not None, "Call reset before using AcrobotEnv object."
+        return bool(-cos(s[0]) - cos(s[1] + s[0]) > self.termination_height)
+
+    def _dsdt(self, s_augmented):
+        """Computes the dynamics of the system with the customized parameters."""
+        m1 = self.LINK_MASS_1
+        m2 = self.LINK_MASS_2
+        l1 = self.LINK_LENGTH_1
+        lc1 = l1 / 2.0
+        lc2 = self.LINK_LENGTH_2 / 2.0
+        I1 = self.LINK_MOI
+        I2 = self.LINK_MOI
+        g = self.gravity
+        friction = self.friction
+        a = s_augmented[-1]
+        s = s_augmented[:-1]
+
+        theta1, theta2, dtheta1, dtheta2 = s
+        d1 = m1 * lc1 ** 2 + m2 * (l1 ** 2 + lc2 ** 2 + 2 * l1 * lc2 * cos(theta2)) + I1 + I2
+        d2 = m2 * (lc2 ** 2 + l1 * lc2 * cos(theta2)) + I2
+        phi2 = m2 * lc2 * g * cos(theta1 + theta2 - pi / 2.0)
+        phi1 = (
+                -m2 * l1 * lc2 * dtheta2 ** 2 * sin(theta2)
+                - 2 * m2 * l1 * lc2 * dtheta2 * dtheta1 * sin(theta2)
+                + (m1 * lc1 + m2 * l1) * g * cos(theta1 - pi / 2)
+                + phi2
+        )
+
+        # Compute angular accelerations
+        if self.book_or_nips == "nips":
+            ddtheta2 = (a + d2 / d1 * phi1 - phi2) / (m2 * lc2 ** 2 + I2 - d2 ** 2 / d1)
+        else:
+            ddtheta2 = (
+                               a + d2 / d1 * phi1 - m2 * l1 * lc2 * dtheta1 ** 2 * sin(theta2) - phi2
+                       ) / (m2 * lc2 ** 2 + I2 - d2 ** 2 / d1)
+        ddtheta1 = -(d2 * ddtheta2 + phi1) / d1
+
+        # Apply friction to angular velocities
+        ddtheta1 -= friction * dtheta1
+        ddtheta2 -= friction * dtheta2
+
+        return dtheta1, dtheta2, ddtheta1, ddtheta2, 0.0
+
+    def render(self):
+        """Renders the environment, ensuring the termination height is correctly visualized."""
+        if self.render_mode is None:
+            return
+
+        import pygame
+        from pygame import gfxdraw
+
+        if self.screen is None:
+            pygame.init()
+            if self.render_mode == "human":
+                pygame.display.init()
+                self.screen = pygame.display.set_mode((self.SCREEN_DIM, self.SCREEN_DIM))
+            else:
+                self.screen = pygame.Surface((self.SCREEN_DIM, self.SCREEN_DIM))
+        if self.clock is None:
+            self.clock = pygame.time.Clock()
+
+        surf = pygame.Surface((self.SCREEN_DIM, self.SCREEN_DIM))
+        surf.fill((255, 255, 255))
+        s = self.state
+
+        bound = self.LINK_LENGTH_1 + self.LINK_LENGTH_2 + 0.2
+        scale = self.SCREEN_DIM / (bound * 2)
+        offset = self.SCREEN_DIM / 2
+
+        if s is None:
+            return None
+
+        p1 = [-self.LINK_LENGTH_1 * cos(s[0]) * scale, self.LINK_LENGTH_1 * sin(s[0]) * scale]
+        p2 = [
+            p1[0] - self.LINK_LENGTH_2 * cos(s[0] + s[1]) * scale,
+            p1[1] + self.LINK_LENGTH_2 * sin(s[0] + s[1]) * scale,
+        ]
+
+        xys = np.array([[0, 0], p1, p2])[:, ::-1]
+        thetas = [s[0] - pi / 2, s[0] + s[1] - pi / 2]
+        link_lengths = [self.LINK_LENGTH_1 * scale, self.LINK_LENGTH_2 * scale]
+
+        # Draw termination line
+        termination_y = -self.termination_height * scale + offset
+        pygame.draw.line(
+            surf,
+            (255, 0, 0),
+            (0, termination_y),
+            (self.SCREEN_DIM, termination_y),
+            2,
+        )
+
+        for (x, y), th, llen in zip(xys, thetas, link_lengths):
+            x += offset
+            y += offset
+            gfxdraw.filled_circle(surf, int(x), int(y), int(0.1 * scale), (204, 204, 0))
+
+        self.screen.blit(surf, (0, 0))
+        if self.render_mode == "human":
+            pygame.display.flip()
+        elif self.render_mode == "rgb_array":
+            return np.transpose(np.array(pygame.surfarray.pixels3d(self.screen)), axes=(1, 0, 2))

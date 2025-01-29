@@ -1397,11 +1397,11 @@ class HybridEnv(gym.Env):
         b_state, b_info = self.real_env.reset(seed=seed, options=options,)
         if t_state is None:
             t_state = b_state
-        if self.real_env.spec.id == "Pendulum-v1":
+        if "Pendulum" in self.real_env.spec.id:
             t_state = self.transition_table_env.state_discretizer.add_noise(t_state)
             t_state_ = np.arccos(t_state[0]), t_state[1]
             self.real_env.unwrapped.state = t_state_
-        elif self.real_env.spec.id == "Acrobot-v1":
+        elif "Acrobot" in self.real_env.spec.id:
             t_state = self.transition_table_env.state_discretizer.add_noise(t_state)
             t_state_ = np.arccos(t_state[0]), np.arccos(t_state[1]), t_state[2], t_state[3]
             self.real_env.unwrapped.state = t_state_
