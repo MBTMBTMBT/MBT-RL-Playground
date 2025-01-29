@@ -345,7 +345,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
         envs = [
             dict(
                 id='CustomAcrobot-v1',
-                termination_height=1.0,
+                termination_height=1.75,
                 friction=0.0,
                 torque_scaling=1.0,
                 gravity=9.8,
@@ -354,7 +354,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             ),
             dict(
                 id='CustomAcrobot-v1',
-                termination_height=0.75,
+                termination_height=1.5,
                 friction=0.0,
                 torque_scaling=1.0,
                 gravity=9.8,
@@ -363,8 +363,8 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             ),
             dict(
                 id='CustomAcrobot-v1',
-                termination_height=1.0,
-                friction=0.2,
+                termination_height=1.75,
+                friction=0.01,
                 torque_scaling=1.0,
                 gravity=9.8,
                 reward_type="sparse",
@@ -372,7 +372,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             ),
             dict(
                 id='CustomAcrobot-v1',
-                termination_height=1.0,
+                termination_height=1.75,
                 friction=0.0,
                 torque_scaling=1.0,
                 gravity=7.5,
@@ -409,11 +409,11 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             "exploit_softmax_temperature": 1.0,
             "exploit_policy_reward_rate": 1,
             "exploit_value_decay": 0.99,
-            "exploit_policy_training_steps": int(500e3),
-            "exploit_policy_test_per_num_steps": int(50e3),
+            "exploit_policy_training_steps": int(150e3),
+            "exploit_policy_test_per_num_steps": int(25e3),
             "exploit_policy_test_episodes": 25,
             "exploit_policy_eval_episodes": 500,
-            "save_per_num_steps": int(250e3),
+            "save_per_num_steps": int(50e3),
             "save_mdp_graph": False,
             "print_training_info": False,
             "initialization_distribution": (0.5, 0.5),
