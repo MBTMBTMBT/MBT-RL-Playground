@@ -658,11 +658,19 @@ if __name__ == '__main__':
     #     task_names_and_num_experiments={"frozen_lake-custom": 16, },
     #     max_workers=24,
     # )
+    # run_all_trainings_and_plot(
+    #     task_names_and_num_experiments={"mountaincar-custom": 6, },
+    #     max_workers=6,
+    # )
+    # run_all_evals_and_plot(
+    #     task_names_and_num_experiments={"mountaincar-custom": 6, },
+    #     max_workers=24,
+    # )
     run_all_trainings_and_plot(
-        task_names_and_num_experiments={"mountaincar-custom": 6, },
+        task_names_and_num_experiments={"acrobot-custom": 12, },
         max_workers=6,
     )
     run_all_evals_and_plot(
-        task_names_and_num_experiments={"mountaincar-custom": 6, },
-        max_workers=9,
+        task_names_and_num_experiments={"acrobot-custom": 12, },
+        max_workers=12,
     )
