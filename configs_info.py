@@ -345,7 +345,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
         envs = [
             dict(
                 id='CustomAcrobot-v1',
-                termination_height=1.75,
+                termination_height=1.8,
                 friction=0.0,
                 torque_scaling=1.0,
                 gravity=9.8,
@@ -354,7 +354,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             ),
             dict(
                 id='CustomAcrobot-v1',
-                termination_height=1.5,
+                termination_height=1.6,
                 friction=0.0,
                 torque_scaling=1.0,
                 gravity=9.8,
@@ -363,7 +363,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             ),
             dict(
                 id='CustomAcrobot-v1',
-                termination_height=1.75,
+                termination_height=1.8,
                 friction=0.01,
                 torque_scaling=1.0,
                 gravity=9.8,
@@ -372,7 +372,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             ),
             dict(
                 id='CustomAcrobot-v1',
-                termination_height=1.75,
+                termination_height=1.8,
                 friction=0.0,
                 torque_scaling=1.0,
                 gravity=7.5,
