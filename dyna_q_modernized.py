@@ -2213,6 +2213,7 @@ class Agent:
             # Discrete action space: Uniform distribution
             action_space_size = self.double_env.action_space.n
             default_distribution = np.ones(action_space_size) / action_space_size
+            default_distribution = scipy.special.softmax(default_distribution)
             return default_distribution
         else:
             # Continuous action space: Uniform mean and std
@@ -2250,6 +2251,7 @@ class Agent:
 
                 # Weighted combination
                 weighted_distribution = p * greedy_distribution + (1 - p) * uniform_distribution
+                weighted_distribution = scipy.special.softmax(weighted_distribution)
                 return weighted_distribution
             else:
                 raise NotImplementedError("Non-deep agents for continuous actions are not supported.")
@@ -2270,6 +2272,7 @@ class Agent:
 
                 # Weighted combination
                 weighted_distribution = p * greedy_distribution + (1 - p) * uniform_distribution
+                weighted_distribution = scipy.special.softmax(weighted_distribution)
                 return weighted_distribution
             else:
                 # Deep agent with continuous action space
