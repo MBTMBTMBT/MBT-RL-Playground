@@ -1,5 +1,7 @@
 import math
 from typing import Optional
+import gymnasium as gym
+from gymnasium.error import DependencyNotInstalled
 from numpy import cos, pi, sin
 from gymnasium import spaces
 import numpy as np
@@ -315,19 +317,31 @@ class CustomAcrobotEnv(AcrobotEnv):
         return dtheta1, dtheta2, ddtheta1, ddtheta2, 0.0
 
     def render(self):
-        """Renders the environment, ensuring the termination height is correctly visualized."""
         if self.render_mode is None:
+            assert self.spec is not None
+            gym.logger.warn(
+                "You are calling render method without specifying any render mode. "
+                "You can specify the render_mode at initialization, "
+                f'e.g. gym.make("{self.spec.id}", render_mode="rgb_array")'
+            )
             return
 
-        import pygame
-        from pygame import gfxdraw
+        try:
+            import pygame
+            from pygame import gfxdraw
+        except ImportError as e:
+            raise DependencyNotInstalled(
+                'pygame is not installed, run `pip install "gymnasium[classic-control]"`'
+            ) from e
 
         if self.screen is None:
             pygame.init()
             if self.render_mode == "human":
                 pygame.display.init()
-                self.screen = pygame.display.set_mode((self.SCREEN_DIM, self.SCREEN_DIM))
-            else:
+                self.screen = pygame.display.set_mode(
+                    (self.SCREEN_DIM, self.SCREEN_DIM)
+                )
+            else:  # mode in "rgb_array"
                 self.screen = pygame.Surface((self.SCREEN_DIM, self.SCREEN_DIM))
         if self.clock is None:
             self.clock = pygame.time.Clock()
@@ -336,14 +350,18 @@ class CustomAcrobotEnv(AcrobotEnv):
         surf.fill((255, 255, 255))
         s = self.state
 
-        bound = self.LINK_LENGTH_1 + self.LINK_LENGTH_2 + 0.2
+        bound = self.LINK_LENGTH_1 + self.LINK_LENGTH_2 + 0.2  # 2.2 for default
         scale = self.SCREEN_DIM / (bound * 2)
         offset = self.SCREEN_DIM / 2
 
         if s is None:
             return None
 
-        p1 = [-self.LINK_LENGTH_1 * cos(s[0]) * scale, self.LINK_LENGTH_1 * sin(s[0]) * scale]
+        p1 = [
+            -self.LINK_LENGTH_1 * cos(s[0]) * scale,
+            self.LINK_LENGTH_1 * sin(s[0]) * scale,
+        ]
+
         p2 = [
             p1[0] - self.LINK_LENGTH_2 * cos(s[0] + s[1]) * scale,
             p1[1] + self.LINK_LENGTH_2 * sin(s[0] + s[1]) * scale,
@@ -353,23 +371,39 @@ class CustomAcrobotEnv(AcrobotEnv):
         thetas = [s[0] - pi / 2, s[0] + s[1] - pi / 2]
         link_lengths = [self.LINK_LENGTH_1 * scale, self.LINK_LENGTH_2 * scale]
 
-        # Draw termination line
         termination_y = -self.termination_height * scale + offset
         pygame.draw.line(
             surf,
-            (255, 0, 0),
-            (0, termination_y),
-            (self.SCREEN_DIM, termination_y),
-            2,
+            color=(0, 0, 0),
+            start_pos=(-2.2 * scale + offset, termination_y),
+            end_pos=(2.2 * scale + offset, termination_y),
         )
 
         for (x, y), th, llen in zip(xys, thetas, link_lengths):
-            x += offset
-            y += offset
+            x = x + offset
+            y = y + offset
+            l, r, t, b = 0, llen, 0.1 * scale, -0.1 * scale
+            coords = [(l, b), (l, t), (r, t), (r, b)]
+            transformed_coords = []
+            for coord in coords:
+                coord = pygame.math.Vector2(coord).rotate_rad(th)
+                coord = (coord[0] + x, coord[1] + y)
+                transformed_coords.append(coord)
+            gfxdraw.aapolygon(surf, transformed_coords, (0, 204, 204))
+            gfxdraw.filled_polygon(surf, transformed_coords, (0, 204, 204))
+
+            gfxdraw.aacircle(surf, int(x), int(y), int(0.1 * scale), (204, 204, 0))
             gfxdraw.filled_circle(surf, int(x), int(y), int(0.1 * scale), (204, 204, 0))
 
+        surf = pygame.transform.flip(surf, False, True)
         self.screen.blit(surf, (0, 0))
+
         if self.render_mode == "human":
+            pygame.event.pump()
+            self.clock.tick(self.metadata["render_fps"])
             pygame.display.flip()
+
         elif self.render_mode == "rgb_array":
-            return np.transpose(np.array(pygame.surfarray.pixels3d(self.screen)), axes=(1, 0, 2))
+            return np.transpose(
+                np.array(pygame.surfarray.pixels3d(self.screen)), axes=(1, 0, 2)
+            )
