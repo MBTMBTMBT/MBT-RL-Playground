@@ -53,7 +53,7 @@ register(
         "max_velocities": (4 * pi, 9 * pi),
         "reward_type": "default",
     },
-    max_episode_steps=500,
+    max_episode_steps=150,
 )
 
 
@@ -371,7 +371,7 @@ class CustomAcrobotEnv(AcrobotEnv):
         thetas = [s[0] - pi / 2, s[0] + s[1] - pi / 2]
         link_lengths = [self.LINK_LENGTH_1 * scale, self.LINK_LENGTH_2 * scale]
 
-        termination_y = offset - self.termination_height * scale
+        termination_y = offset + self.termination_height * scale
         pygame.draw.line(
             surf,
             color=(0, 0, 0),
