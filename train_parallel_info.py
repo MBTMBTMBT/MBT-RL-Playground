@@ -213,7 +213,7 @@ def run_eval(task_name: str, env_idx: int, run_id: int):
         avg_test_control_info = np.mean(periodic_test_control_infos)
         for control_info, test_total_reward in zip(periodic_test_control_infos, periodic_test_rewards):
             periodic_test_free_energies.append(
-                (control_info - configs["train_max_num_steps_per_episode"] * test_total_reward)  / configs["train_max_num_steps_per_episode"]
+                (control_info - configs["train_max_num_steps_per_episode"] * test_total_reward) / configs["train_max_num_steps_per_episode"]
             )
         avg_test_free_energy = np.mean(periodic_test_free_energies)
         test_results.append(avg_test_reward)
