@@ -53,7 +53,7 @@ register(
         "max_velocities": (4 * pi, 9 * pi),
         "reward_type": "default",
     },
-    max_episode_steps=100,
+    max_episode_steps=150,
 )
 
 
