@@ -409,7 +409,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             "exploit_softmax_temperature": 1.0,
             "exploit_policy_reward_rate": 1,
             "exploit_value_decay": 0.99,
-            "exploit_policy_training_steps": int(1000e3),
+            "exploit_policy_training_steps": int(2000e3),
             "exploit_policy_test_per_num_steps": int(25e3),
             "exploit_policy_test_episodes": 25,
             "exploit_policy_eval_episodes": 500,
