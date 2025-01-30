@@ -258,7 +258,17 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             dict(
                 id='CustomMountainCar-v0',
                 goal_velocity=0,
-                custom_gravity=0.0015,
+                custom_gravity=0.002,
+                custom_force=0.001,
+                goal_position=0.5,
+                reward_type="sparse",
+                render_mode="rgb_array",
+            ),
+
+            dict(
+                id='CustomMountainCar-v0',
+                goal_velocity=0,
+                custom_gravity=0.005,
                 custom_force=0.001,
                 goal_position=0.5,
                 reward_type="sparse",
@@ -268,16 +278,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                 id='CustomMountainCar-v0',
                 goal_velocity=0,
                 custom_gravity=0.0025,
-                custom_force=0.002,
-                goal_position=0.5,
-                reward_type="sparse",
-                render_mode="rgb_array",
-            ),
-            dict(
-                id='CustomMountainCar-v0',
-                goal_velocity=0,
-                custom_gravity=0.0025,
-                custom_force=0.003,
+                custom_force=0.0015,
                 goal_position=0.5,
                 reward_type="sparse",
                 render_mode="rgb_array",
@@ -305,8 +306,8 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
         env_descs = [
             "default",
             "low-grav",
+            "high-grav",
             "high-force",
-            "xhigh-force",
             "low-pos",
             "xlow-pos",
         ]
