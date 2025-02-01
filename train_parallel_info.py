@@ -439,7 +439,7 @@ def run_all_evals_and_plot(task_names_and_num_experiments: Dict[str, int], max_w
     # Group results by task_name and env_idx
     grouped_results = {}
     for task_name, run_id, env_idx, test_results, test_control_infos, test_free_energies, test_weights in all_results:
-        if not test_results and test_control_infos and test_free_energies and test_weights:
+        if not (test_results and test_control_infos and test_free_energies and test_weights):
             print("run id: {}, task_name: {}, env_idx: {} has no test results".format(run_id, task_name, env_idx))
             continue
         if task_name not in grouped_results:
@@ -462,7 +462,7 @@ def run_all_evals_and_plot(task_names_and_num_experiments: Dict[str, int], max_w
     for task_name, env_idxs in grouped_results.items():
         aggregated_results[task_name] = {}
         for env_idx, data in env_idxs.items():
-            if not data["test_results"]:
+            if not any(data["test_results"]):
                 continue
             test_results_array = np.array(data["test_results"])  # Shape: (runs, weights)
             test_control_infos_array = np.array(data["test_control_infos"])  # Shape: (runs, weights)
@@ -701,15 +701,15 @@ if __name__ == '__main__':
     #     task_names_and_num_experiments={"mountaincar-custom": 6, },
     #     max_workers=6,
     # )
-    # run_all_evals_and_plot(
-    #     task_names_and_num_experiments={"mountaincar-custom": 6, },
-    #     max_workers=24,
-    # )
-    run_all_trainings_and_plot(
-        task_names_and_num_experiments={"acrobot-custom": 12, },
-        max_workers=6,
-    )
     run_all_evals_and_plot(
-        task_names_and_num_experiments={"acrobot-custom": 12, },
-        max_workers=12,
+        task_names_and_num_experiments={"mountaincar-custom": 6, },
+        max_workers=24,
     )
+    # run_all_trainings_and_plot(
+    #     task_names_and_num_experiments={"acrobot-custom": 12, },
+    #     max_workers=6,
+    # )
+    # run_all_evals_and_plot(
+    #     task_names_and_num_experiments={"acrobot-custom": 12, },
+    #     max_workers=12,
+    # )
