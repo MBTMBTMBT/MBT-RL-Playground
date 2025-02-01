@@ -151,6 +151,25 @@ def run_eval(task_name: str, env_idx: int, run_id: int):
     if configs["use_deep_agent"]:
         agent.exploit_agent.policy.to("cpu")
 
+    if "quick_test_threshold" in configs.keys() and "quick_test_num_episodes" in configs.keys():
+        quick_test_episodes = configs["quick_test_num_episodes"]
+        test_total_rewards = []
+        for t in range(quick_test_episodes):
+            test_state, _ = test_env.reset()
+            test_total_reward = 0
+            test_done = False
+            while not test_done:
+                test_action = agent.choose_action_by_weight(test_state, p=1.0)
+                test_next_state, test_reward, test_done, test_truncated, _ = test_env.step(test_action)
+                test_state = test_next_state
+                test_total_reward += test_reward
+                if test_done or test_truncated:
+                    test_total_rewards.append(test_total_reward)
+                    break
+        test_avg_reward = np.mean(test_total_rewards)
+        if test_avg_reward < configs["quick_test_threshold"]:
+            return task_name, run_id, env_idx, [], [], [], []
+
     kl_weight = 1.0
     action_space = agent.action_discretizer.get_gym_space()
     if isinstance(action_space, spaces.Discrete):
@@ -420,6 +439,9 @@ def run_all_evals_and_plot(task_names_and_num_experiments: Dict[str, int], max_w
     # Group results by task_name and env_idx
     grouped_results = {}
     for task_name, run_id, env_idx, test_results, test_control_infos, test_free_energies, test_weights in all_results:
+        if not test_results and test_control_infos and test_free_energies and test_weights:
+            print("run id: {}, task_name: {}, env_idx: {} has no test results".format(run_id, task_name, env_idx))
+            continue
         if task_name not in grouped_results:
             grouped_results[task_name] = {}
         if env_idx not in grouped_results[task_name]:
@@ -440,6 +462,8 @@ def run_all_evals_and_plot(task_names_and_num_experiments: Dict[str, int], max_w
     for task_name, env_idxs in grouped_results.items():
         aggregated_results[task_name] = {}
         for env_idx, data in env_idxs.items():
+            if not data["test_results"]:
+                continue
             test_results_array = np.array(data["test_results"])  # Shape: (runs, weights)
             test_control_infos_array = np.array(data["test_control_infos"])  # Shape: (runs, weights)
             test_free_energies_array = np.array(data["test_free_energies"])  # Shape: (runs, weights)
@@ -466,8 +490,14 @@ def run_all_evals_and_plot(task_names_and_num_experiments: Dict[str, int], max_w
                 "test_weights": test_weights,
             }
 
+        if not aggregated_results[task_name]:
+            del aggregated_results[task_name]
+
     # Plot results
     for task_name, env_idxs in aggregated_results.items():
+        if not env_idxs:
+            continue
+
         fig = go.Figure()
 
         # Use hex color codes for consistency
@@ -479,6 +509,9 @@ def run_all_evals_and_plot(task_names_and_num_experiments: Dict[str, int], max_w
 
         for env_idx in sorted(env_idxs.keys()):  # Sort subtasks alphabetically
             subtask_data = env_idxs[env_idx]
+            if not subtask_data["mean_test_results"]:
+                continue
+
             # Extract aggregated data
             mean_test_results = subtask_data["mean_test_results"]
             std_test_results = subtask_data["std_test_results"]
@@ -533,6 +566,9 @@ def run_all_evals_and_plot(task_names_and_num_experiments: Dict[str, int], max_w
 
         for env_idx in sorted(env_idxs.keys()):
             subtask_data = env_idxs[env_idx]
+            if not subtask_data["mean_test_results"]:
+                continue
+
             mean_test_control_infos = subtask_data["mean_test_control_infos"]
             std_test_control_infos = subtask_data["std_test_control_infos"]
             test_weights = subtask_data["test_weights"]
@@ -583,6 +619,9 @@ def run_all_evals_and_plot(task_names_and_num_experiments: Dict[str, int], max_w
         color_idx = 0
         for env_idx in sorted(env_idxs.keys()):
             subtask_data = env_idxs[env_idx]
+            if not subtask_data["mean_test_results"]:
+                continue
+
             mean_test_free_energies = subtask_data["mean_test_free_energies"]
             std_test_free_energies = subtask_data["std_test_free_energies"]
             test_weights = subtask_data["test_weights"]
@@ -658,22 +697,19 @@ if __name__ == '__main__':
     #     task_names_and_num_experiments={"frozen_lake-custom": 16, },
     #     max_workers=24,
     # )
-    run_all_trainings_and_plot(
-        task_names_and_num_experiments={"mountaincar-custom": 6, },
-        max_workers=6,
-    )
-    run_all_evals_and_plot(
-        task_names_and_num_experiments={"mountaincar-custom": 6, },
-        max_workers=24,
-    )
     # run_all_trainings_and_plot(
-    #     task_names_and_num_experiments={"mountaincar-custom": 3, },
-    #     task_names_and_num_experiments={"acrobot-custom": 12, },
+    #     task_names_and_num_experiments={"mountaincar-custom": 6, },
     #     max_workers=6,
     # )
     # run_all_evals_and_plot(
-    #     task_names_and_num_experiments={"mountaincar-custom": 3, },
+    #     task_names_and_num_experiments={"mountaincar-custom": 6, },
     #     max_workers=24,
-    #     task_names_and_num_experiments={"acrobot-custom": 12, },
-    #     max_workers=12,
     # )
+    run_all_trainings_and_plot(
+        task_names_and_num_experiments={"acrobot-custom": 12, },
+        max_workers=6,
+    )
+    run_all_evals_and_plot(
+        task_names_and_num_experiments={"acrobot-custom": 12, },
+        max_workers=12,
+    )
