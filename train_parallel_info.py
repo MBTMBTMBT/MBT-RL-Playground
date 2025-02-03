@@ -31,8 +31,13 @@ def run_training(task_name: str, env_idx: int, run_id: int,):
         configs["exploit_policy_reward_rate"],
     )
 
+    if "fast_exploit_policy_training_steps" in configs.keys():
+        exploit_policy_training_steps = configs["fast_exploit_policy_training_steps"]
+    else:
+        exploit_policy_training_steps = configs["exploit_policy_training_steps"]
+
     pbar = tqdm(
-        total=configs["exploit_policy_training_steps"],
+        total=exploit_policy_training_steps,
         desc=f"[{run_id}-{env_desc}]",
         unit="step",
         leave=False,
@@ -48,7 +53,7 @@ def run_training(task_name: str, env_idx: int, run_id: int,):
 
     first_test = True
     frames = []
-    while sample_step_count < configs["exploit_policy_training_steps"]:
+    while sample_step_count < exploit_policy_training_steps:
         if not first_test:
             agent.learn(configs["exploit_policy_test_per_num_steps"], False)
             sample_step_count += configs["exploit_policy_test_per_num_steps"]
@@ -795,6 +800,13 @@ def run_all_cl_training_and_plot(task_names_and_num_experiments: Dict[str, Tuple
                 for target_run_id in target_run_ids:
                     paired_tasks.append({
                         "task_name": task_name,
+                        "prior_env_idx": -1,
+                        "target_env_idx": prior_env_idx,
+                        "prior_run_id": -1,
+                        "target_run_id": prior_run_id,
+                    })
+                    paired_tasks.append({
+                        "task_name": task_name,
                         "prior_env_idx": prior_env_idx,
                         "target_env_idx": target_env_idx,
                         "prior_run_id": prior_run_id,
@@ -1405,6 +1417,13 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
                 for target_run_id in target_run_ids:
                     paired_tasks.append({
                         "task_name": task_name,
+                        "prior_env_idx": -1,
+                        "target_env_idx": prior_env_idx,
+                        "prior_run_id": -1,
+                        "target_run_id": prior_run_id,
+                    })
+                    paired_tasks.append({
+                        "task_name": task_name,
                         "prior_env_idx": prior_env_idx,
                         "target_env_idx": target_env_idx,
                         "prior_run_id": prior_run_id,
@@ -1722,7 +1741,7 @@ if __name__ == '__main__':
     #     max_workers=16,
     # )
     run_all_trainings_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": 3, },
+        task_names_and_num_experiments={"frozen_lake-custom": 16, },
         max_workers=25,
     )
     # run_all_evals_and_plot(
@@ -1730,11 +1749,11 @@ if __name__ == '__main__':
     #     max_workers=24,
     # )
     run_all_cl_training_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": (3, 7), },
+        task_names_and_num_experiments={"frozen_lake-custom": (16, 7), },
         max_workers=25,
     )
     run_all_cl_evals_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": (3, 7), },
+        task_names_and_num_experiments={"frozen_lake-custom": (16, 7), },
         max_workers=25,
     )
     # run_all_trainings_and_plot(
