@@ -256,6 +256,8 @@ def run_eval(task_name: str, env_idx: int, run_id: int):
 def run_cl_eval(task_name: str, prior_env_idx: int, target_env_idx: int, prior_run_id: int, target_run_id: int,):
     prior_env, prior_test_env, prior_env_desc, _, _, _ \
         = get_envs_discretizers_and_configs(task_name, prior_env_idx)
+    if prior_env_idx == -1 and prior_run_id == -1:
+        prior_env_desc = "scratch"
     target_env, target_test_env, target_env_desc, state_discretizer, action_discretizer, configs \
         = get_envs_discretizers_and_configs(task_name, target_env_idx)
     dir_path = os.path.dirname(configs["save_path"])
@@ -275,7 +277,8 @@ def run_cl_eval(task_name: str, prior_env_idx: int, target_env_idx: int, prior_r
         configs["exploit_policy_reward_rate"],
         configs["use_balanced_random_init"],
     )
-    prior_agent.load_agent(prior_save_path + f"_final")
+    if prior_env_idx != -1 and prior_run_id != -1:
+        prior_agent.load_agent(prior_save_path + f"_final")
 
     target_agent = Agent(
         state_discretizer,
@@ -295,25 +298,26 @@ def run_cl_eval(task_name: str, prior_env_idx: int, target_env_idx: int, prior_r
         prior_agent.exploit_agent.policy.to("cpu")
         target_agent.exploit_agent.policy.to("cpu")
 
-    if "quick_test_threshold" in configs.keys() and "quick_test_num_episodes" in configs.keys():
-        quick_test_episodes = configs["quick_test_num_episodes"]
-        test_total_rewards = []
-        for test_env, agent in zip([prior_test_env, target_test_env], [prior_agent, target_agent]):
-            for t in range(quick_test_episodes):
-                test_state, _ = test_env.reset()
-                test_total_reward = 0
-                test_done = False
-                while not test_done:
-                    test_action = agent.choose_action_by_weight(test_state, p=1.0)
-                    test_next_state, test_reward, test_done, test_truncated, _ = test_env.step(test_action)
-                    test_state = test_next_state
-                    test_total_reward += test_reward
-                    if test_done or test_truncated:
-                        test_total_rewards.append(test_total_reward)
-                        break
-            test_avg_reward = np.mean(test_total_rewards)
-            if test_avg_reward < configs["quick_test_threshold"]:
-                return task_name, prior_run_id, target_run_id, prior_env_idx, target_env_idx, [], [], [], []
+    if prior_env_idx != -1 and prior_run_id != -1:
+        if "quick_test_threshold" in configs.keys() and "quick_test_num_episodes" in configs.keys():
+            quick_test_episodes = configs["quick_test_num_episodes"]
+            test_total_rewards = []
+            for test_env, agent in zip([prior_test_env, target_test_env], [prior_agent, target_agent]):
+                for t in range(quick_test_episodes):
+                    test_state, _ = test_env.reset()
+                    test_total_reward = 0
+                    test_done = False
+                    while not test_done:
+                        test_action = agent.choose_action_by_weight(test_state, p=1.0)
+                        test_next_state, test_reward, test_done, test_truncated, _ = test_env.step(test_action)
+                        test_state = test_next_state
+                        test_total_reward += test_reward
+                        if test_done or test_truncated:
+                            test_total_rewards.append(test_total_reward)
+                            break
+                test_avg_reward = np.mean(test_total_rewards)
+                if test_avg_reward < configs["quick_test_threshold"]:
+                    return task_name, prior_run_id, target_run_id, prior_env_idx, target_env_idx, [], [], [], []
 
     kl_weight = 1.0
     action_space = target_agent.action_discretizer.get_gym_space()
@@ -322,7 +326,7 @@ def run_cl_eval(task_name: str, prior_env_idx: int, target_env_idx: int, prior_r
     else:
         pass  # not implemented yet
 
-    weights = np.linspace(0, 1, 100)
+    weights = np.linspace(0, 1, 25)
 
     pbar = tqdm(
         total=len(weights),
@@ -345,7 +349,14 @@ def run_cl_eval(task_name: str, prior_env_idx: int, target_env_idx: int, prior_r
             test_done = False
             trajectory = [test_state]
             while not test_done:
-                test_action = target_agent.choose_action_by_weight(test_state, p=p, policy_func=prior_agent.get_greedy_weighted_action_distribution)
+                if prior_env_idx != -1 and prior_run_id != -1:
+                    test_action = target_agent.choose_action_by_weight(
+                        test_state, p=p, default_policy_func=prior_agent.get_greedy_weighted_action_distribution,
+                    )
+                else:
+                    test_action = target_agent.choose_action_by_weight(
+                        test_state, p=p, default_policy_func=prior_agent.get_default_policy_distribution,
+                    )
                 test_next_state, test_reward, test_done, test_truncated, _ = target_test_env.step(test_action)
                 trajectory.append(test_next_state)
                 test_state = test_next_state
@@ -359,8 +370,16 @@ def run_cl_eval(task_name: str, prior_env_idx: int, target_env_idx: int, prior_r
             control_info = 0.0
             if isinstance(action_space, spaces.Discrete):
                 for state in trajectory:
-                    weighted_action_distribution = target_agent.get_greedy_weighted_action_distribution(state, p, policy_func=prior_agent.get_greedy_weighted_action_distribution)
-                    default_action_distribution = prior_agent.get_greedy_weighted_action_distribution(state, p=1.0)
+                    if prior_env_idx != -1 and prior_run_id != -1:
+                        weighted_action_distribution = target_agent.get_greedy_weighted_action_distribution(
+                            state, p, default_policy_func=prior_agent.get_greedy_weighted_action_distribution,
+                        )
+                        default_action_distribution = prior_agent.get_greedy_weighted_action_distribution(state, p=1.0)
+                    else:
+                        weighted_action_distribution = target_agent.get_greedy_weighted_action_distribution(
+                            state, p, default_policy_func=prior_agent.get_default_policy_distribution,
+                        )
+                        default_action_distribution = prior_agent.get_default_policy_distribution(state, p=1.0)
                     kl_divergence = compute_discrete_kl_divergence(
                         weighted_action_distribution, default_action_distribution
                     )
@@ -851,6 +870,15 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
             if prior_env_idx == target_env_idx:
                 continue  # Skip the target environment itself
 
+            for target_run_id in target_run_ids:
+                paired_tasks.append({
+                    "task_name": task_name,
+                    "prior_env_idx": -1,
+                    "target_env_idx": target_env_idx,
+                    "prior_run_id": -1,
+                    "target_run_id": target_run_id,
+                })
+
             # Pair each prior environment run_id with all target environment run_ids
             for prior_run_id in prior_run_ids:
                 for target_run_id in target_run_ids:
@@ -977,7 +1005,10 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
                 test_weights = subtask_data["test_weights"]
 
                 # Get environment description
-                _, _, prior_env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, prior_env_idx)
+                if prior_env_idx != -1:
+                    _, _, prior_env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, prior_env_idx)
+                else:
+                    prior_env_desc = "scratch"
                 _, _, target_env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, target_env_idx)
 
                 # Label format: "Env X - Env Y"
@@ -1009,7 +1040,7 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
 
         # Customize layout
         fig.update_layout(
-            title=f"Evaluation Results for {task_name} by Curriculum",
+            title=f"Evaluation Results for {task_name} by Curriculum towards {target_env_desc}",
             xaxis_title="Weight (p)",
             yaxis_title="Average Test Reward",
             legend_title="Subtasks",
@@ -1020,7 +1051,7 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
 
         # Save plot to file
         plot_path = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)[
-                        "save_path"] + "_eval_cl.png"
+                        "save_path"] + "_eval_cl-{target_env_desc}.png"
         fig.write_image(plot_path, scale=2)  # High-resolution PNG
         print(f"Saved evaluation plot for {task_name} at {plot_path}")
 
@@ -1038,7 +1069,10 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
                 test_weights = subtask_data["test_weights"]
 
                 # Get environment description
-                _, _, prior_env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, prior_env_idx)
+                if prior_env_idx != -1:
+                    _, _, prior_env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, prior_env_idx)
+                else:
+                    prior_env_desc = "scratch"
                 _, _, target_env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, target_env_idx)
 
                 # Label format: "Env X - Env Y"
@@ -1067,7 +1101,7 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
                 color_idx = (color_idx + 1) % len(colors)
 
             fig_control_info.update_layout(
-                title=f"Control Information for {task_name}",
+                title=f"Control Information for {task_name} towards {target_env_desc}",
                 xaxis_title="Weight (p)",
                 yaxis_title="Average Control Information by Curriculum",
                 legend_title="Subtasks",
@@ -1077,7 +1111,7 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
             )
 
             plot_path_control_info = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)[
-                                         "save_path"] + "_control_info_cl.png"
+                                         "save_path"] + "_control_info_cl-{target_env_desc}.png"
             fig_control_info.write_image(plot_path_control_info, scale=2)
 
             print(f"Saved evaluation plot for control information: {plot_path_control_info}")
@@ -1096,7 +1130,10 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
                 test_weights = subtask_data["test_weights"]
 
                 # Get environment description
-                _, _, prior_env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, prior_env_idx)
+                if prior_env_idx != -1:
+                    _, _, prior_env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, prior_env_idx)
+                else:
+                    prior_env_desc = "scratch"
                 _, _, target_env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, target_env_idx)
 
                 # Label format: "Env X - Env Y"
@@ -1128,7 +1165,7 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
 
         # Customize layout for free energy
         fig_free_energy.update_layout(
-            title=f"Free Energy for {task_name} by Curriculum",
+            title=f"Free Energy for {task_name} by Curriculum towards {target_env_desc}",
             xaxis_title="Weight (p)",
             yaxis_title="Average Free Energy",
             legend_title="Subtasks",
@@ -1139,7 +1176,7 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
 
         # Save plot for free energy
         plot_path_free_energy = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)[
-                                    "save_path"] + "_free_energy_cl.png"
+                                    "save_path"] + "_free_energy_cl-{target_env_desc}.png"
         fig_free_energy.write_image(plot_path_free_energy, scale=2)
         print(f"Saved evaluation plot for free energy: {plot_path_free_energy}")
 
@@ -1163,17 +1200,29 @@ if __name__ == '__main__':
     #     task_names_and_num_experiments={"frozen_lake-88": 16,},
     #     max_workers=16,
     # )
-    # run_all_trainings_and_plot(
-    #     task_names_and_num_experiments={"frozen_lake-custom": 16, },
-    #     max_workers=24,
-    # )
+    run_all_trainings_and_plot(
+        task_names_and_num_experiments={"frozen_lake-custom": 1, },
+        max_workers=25,
+    )
     # run_all_evals_and_plot(
-    #     task_names_and_num_experiments={"frozen_lake-custom": 16, },
+    #     task_names_and_num_experiments={"frozen_lake-custom": 4, },
     #     max_workers=24,
     # )
     run_all_cl_evals_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": (16, 7), },
-        max_workers=24,
+        task_names_and_num_experiments={"frozen_lake-custom": (1, 4), },
+        max_workers=25,
+    )
+    run_all_cl_evals_and_plot(
+        task_names_and_num_experiments={"frozen_lake-custom": (1, 5), },
+        max_workers=25,
+    )
+    run_all_cl_evals_and_plot(
+        task_names_and_num_experiments={"frozen_lake-custom": (1, 6), },
+        max_workers=25,
+    )
+    run_all_cl_evals_and_plot(
+        task_names_and_num_experiments={"frozen_lake-custom": (1, 7), },
+        max_workers=25,
     )
     # run_all_trainings_and_plot(
     #     task_names_and_num_experiments={"mountaincar-custom": 6, },
