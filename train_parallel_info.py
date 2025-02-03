@@ -1749,11 +1749,11 @@ if __name__ == '__main__':
     #     max_workers=24,
     # )
     run_all_cl_training_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": (16, 7), },
+        task_names_and_num_experiments={"frozen_lake-custom": (16, 3), },
         max_workers=25,
     )
     run_all_cl_evals_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": (16, 7), },
+        task_names_and_num_experiments={"frozen_lake-custom": (16, 3), },
         max_workers=25,
     )
     # run_all_trainings_and_plot(
