@@ -2227,7 +2227,7 @@ class Agent:
             self,
             state: np.ndarray,
             p: float = 1.0,
-            policy_func=None,
+            default_policy_func=None,
     ):
         """
         Get a greedy-weighted distribution for actions.
@@ -2239,7 +2239,7 @@ class Agent:
                  - For continuous actions: Two arrays, mean and std of the distribution.
 
         Args:
-            policy_func:
+            default_policy_func:
         """
         assert 0 <= p <= 1, "p must be between 0 and 1 (inclusive)."
 
@@ -2252,10 +2252,10 @@ class Agent:
                 greedy_distribution[greedy_action] = 1.0
 
                 # Default distribution
-                if policy_func is None:
+                if default_policy_func is None:
                     default_distribution = self.get_default_policy_distribution(state)
                 else:
-                    default_distribution = policy_func(state, p=1.0)
+                    default_distribution = default_policy_func(state, p=1.0)
 
                 # Weighted combination
                 weighted_distribution = p * greedy_distribution + (1 - p) * default_distribution
@@ -2277,10 +2277,10 @@ class Agent:
                 greedy_distribution[greedy_action] = 1.0
 
                 # Default distribution
-                if policy_func is None:
+                if default_policy_func is None:
                     default_distribution = self.get_default_policy_distribution(state)
                 else:
-                    default_distribution = policy_func(state, p=1.0)
+                    default_distribution = default_policy_func(state, p=1.0)
 
                 # Weighted combination
                 weighted_distribution = p * greedy_distribution + (1 - p) * default_distribution
@@ -2294,10 +2294,10 @@ class Agent:
                     greedy_mean = action_distribution.distribution.mean.cpu().squeeze().numpy()
 
                 # Default distribution
-                if policy_func is None:
+                if default_policy_func is None:
                     uniform_mean, uniform_std = self.get_default_policy_distribution(state)
                 else:
-                    uniform_mean, uniform_std = policy_func(state, p=1.0)
+                    uniform_mean, uniform_std = default_policy_func(state, p=1.0)
 
                 # Weighted combination
                 weighted_mean = p * greedy_mean + (1 - p) * uniform_mean
@@ -2305,7 +2305,7 @@ class Agent:
                 return weighted_mean, weighted_std
 
     def choose_action_by_weight(
-            self, state: np.ndarray, p: float = 0.5, policy_func=None,
+            self, state: np.ndarray, p: float = 0.5, default_policy_func=None,
     ) -> np.ndarray:
         """
         Choose an action based on the greedy-weighted distribution.
@@ -2315,13 +2315,13 @@ class Agent:
         :return: The chosen action as a NumPy array (or scalar for discrete actions).
 
         Args:
-            policy_func:
+            default_policy_func:
         """
         assert 0 <= p <= 1, "p must be between 0 and 1 (inclusive)."
 
         if isinstance(self.double_env.action_space, spaces.Discrete):
             # Get the weighted distribution
-            action_probabilities = self.get_greedy_weighted_action_distribution(state, p=p, policy_func=policy_func)
+            action_probabilities = self.get_greedy_weighted_action_distribution(state, p=p, default_policy_func=default_policy_func)
 
             # Sample an action based on the distribution
             np.random.seed(random.randint(0, 100000000))
@@ -2329,7 +2329,7 @@ class Agent:
             return int(action)
         else:
             # Continuous action space
-            mean, std = self.get_greedy_weighted_action_distribution(state, p=p, policy_func=policy_func)
+            mean, std = self.get_greedy_weighted_action_distribution(state, p=p, default_policy_func=default_policy_func)
 
             # Sample an action from the Gaussian distribution
             np.random.seed(random.randint(0, 100000000))
