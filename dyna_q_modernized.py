@@ -896,7 +896,7 @@ class TransitionalTableEnv(TransitionTable, gym.Env):
                 init_state_encode = random.choice(tuple(self.start_set))
             else:
                 raise ValueError(f"Init strategy not supported: {self.init_strategy}.")
-        self.current_state = init_state_encode
+        self.current_state = int(init_state_encode)
         current_state = self.state_discretizer.indices_to_midpoints(
             self.state_discretizer.decode_indices(self.current_state)
         )
@@ -1297,7 +1297,7 @@ class LandmarksTransitionalTableEnv(TransitionalTableEnv):
                     init_state_encode = random.choice(tuple(self.landmark_start_states))
             else:
                 raise ValueError(f"Init strategy not supported: {self.init_strategy}.")
-        self.current_state = init_state_encode
+        self.current_state = int(init_state_encode)
         current_state = self.state_discretizer.indices_to_midpoints(
             self.state_discretizer.decode_indices(self.current_state)
         )
@@ -2143,7 +2143,7 @@ class Agent:
             self.exploit_agent.save_q_table(file_path=q_table_file_path)
         self.transition_table_env.save_transition_table(file_path=transition_table_file_path)
 
-    def load_agent(self, file_path: str):
+    def load_agent(self, file_path: str, load_transition_table: bool = True):
         q_table_file_path = file_path + "_exploit_agent.csv"
         deep_model_file_path = file_path + "_deep_model.zip"
         transition_table_file_path = file_path + "_transition_table.csv"
@@ -2151,7 +2151,8 @@ class Agent:
             self.exploit_agent = PPO.load(deep_model_file_path, env=self.double_env, print_system_info=True)
         else:
             self.exploit_agent.load_q_table(file_path=q_table_file_path)
-        self.transition_table_env.load_transition_table(file_path=transition_table_file_path)
+        if load_transition_table:
+            self.transition_table_env.load_transition_table(file_path=transition_table_file_path)
 
     def choose_action(
             self, state: np.ndarray, temperature: float = 1.0, greedy: bool = False,

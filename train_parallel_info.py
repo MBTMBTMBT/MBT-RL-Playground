@@ -151,7 +151,7 @@ def run_cl_training(task_name: str, prior_env_idx: int, target_env_idx: int, pri
         configs["use_balanced_random_init"],
     )
     if prior_env_idx != -1 and prior_run_id != -1:
-        prior_agent.load_agent(prior_save_path + f"_final")
+        prior_agent.load_agent(prior_save_path + f"_final", load_transition_table=False)
 
     # target_agent = Agent(
     #     state_discretizer,
@@ -180,7 +180,7 @@ def run_cl_training(task_name: str, prior_env_idx: int, target_env_idx: int, pri
         configs["use_balanced_random_init"],
     )
     if prior_env_idx != -1 and prior_run_id != -1:
-        prior_agent.load_agent(prior_save_path + f"_final")
+        prior_agent.load_agent(prior_save_path + f"_final", load_transition_table=False)
 
     if prior_env_idx != -1 and prior_run_id != -1:
         if "quick_test_threshold" in configs.keys() and "quick_test_num_episodes" in configs.keys():
@@ -316,7 +316,7 @@ def run_eval(task_name: str, env_idx: int, run_id: int):
         configs["use_balanced_random_init"],
     )
 
-    agent.load_agent(save_path + f"_final")
+    agent.load_agent(save_path + f"_final", load_transition_table=False)
 
     if configs["use_deep_agent"]:
         agent.exploit_agent.policy.to("cpu")
@@ -448,7 +448,7 @@ def run_cl_eval(task_name: str, prior_env_idx: int, target_env_idx: int, prior_r
         configs["use_balanced_random_init"],
     )
     if prior_env_idx != -1 and prior_run_id != -1:
-        prior_agent.load_agent(prior_save_path + f"_final")
+        prior_agent.load_agent(prior_save_path + f"_final", load_transition_table=False)
 
     target_agent = Agent(
         state_discretizer,
@@ -462,7 +462,7 @@ def run_cl_eval(task_name: str, prior_env_idx: int, target_env_idx: int, prior_r
         configs["exploit_policy_reward_rate"],
         configs["use_balanced_random_init"],
     )
-    target_agent.load_agent(target_save_path + f"_final")
+    target_agent.load_agent(target_save_path + f"_final", load_transition_table=False)
 
     if configs["use_deep_agent"]:
         prior_agent.exploit_agent.policy.to("cpu")
