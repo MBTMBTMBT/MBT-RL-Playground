@@ -1051,7 +1051,7 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
 
         # Save plot to file
         plot_path = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)[
-                        "save_path"] + "_eval_cl-{target_env_desc}.png"
+                        "save_path"] + "_eval_cl-target_env_desc.png"
         fig.write_image(plot_path, scale=2)  # High-resolution PNG
         print(f"Saved evaluation plot for {task_name} at {plot_path}")
 
@@ -1111,7 +1111,7 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
             )
 
             plot_path_control_info = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)[
-                                         "save_path"] + "_control_info_cl-{target_env_desc}.png"
+                                         "save_path"] + "_control_info_cl-target_env_desc.png"
             fig_control_info.write_image(plot_path_control_info, scale=2)
 
             print(f"Saved evaluation plot for control information: {plot_path_control_info}")
@@ -1176,7 +1176,7 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
 
         # Save plot for free energy
         plot_path_free_energy = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)[
-                                    "save_path"] + "_free_energy_cl-{target_env_desc}.png"
+                                    "save_path"] + "_free_energy_cl-target_env_desc.png"
         fig_free_energy.write_image(plot_path_free_energy, scale=2)
         print(f"Saved evaluation plot for free energy: {plot_path_free_energy}")
 
@@ -1201,7 +1201,7 @@ if __name__ == '__main__':
     #     max_workers=16,
     # )
     run_all_trainings_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": 1, },
+        task_names_and_num_experiments={"frozen_lake-custom": 3, },
         max_workers=25,
     )
     # run_all_evals_and_plot(
@@ -1209,19 +1209,19 @@ if __name__ == '__main__':
     #     max_workers=24,
     # )
     run_all_cl_evals_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": (1, 4), },
+        task_names_and_num_experiments={"frozen_lake-custom": (3, 4), },
         max_workers=25,
     )
     run_all_cl_evals_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": (1, 5), },
+        task_names_and_num_experiments={"frozen_lake-custom": (3, 5), },
         max_workers=25,
     )
     run_all_cl_evals_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": (1, 6), },
+        task_names_and_num_experiments={"frozen_lake-custom": (3, 6), },
         max_workers=25,
     )
     run_all_cl_evals_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": (1, 7), },
+        task_names_and_num_experiments={"frozen_lake-custom": (3, 7), },
         max_workers=25,
     )
     # run_all_trainings_and_plot(
