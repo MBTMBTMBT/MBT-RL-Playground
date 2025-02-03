@@ -2083,7 +2083,7 @@ class Agent:
             env: gym.Env,
             use_deep_agent: bool,
             max_steps: int = 500,
-            init_strategy_distribution: Tuple[float] = None,
+            init_strategy_distribution: Tuple[float, float] = None,
             exploit_lr: float = 0.1,
             gamma: float = 0.99,
             exploit_policy_reward_rate: float = 1.0,
