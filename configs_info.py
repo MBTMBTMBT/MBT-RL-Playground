@@ -345,7 +345,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             "print_training_info": False,
             "initialization_distribution": (0.2, 0.8),
             "use_balanced_random_init": True,
-            "quick_test_threshold": 0.1,
+            "quick_test_threshold": 0.33,
             "quick_test_num_episodes": 25,
         }
 
@@ -427,7 +427,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             "print_training_info": False,
             "initialization_distribution": (0.5, 0.5),
             "use_balanced_random_init": True,
-            "quick_test_threshold": 0.1,
+            "quick_test_threshold": 0.33,
             "quick_test_num_episodes": 25,
         }
 
