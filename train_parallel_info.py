@@ -180,7 +180,7 @@ def run_cl_training(task_name: str, prior_env_idx: int, target_env_idx: int, pri
         configs["use_balanced_random_init"],
     )
     if prior_env_idx != -1 and prior_run_id != -1:
-        prior_agent.load_agent(prior_save_path + f"_final", load_transition_table=False)
+        agent.load_agent(prior_save_path + f"_final", load_transition_table=False)
 
     if prior_env_idx != -1 and prior_run_id != -1:
         if "quick_test_threshold" in configs.keys() and "quick_test_num_episodes" in configs.keys():
