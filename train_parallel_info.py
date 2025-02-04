@@ -192,13 +192,13 @@ def run_cl_training(task_name: str, prior_env_idx: int, target_env_idx: int, pri
             quick_test_episodes = configs["quick_test_num_episodes"]
             test_total_rewards = []
             # for test_env, agent in zip([prior_test_env, target_test_env], [prior_agent, target_agent]):
-            for test_env, agent in zip([prior_test_env,], [prior_agent,]):
+            for test_env, agent_ in zip([prior_test_env,], [prior_agent,]):
                 for t in range(quick_test_episodes):
                     test_state, _ = test_env.reset()
                     test_total_reward = 0
                     test_done = False
                     while not test_done:
-                        test_action = agent.choose_action_by_weight(test_state, p=1.0)
+                        test_action = agent_.choose_action_by_weight(test_state, p=1.0)
                         test_next_state, test_reward, test_done, test_truncated, _ = test_env.step(test_action)
                         test_state = test_next_state
                         test_total_reward += test_reward
