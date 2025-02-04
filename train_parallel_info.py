@@ -31,17 +31,17 @@ def run_training(task_name: str, env_idx: int, run_id: int,):
         configs["exploit_policy_reward_rate"],
     )
 
-    baseline_agent = Agent(
-        state_discretizer,
-        action_discretizer,
-        env,
-        configs["use_deep_agent"],
-        configs["train_max_num_steps_per_episode"],
-        (1.0, 0.0),
-        configs["exploit_agent_lr"],
-        configs["exploit_value_decay"],
-        configs["exploit_policy_reward_rate"],
-    )
+    # baseline_agent = Agent(
+    #     state_discretizer,
+    #     action_discretizer,
+    #     env,
+    #     configs["use_deep_agent"],
+    #     configs["train_max_num_steps_per_episode"],
+    #     (1.0, 0.0),
+    #     configs["exploit_agent_lr"],
+    #     configs["exploit_value_decay"],
+    #     configs["exploit_policy_reward_rate"],
+    # )
 
     # if "fast_exploit_policy_training_steps" in configs.keys():
     #     exploit_policy_training_steps = configs["fast_exploit_policy_training_steps"]
@@ -69,7 +69,7 @@ def run_training(task_name: str, env_idx: int, run_id: int,):
     while sample_step_count < exploit_policy_training_steps:
         if not first_test:
             agent.learn(configs["exploit_policy_test_per_num_steps"], False)
-            baseline_agent.learn(configs["exploit_policy_test_per_num_steps"], False)
+            # baseline_agent.learn(configs["exploit_policy_test_per_num_steps"], False)
             sample_step_count += configs["exploit_policy_test_per_num_steps"]
 
         periodic_test_rewards = []
@@ -106,7 +106,7 @@ def run_training(task_name: str, env_idx: int, run_id: int,):
         pbar.update(configs["exploit_policy_test_per_num_steps"])
 
     agent.save_agent(save_path + f"_final")
-    baseline_agent.save_agent(save_path + f"_baseline")
+    # baseline_agent.save_agent(save_path + f"_baseline")
 
     # Save GIF for the first test episode
     if len(frames) > 0:
@@ -200,9 +200,9 @@ def run_cl_training(task_name: str, prior_env_idx: int, target_env_idx: int, pri
         configs["use_balanced_random_init"],
     )
     if prior_env_idx != -1 and prior_run_id != -1:
-        # agent.load_agent(prior_save_path + f"_final", load_transition_table=False)
+        agent.load_agent(prior_save_path + f"_final", load_transition_table=False)
         # this baseline agent might not be optimal but is trained without re-initialisation
-        agent.load_agent(prior_save_path + f"_baseline", load_transition_table=False)
+        # agent.load_agent(prior_save_path + f"_baseline", load_transition_table=False)
 
     if prior_env_idx != -1 and prior_run_id != -1:
         if "quick_test_threshold" in configs.keys() and "quick_test_num_episodes" in configs.keys():
@@ -815,13 +815,13 @@ def run_all_cl_training_and_plot(task_names_and_num_experiments: Dict[str, Tuple
             # Pair each prior environment run_id with all target environment run_ids
             for prior_run_id in prior_run_ids:
                 for target_run_id in target_run_ids:
-                    paired_tasks.append({
-                        "task_name": task_name,
-                        "prior_env_idx": -1,
-                        "target_env_idx": prior_env_idx,
-                        "prior_run_id": -1,
-                        "target_run_id": prior_run_id,
-                    })
+                    # paired_tasks.append({
+                    #     "task_name": task_name,
+                    #     "prior_env_idx": -1,
+                    #     "target_env_idx": prior_env_idx,
+                    #     "prior_run_id": -1,
+                    #     "target_run_id": prior_run_id,
+                    # })
                     paired_tasks.append({
                         "task_name": task_name,
                         "prior_env_idx": prior_env_idx,
