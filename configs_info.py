@@ -33,12 +33,12 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             "use_deep_agent": False,
             "save_path": save_path,
             "train_max_num_steps_per_episode": 100,
-            "exploit_agent_lr": 0.025,
+            "exploit_agent_lr":0.05,
             "exploit_softmax_temperature": 1.0,
             "exploit_policy_reward_rate": 1,
             "exploit_value_decay": 0.99,
-            "fast_exploit_policy_training_steps": int(25e3),
-            "exploit_policy_training_steps": int(50e3),
+            "fast_exploit_policy_training_steps": int(50e3),
+            "exploit_policy_training_steps": int(100e3),
             "exploit_policy_test_per_num_steps": int(0.25e3),
             "exploit_policy_test_episodes": 25,
             "exploit_policy_eval_episodes": 500,
@@ -80,7 +80,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             "use_deep_agent": False,
             "save_path": save_path,
             "train_max_num_steps_per_episode": 100,
-            "exploit_agent_lr": 0.025,
+            "exploit_agent_lr":0.05,
             "exploit_softmax_temperature": 1.0,
             "exploit_policy_reward_rate": 1,
             "exploit_value_decay": 0.99,
@@ -234,7 +234,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             "use_deep_agent": False,
             "save_path": save_path,
             "train_max_num_steps_per_episode": 100,
-            "exploit_agent_lr": 0.025,
+            "exploit_agent_lr":0.05,
             "exploit_softmax_temperature": 1.0,
             "exploit_policy_reward_rate": 1,
             "exploit_value_decay": 0.99,
@@ -310,6 +310,26 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                 reward_type="sparse",
                 render_mode="rgb_array",
             ),
+    # run_all_trainings_and_plot(
+    #     task_names_and_num_experiments={"mountaincar-custom": 6, },
+    #     max_workers=6,
+    # )
+    # run_all_evals_and_plot(
+    #     task_names_and_num_experiments={"mountaincar-custom": 6, },
+    #     max_workers=24,
+    # )
+    # run_all_trainings_and_plot(
+    #     task_names_and_num_experiments={"acrobot-custom": 12, },
+    #     max_workers=6,
+    # )
+    # run_all_evals_and_plot(
+    #     task_names_and_num_experiments={"acrobot-custom": 12, },
+    #     max_workers=12,
+    # )
+    # run_all_cl_evals_and_plot(
+    #     task_names_and_num_experiments={"mountaincar-custom": (6, 0), },
+    #     max_workers=24,
+    # )
         ]
         test_envs = envs
         env_descs = [

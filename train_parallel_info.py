@@ -1023,21 +1023,21 @@ def run_all_cl_training_and_plot(task_names_and_num_experiments: Dict[str, Tuple
 
                 color_idx = (color_idx + 1) % len(colors)
 
-            fig_control_info.update_layout(
-                title=f"Training Control Information for {task_name} towards {target_env_desc}",
-                xaxis_title="Weight (p)",
-                yaxis_title="Average Control Information by Curriculum",
-                legend_title="Subtasks",
-                font=dict(size=14),
-                width=1200,
-                height=800,
-            )
+        fig_control_info.update_layout(
+            title=f"Training Control Information for {task_name} towards {target_env_desc}",
+            xaxis_title="Weight (p)",
+            yaxis_title="Average Control Information by Curriculum",
+            legend_title="Subtasks",
+            font=dict(size=14),
+            width=1200,
+            height=800,
+        )
 
-            plot_path_control_info = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)[
-                                         "save_path"] + f"_training_control_info_cl-{target_env_desc}.png"
-            fig_control_info.write_image(plot_path_control_info, scale=2)
+        plot_path_control_info = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)[
+                                     "save_path"] + f"_training_control_info_cl-{target_env_desc}.png"
+        fig_control_info.write_image(plot_path_control_info, scale=2)
 
-            print(f"Saved evaluation plot for control information: {plot_path_control_info}")
+        print(f"Saved evaluation plot for control information: {plot_path_control_info}")
 
         # Plot results for free energy
         fig_free_energy = go.Figure()
@@ -1415,13 +1415,13 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
             # Pair each prior environment run_id with all target environment run_ids
             for prior_run_id in prior_run_ids:
                 for target_run_id in target_run_ids:
-                    paired_tasks.append({
-                        "task_name": task_name,
-                        "prior_env_idx": -1,
-                        "target_env_idx": prior_env_idx,
-                        "prior_run_id": -1,
-                        "target_run_id": prior_run_id,
-                    })
+                    # paired_tasks.append({
+                    #     "task_name": task_name,
+                    #     "prior_env_idx": -1,
+                    #     "target_env_idx": prior_env_idx,
+                    #     "prior_run_id": -1,
+                    #     "target_run_id": prior_run_id,
+                    # })
                     paired_tasks.append({
                         "task_name": task_name,
                         "prior_env_idx": prior_env_idx,
@@ -1640,21 +1640,21 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
 
                 color_idx = (color_idx + 1) % len(colors)
 
-            fig_control_info.update_layout(
-                title=f"Evaluation Control Information for {task_name} towards {target_env_desc}",
-                xaxis_title="Weight (p)",
-                yaxis_title="Average Control Information by Curriculum",
-                legend_title="Subtasks",
-                font=dict(size=14),
-                width=1200,
-                height=800,
-            )
+        fig_control_info.update_layout(
+            title=f"Evaluation Control Information for {task_name} towards {target_env_desc}",
+            xaxis_title="Weight (p)",
+            yaxis_title="Average Control Information by Curriculum",
+            legend_title="Subtasks",
+            font=dict(size=14),
+            width=1200,
+            height=800,
+        )
 
-            plot_path_control_info = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)[
-                                         "save_path"] + f"_eval_control_info_cl-{target_env_desc}.png"
-            fig_control_info.write_image(plot_path_control_info, scale=2)
+        plot_path_control_info = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)[
+                                     "save_path"] + f"_eval_control_info_cl-{target_env_desc}.png"
+        fig_control_info.write_image(plot_path_control_info, scale=2)
 
-            print(f"Saved evaluation plot for control information: {plot_path_control_info}")
+        print(f"Saved evaluation plot for control information: {plot_path_control_info}")
 
         # Plot results for free energy
         fig_free_energy = go.Figure()
@@ -1725,39 +1725,39 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
 
 if __name__ == '__main__':
     run_all_trainings_and_plot(
-        task_names_and_num_experiments={"frozen_lake-44": 16,},
-        max_workers=16,
-    )
-    run_all_cl_training_and_plot(
-        task_names_and_num_experiments={"frozen_lake-44": (16, 1),},
-        max_workers=16,
-    )
-    run_all_cl_evals_and_plot(
-        task_names_and_num_experiments={"frozen_lake-44": (16, 1), },
-        max_workers=16,
-    )
-    run_all_trainings_and_plot(
-        task_names_and_num_experiments={"frozen_lake-88": 16, },
-        max_workers=16,
-    )
-    run_all_cl_training_and_plot(
-        task_names_and_num_experiments={"frozen_lake-88": (16, 1), },
-        max_workers=16,
-    )
-    run_all_cl_evals_and_plot(
-        task_names_and_num_experiments={"frozen_lake-88": (16, 1), },
-        max_workers=16,
-    )
-    run_all_trainings_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": 16, },
+        task_names_and_num_experiments={"frozen_lake-44": 8,},
         max_workers=25,
     )
     run_all_cl_training_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": (16, 3), },
+        task_names_and_num_experiments={"frozen_lake-44": (8, 1),},
         max_workers=25,
     )
     run_all_cl_evals_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": (16, 3), },
+        task_names_and_num_experiments={"frozen_lake-44": (8, 1), },
+        max_workers=25,
+    )
+    run_all_trainings_and_plot(
+        task_names_and_num_experiments={"frozen_lake-88": 8, },
+        max_workers=25,
+    )
+    run_all_cl_training_and_plot(
+        task_names_and_num_experiments={"frozen_lake-88": (8, 1), },
+        max_workers=25,
+    )
+    run_all_cl_evals_and_plot(
+        task_names_and_num_experiments={"frozen_lake-88": (8, 1), },
+        max_workers=25,
+    )
+    run_all_trainings_and_plot(
+        task_names_and_num_experiments={"frozen_lake-custom": 8, },
+        max_workers=25,
+    )
+    run_all_cl_training_and_plot(
+        task_names_and_num_experiments={"frozen_lake-custom": (8, 3), },
+        max_workers=25,
+    )
+    run_all_cl_evals_and_plot(
+        task_names_and_num_experiments={"frozen_lake-custom": (8, 3), },
         max_workers=25,
     )
     run_all_trainings_and_plot(
