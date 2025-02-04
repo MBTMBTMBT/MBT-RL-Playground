@@ -31,10 +31,23 @@ def run_training(task_name: str, env_idx: int, run_id: int,):
         configs["exploit_policy_reward_rate"],
     )
 
-    if "fast_exploit_policy_training_steps" in configs.keys():
-        exploit_policy_training_steps = configs["fast_exploit_policy_training_steps"]
-    else:
-        exploit_policy_training_steps = configs["exploit_policy_training_steps"]
+    baseline_agent = Agent(
+        state_discretizer,
+        action_discretizer,
+        env,
+        configs["use_deep_agent"],
+        configs["train_max_num_steps_per_episode"],
+        (1.0, 0.0),
+        configs["exploit_agent_lr"],
+        configs["exploit_value_decay"],
+        configs["exploit_policy_reward_rate"],
+    )
+
+    # if "fast_exploit_policy_training_steps" in configs.keys():
+    #     exploit_policy_training_steps = configs["fast_exploit_policy_training_steps"]
+    # else:
+    #     exploit_policy_training_steps = configs["exploit_policy_training_steps"]
+    exploit_policy_training_steps = configs["exploit_policy_training_steps"]
 
     pbar = tqdm(
         total=exploit_policy_training_steps,
@@ -56,6 +69,7 @@ def run_training(task_name: str, env_idx: int, run_id: int,):
     while sample_step_count < exploit_policy_training_steps:
         if not first_test:
             agent.learn(configs["exploit_policy_test_per_num_steps"], False)
+            baseline_agent.learn(configs["exploit_policy_test_per_num_steps"], False)
             sample_step_count += configs["exploit_policy_test_per_num_steps"]
 
         periodic_test_rewards = []
@@ -82,8 +96,8 @@ def run_training(task_name: str, env_idx: int, run_id: int,):
 
         first_test = False
 
-        if sample_step_count % configs["save_per_num_steps"] == 0 and sample_step_count > 0:
-            agent.save_agent(save_path + f"_{sample_step_count}")
+        # if sample_step_count % configs["save_per_num_steps"] == 0 and sample_step_count > 0:
+        #     agent.save_agent(save_path + f"_{sample_step_count}")
 
         pbar.set_postfix({
             "Test Rwd": f"{avg_test_reward:04.3f}" if len(f"{int(avg_test_reward)}") <= 6 else f"{avg_test_reward:.3f}",
@@ -92,6 +106,7 @@ def run_training(task_name: str, env_idx: int, run_id: int,):
         pbar.update(configs["exploit_policy_test_per_num_steps"])
 
     agent.save_agent(save_path + f"_final")
+    baseline_agent.save_agent(save_path + f"_baseline")
 
     # Save GIF for the first test episode
     if len(frames) > 0:
@@ -185,7 +200,9 @@ def run_cl_training(task_name: str, prior_env_idx: int, target_env_idx: int, pri
         configs["use_balanced_random_init"],
     )
     if prior_env_idx != -1 and prior_run_id != -1:
-        agent.load_agent(prior_save_path + f"_final", load_transition_table=False)
+        # agent.load_agent(prior_save_path + f"_final", load_transition_table=False)
+        # this baseline agent might not be optimal but is trained without re-initialisation
+        agent.load_agent(prior_save_path + f"_baseline", load_transition_table=False)
 
     if prior_env_idx != -1 and prior_run_id != -1:
         if "quick_test_threshold" in configs.keys() and "quick_test_num_episodes" in configs.keys():
@@ -291,8 +308,8 @@ def run_cl_training(task_name: str, prior_env_idx: int, target_env_idx: int, pri
 
         pbar.set_postfix({
             "Rwd": f"{avg_test_reward:05.3f}",
-            "CI": f"{avg_test_control_info:05.1f}",
-            "FE": f"{avg_test_free_energy:05.1f}",
+            # "CI": f"{avg_test_control_info:05.1f}",
+            # "FE": f"{avg_test_free_energy:05.1f}",
         })
         pbar.update(configs["exploit_policy_test_per_num_steps"])
 
@@ -978,130 +995,130 @@ def run_all_cl_training_and_plot(task_names_and_num_experiments: Dict[str, Tuple
         fig.write_image(plot_path, scale=2)  # High-resolution PNG
         print(f"Saved evaluation plot for {task_name} at {plot_path}")
 
-        # Plot Control Information
-        fig_control_info = go.Figure()
-        color_idx = 0
-
-        for prior_env_idx, target_envs in prior_envs.items():
-            for target_env_idx, subtask_data in target_envs.items():
-                if not subtask_data["mean_test_results"]:
-                    continue  # Skip empty results
-
-                mean_test_control_infos = subtask_data["mean_test_control_infos"]
-                std_test_control_infos = subtask_data["std_test_control_infos"]
-                test_steps = subtask_data["test_steps"]
-
-                # Get environment description
-                if prior_env_idx != -1:
-                    _, _, prior_env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, prior_env_idx)
-                else:
-                    prior_env_desc = "scratch"
-                _, _, target_env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, target_env_idx)
-
-                # Label format: "Env X - Env Y"
-                label = f"{prior_env_desc} - {target_env_desc}"
-
-                fig_control_info.add_trace(go.Scatter(
-                    x=test_steps,
-                    y=mean_test_control_infos,
-                    mode='lines',
-                    name=f"{label} Mean Control Information",
-                    line=dict(color=colors[color_idx], width=2),
-                ))
-
-                fig_control_info.add_trace(go.Scatter(
-                    x=test_steps + test_steps[::-1],
-                    y=(np.array(mean_test_control_infos) + np.array(std_test_control_infos)).tolist() +
-                      (np.array(mean_test_control_infos) - np.array(std_test_control_infos))[::-1].tolist(),
-                    fill='toself',
-                    fillcolor=f"rgba({int(colors[color_idx][1:3], 16)}, "
-                              f"{int(colors[color_idx][3:5], 16)}, "
-                              f"{int(colors[color_idx][5:], 16)}, 0.2)",
-                    line=dict(color='rgba(255,255,255,0)'),
-                    name=f"{label} Control Information Std Dev",
-                ))
-
-                color_idx = (color_idx + 1) % len(colors)
-
-        fig_control_info.update_layout(
-            title=f"Training Control Information for {task_name} towards {target_env_desc}",
-            xaxis_title="Weight (p)",
-            yaxis_title="Average Control Information by Curriculum",
-            legend_title="Subtasks",
-            font=dict(size=14),
-            width=1200,
-            height=800,
-        )
-
-        plot_path_control_info = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)[
-                                     "save_path"] + f"_training_control_info_cl-{target_env_desc}.png"
-        fig_control_info.write_image(plot_path_control_info, scale=2)
-
-        print(f"Saved evaluation plot for control information: {plot_path_control_info}")
-
-        # Plot results for free energy
-        fig_free_energy = go.Figure()
-        color_idx = 0
-
-        for prior_env_idx, target_envs in prior_envs.items():
-            for target_env_idx, subtask_data in target_envs.items():
-                if not subtask_data["mean_test_results"]:
-                    continue  # Skip empty results
-
-                mean_test_free_energies = subtask_data["mean_test_free_energies"]
-                std_test_free_energies = subtask_data["std_test_free_energies"]
-                test_steps = subtask_data["test_steps"]
-
-                # Get environment description
-                if prior_env_idx != -1:
-                    _, _, prior_env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, prior_env_idx)
-                else:
-                    prior_env_desc = "scratch"
-                _, _, target_env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, target_env_idx)
-
-                # Label format: "Env X - Env Y"
-                label = f"{prior_env_desc} - {target_env_desc}"
-
-                # Add mean free energy curve
-                fig_free_energy.add_trace(go.Scatter(
-                    x=test_steps,
-                    y=mean_test_free_energies,
-                    mode='lines',
-                    name=f"{label} Mean Free Energy",
-                    line=dict(color=colors[color_idx], width=2),
-                ))
-
-                # Add shaded area for std
-                fig_free_energy.add_trace(go.Scatter(
-                    x=test_steps + test_steps[::-1],
-                    y=(np.array(mean_test_free_energies) + np.array(std_test_free_energies)).tolist() +
-                      (np.array(mean_test_free_energies) - np.array(std_test_free_energies))[::-1].tolist(),
-                    fill='toself',
-                    fillcolor=f"rgba({int(colors[color_idx][1:3], 16)}, "
-                              f"{int(colors[color_idx][3:5], 16)}, "
-                              f"{int(colors[color_idx][5:], 16)}, 0.2)",
-                    line=dict(color='rgba(255,255,255,0)'),
-                    name=f"{label} Free Energy Std Dev",
-                ))
-
-                color_idx = (color_idx + 1) % len(colors)
-
-        # Customize layout for free energy
-        fig_free_energy.update_layout(
-            title=f"Training Free Energy for {task_name} by Curriculum towards {target_env_desc}",
-            xaxis_title="Weight (p)",
-            yaxis_title="Average Free Energy",
-            legend_title="Subtasks",
-            font=dict(size=14),
-            width=1200,
-            height=800,
-        )
-
-        # Save plot for free energy
-        plot_path_free_energy = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)[
-                                    "save_path"] + f"_training_free_energy_cl-{target_env_desc}.png"
-        fig_free_energy.write_image(plot_path_free_energy, scale=2)
-        print(f"Saved evaluation plot for free energy: {plot_path_free_energy}")
+        # # Plot Control Information
+        # fig_control_info = go.Figure()
+        # color_idx = 0
+        #
+        # for prior_env_idx, target_envs in prior_envs.items():
+        #     for target_env_idx, subtask_data in target_envs.items():
+        #         if not subtask_data["mean_test_results"]:
+        #             continue  # Skip empty results
+        #
+        #         mean_test_control_infos = subtask_data["mean_test_control_infos"]
+        #         std_test_control_infos = subtask_data["std_test_control_infos"]
+        #         test_steps = subtask_data["test_steps"]
+        #
+        #         # Get environment description
+        #         if prior_env_idx != -1:
+        #             _, _, prior_env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, prior_env_idx)
+        #         else:
+        #             prior_env_desc = "scratch"
+        #         _, _, target_env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, target_env_idx)
+        #
+        #         # Label format: "Env X - Env Y"
+        #         label = f"{prior_env_desc} - {target_env_desc}"
+        #
+        #         fig_control_info.add_trace(go.Scatter(
+        #             x=test_steps,
+        #             y=mean_test_control_infos,
+        #             mode='lines',
+        #             name=f"{label} Mean Control Information",
+        #             line=dict(color=colors[color_idx], width=2),
+        #         ))
+        #
+        #         fig_control_info.add_trace(go.Scatter(
+        #             x=test_steps + test_steps[::-1],
+        #             y=(np.array(mean_test_control_infos) + np.array(std_test_control_infos)).tolist() +
+        #               (np.array(mean_test_control_infos) - np.array(std_test_control_infos))[::-1].tolist(),
+        #             fill='toself',
+        #             fillcolor=f"rgba({int(colors[color_idx][1:3], 16)}, "
+        #                       f"{int(colors[color_idx][3:5], 16)}, "
+        #                       f"{int(colors[color_idx][5:], 16)}, 0.2)",
+        #             line=dict(color='rgba(255,255,255,0)'),
+        #             name=f"{label} Control Information Std Dev",
+        #         ))
+        #
+        #         color_idx = (color_idx + 1) % len(colors)
+        #
+        # fig_control_info.update_layout(
+        #     title=f"Training Control Information for {task_name} towards {target_env_desc}",
+        #     xaxis_title="Steps",
+        #     yaxis_title="Average Control Information by Curriculum",
+        #     legend_title="Subtasks",
+        #     font=dict(size=14),
+        #     width=1200,
+        #     height=800,
+        # )
+        #
+        # plot_path_control_info = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)[
+        #                              "save_path"] + f"_training_control_info_cl-{target_env_desc}.png"
+        # fig_control_info.write_image(plot_path_control_info, scale=2)
+        #
+        # print(f"Saved evaluation plot for control information: {plot_path_control_info}")
+        #
+        # # Plot results for free energy
+        # fig_free_energy = go.Figure()
+        # color_idx = 0
+        #
+        # for prior_env_idx, target_envs in prior_envs.items():
+        #     for target_env_idx, subtask_data in target_envs.items():
+        #         if not subtask_data["mean_test_results"]:
+        #             continue  # Skip empty results
+        #
+        #         mean_test_free_energies = subtask_data["mean_test_free_energies"]
+        #         std_test_free_energies = subtask_data["std_test_free_energies"]
+        #         test_steps = subtask_data["test_steps"]
+        #
+        #         # Get environment description
+        #         if prior_env_idx != -1:
+        #             _, _, prior_env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, prior_env_idx)
+        #         else:
+        #             prior_env_desc = "scratch"
+        #         _, _, target_env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, target_env_idx)
+        #
+        #         # Label format: "Env X - Env Y"
+        #         label = f"{prior_env_desc} - {target_env_desc}"
+        #
+        #         # Add mean free energy curve
+        #         fig_free_energy.add_trace(go.Scatter(
+        #             x=test_steps,
+        #             y=mean_test_free_energies,
+        #             mode='lines',
+        #             name=f"{label} Mean Free Energy",
+        #             line=dict(color=colors[color_idx], width=2),
+        #         ))
+        #
+        #         # Add shaded area for std
+        #         fig_free_energy.add_trace(go.Scatter(
+        #             x=test_steps + test_steps[::-1],
+        #             y=(np.array(mean_test_free_energies) + np.array(std_test_free_energies)).tolist() +
+        #               (np.array(mean_test_free_energies) - np.array(std_test_free_energies))[::-1].tolist(),
+        #             fill='toself',
+        #             fillcolor=f"rgba({int(colors[color_idx][1:3], 16)}, "
+        #                       f"{int(colors[color_idx][3:5], 16)}, "
+        #                       f"{int(colors[color_idx][5:], 16)}, 0.2)",
+        #             line=dict(color='rgba(255,255,255,0)'),
+        #             name=f"{label} Free Energy Std Dev",
+        #         ))
+        #
+        #         color_idx = (color_idx + 1) % len(colors)
+        #
+        # # Customize layout for free energy
+        # fig_free_energy.update_layout(
+        #     title=f"Training Free Energy for {task_name} by Curriculum towards {target_env_desc}",
+        #     xaxis_title="Steps",
+        #     yaxis_title="Average Free Energy",
+        #     legend_title="Subtasks",
+        #     font=dict(size=14),
+        #     width=1200,
+        #     height=800,
+        # )
+        #
+        # # Save plot for free energy
+        # plot_path_free_energy = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)[
+        #                             "save_path"] + f"_training_free_energy_cl-{target_env_desc}.png"
+        # fig_free_energy.write_image(plot_path_free_energy, scale=2)
+        # print(f"Saved evaluation plot for free energy: {plot_path_free_energy}")
 
     return aggregated_results
 
@@ -1726,39 +1743,39 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
 if __name__ == '__main__':
     run_all_trainings_and_plot(
         task_names_and_num_experiments={"frozen_lake-44": 8,},
-        max_workers=25,
+        max_workers=27,
     )
     run_all_cl_training_and_plot(
         task_names_and_num_experiments={"frozen_lake-44": (8, 1),},
-        max_workers=25,
+        max_workers=27,
     )
     run_all_cl_evals_and_plot(
         task_names_and_num_experiments={"frozen_lake-44": (8, 1), },
-        max_workers=25,
+        max_workers=27,
     )
     run_all_trainings_and_plot(
         task_names_and_num_experiments={"frozen_lake-88": 8, },
-        max_workers=25,
+        max_workers=27,
     )
     run_all_cl_training_and_plot(
         task_names_and_num_experiments={"frozen_lake-88": (8, 1), },
-        max_workers=25,
+        max_workers=27,
     )
     run_all_cl_evals_and_plot(
         task_names_and_num_experiments={"frozen_lake-88": (8, 1), },
-        max_workers=25,
+        max_workers=27,
     )
     run_all_trainings_and_plot(
         task_names_and_num_experiments={"frozen_lake-custom": 8, },
-        max_workers=25,
+        max_workers=27,
     )
     run_all_cl_training_and_plot(
         task_names_and_num_experiments={"frozen_lake-custom": (8, 3), },
-        max_workers=25,
+        max_workers=27,
     )
     run_all_cl_evals_and_plot(
         task_names_and_num_experiments={"frozen_lake-custom": (8, 3), },
-        max_workers=25,
+        max_workers=27,
     )
     run_all_trainings_and_plot(
         task_names_and_num_experiments={"mountaincar-custom": 3, },
@@ -1770,7 +1787,7 @@ if __name__ == '__main__':
     )
     run_all_cl_evals_and_plot(
         task_names_and_num_experiments={"mountaincar-custom": (3, 0), },
-        max_workers=24,
+        max_workers=27,
     )
     run_all_trainings_and_plot(
         task_names_and_num_experiments={"acrobot-custom": 3, },
@@ -1782,5 +1799,5 @@ if __name__ == '__main__':
     )
     run_all_cl_evals_and_plot(
         task_names_and_num_experiments={"acrobot-custom": (3, 0), },
-        max_workers=24,
+        max_workers=27,
     )
