@@ -2248,9 +2248,19 @@ class Agent:
             action_probabilities = self.exploit_agent.get_action_probabilities(state)
             if isinstance(self.action_discretizer.get_gym_space(), spaces.Discrete):
                 # Greedy discrete action
+                # Find the maximum probability action
                 greedy_action = np.argmax(action_probabilities)
+                max_prob = action_probabilities[greedy_action]
+
+                # Find all actions whose probability is at least 99% of the maximum probability
+                optimal_actions = np.where(action_probabilities >= 0.99 * max_prob)[0]
+
+                # Create a new greedy distribution where all optimal actions share the probability equally
                 greedy_distribution = np.zeros_like(action_probabilities)
-                greedy_distribution[greedy_action] = 1.0
+                greedy_distribution[optimal_actions] = 1.0 / len(optimal_actions)  # Equally distribute probability
+
+                # Normalize to ensure sum = 1
+                greedy_distribution /= np.sum(greedy_distribution)
 
                 # Default distribution
                 if default_policy_func is None:
@@ -2272,10 +2282,24 @@ class Agent:
                     action_distribution = self.exploit_agent.policy.get_distribution(torch.tensor(state).unsqueeze(0).to(self.exploit_agent.policy.device))
                     logits = action_distribution.distribution.logits.cpu().squeeze().numpy()
 
-                # Greedy distribution
-                greedy_action = np.argmax(logits)
-                greedy_distribution = np.zeros_like(logits)
-                greedy_distribution[greedy_action] = 1.0
+                # Compute softmax probabilities with numerical stability
+                probabilities = np.exp(logits) / (np.sum(np.exp(logits)) + 1e-10)
+
+                # Find the maximum probability action
+                greedy_action = np.argmax(probabilities)
+                max_prob = probabilities[greedy_action]
+
+                # Find all actions whose probability is at least 99% of the maximum probability
+                optimal_actions = np.where(probabilities >= 0.99 * max_prob)[0]
+
+                # Create a new greedy distribution
+                greedy_distribution = np.zeros_like(probabilities)
+
+                # Assign equal probability to all optimal actions
+                greedy_distribution[optimal_actions] = 1.0 / len(optimal_actions)
+
+                # Normalize to ensure sum = 1
+                greedy_distribution /= np.sum(greedy_distribution)
 
                 # Default distribution
                 if default_policy_func is None:
