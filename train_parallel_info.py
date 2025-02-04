@@ -964,7 +964,7 @@ def run_all_cl_training_and_plot(task_names_and_num_experiments: Dict[str, Tuple
         # Customize layout
         fig.update_layout(
             title=f"Training Results for {task_name} by Curriculum towards {target_env_desc}",
-            xaxis_title="Weight (p)",
+            xaxis_title="Steps",
             yaxis_title="Average Test Reward",
             legend_title="Subtasks",
             font=dict(size=14),
@@ -1724,30 +1724,34 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
 
 
 if __name__ == '__main__':
-    # run_all_trainings_and_plot(
-    #     task_names_and_num_experiments={"frozen_lake-44": 16,},
-    #     max_workers=16,
-    # )
-    # run_all_evals_and_plot(
-    #     task_names_and_num_experiments={"frozen_lake-44": 16,},
-    #     max_workers=16,
-    # )
-    # run_all_trainings_and_plot(
-    #     task_names_and_num_experiments={"frozen_lake-88": 16,},
-    #     max_workers=16,
-    # )
-    # run_all_evals_and_plot(
-    #     task_names_and_num_experiments={"frozen_lake-88": 16,},
-    #     max_workers=16,
-    # )
+    run_all_trainings_and_plot(
+        task_names_and_num_experiments={"frozen_lake-44": 16,},
+        max_workers=16,
+    )
+    run_all_cl_training_and_plot(
+        task_names_and_num_experiments={"frozen_lake-44": (16, 1),},
+        max_workers=16,
+    )
+    run_all_cl_evals_and_plot(
+        task_names_and_num_experiments={"frozen_lake-44": (16, 1), },
+        max_workers=16,
+    )
+    run_all_trainings_and_plot(
+        task_names_and_num_experiments={"frozen_lake-88": 16, },
+        max_workers=16,
+    )
+    run_all_cl_training_and_plot(
+        task_names_and_num_experiments={"frozen_lake-88": (16, 1), },
+        max_workers=16,
+    )
+    run_all_cl_evals_and_plot(
+        task_names_and_num_experiments={"frozen_lake-88": (16, 1), },
+        max_workers=16,
+    )
     run_all_trainings_and_plot(
         task_names_and_num_experiments={"frozen_lake-custom": 16, },
         max_workers=25,
     )
-    # run_all_evals_and_plot(
-    #     task_names_and_num_experiments={"frozen_lake-custom": 4, },
-    #     max_workers=24,
-    # )
     run_all_cl_training_and_plot(
         task_names_and_num_experiments={"frozen_lake-custom": (16, 3), },
         max_workers=25,
@@ -1756,23 +1760,27 @@ if __name__ == '__main__':
         task_names_and_num_experiments={"frozen_lake-custom": (16, 3), },
         max_workers=25,
     )
-    # run_all_trainings_and_plot(
-    #     task_names_and_num_experiments={"mountaincar-custom": 6, },
-    #     max_workers=6,
-    # )
-    # run_all_evals_and_plot(
-    #     task_names_and_num_experiments={"mountaincar-custom": 6, },
-    #     max_workers=24,
-    # )
-    # run_all_trainings_and_plot(
-    #     task_names_and_num_experiments={"acrobot-custom": 12, },
-    #     max_workers=6,
-    # )
-    # run_all_evals_and_plot(
-    #     task_names_and_num_experiments={"acrobot-custom": 12, },
-    #     max_workers=12,
-    # )
-    # run_all_cl_evals_and_plot(
-    #     task_names_and_num_experiments={"mountaincar-custom": (6, 0), },
-    #     max_workers=24,
-    # )
+    run_all_trainings_and_plot(
+        task_names_and_num_experiments={"mountaincar-custom": 3, },
+        max_workers=6,
+    )
+    run_all_cl_training_and_plot(
+        task_names_and_num_experiments={"mountaincar-custom": (3, 0), },
+        max_workers=6,
+    )
+    run_all_cl_evals_and_plot(
+        task_names_and_num_experiments={"mountaincar-custom": (3, 0), },
+        max_workers=24,
+    )
+    run_all_trainings_and_plot(
+        task_names_and_num_experiments={"acrobot-custom": 3, },
+        max_workers=6,
+    )
+    run_all_cl_training_and_plot(
+        task_names_and_num_experiments={"acrobot-custom": (3, 0), },
+        max_workers=6,
+    )
+    run_all_cl_evals_and_plot(
+        task_names_and_num_experiments={"acrobot-custom": (3, 0), },
+        max_workers=24,
+    )
