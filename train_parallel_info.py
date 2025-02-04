@@ -43,11 +43,11 @@ def run_training(task_name: str, env_idx: int, run_id: int,):
     #     configs["exploit_policy_reward_rate"],
     # )
 
-    # if "fast_exploit_policy_training_steps" in configs.keys():
-    #     exploit_policy_training_steps = configs["fast_exploit_policy_training_steps"]
-    # else:
-    #     exploit_policy_training_steps = configs["exploit_policy_training_steps"]
-    exploit_policy_training_steps = configs["exploit_policy_training_steps"]
+    if "fast_exploit_policy_training_steps" in configs.keys():
+        exploit_policy_training_steps = configs["fast_exploit_policy_training_steps"]
+    else:
+        exploit_policy_training_steps = configs["exploit_policy_training_steps"]
+    # exploit_policy_training_steps = configs["exploit_policy_training_steps"]
 
     pbar = tqdm(
         total=exploit_policy_training_steps,
@@ -518,7 +518,7 @@ def run_cl_eval(task_name: str, prior_env_idx: int, target_env_idx: int, prior_r
     else:
         pass  # not implemented yet
 
-    weights = np.linspace(0, 1, 25)
+    weights = np.linspace(0, 1, 100)
 
     pbar = tqdm(
         total=len(weights),
@@ -1745,6 +1745,10 @@ if __name__ == '__main__':
         task_names_and_num_experiments={"frozen_lake-44": 8,},
         max_workers=27,
     )
+    run_all_evals_and_plot(
+        task_names_and_num_experiments={"frozen_lake-44": 8, },
+        max_workers=27,
+    )
     run_all_cl_training_and_plot(
         task_names_and_num_experiments={"frozen_lake-44": (8, 1),},
         max_workers=27,
@@ -1753,7 +1757,12 @@ if __name__ == '__main__':
         task_names_and_num_experiments={"frozen_lake-44": (8, 1), },
         max_workers=27,
     )
+
     run_all_trainings_and_plot(
+        task_names_and_num_experiments={"frozen_lake-88": 8, },
+        max_workers=27,
+    )
+    run_all_evals_and_plot(
         task_names_and_num_experiments={"frozen_lake-88": 8, },
         max_workers=27,
     )
@@ -1765,7 +1774,12 @@ if __name__ == '__main__':
         task_names_and_num_experiments={"frozen_lake-88": (8, 1), },
         max_workers=27,
     )
+
     run_all_trainings_and_plot(
+        task_names_and_num_experiments={"frozen_lake-custom": 8, },
+        max_workers=27,
+    )
+    run_all_evals_and_plot(
         task_names_and_num_experiments={"frozen_lake-custom": 8, },
         max_workers=27,
     )
@@ -1777,7 +1791,12 @@ if __name__ == '__main__':
         task_names_and_num_experiments={"frozen_lake-custom": (8, 3), },
         max_workers=27,
     )
+
     run_all_trainings_and_plot(
+        task_names_and_num_experiments={"mountaincar-custom": 3, },
+        max_workers=6,
+    )
+    run_all_evals_and_plot(
         task_names_and_num_experiments={"mountaincar-custom": 3, },
         max_workers=6,
     )
@@ -1789,7 +1808,12 @@ if __name__ == '__main__':
         task_names_and_num_experiments={"mountaincar-custom": (3, 0), },
         max_workers=27,
     )
+
     run_all_trainings_and_plot(
+        task_names_and_num_experiments={"acrobot-custom": 3, },
+        max_workers=6,
+    )
+    run_all_evals_and_plot(
         task_names_and_num_experiments={"acrobot-custom": 3, },
         max_workers=6,
     )
