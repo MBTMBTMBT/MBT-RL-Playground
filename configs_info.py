@@ -49,6 +49,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             "use_balanced_random_init": False,
             "quick_test_threshold": 0.1,
             "quick_test_num_episodes": 25,
+            "early_stop_counts": 10,
         }
 
     elif name == "frozen_lake-88":
@@ -96,6 +97,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             "use_balanced_random_init": False,
             "quick_test_threshold": 0.1,
             "quick_test_num_episodes": 25,
+            "early_stop_counts": 5,
         }
 
     elif name == "frozen_lake-custom":
@@ -238,8 +240,8 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             "exploit_softmax_temperature": 1.0,
             "exploit_policy_reward_rate": 1,
             "exploit_value_decay": 0.99,
-            "fast_exploit_policy_training_steps": int(200e3),
-            "exploit_policy_training_steps": int(300e3),
+            "fast_exploit_policy_training_steps": int(100e3),
+            "exploit_policy_training_steps": int(100e3),
             "exploit_policy_test_per_num_steps": int(0.5e3),
             "exploit_policy_test_episodes": 100,
             "exploit_policy_eval_episodes": 250,
@@ -250,6 +252,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             "use_balanced_random_init": False,
             "quick_test_threshold": 0.1,
             "quick_test_num_episodes": 25,
+            "early_stop_counts": 10,
         }
 
     elif name == "mountaincar-custom":
@@ -310,26 +313,6 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                 reward_type="sparse",
                 render_mode="rgb_array",
             ),
-    # run_all_trainings_and_plot(
-    #     task_names_and_num_experiments={"mountaincar-custom": 6, },
-    #     max_workers=6,
-    # )
-    # run_all_evals_and_plot(
-    #     task_names_and_num_experiments={"mountaincar-custom": 6, },
-    #     max_workers=24,
-    # )
-    # run_all_trainings_and_plot(
-    #     task_names_and_num_experiments={"acrobot-custom": 12, },
-    #     max_workers=6,
-    # )
-    # run_all_evals_and_plot(
-    #     task_names_and_num_experiments={"acrobot-custom": 12, },
-    #     max_workers=12,
-    # )
-    # run_all_cl_evals_and_plot(
-    #     task_names_and_num_experiments={"mountaincar-custom": (6, 0), },
-    #     max_workers=24,
-    # )
         ]
         test_envs = envs
         env_descs = [
@@ -454,6 +437,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             "use_balanced_random_init": True,
             "quick_test_threshold": 0.33,
             "quick_test_num_episodes": 25,
+            "early_stop_counts": 5,
         }
 
     else:
