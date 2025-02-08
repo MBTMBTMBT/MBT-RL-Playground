@@ -1776,19 +1776,19 @@ if __name__ == '__main__':
     )
 
     run_all_trainings_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": 8, },
+        task_names_and_num_experiments={"frozen_lake-custom": 4, },
         max_workers=27,
     )
     run_all_evals_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": 8, },
+        task_names_and_num_experiments={"frozen_lake-custom": 4, },
         max_workers=27,
     )
     run_all_cl_training_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": (8, 3), },
+        task_names_and_num_experiments={"frozen_lake-custom": (4, 7), },
         max_workers=27,
     )
     run_all_cl_evals_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": (8, 3), },
+        task_names_and_num_experiments={"frozen_lake-custom": (4, 7), },
         max_workers=27,
     )
 
