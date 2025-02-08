@@ -29,7 +29,7 @@ def run_2_stage_cl_training(task_name: str, prior_env_idx: int, target_env_idx: 
     agent = Agent(
         state_discretizer,
         action_discretizer,
-        target_env,
+        prior_env if not prior_env_idx == -1 else target_env,
         configs["use_deep_agent"],
         configs["train_max_num_steps_per_episode"],
         (1.0, 0.0),  # do not use re-initialization strategy
@@ -58,10 +58,11 @@ def run_2_stage_cl_training(task_name: str, prior_env_idx: int, target_env_idx: 
     test_envs = [prior_test_env, target_test_env] if not prior_env_idx == -1 else [target_test_env]
 
     first_test = True
-    last_avg_reward = -np.inf
+    best_avg_reward = None
     no_improvement_count = 0  # Counter for early stopping based on test results
 
     for idx, env in enumerate(envs):
+        agent.exploit_agent.set_env(env)
         while sample_step_count < configs["exploit_policy_training_steps"]:
             # Train the agent for a fixed number of steps before evaluation
             if not first_test:
@@ -99,26 +100,28 @@ def run_2_stage_cl_training(task_name: str, prior_env_idx: int, target_env_idx: 
             })
             pbar.update(configs["exploit_policy_test_per_num_steps"])
 
+            if best_avg_reward is None:
+                best_avg_reward = avg_test_reward
+
             # Ignore the first test result when considering early stopping
             if not first_test:
-                if avg_test_reward <= last_avg_reward:
+                if avg_test_reward < best_avg_reward:
                     no_improvement_count += 1
                 else:
                     no_improvement_count = 0  # Reset counter if reward improves
-
-                last_avg_reward = avg_test_reward
+                    best_avg_reward = avg_test_reward
 
                 # Stop training if performance does not improve for 'early_stop_counts' evaluations
-                if no_improvement_count >= early_stop_counts:
+                if idx != len(envs) - 1 and no_improvement_count >= early_stop_counts:
                     print(f"Early stopping after {sample_step_count} steps")
                     break
 
-            if idx != len(envs) - 1 and sample_step_count >= force_to_proceed_steps:
-                print(f"Force to proceed after {sample_step_count} steps")
-                break
+                if idx != len(envs) - 1 and sample_step_count >= force_to_proceed_steps:
+                    print(f"Force to proceed after {sample_step_count} steps")
+                    break
 
         # Record when training switches from the prior environment to the target environment
-        if env == prior_env:
+        if idx != len(envs) - 1:
             prior_end_step = sample_step_count
 
     pbar.close()
@@ -131,7 +134,7 @@ def run_2_stage_cl_training_unpack(args):
 
 
 # Aggregating results for consistent step-based plotting
-def run_all_trainings_and_plot(task_names_and_num_experiments: Dict[str, int], max_workers):
+def run_all_2_stage_cl_training_and_plot(task_names_and_num_experiments: Dict[str, Tuple[int, int]], max_workers):
     run_id = 0
 
     # Store all run IDs by task_name and prior_env_idx
@@ -156,7 +159,7 @@ def run_all_trainings_and_plot(task_names_and_num_experiments: Dict[str, int], m
 
     # Construct the paired task list for training comparison
     paired_tasks = []
-
+    run_id = 0
     for task_name, task_data in all_task_runs.items():
         env_run_ids = task_data["env_run_ids"]
         target_env_idx = task_data["target_env_idx"]  # The designated target environment
@@ -171,9 +174,9 @@ def run_all_trainings_and_plot(task_names_and_num_experiments: Dict[str, int], m
                     "task_name": task_name,
                     "prior_env_idx": -1,
                     "target_env_idx": target_env_idx,
-                    "prior_run_id": -1,
-                    "target_run_id": target_run_id,
+                    "run_id": run_id,
                 })
+                run_id += 1
 
             # Pair each prior environment run_id with all target environment run_ids
             for prior_run_id in prior_run_ids:
@@ -182,9 +185,9 @@ def run_all_trainings_and_plot(task_names_and_num_experiments: Dict[str, int], m
                         "task_name": task_name,
                         "prior_env_idx": prior_env_idx,
                         "target_env_idx": target_env_idx,
-                        "prior_run_id": prior_run_id,
-                        "target_run_id": target_run_id,
+                        "run_id": run_id,
                     })
+                    run_id += 1
 
     print(f"Total tasks: {len(paired_tasks)}.")
 
@@ -210,12 +213,14 @@ def run_all_trainings_and_plot(task_names_and_num_experiments: Dict[str, int], m
         if target_env_idx not in grouped_results[task_name][prior_env_idx]:
             grouped_results[task_name][prior_env_idx][target_env_idx] = {
                 "test_results": [],
-                "test_steps": []
+                "test_steps": [],
+                "prior_end_step": 0  # Store as a single integer
             }
 
         # Append results to the corresponding group
         grouped_results[task_name][prior_env_idx][target_env_idx]["test_results"].append(test_results)
         grouped_results[task_name][prior_env_idx][target_env_idx]["test_steps"].append(test_steps)
+        grouped_results[task_name][prior_env_idx][target_env_idx]["prior_end_step"] = prior_end_step  # Directly assign
 
     # Aggregate data for each task_name, prior_env_idx, and target_env_idx
     aggregated_results = {}
@@ -234,6 +239,7 @@ def run_all_trainings_and_plot(task_names_and_num_experiments: Dict[str, int], m
                 # Convert lists to numpy arrays
                 test_results_array = np.array(data["test_results"])
                 test_steps = data["test_steps"][0]
+                prior_end_step = data["prior_end_step"]  # Retrieve as int
 
                 # Compute mean and std
                 mean_test_results = test_results_array.mean(axis=0)
@@ -244,6 +250,7 @@ def run_all_trainings_and_plot(task_names_and_num_experiments: Dict[str, int], m
                     "mean_test_results": mean_test_results.tolist(),
                     "std_test_results": std_test_results.tolist(),
                     "test_steps": test_steps,
+                    "prior_end_step": prior_end_step,  # Keep as int
                 }
 
             # Remove empty prior_env_idx
@@ -258,7 +265,7 @@ def run_all_trainings_and_plot(task_names_and_num_experiments: Dict[str, int], m
     colors = [
         '#1f77b4', '#2ca02c', '#d62728', '#ff7f0e', '#9467bd',
         '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf',
-    ]  # Hex color codes  # Hex color codes
+    ]  # Hex color codes
 
     # Iterate over task_name, prior_env_idx, and target_env_idx
     for task_name, prior_envs in aggregated_results.items():
@@ -276,6 +283,7 @@ def run_all_trainings_and_plot(task_names_and_num_experiments: Dict[str, int], m
                 mean_test_results = subtask_data["mean_test_results"]
                 std_test_results = subtask_data["std_test_results"]
                 test_steps = subtask_data["test_steps"]
+                prior_end_step = subtask_data["prior_end_step"]  # Retrieve as int
 
                 # Get environment description
                 if prior_env_idx != -1:
@@ -296,7 +304,7 @@ def run_all_trainings_and_plot(task_names_and_num_experiments: Dict[str, int], m
                     line=dict(color=colors[color_idx], width=2),
                 ))
 
-                # Add shaded area for std
+                # Add shaded area for std deviation
                 fig.add_trace(go.Scatter(
                     x=test_steps + test_steps[::-1],  # Create a filled region
                     y=(np.array(mean_test_results) + np.array(std_test_results)).tolist() +
@@ -309,7 +317,30 @@ def run_all_trainings_and_plot(task_names_and_num_experiments: Dict[str, int], m
                     name=f"{label} Std Dev",
                 ))
 
-                color_idx = (color_idx + 1) % len(colors)
+                # Add vertical line for prior_end_step
+                if prior_env_idx != -1:
+                    fig.add_trace(go.Scatter(
+                        x=[prior_end_step, prior_end_step],  # Vertical line at prior_end_step
+                        y=[min(mean_test_results), max(mean_test_results)],  # Span y-axis range
+                        mode="lines",
+                        line=dict(color="black", dash="dash"),  # Dashed black line
+                        name=f"Env Transition (Step {prior_end_step})",
+                    ))
+
+                    # Add annotation for prior_end_step
+                    annotation_offset = 20 + (color_idx % 3) * 15  # Offset to avoid overlapping
+                    fig.add_annotation(
+                        x=prior_end_step,
+                        y=max(mean_test_results) + annotation_offset,  # Offset in y-direction
+                        text=f"Step {prior_end_step}",
+                        showarrow=True,
+                        arrowhead=2,
+                        font=dict(size=12, color="black"),
+                        ax=20,
+                        ay=-30,
+                    )
+
+            color_idx = (color_idx + 1) % len(colors)
 
         # Customize layout
         fig.update_layout(
@@ -324,8 +355,15 @@ def run_all_trainings_and_plot(task_names_and_num_experiments: Dict[str, int], m
 
         # Save plot to file
         plot_path = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)[
-                        "save_path"] + f"_training_eval_cl-{target_env_desc}.png"
+                        "save_path"] + f"_training_cl-{target_env_desc}.png"
         fig.write_image(plot_path, scale=2)  # High-resolution PNG
         print(f"Saved evaluation plot for {task_name} at {plot_path}")
 
     return aggregated_results
+
+
+if __name__ == '__main__':
+    run_all_2_stage_cl_training_and_plot(
+        task_names_and_num_experiments={"frozen_lake-custom": (2, 7), },
+        max_workers=27,
+    )
