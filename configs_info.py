@@ -182,7 +182,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                 desc=descs[0],
                 map_name=None,
                 is_slippery=True,
-                slipperiness=0.90,
+                slipperiness=0.30,
                 render_mode="rgb_array",
             ),
             dict(
@@ -190,7 +190,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                 desc=descs[1],
                 map_name=None,
                 is_slippery=True,
-                slipperiness=0.90,
+                slipperiness=0.30,
                 render_mode="rgb_array",
             ),
             dict(
@@ -198,7 +198,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                 desc=descs[2],
                 map_name=None,
                 is_slippery=True,
-                slipperiness=0.90,
+                slipperiness=0.30,
                 render_mode="rgb_array",
             ),
             dict(
@@ -206,7 +206,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                 desc=descs[3],
                 map_name=None,
                 is_slippery=True,
-                slipperiness=0.90,
+                slipperiness=0.30,
                 render_mode="rgb_array",
             ),
         ]
@@ -216,10 +216,10 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             "difficulty-2-sl10",
             "difficulty-3-sl10",
             "difficulty-4-sl10",
-            "difficulty-1-sl90",
-            "difficulty-2-sl90",
-            "difficulty-3-sl90",
-            "difficulty-4-sl90",
+            "difficulty-1-sl30",
+            "difficulty-2-sl30",
+            "difficulty-3-sl30",
+            "difficulty-4-sl30",
         ]
         state_discretizer = Discretizer(
             ranges=[(0, gym.make(**envs[0]).observation_space.n)],
@@ -252,7 +252,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             "use_balanced_random_init": False,
             "quick_test_threshold": 0.1,
             "quick_test_num_episodes": 25,
-            "early_stop_counts": 10,
+            "early_stop_counts": 5,
         }
 
     elif name == "mountaincar-custom":

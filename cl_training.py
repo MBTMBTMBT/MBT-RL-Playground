@@ -23,6 +23,8 @@ def run_2_stage_cl_training(task_name: str, prior_env_idx: int, target_env_idx: 
         = get_envs_discretizers_and_configs(task_name, target_env_idx)
     dir_path = os.path.dirname(configs["save_path"])
     os.makedirs(dir_path, exist_ok=True)
+    prior_save_path = configs["save_path"] + f"-{prior_env_desc}-id-{run_id}"
+    target_save_path = configs["save_path"] + f"-{target_env_desc}-id-{run_id}"
     early_stop_counts = configs["early_stop_counts"]
     force_to_proceed_steps = int(configs["exploit_policy_training_steps"] // 3 * 2)
 
@@ -56,6 +58,7 @@ def run_2_stage_cl_training(task_name: str, prior_env_idx: int, target_env_idx: 
 
     envs = [prior_env, target_env] if not prior_env_idx == -1 else [target_env]
     test_envs = [prior_test_env, target_test_env] if not prior_env_idx == -1 else [target_test_env]
+    save_paths = [prior_save_path, target_save_path] if not prior_env_idx == -1 else [target_save_path]
 
     first_test = True
     best_avg_reward = None
@@ -63,6 +66,7 @@ def run_2_stage_cl_training(task_name: str, prior_env_idx: int, target_env_idx: 
 
     for idx, env in enumerate(envs):
         agent.exploit_agent.set_env(env)
+        frames = []
         while sample_step_count < configs["exploit_policy_training_steps"]:
             # Train the agent for a fixed number of steps before evaluation
             if not first_test:
@@ -72,7 +76,8 @@ def run_2_stage_cl_training(task_name: str, prior_env_idx: int, target_env_idx: 
             # Evaluate the agent after each training phase
             periodic_test_rewards = []
 
-            for _ in range(configs["exploit_policy_eval_episodes"]):
+            frames = []
+            for t in range(configs["exploit_policy_eval_episodes"]):
                 test_state, _ = test_envs[idx].reset()
                 test_total_reward = 0
                 test_done = False
@@ -81,6 +86,8 @@ def run_2_stage_cl_training(task_name: str, prior_env_idx: int, target_env_idx: 
                 while not test_done:
                     test_action = agent.choose_action(test_state, greedy=True)
                     test_next_state, test_reward, test_done, test_truncated, _ = test_envs[idx].step(test_action)
+                    if t == 0:
+                        frames.append(test_envs[idx].render())
                     trajectory.append(test_next_state)
                     test_state = test_next_state
                     test_total_reward += test_reward
@@ -105,7 +112,7 @@ def run_2_stage_cl_training(task_name: str, prior_env_idx: int, target_env_idx: 
 
             # Ignore the first test result when considering early stopping
             if not first_test:
-                if avg_test_reward < best_avg_reward:
+                if avg_test_reward < best_avg_reward or best_avg_reward >= 0.99:
                     no_improvement_count += 1
                 else:
                     no_improvement_count = 0  # Reset counter if reward improves
@@ -116,9 +123,21 @@ def run_2_stage_cl_training(task_name: str, prior_env_idx: int, target_env_idx: 
                     print(f"Early stopping after {sample_step_count} steps")
                     break
 
+                # if idx != len(envs) - 1 and best_avg_reward >= 0.99:
+                #     print(f"Early stopping after {sample_step_count} steps")
+                #     break
+
                 if idx != len(envs) - 1 and sample_step_count >= force_to_proceed_steps:
                     print(f"Force to proceed after {sample_step_count} steps")
                     break
+
+        # Save GIF for the first test episode
+        if len(frames) > 0:
+            gif_path = save_paths[idx] + f"_final.gif"
+            try:
+                generate_test_gif(frames, gif_path, to_print=configs["print_training_info"])
+            except Exception as e:
+                print(f"Error generating GIF: {e}")
 
         # Record when training switches from the prior environment to the target environment
         if idx != len(envs) - 1:
@@ -214,13 +233,13 @@ def run_all_2_stage_cl_training_and_plot(task_names_and_num_experiments: Dict[st
             grouped_results[task_name][prior_env_idx][target_env_idx] = {
                 "test_results": [],
                 "test_steps": [],
-                "prior_end_step": 0  # Store as a single integer
+                "prior_end_steps": [],
             }
 
         # Append results to the corresponding group
         grouped_results[task_name][prior_env_idx][target_env_idx]["test_results"].append(test_results)
         grouped_results[task_name][prior_env_idx][target_env_idx]["test_steps"].append(test_steps)
-        grouped_results[task_name][prior_env_idx][target_env_idx]["prior_end_step"] = prior_end_step  # Directly assign
+        grouped_results[task_name][prior_env_idx][target_env_idx]["prior_end_steps"].append(prior_end_step)  # Directly assign
 
     # Aggregate data for each task_name, prior_env_idx, and target_env_idx
     aggregated_results = {}
@@ -239,7 +258,7 @@ def run_all_2_stage_cl_training_and_plot(task_names_and_num_experiments: Dict[st
                 # Convert lists to numpy arrays
                 test_results_array = np.array(data["test_results"])
                 test_steps = data["test_steps"][0]
-                prior_end_step = data["prior_end_step"]  # Retrieve as int
+                prior_end_steps = data["prior_end_steps"]  # Retrieve as int
 
                 # Compute mean and std
                 mean_test_results = test_results_array.mean(axis=0)
@@ -250,7 +269,7 @@ def run_all_2_stage_cl_training_and_plot(task_names_and_num_experiments: Dict[st
                     "mean_test_results": mean_test_results.tolist(),
                     "std_test_results": std_test_results.tolist(),
                     "test_steps": test_steps,
-                    "prior_end_step": prior_end_step,  # Keep as int
+                    "prior_end_steps": prior_end_steps,
                 }
 
             # Remove empty prior_env_idx
@@ -283,7 +302,7 @@ def run_all_2_stage_cl_training_and_plot(task_names_and_num_experiments: Dict[st
                 mean_test_results = subtask_data["mean_test_results"]
                 std_test_results = subtask_data["std_test_results"]
                 test_steps = subtask_data["test_steps"]
-                prior_end_step = subtask_data["prior_end_step"]  # Retrieve as int
+                prior_end_steps = subtask_data["prior_end_steps"]  # Retrieve as int
 
                 # Get environment description
                 if prior_env_idx != -1:
@@ -317,28 +336,36 @@ def run_all_2_stage_cl_training_and_plot(task_names_and_num_experiments: Dict[st
                     name=f"{label} Std Dev",
                 ))
 
-                # Add vertical line for prior_end_step
+                # Ensure prior_end_steps are plotted only if prior_env_idx != -1
                 if prior_env_idx != -1:
-                    fig.add_trace(go.Scatter(
-                        x=[prior_end_step, prior_end_step],  # Vertical line at prior_end_step
-                        y=[min(mean_test_results), max(mean_test_results)],  # Span y-axis range
-                        mode="lines",
-                        line=dict(color="black", dash="dash"),  # Dashed black line
-                        name=f"Env Transition (Step {prior_end_step})",
-                    ))
+                    for idx, step in enumerate(prior_end_steps):
+                        line_color = colors[idx % len(colors)]  # Use different colors for each step
 
-                    # Add annotation for prior_end_step
-                    annotation_offset = 20 + (color_idx % 3) * 15  # Offset to avoid overlapping
-                    fig.add_annotation(
-                        x=prior_end_step,
-                        y=max(mean_test_results) + annotation_offset,  # Offset in y-direction
-                        text=f"Step {prior_end_step}",
-                        showarrow=True,
-                        arrowhead=2,
-                        font=dict(size=12, color="black"),
-                        ax=20,
-                        ay=-30,
-                    )
+                        # Draw vertical line for each prior_end_step
+                        fig.add_trace(go.Scatter(
+                            x=[step, step],  # Vertical line at step
+                            y=[min(mean_test_results), max(mean_test_results)],  # Span y-axis range
+                            mode="lines",
+                            line=dict(color=line_color, dash="dash"),  # Different color dashed line
+                            name=f"Env Transition (Step {step})",
+                            showlegend=False,
+                        ))
+
+                        # # Compute dynamic annotation offset
+                        # y_range = max(mean_test_results) - min(mean_test_results)
+                        # annotation_offset = y_range * 0.05 * ((idx % 3) - 1)  # Avoid overlap
+                        #
+                        # # Add annotation for each step
+                        # fig.add_annotation(
+                        #     x=step,
+                        #     y=max(mean_test_results) + annotation_offset,
+                        #     text=f"Step {step}",
+                        #     showarrow=True,
+                        #     arrowhead=2,
+                        #     font=dict(size=12, color=line_color),
+                        #     ax=20,
+                        #     ay=-30,
+                        # )
 
             color_idx = (color_idx + 1) % len(colors)
 
