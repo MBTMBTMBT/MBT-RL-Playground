@@ -339,7 +339,7 @@ def run_all_2_stage_cl_training_and_plot(task_names_and_num_experiments: Dict[st
                 # Ensure prior_end_steps are plotted only if prior_env_idx != -1
                 if prior_env_idx != -1:
                     for idx, step in enumerate(prior_end_steps):
-                        line_color = colors[idx % len(colors)]  # Use different colors for each step
+                        line_color = colors[color_idx]  # Use different colors for each step
 
                         # Draw vertical line for each prior_end_step
                         fig.add_trace(go.Scatter(
