@@ -133,11 +133,13 @@ def run_2_stage_cl_training(task_name: str, prior_env_idx: int, target_env_idx: 
 
         # Save GIF for the first test episode
         if len(frames) > 0:
-            gif_path = save_paths[idx] + f"_final.gif"
+            gif_path = save_paths[idx] + f".gif"
             try:
                 generate_test_gif(frames, gif_path, to_print=configs["print_training_info"])
             except Exception as e:
                 print(f"Error generating GIF: {e}")
+
+        agent.save_agent(save_paths[idx])
 
         # Record when training switches from the prior environment to the target environment
         if idx != len(envs) - 1:
@@ -391,6 +393,6 @@ def run_all_2_stage_cl_training_and_plot(task_names_and_num_experiments: Dict[st
 
 if __name__ == '__main__':
     run_all_2_stage_cl_training_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": (2, 7), },
+        task_names_and_num_experiments={"frozen_lake-custom": (8, 7), },
         max_workers=27,
     )
