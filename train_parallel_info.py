@@ -815,13 +815,13 @@ def run_all_cl_training_and_plot(task_names_and_num_experiments: Dict[str, Tuple
             # Pair each prior environment run_id with all target environment run_ids
             for prior_run_id in prior_run_ids:
                 for target_run_id in target_run_ids:
-                    # paired_tasks.append({
-                    #     "task_name": task_name,
-                    #     "prior_env_idx": -1,
-                    #     "target_env_idx": prior_env_idx,
-                    #     "prior_run_id": -1,
-                    #     "target_run_id": prior_run_id,
-                    # })
+                    paired_tasks.append({
+                        "task_name": task_name,
+                        "prior_env_idx": -1,
+                        "target_env_idx": prior_env_idx,
+                        "prior_run_id": -1,
+                        "target_run_id": prior_run_id,
+                    })
                     paired_tasks.append({
                         "task_name": task_name,
                         "prior_env_idx": prior_env_idx,
