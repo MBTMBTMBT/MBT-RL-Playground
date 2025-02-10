@@ -369,7 +369,7 @@ def run_eval(task_name: str, env_idx: int, run_id: int):
     else:
         pass  # not implemented yet
 
-    weights = np.linspace(0, 1, 100)
+    weights = np.linspace(0, 1, 25)
 
     pbar = tqdm(
         total=len(weights),
@@ -518,7 +518,7 @@ def run_cl_eval(task_name: str, prior_env_idx: int, target_env_idx: int, prior_r
     else:
         pass  # not implemented yet
 
-    weights = np.linspace(0, 1, 100)
+    weights = np.linspace(0, 1, 25)
 
     pbar = tqdm(
         total=len(weights),
@@ -563,15 +563,19 @@ def run_cl_eval(task_name: str, prior_env_idx: int, target_env_idx: int, prior_r
             if isinstance(action_space, spaces.Discrete):
                 for state in trajectory:
                     if prior_env_idx != -1 and prior_run_id != -1:
-                        weighted_action_distribution = target_agent.get_greedy_weighted_action_distribution(
-                            state, p, default_policy_func=prior_agent.get_greedy_weighted_action_distribution,
-                        )
-                        default_action_distribution = prior_agent.get_greedy_weighted_action_distribution(state, p=1.0)
+                        # weighted_action_distribution = target_agent.get_greedy_weighted_action_distribution(
+                        #     state, p, default_policy_func=prior_agent.get_greedy_weighted_action_distribution,
+                        # )
+                        weighted_action_distribution = np.array(target_agent.get_action_probabilities(state))
+                        # default_action_distribution = prior_agent.get_greedy_weighted_action_distribution(state, p=1.0)
+                        default_action_distribution = np.array(prior_agent.get_action_probabilities(state))
                     else:
-                        weighted_action_distribution = target_agent.get_greedy_weighted_action_distribution(
-                            state, p, default_policy_func=prior_agent.get_default_policy_distribution,
-                        )
-                        default_action_distribution = prior_agent.get_default_policy_distribution(state, p=1.0)
+                        # weighted_action_distribution = target_agent.get_greedy_weighted_action_distribution(
+                        #     state, p, default_policy_func=prior_agent.get_default_policy_distribution,
+                        # )
+                        weighted_action_distribution = np.array(target_agent.get_action_probabilities(state))
+                        # default_action_distribution = prior_agent.get_greedy_weighted_action_distribution(state, p=1.0)
+                        default_action_distribution = np.array(prior_agent.get_action_probabilities(state))
                     kl_divergence = compute_discrete_kl_divergence(
                         weighted_action_distribution, default_action_distribution
                     )
@@ -690,9 +694,12 @@ def run_all_trainings_and_plot(task_names_and_num_experiments: Dict[str, int], m
 
         # Use hex color codes instead of names
         colors = [
-            '#1f77b4', '#2ca02c', '#d62728', '#ff7f0e', '#9467bd',
+            '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
             '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf',
-        ]  # Hex color codes
+            '#fdae61', '#4daf4a', '#a65628', '#984ea3', '#e41a1c',
+            '#377eb8', '#ff69b4', '#f781bf', '#66c2a5', '#ffcc00',
+        ]
+
         line_styles = ['dash', 'dot', 'longdash', 'dashdot']  # Line styles for final results
         color_idx = 0
 
@@ -923,9 +930,11 @@ def run_all_cl_training_and_plot(task_names_and_num_experiments: Dict[str, Tuple
 
     # Use hex color codes for consistency
     colors = [
-        '#1f77b4', '#2ca02c', '#d62728', '#ff7f0e', '#9467bd',
+        '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
         '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf',
-    ]  # Hex color codes  # Hex color codes
+        '#fdae61', '#4daf4a', '#a65628', '#984ea3', '#e41a1c',
+        '#377eb8', '#ff69b4', '#f781bf', '#66c2a5', '#ffcc00',
+    ]
 
     # Iterate over task_name, prior_env_idx, and target_env_idx
     for task_name, prior_envs in aggregated_results.items():
@@ -1215,9 +1224,12 @@ def run_all_evals_and_plot(task_names_and_num_experiments: Dict[str, int], max_w
 
         # Use hex color codes for consistency
         colors = [
-            '#1f77b4', '#2ca02c', '#d62728', '#ff7f0e', '#9467bd',
+            '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
             '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf',
-        ]  # Hex color codes  # Hex color codes
+            '#fdae61', '#4daf4a', '#a65628', '#984ea3', '#e41a1c',
+            '#377eb8', '#ff69b4', '#f781bf', '#66c2a5', '#ffcc00',
+        ]
+
         color_idx = 0
 
         for env_idx in sorted(env_idxs.keys()):  # Sort subtasks alphabetically
@@ -1432,13 +1444,13 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
             # Pair each prior environment run_id with all target environment run_ids
             for prior_run_id in prior_run_ids:
                 for target_run_id in target_run_ids:
-                    # paired_tasks.append({
-                    #     "task_name": task_name,
-                    #     "prior_env_idx": -1,
-                    #     "target_env_idx": prior_env_idx,
-                    #     "prior_run_id": -1,
-                    #     "target_run_id": prior_run_id,
-                    # })
+                    paired_tasks.append({
+                        "task_name": task_name,
+                        "prior_env_idx": -1,
+                        "target_env_idx": prior_env_idx,
+                        "prior_run_id": -1,
+                        "target_run_id": prior_run_id,
+                    })
                     paired_tasks.append({
                         "task_name": task_name,
                         "prior_env_idx": prior_env_idx,
@@ -1540,9 +1552,11 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
 
     # Use hex color codes for consistency
     colors = [
-        '#1f77b4', '#2ca02c', '#d62728', '#ff7f0e', '#9467bd',
+        '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
         '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf',
-    ]  # Hex color codes  # Hex color codes
+        '#fdae61', '#4daf4a', '#a65628', '#984ea3', '#e41a1c',
+        '#377eb8', '#ff69b4', '#f781bf', '#66c2a5', '#ffcc00',
+    ]
 
     # Iterate over task_name, prior_env_idx, and target_env_idx
     for task_name, prior_envs in aggregated_results.items():
@@ -1741,87 +1755,87 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
 
 
 if __name__ == '__main__':
+    # run_all_trainings_and_plot(
+    #     task_names_and_num_experiments={"frozen_lake-44": 8,},
+    #     max_workers=27,
+    # )
+    # run_all_evals_and_plot(
+    #     task_names_and_num_experiments={"frozen_lake-44": 8, },
+    #     max_workers=27,
+    # )
+    # run_all_cl_training_and_plot(
+    #     task_names_and_num_experiments={"frozen_lake-44": (8, 1),},
+    #     max_workers=27,
+    # )
+    # run_all_cl_evals_and_plot(
+    #     task_names_and_num_experiments={"frozen_lake-44": (8, 1), },
+    #     max_workers=27,
+    # )
+
+    # run_all_trainings_and_plot(
+    #     task_names_and_num_experiments={"frozen_lake-88": 8, },
+    #     max_workers=27,
+    # )
+    # run_all_evals_and_plot(
+    #     task_names_and_num_experiments={"frozen_lake-88": 8, },
+    #     max_workers=27,
+    # )
+    # run_all_cl_training_and_plot(
+    #     task_names_and_num_experiments={"frozen_lake-88": (8, 1), },
+    #     max_workers=27,
+    # )
+    # run_all_cl_evals_and_plot(
+    #     task_names_and_num_experiments={"frozen_lake-88": (8, 1), },
+    #     max_workers=27,
+    # )
+
     run_all_trainings_and_plot(
-        task_names_and_num_experiments={"frozen_lake-44": 8,},
+        task_names_and_num_experiments={"frozen_lake-custom": 3, },
         max_workers=27,
     )
-    run_all_evals_and_plot(
-        task_names_and_num_experiments={"frozen_lake-44": 8, },
-        max_workers=27,
-    )
-    run_all_cl_training_and_plot(
-        task_names_and_num_experiments={"frozen_lake-44": (8, 1),},
-        max_workers=27,
-    )
+    # run_all_evals_and_plot(
+    #     task_names_and_num_experiments={"frozen_lake-custom": 4, },
+    #     max_workers=27,
+    # )
+    # run_all_cl_training_and_plot(
+    #     task_names_and_num_experiments={"frozen_lake-custom": (4, 7), },
+    #     max_workers=27,
+    # )
     run_all_cl_evals_and_plot(
-        task_names_and_num_experiments={"frozen_lake-44": (8, 1), },
+        task_names_and_num_experiments={"frozen_lake-custom": (3, 7), },
         max_workers=27,
     )
 
-    run_all_trainings_and_plot(
-        task_names_and_num_experiments={"frozen_lake-88": 8, },
-        max_workers=27,
-    )
-    run_all_evals_and_plot(
-        task_names_and_num_experiments={"frozen_lake-88": 8, },
-        max_workers=27,
-    )
-    run_all_cl_training_and_plot(
-        task_names_and_num_experiments={"frozen_lake-88": (8, 1), },
-        max_workers=27,
-    )
-    run_all_cl_evals_and_plot(
-        task_names_and_num_experiments={"frozen_lake-88": (8, 1), },
-        max_workers=27,
-    )
-
-    run_all_trainings_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": 4, },
-        max_workers=27,
-    )
-    run_all_evals_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": 4, },
-        max_workers=27,
-    )
-    run_all_cl_training_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": (4, 7), },
-        max_workers=27,
-    )
-    run_all_cl_evals_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": (4, 7), },
-        max_workers=27,
-    )
-
-    run_all_trainings_and_plot(
-        task_names_and_num_experiments={"mountaincar-custom": 3, },
-        max_workers=6,
-    )
-    run_all_evals_and_plot(
-        task_names_and_num_experiments={"mountaincar-custom": 3, },
-        max_workers=6,
-    )
-    run_all_cl_training_and_plot(
-        task_names_and_num_experiments={"mountaincar-custom": (3, 0), },
-        max_workers=6,
-    )
-    run_all_cl_evals_and_plot(
-        task_names_and_num_experiments={"mountaincar-custom": (3, 0), },
-        max_workers=27,
-    )
-
-    run_all_trainings_and_plot(
-        task_names_and_num_experiments={"acrobot-custom": 3, },
-        max_workers=6,
-    )
-    run_all_evals_and_plot(
-        task_names_and_num_experiments={"acrobot-custom": 3, },
-        max_workers=6,
-    )
-    run_all_cl_training_and_plot(
-        task_names_and_num_experiments={"acrobot-custom": (3, 0), },
-        max_workers=6,
-    )
-    run_all_cl_evals_and_plot(
-        task_names_and_num_experiments={"acrobot-custom": (3, 0), },
-        max_workers=27,
-    )
+    # run_all_trainings_and_plot(
+    #     task_names_and_num_experiments={"mountaincar-custom": 3, },
+    #     max_workers=6,
+    # )
+    # run_all_evals_and_plot(
+    #     task_names_and_num_experiments={"mountaincar-custom": 3, },
+    #     max_workers=6,
+    # )
+    # run_all_cl_training_and_plot(
+    #     task_names_and_num_experiments={"mountaincar-custom": (3, 0), },
+    #     max_workers=6,
+    # )
+    # run_all_cl_evals_and_plot(
+    #     task_names_and_num_experiments={"mountaincar-custom": (3, 0), },
+    #     max_workers=27,
+    # )
+    #
+    # run_all_trainings_and_plot(
+    #     task_names_and_num_experiments={"acrobot-custom": 3, },
+    #     max_workers=6,
+    # )
+    # run_all_evals_and_plot(
+    #     task_names_and_num_experiments={"acrobot-custom": 3, },
+    #     max_workers=6,
+    # )
+    # run_all_cl_training_and_plot(
+    #     task_names_and_num_experiments={"acrobot-custom": (3, 0), },
+    #     max_workers=6,
+    # )
+    # run_all_cl_evals_and_plot(
+    #     task_names_and_num_experiments={"acrobot-custom": (3, 0), },
+    #     max_workers=27,
+    # )
