@@ -53,6 +53,7 @@ def run_2_stage_cl_training(task_name: str, prior_env_idx: int, target_env_idx: 
     )
     sample_step_count = 0
     test_results = []
+    target_test_results = []
     test_steps = []
     prior_end_step = 0  # this value tells when the env is changed (for training from scratch this value stays 0
 
@@ -102,6 +103,28 @@ def run_2_stage_cl_training(task_name: str, prior_env_idx: int, target_env_idx: 
             test_results.append(avg_test_reward)
             test_steps.append(sample_step_count)
 
+            if idx < len(envs) - 1:
+                periodic_test_rewards = []
+                for t in range(configs["exploit_policy_eval_episodes"]):
+                    test_state, _ = test_envs[-1].reset()
+                    test_total_reward = 0
+                    test_done = False
+                    trajectory = [test_state]
+
+                    while not test_done:
+                        test_action = agent.choose_action(test_state, greedy=True)
+                        test_next_state, test_reward, test_done, test_truncated, _ = test_envs[idx].step(test_action)
+                        trajectory.append(test_next_state)
+                        test_state = test_next_state
+                        test_total_reward += test_reward
+                        if test_done or test_truncated:
+                            break
+
+                    periodic_test_rewards.append(test_total_reward)
+                target_test_results.append(np.mean(periodic_test_rewards))
+            else:
+                target_test_results.append(avg_test_reward)
+
             pbar.set_postfix({
                 "Rwd": f"{avg_test_reward:05.3f}",
             })
@@ -147,7 +170,7 @@ def run_2_stage_cl_training(task_name: str, prior_env_idx: int, target_env_idx: 
 
     pbar.close()
 
-    return task_name, run_id, prior_env_idx, target_env_idx, test_results, test_steps, prior_end_step
+    return task_name, run_id, prior_env_idx, target_env_idx, test_results, target_test_results, test_steps, prior_end_step
 
 
 def run_2_stage_cl_training_unpack(args):
@@ -221,7 +244,7 @@ def run_all_2_stage_cl_training_and_plot(task_names_and_num_experiments: Dict[st
 
     # Group results by task_name and init_group
     grouped_results = {}
-    for task_name, run_id, prior_env_idx, target_env_idx, test_results, test_steps, prior_end_step in all_results:
+    for task_name, run_id, prior_env_idx, target_env_idx, test_results, target_test_results, test_steps, prior_end_step in all_results:
         # Initialize task_name in grouped_results
         if task_name not in grouped_results:
             grouped_results[task_name] = {}
@@ -234,12 +257,14 @@ def run_all_2_stage_cl_training_and_plot(task_names_and_num_experiments: Dict[st
         if target_env_idx not in grouped_results[task_name][prior_env_idx]:
             grouped_results[task_name][prior_env_idx][target_env_idx] = {
                 "test_results": [],
+                "target_test_results": [],
                 "test_steps": [],
                 "prior_end_steps": [],
             }
 
         # Append results to the corresponding group
         grouped_results[task_name][prior_env_idx][target_env_idx]["test_results"].append(test_results)
+        grouped_results[task_name][prior_env_idx][target_env_idx]["target_test_results"].append(target_test_results)
         grouped_results[task_name][prior_env_idx][target_env_idx]["test_steps"].append(test_steps)
         grouped_results[task_name][prior_env_idx][target_env_idx]["prior_end_steps"].append(prior_end_step)  # Directly assign
 
@@ -259,17 +284,22 @@ def run_all_2_stage_cl_training_and_plot(task_names_and_num_experiments: Dict[st
 
                 # Convert lists to numpy arrays
                 test_results_array = np.array(data["test_results"])
+                target_test_results_array = np.array(data["target_test_results"])
                 test_steps = data["test_steps"][0]
                 prior_end_steps = data["prior_end_steps"]  # Retrieve as int
 
                 # Compute mean and std
                 mean_test_results = test_results_array.mean(axis=0)
                 std_test_results = test_results_array.std(axis=0)
+                mean_target_test_results = target_test_results_array.mean(axis=0)
+                std_target_test_results = target_test_results_array.std(axis=0)
 
                 # Store aggregated results
                 aggregated_results[task_name][prior_env_idx][target_env_idx] = {
                     "mean_test_results": mean_test_results.tolist(),
                     "std_test_results": std_test_results.tolist(),
+                    "mean_target_test_results": mean_target_test_results.tolist(),
+                    "std_target_test_results": std_target_test_results.tolist(),
                     "test_steps": test_steps,
                     "prior_end_steps": prior_end_steps,
                 }
@@ -284,8 +314,10 @@ def run_all_2_stage_cl_training_and_plot(task_names_and_num_experiments: Dict[st
 
     # Use hex color codes for consistency
     colors = [
-        '#1f77b4', '#2ca02c', '#d62728', '#ff7f0e', '#9467bd',
+        '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
         '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf',
+        '#fdae61', '#4daf4a', '#a65628', '#984ea3', '#e41a1c',
+        '#377eb8', '#ff69b4', '#f781bf', '#66c2a5', '#ffcc00',
     ]  # Hex color codes
 
     # Iterate over task_name, prior_env_idx, and target_env_idx
@@ -293,31 +325,42 @@ def run_all_2_stage_cl_training_and_plot(task_names_and_num_experiments: Dict[st
         if not prior_envs:
             continue  # Skip empty results
 
-        fig = go.Figure()
+        fig_test = go.Figure()  # Test results figure
+        fig_target_test = go.Figure()  # Target test results figure
+        fig_integral = go.Figure()  # Integral (averaged) bar chart
         color_idx = 0
+
+        # Store data for integral plot
+        bar_labels = []
+        bar_means_target_test = []
+        bar_errors_target_test = []
 
         for prior_env_idx, target_envs in prior_envs.items():
             for target_env_idx, subtask_data in target_envs.items():
                 if not subtask_data["mean_test_results"]:
                     continue  # Skip empty results
 
-                mean_test_results = subtask_data["mean_test_results"]
-                std_test_results = subtask_data["std_test_results"]
+                mean_test_results = np.array(subtask_data["mean_test_results"])
+                std_test_results = np.array(subtask_data["std_test_results"])
+                mean_target_test_results = np.array(subtask_data["mean_target_test_results"])
+                std_target_test_results = np.array(subtask_data["std_target_test_results"])
                 test_steps = subtask_data["test_steps"]
-                prior_end_steps = subtask_data["prior_end_steps"]  # Retrieve as int
+                prior_end_steps = subtask_data["prior_end_steps"]
+
+                # Compute integral (mean) for bar chart
+                integral_mean_target_test = np.mean(mean_target_test_results)
+                integral_std_target_test = np.mean(std_target_test_results)
 
                 # Get environment description
-                if prior_env_idx != -1:
-                    _, _, prior_env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, prior_env_idx)
-                else:
-                    prior_env_desc = "scratch"
-                _, _, target_env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, target_env_idx)
+                prior_env_desc = "scratch" if prior_env_idx == -1 else \
+                get_envs_discretizers_and_configs(task_name, prior_env_idx)[2]
+                target_env_desc = get_envs_discretizers_and_configs(task_name, target_env_idx)[2]
 
                 # Label format: "Env X - Env Y"
                 label = f"{prior_env_desc} - {target_env_desc}"
 
-                # Add mean test results curve
-                fig.add_trace(go.Scatter(
+                # ---- Test results plot ----
+                fig_test.add_trace(go.Scatter(
                     x=test_steps,
                     y=mean_test_results,
                     mode='lines',
@@ -325,74 +368,117 @@ def run_all_2_stage_cl_training_and_plot(task_names_and_num_experiments: Dict[st
                     line=dict(color=colors[color_idx], width=2),
                 ))
 
-                # Add shaded area for std deviation
-                fig.add_trace(go.Scatter(
-                    x=test_steps + test_steps[::-1],  # Create a filled region
-                    y=(np.array(mean_test_results) + np.array(std_test_results)).tolist() +
-                      (np.array(mean_test_results) - np.array(std_test_results))[::-1].tolist(),
+                fig_test.add_trace(go.Scatter(
+                    x=test_steps + test_steps[::-1],
+                    y=(mean_test_results + std_test_results).tolist() +
+                      (mean_test_results - std_test_results)[::-1].tolist(),
                     fill='toself',
-                    fillcolor=f"rgba({int(colors[color_idx][1:3], 16)}, "
-                              f"{int(colors[color_idx][3:5], 16)}, "
-                              f"{int(colors[color_idx][5:], 16)}, 0.2)",  # Match line color
+                    fillcolor=f"rgba({int(colors[color_idx][1:3], 16)}, {int(colors[color_idx][3:5], 16)}, {int(colors[color_idx][5:], 16)}, 0.2)",
                     line=dict(color='rgba(255,255,255,0)'),
                     name=f"{label} Std Dev",
                 ))
 
-                # Ensure prior_end_steps are plotted only if prior_env_idx != -1
+                # ---- Target test results plot ----
+                fig_target_test.add_trace(go.Scatter(
+                    x=test_steps,
+                    y=mean_target_test_results,
+                    mode='lines',
+                    name=f"{label} Mean Target Test Results",
+                    line=dict(color=colors[color_idx], width=2),
+                ))
+
+                fig_target_test.add_trace(go.Scatter(
+                    x=test_steps + test_steps[::-1],
+                    y=(mean_target_test_results + std_target_test_results).tolist() +
+                      (mean_target_test_results - std_target_test_results)[::-1].tolist(),
+                    fill='toself',
+                    fillcolor=f"rgba({int(colors[color_idx][1:3], 16)}, {int(colors[color_idx][3:5], 16)}, {int(colors[color_idx][5:], 16)}, 0.2)",
+                    line=dict(color='rgba(255,255,255,0)'),
+                    name=f"{label} Target Std Dev",
+                ))
+
+                # ---- Store data for integral bar chart ----
+                bar_labels.append(label)
+                bar_means_target_test.append(integral_mean_target_test)
+                bar_errors_target_test.append(integral_std_target_test)
+
+                # ---- Add environment transition lines to test plot ----
                 if prior_env_idx != -1:
                     for idx, step in enumerate(prior_end_steps):
-                        line_color = colors[color_idx]  # Use different colors for each step
+                        line_color = colors[color_idx]
 
-                        # Draw vertical line for each prior_end_step
-                        fig.add_trace(go.Scatter(
-                            x=[step, step],  # Vertical line at step
-                            y=[min(mean_test_results), max(mean_test_results)],  # Span y-axis range
+                        fig_test.add_trace(go.Scatter(
+                            x=[step, step],
+                            y=[min(mean_test_results), max(mean_test_results)],
                             mode="lines",
-                            line=dict(color=line_color, dash="dash"),  # Different color dashed line
+                            line=dict(color=line_color, dash="dash"),
                             name=f"Env Transition (Step {step})",
                             showlegend=False,
                         ))
 
-                        # # Compute dynamic annotation offset
-                        # y_range = max(mean_test_results) - min(mean_test_results)
-                        # annotation_offset = y_range * 0.05 * ((idx % 3) - 1)  # Avoid overlap
-                        #
-                        # # Add annotation for each step
-                        # fig.add_annotation(
-                        #     x=step,
-                        #     y=max(mean_test_results) + annotation_offset,
-                        #     text=f"Step {step}",
-                        #     showarrow=True,
-                        #     arrowhead=2,
-                        #     font=dict(size=12, color=line_color),
-                        #     ax=20,
-                        #     ay=-30,
-                        # )
+                color_idx = (color_idx + 1) % len(colors)
 
-            color_idx = (color_idx + 1) % len(colors)
-
-        # Customize layout
-        fig.update_layout(
+        # ---- Update layout for test results plot ----
+        fig_test.update_layout(
             title=f"Training Results for {task_name} by Curriculum towards {target_env_desc}",
             xaxis_title="Steps",
             yaxis_title="Average Test Reward",
             legend_title="Subtasks",
             font=dict(size=14),
-            width=1200,  # High resolution width
-            height=800,  # High resolution height
+            width=1200,
+            height=800,
         )
 
-        # Save plot to file
-        plot_path = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)[
-                        "save_path"] + f"_training_cl-{target_env_desc}.png"
-        fig.write_image(plot_path, scale=2)  # High-resolution PNG
-        print(f"Saved evaluation plot for {task_name} at {plot_path}")
+        # ---- Update layout for target test results plot ----
+        fig_target_test.update_layout(
+            title=f"Target Training Results for {task_name} by Curriculum towards {target_env_desc}",
+            xaxis_title="Steps",
+            yaxis_title="Average Target Test Reward",
+            legend_title="Subtasks",
+            font=dict(size=14),
+            width=1200,
+            height=800,
+        )
+
+        # ---- Update layout for integral bar chart ----
+        fig_integral.add_trace(go.Bar(
+            x=bar_labels,
+            y=bar_means_target_test,
+            error_y=dict(type='data', array=bar_errors_target_test, visible=True),
+            name="Target Test Results",
+            marker_color=[colors[i % len(colors)] for i in range(len(bar_labels))],
+        ))
+
+        fig_integral.update_layout(
+            title=f"Integrated Target Test Performance for {task_name} towards {target_env_desc}",
+            xaxis_title="Environment Transition",
+            yaxis_title="Mean Integrated Target Test Reward",
+            legend_title="Metrics",
+            font=dict(size=14),
+            width=1200,
+            height=800,
+        )
+
+        # ---- Save figures ----
+        save_path = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)["save_path"]
+
+        plot_path_test = save_path + f"_training_cl-{target_env_desc}.png"
+        fig_test.write_image(plot_path_test, scale=2)
+        print(f"Saved evaluation plot for {task_name} at {plot_path_test}")
+
+        plot_path_target_test = save_path + f"_training_target_cl-{target_env_desc}.png"
+        fig_target_test.write_image(plot_path_target_test, scale=2)
+        print(f"Saved target test evaluation plot for {task_name} at {plot_path_target_test}")
+
+        plot_path_integral = save_path + f"_training_integral_target_cl-{target_env_desc}.png"
+        fig_integral.write_image(plot_path_integral, scale=2)
+        print(f"Saved integral target test performance plot for {task_name} at {plot_path_integral}")
 
     return aggregated_results
 
 
 if __name__ == '__main__':
     run_all_2_stage_cl_training_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": (8, 7), },
+        task_names_and_num_experiments={"frozen_lake-custom": (2, 7), },
         max_workers=27,
     )
