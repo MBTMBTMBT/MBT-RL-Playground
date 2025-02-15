@@ -545,10 +545,12 @@ def run_cl_eval(task_name: str, prior_env_idx: int, target_env_idx: int, prior_r
                     test_action = target_agent.choose_action_by_weight(
                         test_state, p=p, default_policy_func=prior_agent.get_greedy_weighted_action_distribution,
                     )
+                    # test_action = target_agent.choose_action(test_state, greedy=True)
                 else:
                     test_action = target_agent.choose_action_by_weight(
                         test_state, p=p, default_policy_func=prior_agent.get_default_policy_distribution,
                     )
+                    # test_action = target_agent.choose_action(test_state, greedy=True)
                 test_next_state, test_reward, test_done, test_truncated, _ = target_test_env.step(test_action)
                 trajectory.append(test_next_state)
                 test_state = test_next_state
@@ -563,18 +565,18 @@ def run_cl_eval(task_name: str, prior_env_idx: int, target_env_idx: int, prior_r
                 if isinstance(action_space, spaces.Discrete):
                     for state in trajectory:
                         if prior_env_idx != -1 and prior_run_id != -1:
-                            weighted_action_distribution = np.array(target_agent.get_action_probabilities(state))
-                            default_action_distribution = np.array(prior_agent.get_action_probabilities(state))
+                            weighted_action_distribution = np.array(target_agent.get_action_probabilities(state, temperature=0.05))
+                            default_action_distribution = np.array(prior_agent.get_action_probabilities(state,))
                         else:
-                            weighted_action_distribution = np.array(target_agent.get_action_probabilities(state))
-                            default_action_distribution = np.array(prior_agent.get_default_policy_distribution(state))
+                            weighted_action_distribution = np.array(target_agent.get_action_probabilities(state, temperature=0.05))
+                            default_action_distribution = np.array(prior_agent.get_default_policy_distribution(state,))
                         kl_divergence = compute_discrete_kl_divergence(
                             weighted_action_distribution, default_action_distribution
                         )
                         control_info += kl_weight * kl_divergence
                 else:
                     pass
-                periodic_test_control_infos.append(control_info)
+                periodic_test_control_infos.append(control_info)  # / len(trajectory))
 
         avg_test_reward = np.mean(periodic_test_rewards)
         avg_test_control_info = np.mean(periodic_test_control_infos)
@@ -1432,13 +1434,20 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
             # Pair each prior environment run_id with all target environment run_ids
             for prior_run_id in prior_run_ids:
                 for target_run_id in target_run_ids:
-                    paired_tasks.append({
+                    if {
                         "task_name": task_name,
                         "prior_env_idx": -1,
                         "target_env_idx": prior_env_idx,
                         "prior_run_id": -1,
                         "target_run_id": prior_run_id,
-                    })
+                    } not in paired_tasks:
+                        paired_tasks.append({
+                            "task_name": task_name,
+                            "prior_env_idx": -1,
+                            "target_env_idx": prior_env_idx,
+                            "prior_run_id": -1,
+                            "target_run_id": prior_run_id,
+                        })
                     paired_tasks.append({
                         "task_name": task_name,
                         "prior_env_idx": prior_env_idx,
@@ -1654,6 +1663,8 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
             y=bar_means,
             error_y=dict(type='data', array=bar_errors, visible=True),
             marker_color=[colors[i % len(colors)] for i in range(len(bar_labels))],  # Assign colors
+            text=[f"{val:.2f}" for val in bar_means],  # Format values to 2 decimal places
+            textposition='outside'  # Auto-adjust text position
         ))
 
         # Customize layout
@@ -1710,6 +1721,8 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
             y=bar_means,
             error_y=dict(type='data', array=bar_errors, visible=True),
             marker_color=[colors[i % len(colors)] for i in range(len(bar_labels))],  # Assign colors
+            text=[f"{val:.2f}" for val in bar_means],  # Format values to 2 decimal places
+            textposition='outside'  # Auto-adjust text position
         ))
 
         # Customize layout
@@ -1766,6 +1779,8 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
             y=bar_means,
             error_y=dict(type='data', array=bar_errors, visible=True),
             marker_color=[colors[i % len(colors)] for i in range(len(bar_labels))],  # Assign colors
+            text=[f"{val:.2f}" for val in bar_means],  # Format values to 2 decimal places
+            textposition='outside'  # Auto-adjust text position
         ))
 
         # Customize layout
@@ -1824,10 +1839,6 @@ if __name__ == '__main__':
     #     task_names_and_num_experiments={"frozen_lake-88": (8, 1), },
     #     max_workers=27,
     # )
-    run_all_2_stage_cl_training_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": (3, 7), },
-        max_workers=27,
-    )
     run_all_trainings_and_plot(
         task_names_and_num_experiments={"frozen_lake-custom": 3, },
         max_workers=27,
@@ -1841,6 +1852,10 @@ if __name__ == '__main__':
     #     max_workers=27,
     # )
     run_all_cl_evals_and_plot(
+        task_names_and_num_experiments={"frozen_lake-custom": (3, 7), },
+        max_workers=27,
+    )
+    run_all_2_stage_cl_training_and_plot(
         task_names_and_num_experiments={"frozen_lake-custom": (3, 7), },
         max_workers=27,
     )
