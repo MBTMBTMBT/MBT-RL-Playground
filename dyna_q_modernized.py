@@ -2253,7 +2253,7 @@ class Agent:
                 max_prob = action_probabilities[greedy_action]
 
                 # Find all actions whose probability is at least 99% of the maximum probability
-                optimal_actions = np.where(action_probabilities >= 0.99 * max_prob)[0]
+                optimal_actions = np.where(action_probabilities >= 0.9999 * max_prob)[0]
 
                 # Create a new greedy distribution where all optimal actions share the probability equally
                 greedy_distribution = np.zeros_like(action_probabilities)
@@ -2289,7 +2289,7 @@ class Agent:
                 max_prob = probabilities[greedy_action]
 
                 # Find all actions whose probability is at least 99% of the maximum probability
-                optimal_actions = np.where(probabilities >= 0.99 * max_prob)[0]
+                optimal_actions = np.where(probabilities >= 0.9999 * max_prob)[0]
 
                 # Create a new greedy distribution
                 greedy_distribution = np.zeros_like(probabilities)
@@ -2368,4 +2368,7 @@ class Agent:
             progress_bar: bool = False,
     ):
         self.double_env.reset(reset_all=True)
-        self.exploit_agent.learn(total_timesteps=total_timesteps, progress_bar=progress_bar)
+        if self.use_deep_agent:
+            self.exploit_agent.learn(total_timesteps=total_timesteps, progress_bar=progress_bar)
+        else:
+            self.exploit_agent.learn(total_timesteps=total_timesteps, progress_bar=progress_bar, temperature=0.05)
