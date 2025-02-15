@@ -36,7 +36,7 @@ def generate_test_gif(frames, gif_path, to_print=True):
         img.set_data(frame)
         return [img]
 
-    ani = FuncAnimation(fig, update, frames=frames, interval=50, blit=True)
+    ani = FuncAnimation(fig, update, frames=frames, interval=200, blit=True)
     ani.save(gif_path, dpi=90, writer="pillow")
     plt.close(fig)
 
