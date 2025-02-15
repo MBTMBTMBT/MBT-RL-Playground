@@ -376,7 +376,7 @@ def run_all_2_stage_cl_training_and_plot(task_names_and_num_experiments: Dict[st
                     fill='toself',
                     fillcolor=f"rgba({int(colors[color_idx][1:3], 16)}, {int(colors[color_idx][3:5], 16)}, {int(colors[color_idx][5:], 16)}, 0.2)",
                     line=dict(color='rgba(255,255,255,0)'),
-                    name=f"{label} Std Dev",
+                    # name=f"{label} Std Dev",
                 ))
 
                 # ---- Target test results plot ----

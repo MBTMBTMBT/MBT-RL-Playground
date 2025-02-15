@@ -565,10 +565,10 @@ def run_cl_eval(task_name: str, prior_env_idx: int, target_env_idx: int, prior_r
                 if isinstance(action_space, spaces.Discrete):
                     for state in trajectory:
                         if prior_env_idx != -1 and prior_run_id != -1:
-                            weighted_action_distribution = np.array(target_agent.get_action_probabilities(state, temperature=0.05))
+                            weighted_action_distribution = np.array(target_agent.get_action_probabilities(state, temperature=0.5))
                             default_action_distribution = np.array(prior_agent.get_action_probabilities(state,))
                         else:
-                            weighted_action_distribution = np.array(target_agent.get_action_probabilities(state, temperature=0.05))
+                            weighted_action_distribution = np.array(target_agent.get_action_probabilities(state, temperature=0.5))
                             default_action_distribution = np.array(prior_agent.get_default_policy_distribution(state,))
                         kl_divergence = compute_discrete_kl_divergence(
                             weighted_action_distribution, default_action_distribution
@@ -972,7 +972,7 @@ def run_all_cl_training_and_plot(task_names_and_num_experiments: Dict[str, Tuple
                               f"{int(colors[color_idx][3:5], 16)}, "
                               f"{int(colors[color_idx][5:], 16)}, 0.2)",  # Match line color
                     line=dict(color='rgba(255,255,255,0)'),
-                    name=f"{label} Std Dev",
+                    # name=f"{label} Std Dev",
                 ))
 
                 color_idx = (color_idx + 1) % len(colors)
@@ -1601,7 +1601,7 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
                               f"{int(colors[color_idx][3:5], 16)}, "
                               f"{int(colors[color_idx][5:], 16)}, 0.2)",  # Match line color
                     line=dict(color='rgba(255,255,255,0)'),
-                    name=f"{label} Std Dev",
+                    #  name=f"{label} Std Dev",
                 ))
 
                 color_idx = (color_idx + 1) % len(colors)
