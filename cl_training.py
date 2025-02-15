@@ -60,6 +60,7 @@ def run_2_stage_cl_training(task_name: str, prior_env_idx: int, target_env_idx: 
     envs = [prior_env, target_env] if not prior_env_idx == -1 else [target_env]
     test_envs = [prior_test_env, target_test_env] if not prior_env_idx == -1 else [target_test_env]
     save_paths = [prior_save_path, target_save_path] if not prior_env_idx == -1 else [target_save_path]
+    save_path = configs["save_path"] + f"-{prior_env_desc}-{target_env_desc}-id-{run_id}"
 
     first_test = True
     best_avg_reward = None
@@ -156,13 +157,13 @@ def run_2_stage_cl_training(task_name: str, prior_env_idx: int, target_env_idx: 
 
         # Save GIF for the first test episode
         if len(frames) > 0:
-            gif_path = save_paths[idx] + f".gif"
+            gif_path = save_path + f".gif"
             try:
                 generate_test_gif(frames, gif_path, to_print=configs["print_training_info"])
             except Exception as e:
                 print(f"Error generating GIF: {e}")
 
-        agent.save_agent(save_paths[idx])
+        agent.save_agent(save_path)
 
         # Record when training switches from the prior environment to the target environment
         if idx != len(envs) - 1:
@@ -447,6 +448,8 @@ def run_all_2_stage_cl_training_and_plot(task_names_and_num_experiments: Dict[st
             error_y=dict(type='data', array=bar_errors_target_test, visible=True),
             name="Target Test Results",
             marker_color=[colors[i % len(colors)] for i in range(len(bar_labels))],
+            text=[f"{val:.2f}" for val in bar_means_target_test],  # Format values to 2 decimal places
+            textposition='outside'  # Auto-adjust text position
         ))
 
         fig_integral.update_layout(
