@@ -210,29 +210,28 @@ def run_all_2_stage_cl_training_and_plot(task_names_and_num_experiments: Dict[st
         target_env_idx = task_data["target_env_idx"]  # The designated target environment
         target_run_ids = env_run_ids[target_env_idx]  # All run IDs for the target environment
 
+        for target_run_id in target_run_ids:
+            paired_tasks.append({
+                "task_name": task_name,
+                "prior_env_idx": -1,
+                "target_env_idx": target_env_idx,
+                "run_id": run_id,
+            })
+            run_id += 1
+
         for prior_env_idx, prior_run_ids in env_run_ids.items():
             if prior_env_idx == target_env_idx:
                 continue  # Skip the target environment itself
 
-            for target_run_id in target_run_ids:
+            # Pair each prior environment run_id with all target environment run_ids
+            for prior_run_id in prior_run_ids:
                 paired_tasks.append({
                     "task_name": task_name,
-                    "prior_env_idx": -1,
+                    "prior_env_idx": prior_env_idx,
                     "target_env_idx": target_env_idx,
                     "run_id": run_id,
                 })
                 run_id += 1
-
-            # Pair each prior environment run_id with all target environment run_ids
-            for prior_run_id in prior_run_ids:
-                for target_run_id in target_run_ids:
-                    paired_tasks.append({
-                        "task_name": task_name,
-                        "prior_env_idx": prior_env_idx,
-                        "target_env_idx": target_env_idx,
-                        "run_id": run_id,
-                    })
-                    run_id += 1
 
     print(f"Total tasks: {len(paired_tasks)}.")
 
@@ -483,6 +482,6 @@ def run_all_2_stage_cl_training_and_plot(task_names_and_num_experiments: Dict[st
 
 if __name__ == '__main__':
     run_all_2_stage_cl_training_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": (2, 7), },
-        max_workers=27,
+        task_names_and_num_experiments={"frozen_lake-custom": (16, 7), },
+        max_workers=1,
     )
