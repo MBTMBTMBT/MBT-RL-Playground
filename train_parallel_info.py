@@ -973,6 +973,7 @@ def run_all_cl_training_and_plot(task_names_and_num_experiments: Dict[str, Tuple
                               f"{int(colors[color_idx][5:], 16)}, 0.2)",  # Match line color
                     line=dict(color='rgba(255,255,255,0)'),
                     # name=f"{label} Std Dev",
+                    showlegend=False,
                 ))
 
                 color_idx = (color_idx + 1) % len(colors)
@@ -1601,7 +1602,8 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
                               f"{int(colors[color_idx][3:5], 16)}, "
                               f"{int(colors[color_idx][5:], 16)}, 0.2)",  # Match line color
                     line=dict(color='rgba(255,255,255,0)'),
-                    #  name=f"{label} Std Dev",
+                    # name=f"{label} Std Dev",
+                    showlegend=False,
                 ))
 
                 color_idx = (color_idx + 1) % len(colors)
@@ -1840,7 +1842,7 @@ if __name__ == '__main__':
     #     max_workers=27,
     # )
     run_all_trainings_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": 3, },
+        task_names_and_num_experiments={"frozen_lake-custom": 16, },
         max_workers=27,
     )
     # run_all_evals_and_plot(
@@ -1852,11 +1854,11 @@ if __name__ == '__main__':
     #     max_workers=27,
     # )
     run_all_cl_evals_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": (3, 7), },
+        task_names_and_num_experiments={"frozen_lake-custom": (16, 7), },
         max_workers=27,
     )
     run_all_2_stage_cl_training_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": (3, 7), },
+        task_names_and_num_experiments={"frozen_lake-custom": (16, 7), },
         max_workers=27,
     )
 
