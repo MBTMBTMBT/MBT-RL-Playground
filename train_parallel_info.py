@@ -566,10 +566,10 @@ def run_cl_eval(task_name: str, prior_env_idx: int, target_env_idx: int, prior_r
             if isinstance(action_space, spaces.Discrete):
                 for state in trajectory:
                     if prior_env_idx != -1 and prior_run_id != -1:
-                        weighted_action_distribution = np.array(target_agent.get_action_probabilities(state, temperature=0.5))
+                        weighted_action_distribution = np.array(target_agent.get_action_probabilities(state, temperature=1.0))
                         default_action_distribution = np.array(prior_agent.get_action_probabilities(state,))
                     else:
-                        weighted_action_distribution = np.array(target_agent.get_action_probabilities(state, temperature=0.5))
+                        weighted_action_distribution = np.array(target_agent.get_action_probabilities(state, temperature=1.0))
                         default_action_distribution = np.array(prior_agent.get_default_policy_distribution(state,))
                     kl_divergence = compute_discrete_kl_divergence(
                         weighted_action_distribution, default_action_distribution
@@ -583,7 +583,8 @@ def run_cl_eval(task_name: str, prior_env_idx: int, target_env_idx: int, prior_r
         avg_test_control_info = np.mean(periodic_test_control_infos)
         for control_info, test_total_reward in zip(periodic_test_control_infos, periodic_test_rewards):
             periodic_test_free_energies.append(
-                (control_info - configs["train_max_num_steps_per_episode"] * test_total_reward) / configs["train_max_num_steps_per_episode"]
+                # (control_info - configs["train_max_num_steps_per_episode"] * test_total_reward) / configs["train_max_num_steps_per_episode"]
+                (control_info - 1.0 * test_total_reward) / 1.0
             )
         avg_test_free_energy = np.mean(periodic_test_free_energies)
         test_results.append(avg_test_reward)
@@ -1794,22 +1795,22 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
 
                 color_idx = (color_idx + 1) % len(colors)
 
-                # Customize layout
-            fig_free_energy.update_layout(
-                title=f"Free Energy for {task_name} by Curriculum towards {target_env_desc}",
-                xaxis_title="Weight (p)",
-                yaxis_title="Average Free Energy",
-                legend_title="Subtasks",
-                font=dict(size=14),
-                width=1200,  # High resolution width
-                height=800,  # High resolution height
-            )
+        # Customize layout
+        fig_free_energy.update_layout(
+            title=f"Free Energy for {task_name} by Curriculum towards {target_env_desc}",
+            xaxis_title="Weight (p)",
+            yaxis_title="Average Free Energy",
+            legend_title="Subtasks",
+            font=dict(size=14),
+            width=1200,  # High resolution width
+            height=800,  # High resolution height
+        )
 
-            # Save plot to file
-            plot_path = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)[
-                            "save_path"] + f"_eval_free_energy_cl-{target_env_desc}.png"
-            fig_free_energy.write_image(plot_path, scale=2)  # High-resolution PNG
-            print(f"Saved free energy plot for {task_name} at {plot_path}")
+        # Save plot to file
+        plot_path = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)[
+                        "save_path"] + f"_eval_free_energy_cl-{target_env_desc}.png"
+        fig_free_energy.write_image(plot_path, scale=2)  # High-resolution PNG
+        print(f"Saved free energy plot for {task_name} at {plot_path}")
 
         # Create a figure for the integral bar chart
         fig_free_energy_integral = go.Figure()
@@ -1912,7 +1913,7 @@ if __name__ == '__main__':
     #     max_workers=27,
     # )
     run_all_trainings_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": 16, },
+        task_names_and_num_experiments={"frozen_lake-custom": 4, },
         max_workers=27,
     )
     # run_all_evals_and_plot(
@@ -1924,11 +1925,11 @@ if __name__ == '__main__':
     #     max_workers=27,
     # )
     run_all_cl_evals_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": (16, 7), },
+        task_names_and_num_experiments={"frozen_lake-custom": (4, 7), },
         max_workers=27,
     )
     run_all_2_stage_cl_training_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": (16, 7), },
+        task_names_and_num_experiments={"frozen_lake-custom": (4, 7), },
         max_workers=27,
     )
 

@@ -26,7 +26,7 @@ def run_2_stage_cl_training(task_name: str, prior_env_idx: int, target_env_idx: 
     prior_save_path = configs["save_path"] + f"-{prior_env_desc}-id-{run_id}"
     target_save_path = configs["save_path"] + f"-{target_env_desc}-id-{run_id}"
     early_stop_counts = configs["early_stop_counts"]
-    force_to_proceed_steps = int(configs["exploit_policy_training_steps"] // 3 * 2)
+    force_to_proceed_steps = int(configs["exploit_policy_training_steps"] // 2)
 
     agent = Agent(
         state_discretizer,
@@ -396,6 +396,7 @@ def run_all_2_stage_cl_training_and_plot(task_names_and_num_experiments: Dict[st
                     fillcolor=f"rgba({int(colors[color_idx][1:3], 16)}, {int(colors[color_idx][3:5], 16)}, {int(colors[color_idx][5:], 16)}, 0.2)",
                     line=dict(color='rgba(255,255,255,0)'),
                     name=f"{label} Target Std Dev",
+                    showlegend=False,
                 ))
 
                 # ---- Store data for integral bar chart ----
@@ -414,7 +415,6 @@ def run_all_2_stage_cl_training_and_plot(task_names_and_num_experiments: Dict[st
                             mode="lines",
                             line=dict(color=line_color, dash="dash"),
                             name=f"Env Transition (Step {step})",
-                            showlegend=False,
                         ))
 
                 color_idx = (color_idx + 1) % len(colors)
