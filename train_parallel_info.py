@@ -529,6 +529,7 @@ def run_cl_eval(task_name: str, prior_env_idx: int, target_env_idx: int, prior_r
 
     test_results = []
     test_weights = []
+    test_free_energies = []
     avg_test_control_info = 0.0
     avg_test_free_energy = 0.0
     for p in weights:
@@ -559,24 +560,24 @@ def run_cl_eval(task_name: str, prior_env_idx: int, target_env_idx: int, prior_r
                     break
             periodic_test_rewards.append(test_total_reward)
 
-            if p == weights[-1]:
-                trajectory.reverse()
-                control_info = 0.0
-                if isinstance(action_space, spaces.Discrete):
-                    for state in trajectory:
-                        if prior_env_idx != -1 and prior_run_id != -1:
-                            weighted_action_distribution = np.array(target_agent.get_action_probabilities(state, temperature=0.5))
-                            default_action_distribution = np.array(prior_agent.get_action_probabilities(state,))
-                        else:
-                            weighted_action_distribution = np.array(target_agent.get_action_probabilities(state, temperature=0.5))
-                            default_action_distribution = np.array(prior_agent.get_default_policy_distribution(state,))
-                        kl_divergence = compute_discrete_kl_divergence(
-                            weighted_action_distribution, default_action_distribution
-                        )
-                        control_info += kl_weight * kl_divergence
-                else:
-                    pass
-                periodic_test_control_infos.append(control_info)  # / len(trajectory))
+            # if p == weights[-1]:
+            trajectory.reverse()
+            control_info = 0.0
+            if isinstance(action_space, spaces.Discrete):
+                for state in trajectory:
+                    if prior_env_idx != -1 and prior_run_id != -1:
+                        weighted_action_distribution = np.array(target_agent.get_action_probabilities(state, temperature=0.5))
+                        default_action_distribution = np.array(prior_agent.get_action_probabilities(state,))
+                    else:
+                        weighted_action_distribution = np.array(target_agent.get_action_probabilities(state, temperature=0.5))
+                        default_action_distribution = np.array(prior_agent.get_default_policy_distribution(state,))
+                    kl_divergence = compute_discrete_kl_divergence(
+                        weighted_action_distribution, default_action_distribution
+                    )
+                    control_info += kl_weight * kl_divergence
+            else:
+                pass
+            periodic_test_control_infos.append(control_info)  # / len(trajectory))
 
         avg_test_reward = np.mean(periodic_test_rewards)
         avg_test_control_info = np.mean(periodic_test_control_infos)
@@ -587,16 +588,19 @@ def run_cl_eval(task_name: str, prior_env_idx: int, target_env_idx: int, prior_r
         avg_test_free_energy = np.mean(periodic_test_free_energies)
         test_results.append(avg_test_reward)
         test_weights.append(p)
+        test_free_energies.append(avg_test_free_energy)
 
         pbar.set_postfix({
             "Weight": f"{p:.2f}",
             "Rwd": f"{avg_test_reward:05.3f}",
+            "CI": f"{avg_test_control_info:05.1f}",
+            "FE": f"{avg_test_free_energy:05.1f}",
         })
         pbar.update(1)
 
     pbar.close()
 
-    return task_name, prior_run_id, target_run_id, prior_env_idx, target_env_idx, test_results, avg_test_control_info, avg_test_free_energy, test_weights
+    return task_name, prior_run_id, target_run_id, prior_env_idx, target_env_idx, test_results, avg_test_control_info, test_free_energies, test_weights
 
 
 # A wrapper function for unpacking arguments
@@ -1419,36 +1423,29 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
         target_env_idx = task_data["target_env_idx"]  # The designated target environment
         target_run_ids = env_run_ids[target_env_idx]  # All run IDs for the target environment
 
+        for target_run_id in target_run_ids:
+            paired_tasks.append({
+                "task_name": task_name,
+                "prior_env_idx": -1,
+                "target_env_idx": target_env_idx,
+                "prior_run_id": -1,
+                "target_run_id": target_run_id,
+            })
+
         for prior_env_idx, prior_run_ids in env_run_ids.items():
             if prior_env_idx == target_env_idx:
                 continue  # Skip the target environment itself
 
-            for target_run_id in target_run_ids:
-                paired_tasks.append({
-                    "task_name": task_name,
-                    "prior_env_idx": -1,
-                    "target_env_idx": target_env_idx,
-                    "prior_run_id": -1,
-                    "target_run_id": target_run_id,
-                })
-
             # Pair each prior environment run_id with all target environment run_ids
             for prior_run_id in prior_run_ids:
                 for target_run_id in target_run_ids:
-                    if {
+                    paired_tasks.append({
                         "task_name": task_name,
                         "prior_env_idx": -1,
                         "target_env_idx": prior_env_idx,
                         "prior_run_id": -1,
                         "target_run_id": prior_run_id,
-                    } not in paired_tasks:
-                        paired_tasks.append({
-                            "task_name": task_name,
-                            "prior_env_idx": -1,
-                            "target_env_idx": prior_env_idx,
-                            "prior_run_id": -1,
-                            "target_run_id": prior_run_id,
-                        })
+                    })
                     paired_tasks.append({
                         "task_name": task_name,
                         "prior_env_idx": prior_env_idx,
@@ -1469,9 +1466,9 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
     # Group results by task_name, prior_env_idx, and target_env_idx
     grouped_results = {}
 
-    for task_name, prior_run_id, target_run_id, prior_env_idx, target_env_idx, test_results, test_control_info, test_free_energie, test_weights in all_results:
+    for task_name, prior_run_id, target_run_id, prior_env_idx, target_env_idx, test_results, test_control_info, test_free_energies, test_weights in all_results:
         # Skip empty results
-        if not (test_results and test_control_info and test_free_energie and test_weights):
+        if not (test_results and test_control_info and test_free_energies and test_weights):
             print("run id: {}, task_name: {}, prior_env_idx: {} has no test results".format(prior_run_id, task_name,
                                                                                             prior_env_idx))
             continue
@@ -1489,14 +1486,14 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
             grouped_results[task_name][prior_env_idx][target_env_idx] = {
                 "test_results": [],
                 "test_control_info": [],
-                "test_free_energie": [],
+                "test_free_energies": [],
                 "test_weights": []
             }
 
         # Append results to the corresponding group
         grouped_results[task_name][prior_env_idx][target_env_idx]["test_results"].append(test_results)
         grouped_results[task_name][prior_env_idx][target_env_idx]["test_control_info"].append(test_control_info)
-        grouped_results[task_name][prior_env_idx][target_env_idx]["test_free_energie"].append(test_free_energie)
+        grouped_results[task_name][prior_env_idx][target_env_idx]["test_free_energies"].append(test_free_energies)
         grouped_results[task_name][prior_env_idx][target_env_idx]["test_weights"].append(test_weights)
 
     # Aggregate data for each task_name, prior_env_idx, and target_env_idx
@@ -1516,7 +1513,7 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
                 # Convert lists to numpy arrays
                 test_results_array = np.array(data["test_results"])
                 test_control_info_array = np.array(data["test_control_info"])
-                test_free_energie_array = np.array(data["test_free_energie"])
+                test_free_energies_array = np.array(data["test_free_energies"])
                 test_weights = data["test_weights"][0]
 
                 # Compute mean and std
@@ -1526,8 +1523,8 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
                 mean_test_control_info = test_control_info_array.mean(axis=0)
                 std_test_control_info = test_control_info_array.std(axis=0)
 
-                mean_test_free_energie = test_free_energie_array.mean(axis=0)
-                std_test_free_energie = test_free_energie_array.std(axis=0)
+                mean_test_free_energies = test_free_energies_array.mean(axis=0)
+                std_test_free_energies = test_free_energies_array.std(axis=0)
 
                 # Store aggregated results
                 aggregated_results[task_name][prior_env_idx][target_env_idx] = {
@@ -1535,8 +1532,8 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
                     "std_test_results": std_test_results.tolist(),
                     "mean_test_control_info": float(mean_test_control_info),
                     "std_test_control_info": float(std_test_control_info),
-                    "mean_test_free_energie": float(mean_test_free_energie),
-                    "std_test_free_energie": float(std_test_free_energie),
+                    "mean_test_free_energies": mean_test_free_energies.tolist(),
+                    "std_test_free_energies": std_test_free_energies.tolist(),
                     "test_weights": test_weights,
                 }
 
@@ -1759,12 +1756,86 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
                 if not subtask_data["mean_test_results"]:
                     continue  # Skip empty results
 
-                mean_test_free_energie = subtask_data["mean_test_free_energie"]
-                std_test_free_energie = subtask_data["std_test_free_energie"]
+                mean_test_free_energies = subtask_data["mean_test_free_energies"]
+                std_test_free_energies = subtask_data["std_test_free_energies"]
+                test_weights = subtask_data["test_weights"]
+
+                # Get environment description
+                if prior_env_idx != -1:
+                    _, _, prior_env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, prior_env_idx)
+                else:
+                    prior_env_desc = "scratch"
+                _, _, target_env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, target_env_idx)
+
+                # Label format: "Env X - Env Y"
+                label = f"{prior_env_desc} - {target_env_desc}"
+
+                # Add mean test results curve
+                fig_free_energy.add_trace(go.Scatter(
+                    x=test_weights,
+                    y=mean_test_free_energies,
+                    mode='lines',
+                    name=f"{label} Mean Free Energy",
+                    line=dict(color=colors[color_idx], width=2),
+                ))
+
+                # Add shaded area for std
+                fig_free_energy.add_trace(go.Scatter(
+                    x=test_weights + test_weights[::-1],  # Create a filled region
+                    y=(np.array(mean_test_free_energies) + np.array(std_test_free_energies)).tolist() +
+                      (np.array(mean_test_free_energies) - np.array(std_test_free_energies))[::-1].tolist(),
+                    fill='toself',
+                    fillcolor=f"rgba({int(colors[color_idx][1:3], 16)}, "
+                              f"{int(colors[color_idx][3:5], 16)}, "
+                              f"{int(colors[color_idx][5:], 16)}, 0.2)",  # Match line color
+                    line=dict(color='rgba(255,255,255,0)'),
+                    # name=f"{label} Std Dev",
+                    showlegend=False,
+                ))
+
+                color_idx = (color_idx + 1) % len(colors)
+
+                # Customize layout
+            fig_free_energy.update_layout(
+                title=f"Free Energy for {task_name} by Curriculum towards {target_env_desc}",
+                xaxis_title="Weight (p)",
+                yaxis_title="Average Free Energy",
+                legend_title="Subtasks",
+                font=dict(size=14),
+                width=1200,  # High resolution width
+                height=800,  # High resolution height
+            )
+
+            # Save plot to file
+            plot_path = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)[
+                            "save_path"] + f"_eval_free_energy_cl-{target_env_desc}.png"
+            fig_free_energy.write_image(plot_path, scale=2)  # High-resolution PNG
+            print(f"Saved free energy plot for {task_name} at {plot_path}")
+
+        # Create a figure for the integral bar chart
+        fig_free_energy_integral = go.Figure()
+        color_idx = 0
+
+        # Store bar data
+        bar_labels = []  # X-axis labels
+        bar_means = []  # Heights of bars
+        bar_errors = []  # Error bars
+
+        for prior_env_idx, target_envs in prior_envs.items():
+            for target_env_idx, subtask_data in target_envs.items():
+                if not subtask_data["mean_test_results"]:
+                    continue  # Skip empty results
+
+                mean_test_free_energies = subtask_data["mean_test_free_energies"]
+                std_test_free_energies = subtask_data["std_test_free_energies"]
+
+                # Compute integral (or mean)
+                integral_mean = np.mean(mean_test_free_energies)  # Equivalent to integral divided by length
+                integral_std = np.mean(std_test_free_energies)  # Equivalent to integral error divided by length
 
                 # Get environment description
                 prior_env_desc = "scratch" if prior_env_idx == -1 else \
-                get_envs_discretizers_and_configs(task_name, prior_env_idx)[2]
+                    get_envs_discretizers_and_configs(task_name, prior_env_idx)[2]
                 target_env_desc = get_envs_discretizers_and_configs(task_name, target_env_idx)[2]
 
                 # Label format: "Env X - Env Y"
@@ -1772,11 +1843,11 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
 
                 # Store data
                 bar_labels.append(label)
-                bar_means.append(mean_test_free_energie)
-                bar_errors.append(std_test_free_energie)
+                bar_means.append(integral_mean)
+                bar_errors.append(integral_std)
 
         # Add bars to figure
-        fig_free_energy.add_trace(go.Bar(
+        fig_free_energy_integral.add_trace(go.Bar(
             x=bar_labels,
             y=bar_means,
             error_y=dict(type='data', array=bar_errors, visible=True),
@@ -1786,10 +1857,10 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
         ))
 
         # Customize layout
-        fig_free_energy.update_layout(
-            title=f"Evaluation Free Energy for {task_name} by Curriculum towards {target_env_desc}",
+        fig_free_energy_integral.update_layout(
+            title=f"Integrated Free Energy for {task_name} towards {target_env_desc}",
             xaxis_title="Environment Transition",
-            yaxis_title="Average Free Energy",
+            yaxis_title="Mean Integrated Free Energy",
             legend_title="Subtasks",
             font=dict(size=14),
             width=1200,
@@ -1797,11 +1868,11 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
         )
 
         # Save plot
-        plot_path_free_energy = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)[
-                                    "save_path"] + f"_eval_free_energy_cl-{target_env_desc}.png"
-        fig_free_energy.write_image(plot_path_free_energy, scale=2)
+        plot_path_integral = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)[
+                                 "save_path"] + f"_eval_integral_free_energy_cl-{target_env_desc}.png"
+        fig_free_energy_integral.write_image(plot_path_integral, scale=2)
 
-        print(f"Saved evaluation plot for free energy: {plot_path_free_energy}")
+        print(f"Saved free energy performance plot for {task_name} at {plot_path_integral}")
 
     return aggregated_results
 
