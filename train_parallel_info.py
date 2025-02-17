@@ -445,13 +445,15 @@ def run_eval(task_name: str, env_idx: int, run_id: int):
     return task_name, run_id, env_idx, test_results, test_control_infos, test_free_energies, test_weights
 
 
-def run_cl_eval(task_name: str, prior_env_idx: int, target_env_idx: int, prior_run_id: int, target_run_id: int,):
+def run_cl_eval(task_name: str, prior_env_idx: int, target_env_idx: int, prior_run_id: int, target_run_id: int, final_target_env_idx: int,):
     prior_env, prior_test_env, prior_env_desc, _, _, _ \
         = get_envs_discretizers_and_configs(task_name, prior_env_idx)
     if prior_env_idx == -1 and prior_run_id == -1:
         prior_env_desc = "scratch"
     target_env, target_test_env, target_env_desc, state_discretizer, action_discretizer, configs \
         = get_envs_discretizers_and_configs(task_name, target_env_idx)
+    _, final_target_test_env, _, _, _, _ \
+        = get_envs_discretizers_and_configs(task_name, final_target_env_idx)
     dir_path = os.path.dirname(configs["save_path"])
     os.makedirs(dir_path, exist_ok=True)
     prior_save_path = configs["save_path"] + f"-{prior_env_desc}-id-{prior_run_id}"
@@ -579,9 +581,52 @@ def run_cl_eval(task_name: str, prior_env_idx: int, target_env_idx: int, prior_r
                 pass
             periodic_test_control_infos.append(control_info)  # / len(trajectory))
 
+        periodic_test_rewards_final_target = []
+        periodic_test_control_infos_final_target = []
+        periodic_test_free_energies = []
+        for t in range(configs["exploit_policy_eval_episodes"]):
+            test_state, _ = final_target_test_env.reset()
+            test_total_reward = 0
+            test_done = False
+            trajectory = [test_state]
+            while not test_done:
+                if prior_env_idx != -1 and prior_run_id != -1:
+                    test_action = target_agent.choose_action_by_weight(
+                        test_state, p=p, default_policy_func=prior_agent.get_greedy_weighted_action_distribution,
+                    )
+                    # test_action = target_agent.choose_action(test_state, greedy=True)
+                else:
+                    test_action = target_agent.choose_action_by_weight(
+                        test_state, p=p, default_policy_func=prior_agent.get_default_policy_distribution,
+                    )
+                    # test_action = target_agent.choose_action(test_state, greedy=True)
+                test_next_state, test_reward, test_done, test_truncated, _ = final_target_test_env.step(test_action)
+                trajectory.append(test_next_state)
+                test_state = test_next_state
+                test_total_reward += test_reward
+                if test_done or test_truncated:
+                    break
+            periodic_test_rewards_final_target.append(test_total_reward)
+
+            # if p == weights[-1]:
+            trajectory.reverse()
+            control_info = 0.0
+            if isinstance(action_space, spaces.Discrete):
+                for state in trajectory:
+                    weighted_action_distribution = np.array(
+                        target_agent.get_action_probabilities(state, temperature=1.0))
+                    default_action_distribution = np.array(prior_agent.get_default_policy_distribution(state, ))
+                    kl_divergence = compute_discrete_kl_divergence(
+                        weighted_action_distribution, default_action_distribution
+                    )
+                    control_info += kl_weight * kl_divergence
+            else:
+                pass
+            periodic_test_control_infos_final_target.append(control_info)  # / len(trajectory))
+
         avg_test_reward = np.mean(periodic_test_rewards)
         avg_test_control_info = np.mean(periodic_test_control_infos)
-        for control_info, test_total_reward in zip(periodic_test_control_infos, periodic_test_rewards):
+        for control_info, test_total_reward in zip(periodic_test_control_infos_final_target, periodic_test_rewards_final_target):
             periodic_test_free_energies.append(
                 # (control_info - configs["train_max_num_steps_per_episode"] * test_total_reward) / configs["train_max_num_steps_per_episode"]
                 (control_info - 1.0 * test_total_reward) / 1.0
@@ -1431,6 +1476,7 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
                 "target_env_idx": target_env_idx,
                 "prior_run_id": -1,
                 "target_run_id": target_run_id,
+                "final_target_env_idx": target_env_idx,
             })
 
         for prior_env_idx, prior_run_ids in env_run_ids.items():
@@ -1445,6 +1491,7 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
                     "target_env_idx": prior_env_idx,
                     "prior_run_id": -1,
                     "target_run_id": prior_run_id,
+                    "final_target_env_idx": target_env_idx,
                 })
                 paired_tasks.append({
                     "task_name": task_name,
@@ -1452,6 +1499,7 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
                     "target_env_idx": target_env_idx,
                     "prior_run_id": prior_run_id,
                     "target_run_id": target_run_id,
+                    "final_target_env_idx": target_env_idx,
                 })
 
     print(f"Total tasks: {len(paired_tasks)}.")
@@ -1913,7 +1961,7 @@ if __name__ == '__main__':
     #     max_workers=27,
     # )
     run_all_trainings_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": 4, },
+        task_names_and_num_experiments={"frozen_lake-custom": 8, },
         max_workers=27,
     )
     # run_all_evals_and_plot(
@@ -1925,11 +1973,11 @@ if __name__ == '__main__':
     #     max_workers=27,
     # )
     run_all_cl_evals_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": (4, 7), },
+        task_names_and_num_experiments={"frozen_lake-custom": (8, 7), },
         max_workers=27,
     )
     run_all_2_stage_cl_training_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": (4, 7), },
+        task_names_and_num_experiments={"frozen_lake-custom": (8, 7), },
         max_workers=27,
     )
 
