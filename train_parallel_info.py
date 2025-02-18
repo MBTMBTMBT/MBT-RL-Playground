@@ -1965,7 +1965,7 @@ if __name__ == '__main__':
     #     max_workers=27,
     # )
     run_all_trainings_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": 4, },
+        task_names_and_num_experiments={"frozen_lake-custom": 8, },
         max_workers=27,
     )
     # run_all_evals_and_plot(
@@ -1977,11 +1977,11 @@ if __name__ == '__main__':
     #     max_workers=27,
     # )
     run_all_cl_evals_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": (4, 11), },
+        task_names_and_num_experiments={"frozen_lake-custom": (8, 11), },
         max_workers=27,
     )
     run_all_2_stage_cl_training_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": (4, 11), },
+        task_names_and_num_experiments={"frozen_lake-custom": (8, 11), },
         max_workers=27,
     )
 
