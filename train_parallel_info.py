@@ -773,6 +773,7 @@ def run_all_trainings_and_plot(task_names_and_num_experiments: Dict[str, int], m
                           f"{int(colors[color_idx][5:], 16)}, 0.2)",  # Match line color
                 line=dict(color='rgba(255,255,255,0)'),
                 name=f"{env_desc} Std Dev",
+                showlegend=False,
             ))
 
             # Add final mean result as a horizontal line
@@ -1305,6 +1306,7 @@ def run_all_evals_and_plot(task_names_and_num_experiments: Dict[str, int], max_w
                           f"{int(colors[color_idx][5:], 16)}, 0.2)",  # Match line color
                 line=dict(color='rgba(255,255,255,0)'),
                 name=f"{env_desc} Std Dev",
+                showlegend=False,
             ))
 
             color_idx = (color_idx + 1) % len(colors)
@@ -1359,6 +1361,7 @@ def run_all_evals_and_plot(task_names_and_num_experiments: Dict[str, int], max_w
                           f"{int(colors[color_idx][5:], 16)}, 0.2)",
                 line=dict(color='rgba(255,255,255,0)'),
                 name=f"{env_desc} Control Information Std Dev",
+                showlegend=False,
             ))
 
             color_idx = (color_idx + 1) % len(colors)
@@ -1414,6 +1417,7 @@ def run_all_evals_and_plot(task_names_and_num_experiments: Dict[str, int], max_w
                           f"{int(colors[color_idx][5:], 16)}, 0.2)",
                 line=dict(color='rgba(255,255,255,0)'),
                 name=f"{env_desc} Free Energy Std Dev",
+                showlegend=False,
             ))
 
             color_idx = (color_idx + 1) % len(colors)
@@ -1961,7 +1965,7 @@ if __name__ == '__main__':
     #     max_workers=27,
     # )
     run_all_trainings_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": 8, },
+        task_names_and_num_experiments={"frozen_lake-custom": 4, },
         max_workers=27,
     )
     # run_all_evals_and_plot(
@@ -1973,11 +1977,11 @@ if __name__ == '__main__':
     #     max_workers=27,
     # )
     run_all_cl_evals_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": (8, 7), },
+        task_names_and_num_experiments={"frozen_lake-custom": (4, 11), },
         max_workers=27,
     )
     run_all_2_stage_cl_training_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": (8, 7), },
+        task_names_and_num_experiments={"frozen_lake-custom": (4, 11), },
         max_workers=27,
     )
 
