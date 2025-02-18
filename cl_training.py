@@ -386,7 +386,7 @@ def run_all_2_stage_cl_training_and_plot(task_names_and_num_experiments: Dict[st
                     mode='lines',
                     name=f"{label} Mean Target Test Results",
                     line=dict(color=colors[color_idx], width=2),
-                    showlegend=False,
+                    # showlegend=False,
                 ))
 
                 fig_target_test.add_trace(go.Scatter(
