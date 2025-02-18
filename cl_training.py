@@ -66,6 +66,10 @@ def run_2_stage_cl_training(task_name: str, prior_env_idx: int, target_env_idx: 
     best_avg_reward = None
     no_improvement_count = 0  # Counter for early stopping based on test results
 
+    success = False
+    success_threshold = configs["success_threshold"]
+    success_step = configs["exploit_policy_training_steps"]
+
     for idx, env in enumerate(envs):
         agent.exploit_agent.set_env(env)
         frames = []
@@ -131,6 +135,11 @@ def run_2_stage_cl_training(task_name: str, prior_env_idx: int, target_env_idx: 
             })
             pbar.update(configs["exploit_policy_test_per_num_steps"])
 
+            if target_test_results[-1] >= success_threshold and not success:
+                print(f"Success threshold reached at step {sample_step_count}")
+                success_step = sample_step_count
+                success = True
+
             if best_avg_reward is None:
                 best_avg_reward = avg_test_reward
 
@@ -171,7 +180,7 @@ def run_2_stage_cl_training(task_name: str, prior_env_idx: int, target_env_idx: 
 
     pbar.close()
 
-    return task_name, run_id, prior_env_idx, target_env_idx, test_results, target_test_results, test_steps, prior_end_step
+    return task_name, run_id, prior_env_idx, target_env_idx, test_results, target_test_results, test_steps, prior_end_step, success_step
 
 
 def run_2_stage_cl_training_unpack(args):
@@ -244,7 +253,7 @@ def run_all_2_stage_cl_training_and_plot(task_names_and_num_experiments: Dict[st
 
     # Group results by task_name and init_group
     grouped_results = {}
-    for task_name, run_id, prior_env_idx, target_env_idx, test_results, target_test_results, test_steps, prior_end_step in all_results:
+    for task_name, run_id, prior_env_idx, target_env_idx, test_results, target_test_results, test_steps, prior_end_step, success_step in all_results:
         # Initialize task_name in grouped_results
         if task_name not in grouped_results:
             grouped_results[task_name] = {}
@@ -260,6 +269,7 @@ def run_all_2_stage_cl_training_and_plot(task_names_and_num_experiments: Dict[st
                 "target_test_results": [],
                 "test_steps": [],
                 "prior_end_steps": [],
+                "success_steps": []
             }
 
         # Append results to the corresponding group
@@ -267,6 +277,7 @@ def run_all_2_stage_cl_training_and_plot(task_names_and_num_experiments: Dict[st
         grouped_results[task_name][prior_env_idx][target_env_idx]["target_test_results"].append(target_test_results)
         grouped_results[task_name][prior_env_idx][target_env_idx]["test_steps"].append(test_steps)
         grouped_results[task_name][prior_env_idx][target_env_idx]["prior_end_steps"].append(prior_end_step)  # Directly assign
+        grouped_results[task_name][prior_env_idx][target_env_idx]["success_steps"].append(success_step)  # Directly assign
 
     # Aggregate data for each task_name, prior_env_idx, and target_env_idx
     aggregated_results = {}
@@ -287,6 +298,7 @@ def run_all_2_stage_cl_training_and_plot(task_names_and_num_experiments: Dict[st
                 target_test_results_array = np.array(data["target_test_results"])
                 test_steps = data["test_steps"][0]
                 prior_end_steps = data["prior_end_steps"]  # Retrieve as int
+                success_steps = data["success_steps"]
 
                 # Compute mean and std
                 mean_test_results = test_results_array.mean(axis=0)
@@ -302,6 +314,7 @@ def run_all_2_stage_cl_training_and_plot(task_names_and_num_experiments: Dict[st
                     "std_target_test_results": std_target_test_results.tolist(),
                     "test_steps": test_steps,
                     "prior_end_steps": prior_end_steps,
+                    "success_steps": success_steps,
                 }
 
             # Remove empty prior_env_idx
@@ -334,6 +347,8 @@ def run_all_2_stage_cl_training_and_plot(task_names_and_num_experiments: Dict[st
         bar_labels = []
         bar_means_target_test = []
         bar_errors_target_test = []
+        bar_means_success_steps = []
+        bar_errors_success_steps = []
 
         for prior_env_idx, target_envs in prior_envs.items():
             for target_env_idx, subtask_data in target_envs.items():
@@ -346,10 +361,16 @@ def run_all_2_stage_cl_training_and_plot(task_names_and_num_experiments: Dict[st
                 std_target_test_results = np.array(subtask_data["std_target_test_results"])
                 test_steps = subtask_data["test_steps"]
                 prior_end_steps = subtask_data["prior_end_steps"]
+                success_steps = np.array(subtask_data["success_steps"])
+                success_mean = np.mean(success_steps)
+                success_std = np.std(success_steps)
 
                 # Compute integral (mean) for bar chart
                 integral_mean_target_test = np.mean(mean_target_test_results)
                 integral_std_target_test = np.mean(std_target_test_results)
+
+                bar_means_success_steps.append(success_mean)
+                bar_errors_success_steps.append(success_std)
 
                 # Get environment description
                 prior_env_desc = "scratch" if prior_env_idx == -1 else \
@@ -463,6 +484,26 @@ def run_all_2_stage_cl_training_and_plot(task_names_and_num_experiments: Dict[st
             height=800,
         )
 
+        fig_success_steps = go.Figure()
+        fig_success_steps.add_trace(go.Bar(
+            x=bar_labels,
+            y=bar_means_success_steps,
+            error_y=dict(type='data', array=bar_errors_success_steps, visible=True),
+            name="Success Steps",
+            marker_color=[colors[i % len(colors)] for i in range(len(bar_labels))],
+            text=[f"{val}" for val in bar_means_success_steps],
+            textposition='outside'
+        ))
+        fig_success_steps.update_layout(
+            title=f"Success Steps for {task_name} towards {target_env_desc}",
+            xaxis_title="Environment Transition",
+            yaxis_title="Mean Success Steps",
+            legend_title="Metrics",
+            font=dict(size=14),
+            width=1200,
+            height=800,
+        )
+
         # ---- Save figures ----
         save_path = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)["save_path"]
 
@@ -477,6 +518,10 @@ def run_all_2_stage_cl_training_and_plot(task_names_and_num_experiments: Dict[st
         plot_path_integral = save_path + f"_training_integral_target_cl-{target_env_desc}.png"
         fig_integral.write_image(plot_path_integral, scale=2)
         print(f"Saved integral target test performance plot for {task_name} at {plot_path_integral}")
+
+        plot_path_success_steps = save_path + f"_training_success_steps_cl-{target_env_desc}.png"
+        fig_success_steps.write_image(plot_path_success_steps, scale=2)
+        print(f"Saved success steps performance plot for {task_name} at {plot_path_success_steps}")
 
     return aggregated_results
 
