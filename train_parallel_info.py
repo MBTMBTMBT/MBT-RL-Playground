@@ -1088,7 +1088,7 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
                         )
 
         # Create Matplotlib figure
-        fig, ax = plt.subplots(figsize=(12, 8))
+        fig, ax = plt.subplots(figsize=(8, 8))
 
         # Plot scatter points with different colors
         ax.scatter(scatter_x, scatter_y, c=scatter_colors, alpha=0.7, s=100, label="Data Points")
@@ -1156,14 +1156,6 @@ if __name__ == '__main__':
         task_names_and_num_experiments={"frozen_lake-custom": 8, },
         max_workers=27,
     )
-    # run_all_evals_and_plot(
-    #     task_names_and_num_experiments={"frozen_lake-custom": 4, },
-    #     max_workers=27,
-    # )
-    # run_all_cl_training_and_plot(
-    #     task_names_and_num_experiments={"frozen_lake-custom": (4, 7), },
-    #     max_workers=27,
-    # )
     run_all_cl_evals_and_plot(
         task_names_and_num_experiments={"frozen_lake-custom": (8, 11), },
         max_workers=27,
