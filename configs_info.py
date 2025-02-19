@@ -297,9 +297,9 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             "exploit_policy_reward_rate": 1,
             "exploit_value_decay": 0.99,
             "fast_exploit_policy_training_steps": int(500e3),
-            "exploit_policy_training_steps": int(10000e3),
+            "exploit_policy_training_steps": int(7500e3),
             "exploit_policy_test_per_num_steps": int(25e3),
-            "exploit_policy_test_episodes": 300,
+            "exploit_policy_test_episodes": 500,
             "exploit_policy_eval_episodes": 500,
             "save_per_num_steps": int(50e3),
             "save_mdp_graph": False,
@@ -309,7 +309,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             "quick_test_threshold": 0.1,
             "quick_test_num_episodes": 25,
             "early_stop_counts": 10,
-            "success_threshold": 0.75,
+            "success_threshold": 0.70,
         }
 
     elif name == "mountaincar-custom":

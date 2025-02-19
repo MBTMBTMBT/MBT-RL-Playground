@@ -7,6 +7,8 @@ import numpy as np
 from gymnasium import spaces
 from tqdm import tqdm
 import plotly.graph_objs as go
+import matplotlib.pyplot as plt
+from adjustText import adjust_text
 
 from dyna_q_modernized import Agent
 from configs_info import get_envs_discretizers_and_configs
@@ -146,305 +148,6 @@ def compute_discrete_kl_divergence(weighted_distribution: np.ndarray, default_di
     return kl_divergence
 
 
-def run_cl_training(task_name: str, prior_env_idx: int, target_env_idx: int, prior_run_id: int, target_run_id: int,):
-    prior_env, prior_test_env, prior_env_desc, _, _, _ \
-        = get_envs_discretizers_and_configs(task_name, prior_env_idx)
-    if prior_env_idx == -1 and prior_run_id == -1:
-        prior_env_desc = "scratch"
-    target_env, target_test_env, target_env_desc, state_discretizer, action_discretizer, configs \
-        = get_envs_discretizers_and_configs(task_name, target_env_idx)
-    dir_path = os.path.dirname(configs["save_path"])
-    os.makedirs(dir_path, exist_ok=True)
-    prior_save_path = configs["save_path"] + f"-{prior_env_desc}-id-{prior_run_id}"
-    target_save_path = configs["save_path"] + f"-{target_env_desc}-id-{target_run_id}"
-
-    prior_agent = Agent(
-        state_discretizer,
-        action_discretizer,
-        prior_env,
-        configs["use_deep_agent"],
-        configs["train_max_num_steps_per_episode"],
-        configs["initialization_distribution"],
-        configs["exploit_agent_lr"],
-        configs["exploit_value_decay"],
-        configs["exploit_policy_reward_rate"],
-        configs["use_balanced_random_init"],
-    )
-    if prior_env_idx != -1 and prior_run_id != -1:
-        prior_agent.load_agent(prior_save_path + f"_final", load_transition_table=False)
-
-    # target_agent = Agent(
-    #     state_discretizer,
-    #     action_discretizer,
-    #     target_env,
-    #     configs["use_deep_agent"],
-    #     configs["train_max_num_steps_per_episode"],
-    #     configs["initialization_distribution"],
-    #     configs["exploit_agent_lr"],
-    #     configs["exploit_value_decay"],
-    #     configs["exploit_policy_reward_rate"],
-    #     configs["use_balanced_random_init"],
-    # )
-    # target_agent.load_agent(target_save_path + f"_final")
-
-    agent = Agent(
-        state_discretizer,
-        action_discretizer,
-        target_env,
-        configs["use_deep_agent"],
-        configs["train_max_num_steps_per_episode"],
-        (1.0, 0.0),  # do not use re-initialization strategy
-        configs["exploit_agent_lr"],
-        configs["exploit_value_decay"],
-        configs["exploit_policy_reward_rate"],
-        configs["use_balanced_random_init"],
-    )
-    if prior_env_idx != -1 and prior_run_id != -1:
-        agent.load_agent(prior_save_path + f"_final", load_transition_table=False)
-        # this baseline agent might not be optimal but is trained without re-initialisation
-        # agent.load_agent(prior_save_path + f"_baseline", load_transition_table=False)
-
-    if prior_env_idx != -1 and prior_run_id != -1:
-        if "quick_test_threshold" in configs.keys() and "quick_test_num_episodes" in configs.keys():
-            quick_test_episodes = configs["quick_test_num_episodes"]
-            test_total_rewards = []
-            # for test_env, agent in zip([prior_test_env, target_test_env], [prior_agent, target_agent]):
-            for test_env, agent_ in zip([prior_test_env,], [prior_agent,]):
-                for t in range(quick_test_episodes):
-                    test_state, _ = test_env.reset()
-                    test_total_reward = 0
-                    test_done = False
-                    while not test_done:
-                        test_action = agent_.choose_action_by_weight(test_state, p=1.0)
-                        test_next_state, test_reward, test_done, test_truncated, _ = test_env.step(test_action)
-                        test_state = test_next_state
-                        test_total_reward += test_reward
-                        if test_done or test_truncated:
-                            test_total_rewards.append(test_total_reward)
-                            break
-                test_avg_reward = np.mean(test_total_rewards)
-                if test_avg_reward < configs["quick_test_threshold"]:
-                    return task_name, prior_run_id, target_run_id, prior_env_idx, target_env_idx, [], [], [], []
-
-    kl_weight = 1.0
-    action_space = prior_agent.action_discretizer.get_gym_space()
-    if isinstance(action_space, spaces.Discrete):
-        kl_weight = 1.0 / np.log2(action_space.n)
-    else:
-        pass  # not implemented yet
-
-    pbar = tqdm(
-        total=configs["exploit_policy_training_steps"],
-        desc=f"[{prior_run_id}-{target_run_id}-{prior_env_desc}-{target_env_desc}]",
-        unit="step",
-        leave=False,
-        dynamic_ncols=True,
-        smoothing=1.0,
-        mininterval=1.0,
-        maxinterval=30.0,
-    )
-    sample_step_count = 0
-    test_results = []
-    test_control_infos = []
-    test_free_energies = []
-    test_steps = []
-    final_test_rewards = 0.0
-
-    first_test = True
-    while sample_step_count < configs["exploit_policy_training_steps"]:
-        if not first_test:
-            agent.learn(configs["exploit_policy_test_per_num_steps"], False)
-            sample_step_count += configs["exploit_policy_test_per_num_steps"]
-
-        periodic_test_rewards = []
-        periodic_test_control_infos = []
-        periodic_test_free_energies = []
-        for t in range(configs["exploit_policy_eval_episodes"]):
-            test_state, _ = target_test_env.reset()
-            test_total_reward = 0
-            test_done = False
-            trajectory = [test_state]
-            while not test_done:
-                test_action = agent.choose_action(test_state, greedy=True)
-                test_next_state, test_reward, test_done, test_truncated, _ = target_test_env.step(test_action)
-                trajectory.append(test_next_state)
-                test_state = test_next_state
-                test_total_reward += test_reward
-                if test_done or test_truncated:
-                    break
-            periodic_test_rewards.append(test_total_reward)
-            trajectory.reverse()
-            control_info = 0.0
-            if isinstance(action_space, spaces.Discrete):
-                for state in trajectory:
-                    weighted_action_distribution = agent.get_greedy_weighted_action_distribution(state, p=1.0,)
-                    if prior_env_idx != -1 and prior_run_id != -1:
-                        default_action_distribution = prior_agent.get_greedy_weighted_action_distribution(state, p=1.0)
-                    else:
-                        default_action_distribution = prior_agent.get_default_policy_distribution(state, p=1.0)
-                    kl_divergence = compute_discrete_kl_divergence(
-                        weighted_action_distribution, default_action_distribution
-                    )
-                    control_info += kl_weight * kl_divergence
-            else:
-                pass
-            periodic_test_control_infos.append(control_info)
-
-        avg_test_reward = np.mean(periodic_test_rewards)
-        avg_test_control_info = np.mean(periodic_test_control_infos)
-        for control_info, test_total_reward in zip(periodic_test_control_infos, periodic_test_rewards):
-            periodic_test_free_energies.append(
-                (control_info - configs["train_max_num_steps_per_episode"] * test_total_reward) / configs[
-                    "train_max_num_steps_per_episode"]
-            )
-        avg_test_free_energy = np.mean(periodic_test_free_energies)
-        test_results.append(avg_test_reward)
-        final_test_rewards = avg_test_reward
-        test_control_infos.append(avg_test_control_info)
-        test_free_energies.append(avg_test_free_energy)
-        test_steps.append(sample_step_count)
-
-        first_test = False
-
-        pbar.set_postfix({
-            "Rwd": f"{avg_test_reward:05.3f}",
-            # "CI": f"{avg_test_control_info:05.1f}",
-            # "FE": f"{avg_test_free_energy:05.1f}",
-        })
-        pbar.update(configs["exploit_policy_test_per_num_steps"])
-
-    pbar.close()
-
-    return task_name, prior_run_id, target_run_id, prior_env_idx, target_env_idx, test_results, test_control_infos, test_free_energies, test_steps  # , final_test_rewards
-
-
-def run_eval(task_name: str, env_idx: int, run_id: int):
-    env, test_env, env_desc, state_discretizer, action_discretizer, configs = get_envs_discretizers_and_configs(
-        task_name, env_idx)
-    dir_path = os.path.dirname(configs["save_path"])
-    os.makedirs(dir_path, exist_ok=True)
-    save_path = configs["save_path"] + f"-{env_desc}-id-{run_id}"
-
-    agent = Agent(
-        state_discretizer,
-        action_discretizer,
-        env,
-        configs["use_deep_agent"],
-        configs["train_max_num_steps_per_episode"],
-        configs["initialization_distribution"],
-        configs["exploit_agent_lr"],
-        configs["exploit_value_decay"],
-        configs["exploit_policy_reward_rate"],
-        configs["use_balanced_random_init"],
-    )
-
-    agent.load_agent(save_path + f"_final", load_transition_table=False)
-
-    if configs["use_deep_agent"]:
-        agent.exploit_agent.policy.to("cpu")
-
-    if "quick_test_threshold" in configs.keys() and "quick_test_num_episodes" in configs.keys():
-        quick_test_episodes = configs["quick_test_num_episodes"]
-        test_total_rewards = []
-        for t in range(quick_test_episodes):
-            test_state, _ = test_env.reset()
-            test_total_reward = 0
-            test_done = False
-            while not test_done:
-                test_action = agent.choose_action_by_weight(test_state, p=1.0)
-                test_next_state, test_reward, test_done, test_truncated, _ = test_env.step(test_action)
-                test_state = test_next_state
-                test_total_reward += test_reward
-                if test_done or test_truncated:
-                    test_total_rewards.append(test_total_reward)
-                    break
-        test_avg_reward = np.mean(test_total_rewards)
-        if test_avg_reward < configs["quick_test_threshold"]:
-            return task_name, run_id, env_idx, [], [], [], []
-
-    kl_weight = 1.0
-    action_space = agent.action_discretizer.get_gym_space()
-    if isinstance(action_space, spaces.Discrete):
-        kl_weight = 1.0 / np.log2(action_space.n)
-    else:
-        pass  # not implemented yet
-
-    weights = np.linspace(0, 1, 25)
-
-    pbar = tqdm(
-        total=len(weights),
-        desc=f"[{run_id}-{env_desc}]",
-        leave=False,
-        dynamic_ncols=True,
-    )
-
-    test_results = []
-    test_weights = []
-    test_control_infos = []
-    test_free_energies = []
-    for p in weights:
-        periodic_test_rewards = []
-        periodic_test_control_infos = []
-        periodic_test_free_energies = []
-        for t in range(configs["exploit_policy_eval_episodes"]):
-            test_state, _ = test_env.reset()
-            test_total_reward = 0
-            test_done = False
-            trajectory = [test_state]
-            while not test_done:
-                test_action = agent.choose_action_by_weight(test_state, p=p)
-                test_next_state, test_reward, test_done, test_truncated, _ = test_env.step(test_action)
-                trajectory.append(test_next_state)
-                test_state = test_next_state
-                test_total_reward += test_reward
-                if test_done or test_truncated:
-                    break
-            periodic_test_rewards.append(test_total_reward)
-            trajectory.reverse()
-            # value = test_total_reward
-            # free_energy = 0.0
-            control_info = 0.0
-            if isinstance(action_space, spaces.Discrete):
-                for state in trajectory:
-                    weighted_action_distribution = agent.get_greedy_weighted_action_distribution(state, p)
-                    default_action_distribution = agent.get_default_policy_distribution(state)
-                    kl_divergence = compute_discrete_kl_divergence(
-                        weighted_action_distribution, default_action_distribution
-                    )
-                    control_info += kl_weight * kl_divergence
-                    # free_energy += kl_weight * kl_divergence - value
-                    # value *= configs["exploit_value_decay"]
-            else:
-                pass
-            # free_energy = control_info - len(trajectory) * value
-            periodic_test_control_infos.append(control_info)
-            # periodic_test_free_energies.append(free_energy)
-
-        avg_test_reward = np.mean(periodic_test_rewards)
-        avg_test_control_info = np.mean(periodic_test_control_infos)
-        for control_info, test_total_reward in zip(periodic_test_control_infos, periodic_test_rewards):
-            periodic_test_free_energies.append(
-                (control_info - configs["train_max_num_steps_per_episode"] * test_total_reward) / configs["train_max_num_steps_per_episode"]
-            )
-        avg_test_free_energy = np.mean(periodic_test_free_energies)
-        test_results.append(avg_test_reward)
-        test_control_infos.append(avg_test_control_info)
-        test_free_energies.append(avg_test_free_energy)
-        test_weights.append(p)
-
-        pbar.set_postfix({
-            "Weight": f"{p:.2f}",
-            "Rwd": f"{avg_test_reward:05.3f}",
-            "CI": f"{avg_test_control_info:05.1f}",
-            "FE": f"{avg_test_free_energy:05.1f}",
-        })
-        pbar.update(1)
-
-    pbar.close()
-
-    return task_name, run_id, env_idx, test_results, test_control_infos, test_free_energies, test_weights
-
-
 def run_cl_eval(task_name: str, prior_env_idx: int, target_env_idx: int, prior_run_id: int, target_run_id: int, final_target_env_idx: int,):
     prior_env, prior_test_env, prior_env_desc, _, _, _ \
         = get_envs_discretizers_and_configs(task_name, prior_env_idx)
@@ -452,6 +155,8 @@ def run_cl_eval(task_name: str, prior_env_idx: int, target_env_idx: int, prior_r
         prior_env_desc = "scratch"
     target_env, target_test_env, target_env_desc, state_discretizer, action_discretizer, configs \
         = get_envs_discretizers_and_configs(task_name, target_env_idx)
+    if target_env_idx == -1 and target_run_id == -1:
+        target_env_desc = "scratch"
     _, final_target_test_env, _, _, _, _ \
         = get_envs_discretizers_and_configs(task_name, final_target_env_idx)
     dir_path = os.path.dirname(configs["save_path"])
@@ -486,13 +191,14 @@ def run_cl_eval(task_name: str, prior_env_idx: int, target_env_idx: int, prior_r
         configs["exploit_policy_reward_rate"],
         configs["use_balanced_random_init"],
     )
-    target_agent.load_agent(target_save_path + f"_final", load_transition_table=False)
+    if target_env_idx != -1 and target_run_id != -1:
+        target_agent.load_agent(target_save_path + f"_final", load_transition_table=False)
 
     if configs["use_deep_agent"]:
         prior_agent.exploit_agent.policy.to("cpu")
         target_agent.exploit_agent.policy.to("cpu")
 
-    if prior_env_idx != -1 and prior_run_id != -1:
+    if prior_env_idx != -1 and prior_run_id != -1 and target_env_idx != -1 and target_run_id != -1:
         if "quick_test_threshold" in configs.keys() and "quick_test_num_episodes" in configs.keys():
             quick_test_episodes = configs["quick_test_num_episodes"]
             test_total_rewards = []
@@ -511,7 +217,7 @@ def run_cl_eval(task_name: str, prior_env_idx: int, target_env_idx: int, prior_r
                             break
                 test_avg_reward = np.mean(test_total_rewards)
                 if test_avg_reward < configs["quick_test_threshold"]:
-                    return task_name, prior_run_id, target_run_id, prior_env_idx, target_env_idx, [], 0.0, 0.0, []
+                    return task_name, prior_run_id, target_run_id, prior_env_idx, target_env_idx, [], 0.0, 0.0, 0.0, 0.0, []
 
     kl_weight = 1.0
     action_space = target_agent.action_discretizer.get_gym_space()
@@ -533,7 +239,9 @@ def run_cl_eval(task_name: str, prior_env_idx: int, target_env_idx: int, prior_r
     test_weights = []
     test_free_energies = []
     avg_test_control_info = 0.0
+    avg_test_control_info_final_target = 0.0
     avg_test_free_energy = 0.0
+    avg_test_reward_final_target = 0.0
     for p in weights:
         periodic_test_rewards = []
         periodic_test_control_infos = []
@@ -625,7 +333,9 @@ def run_cl_eval(task_name: str, prior_env_idx: int, target_env_idx: int, prior_r
             periodic_test_control_infos_final_target.append(control_info)  # / len(trajectory))
 
         avg_test_reward = np.mean(periodic_test_rewards)
+        avg_test_reward_final_target = np.mean(periodic_test_rewards_final_target)
         avg_test_control_info = np.mean(periodic_test_control_infos)
+        avg_test_control_info_final_target = np.mean(periodic_test_control_infos_final_target)
         for control_info, test_total_reward in zip(periodic_test_control_infos_final_target, periodic_test_rewards_final_target):
             periodic_test_free_energies.append(
                 # (control_info - configs["train_max_num_steps_per_episode"] * test_total_reward) / configs["train_max_num_steps_per_episode"]
@@ -646,18 +356,12 @@ def run_cl_eval(task_name: str, prior_env_idx: int, target_env_idx: int, prior_r
 
     pbar.close()
 
-    return task_name, prior_run_id, target_run_id, prior_env_idx, target_env_idx, test_results, avg_test_control_info, test_free_energies, test_weights
+    return task_name, prior_run_id, target_run_id, prior_env_idx, target_env_idx, test_results, avg_test_reward_final_target, avg_test_control_info, avg_test_control_info_final_target, test_free_energies, test_weights
 
 
 # A wrapper function for unpacking arguments
 def run_training_unpack(args):
     return run_training(**args)  # Unpack the dictionary into keyword arguments
-
-def run_cl_training_unpack(args):
-    return run_cl_training(**args)
-
-def run_eval_unpack(args):
-    return run_eval(**args)
 
 def run_cl_eval_unpack(args):
     return run_cl_eval(**args)
@@ -816,632 +520,6 @@ def run_all_trainings_and_plot(task_names_and_num_experiments: Dict[str, int], m
     return aggregated_results
 
 
-def run_all_cl_training_and_plot(task_names_and_num_experiments: Dict[str, Tuple[int, int]], max_workers):
-    run_id = 0
-
-    # Store all run IDs by task_name and prior_env_idx
-    all_task_runs = {}
-
-    for task_name, (runs, target_env_idx) in task_names_and_num_experiments.items():
-        num_envs = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)["num_envs"]
-
-        if target_env_idx >= num_envs:
-            raise ValueError(f"Invalid target_env_idx {target_env_idx} for task {task_name}, max is {num_envs - 1}")
-
-        # Store run IDs for each prior_env_idx under the current task_name
-        env_run_ids = {env_idx: [] for env_idx in range(num_envs)}
-
-        for prior_env_idx in range(num_envs):
-            for _ in range(runs):
-                env_run_ids[prior_env_idx].append(run_id)
-                run_id += 1
-
-        # Save the environment run mappings for the current task
-        all_task_runs[task_name] = {"env_run_ids": env_run_ids, "target_env_idx": target_env_idx}
-
-    # Construct the paired task list for training comparison
-    paired_tasks = []
-
-    for task_name, task_data in all_task_runs.items():
-        env_run_ids = task_data["env_run_ids"]
-        target_env_idx = task_data["target_env_idx"]  # The designated target environment
-        target_run_ids = env_run_ids[target_env_idx]  # All run IDs for the target environment
-
-        for prior_env_idx, prior_run_ids in env_run_ids.items():
-            if prior_env_idx == target_env_idx:
-                continue  # Skip the target environment itself
-
-            for target_run_id in target_run_ids:
-                paired_tasks.append({
-                    "task_name": task_name,
-                    "prior_env_idx": -1,
-                    "target_env_idx": target_env_idx,
-                    "prior_run_id": -1,
-                    "target_run_id": target_run_id,
-                })
-
-            # Pair each prior environment run_id with all target environment run_ids
-            for prior_run_id in prior_run_ids:
-                for target_run_id in target_run_ids:
-                    paired_tasks.append({
-                        "task_name": task_name,
-                        "prior_env_idx": -1,
-                        "target_env_idx": prior_env_idx,
-                        "prior_run_id": -1,
-                        "target_run_id": prior_run_id,
-                    })
-                    paired_tasks.append({
-                        "task_name": task_name,
-                        "prior_env_idx": prior_env_idx,
-                        "target_env_idx": target_env_idx,
-                        "prior_run_id": prior_run_id,
-                        "target_run_id": target_run_id,
-                    })
-
-    print(f"Total tasks: {len(paired_tasks)}.")
-
-    # Execute tasks in parallel
-    if max_workers > 1:
-        with Pool(processes=max_workers, maxtasksperchild=1) as pool:
-            all_results = pool.map(run_cl_training_unpack, paired_tasks)
-    else:
-        all_results = [run_cl_training_unpack(task) for task in paired_tasks]
-
-    # Group results by task_name, prior_env_idx, and target_env_idx
-    grouped_results = {}
-
-    for task_name, prior_run_id, target_run_id, prior_env_idx, target_env_idx, test_results, test_control_infos, test_free_energies, test_steps in all_results:
-        # Skip empty results
-        if not (test_results and test_control_infos and test_free_energies and test_steps):
-            print("run id: {}, task_name: {}, prior_env_idx: {} has no test results".format(prior_run_id, task_name,
-                                                                                            prior_env_idx))
-            continue
-
-        # Initialize task_name in grouped_results
-        if task_name not in grouped_results:
-            grouped_results[task_name] = {}
-
-        # Initialize prior_env_idx in grouped_results
-        if prior_env_idx not in grouped_results[task_name]:
-            grouped_results[task_name][prior_env_idx] = {}
-
-        # Initialize target_env_idx within prior_env_idx
-        if target_env_idx not in grouped_results[task_name][prior_env_idx]:
-            grouped_results[task_name][prior_env_idx][target_env_idx] = {
-                "test_results": [],
-                "test_control_infos": [],
-                "test_free_energies": [],
-                "test_steps": []
-            }
-
-        # Append results to the corresponding group
-        grouped_results[task_name][prior_env_idx][target_env_idx]["test_results"].append(test_results)
-        grouped_results[task_name][prior_env_idx][target_env_idx]["test_control_infos"].append(test_control_infos)
-        grouped_results[task_name][prior_env_idx][target_env_idx]["test_free_energies"].append(test_free_energies)
-        grouped_results[task_name][prior_env_idx][target_env_idx]["test_steps"].append(test_steps)
-
-    # Aggregate data for each task_name, prior_env_idx, and target_env_idx
-    aggregated_results = {}
-
-    for task_name, prior_envs in grouped_results.items():
-        aggregated_results[task_name] = {}
-
-        for prior_env_idx, target_envs in prior_envs.items():
-            aggregated_results[task_name][prior_env_idx] = {}
-
-            for target_env_idx, data in target_envs.items():
-                # Skip if there is no valid data
-                if not any(data["test_results"]):
-                    continue
-
-                # Convert lists to numpy arrays
-                test_results_array = np.array(data["test_results"])
-                test_control_infos_array = np.array(data["test_control_infos"])
-                test_free_energies_array = np.array(data["test_free_energies"])
-                test_steps = data["test_steps"][0]
-
-                # Compute mean and std
-                mean_test_results = test_results_array.mean(axis=0)
-                std_test_results = test_results_array.std(axis=0)
-
-                mean_test_control_infos = test_control_infos_array.mean(axis=0)
-                std_test_control_infos = test_control_infos_array.std(axis=0)
-
-                mean_test_free_energies = test_free_energies_array.mean(axis=0)
-                std_test_free_energies = test_free_energies_array.std(axis=0)
-
-                # Store aggregated results
-                aggregated_results[task_name][prior_env_idx][target_env_idx] = {
-                    "mean_test_results": mean_test_results.tolist(),
-                    "std_test_results": std_test_results.tolist(),
-                    "mean_test_control_infos": mean_test_control_infos.tolist(),
-                    "std_test_control_infos": std_test_control_infos.tolist(),
-                    "mean_test_free_energies": mean_test_free_energies.tolist(),
-                    "std_test_free_energies": std_test_free_energies.tolist(),
-                    "test_steps": test_steps,
-                }
-
-            # Remove empty prior_env_idx
-            if not aggregated_results[task_name][prior_env_idx]:
-                del aggregated_results[task_name][prior_env_idx]
-
-        # Remove empty task_name
-        if not aggregated_results[task_name]:
-            del aggregated_results[task_name]
-
-    # Use hex color codes for consistency
-    colors = [
-        '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
-        '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf',
-        '#fdae61', '#4daf4a', '#a65628', '#984ea3', '#e41a1c',
-        '#377eb8', '#ff69b4', '#f781bf', '#66c2a5', '#ffcc00',
-    ]
-
-    # Iterate over task_name, prior_env_idx, and target_env_idx
-    for task_name, prior_envs in aggregated_results.items():
-        if not prior_envs:
-            continue  # Skip empty results
-
-        fig = go.Figure()
-        color_idx = 0
-
-        for prior_env_idx, target_envs in prior_envs.items():
-            for target_env_idx, subtask_data in target_envs.items():
-                if not subtask_data["mean_test_results"]:
-                    continue  # Skip empty results
-
-                mean_test_results = subtask_data["mean_test_results"]
-                std_test_results = subtask_data["std_test_results"]
-                test_steps = subtask_data["test_steps"]
-
-                # Get environment description
-                if prior_env_idx != -1:
-                    _, _, prior_env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, prior_env_idx)
-                else:
-                    prior_env_desc = "scratch"
-                _, _, target_env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, target_env_idx)
-
-                # Label format: "Env X - Env Y"
-                label = f"{prior_env_desc} - {target_env_desc}"
-
-                # Add mean test results curve
-                fig.add_trace(go.Scatter(
-                    x=test_steps,
-                    y=mean_test_results,
-                    mode='lines',
-                    name=f"{label} Mean Test Results",
-                    line=dict(color=colors[color_idx], width=2),
-                ))
-
-                # Add shaded area for std
-                fig.add_trace(go.Scatter(
-                    x=test_steps + test_steps[::-1],  # Create a filled region
-                    y=(np.array(mean_test_results) + np.array(std_test_results)).tolist() +
-                      (np.array(mean_test_results) - np.array(std_test_results))[::-1].tolist(),
-                    fill='toself',
-                    fillcolor=f"rgba({int(colors[color_idx][1:3], 16)}, "
-                              f"{int(colors[color_idx][3:5], 16)}, "
-                              f"{int(colors[color_idx][5:], 16)}, 0.2)",  # Match line color
-                    line=dict(color='rgba(255,255,255,0)'),
-                    # name=f"{label} Std Dev",
-                    showlegend=False,
-                ))
-
-                color_idx = (color_idx + 1) % len(colors)
-
-        # Customize layout
-        fig.update_layout(
-            title=f"Training Results for {task_name} by Curriculum towards {target_env_desc}",
-            xaxis_title="Steps",
-            yaxis_title="Average Test Reward",
-            legend_title="Subtasks",
-            font=dict(size=14),
-            width=1200,  # High resolution width
-            height=800,  # High resolution height
-        )
-
-        # Save plot to file
-        plot_path = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)[
-                        "save_path"] + f"_training_eval_cl-{target_env_desc}.png"
-        fig.write_image(plot_path, scale=2)  # High-resolution PNG
-        print(f"Saved evaluation plot for {task_name} at {plot_path}")
-
-        # # Plot Control Information
-        # fig_control_info = go.Figure()
-        # color_idx = 0
-        #
-        # for prior_env_idx, target_envs in prior_envs.items():
-        #     for target_env_idx, subtask_data in target_envs.items():
-        #         if not subtask_data["mean_test_results"]:
-        #             continue  # Skip empty results
-        #
-        #         mean_test_control_infos = subtask_data["mean_test_control_infos"]
-        #         std_test_control_infos = subtask_data["std_test_control_infos"]
-        #         test_steps = subtask_data["test_steps"]
-        #
-        #         # Get environment description
-        #         if prior_env_idx != -1:
-        #             _, _, prior_env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, prior_env_idx)
-        #         else:
-        #             prior_env_desc = "scratch"
-        #         _, _, target_env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, target_env_idx)
-        #
-        #         # Label format: "Env X - Env Y"
-        #         label = f"{prior_env_desc} - {target_env_desc}"
-        #
-        #         fig_control_info.add_trace(go.Scatter(
-        #             x=test_steps,
-        #             y=mean_test_control_infos,
-        #             mode='lines',
-        #             name=f"{label} Mean Control Information",
-        #             line=dict(color=colors[color_idx], width=2),
-        #         ))
-        #
-        #         fig_control_info.add_trace(go.Scatter(
-        #             x=test_steps + test_steps[::-1],
-        #             y=(np.array(mean_test_control_infos) + np.array(std_test_control_infos)).tolist() +
-        #               (np.array(mean_test_control_infos) - np.array(std_test_control_infos))[::-1].tolist(),
-        #             fill='toself',
-        #             fillcolor=f"rgba({int(colors[color_idx][1:3], 16)}, "
-        #                       f"{int(colors[color_idx][3:5], 16)}, "
-        #                       f"{int(colors[color_idx][5:], 16)}, 0.2)",
-        #             line=dict(color='rgba(255,255,255,0)'),
-        #             name=f"{label} Control Information Std Dev",
-        #         ))
-        #
-        #         color_idx = (color_idx + 1) % len(colors)
-        #
-        # fig_control_info.update_layout(
-        #     title=f"Training Control Information for {task_name} towards {target_env_desc}",
-        #     xaxis_title="Steps",
-        #     yaxis_title="Average Control Information by Curriculum",
-        #     legend_title="Subtasks",
-        #     font=dict(size=14),
-        #     width=1200,
-        #     height=800,
-        # )
-        #
-        # plot_path_control_info = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)[
-        #                              "save_path"] + f"_training_control_info_cl-{target_env_desc}.png"
-        # fig_control_info.write_image(plot_path_control_info, scale=2)
-        #
-        # print(f"Saved evaluation plot for control information: {plot_path_control_info}")
-        #
-        # # Plot results for free energy
-        # fig_free_energy = go.Figure()
-        # color_idx = 0
-        #
-        # for prior_env_idx, target_envs in prior_envs.items():
-        #     for target_env_idx, subtask_data in target_envs.items():
-        #         if not subtask_data["mean_test_results"]:
-        #             continue  # Skip empty results
-        #
-        #         mean_test_free_energies = subtask_data["mean_test_free_energies"]
-        #         std_test_free_energies = subtask_data["std_test_free_energies"]
-        #         test_steps = subtask_data["test_steps"]
-        #
-        #         # Get environment description
-        #         if prior_env_idx != -1:
-        #             _, _, prior_env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, prior_env_idx)
-        #         else:
-        #             prior_env_desc = "scratch"
-        #         _, _, target_env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, target_env_idx)
-        #
-        #         # Label format: "Env X - Env Y"
-        #         label = f"{prior_env_desc} - {target_env_desc}"
-        #
-        #         # Add mean free energy curve
-        #         fig_free_energy.add_trace(go.Scatter(
-        #             x=test_steps,
-        #             y=mean_test_free_energies,
-        #             mode='lines',
-        #             name=f"{label} Mean Free Energy",
-        #             line=dict(color=colors[color_idx], width=2),
-        #         ))
-        #
-        #         # Add shaded area for std
-        #         fig_free_energy.add_trace(go.Scatter(
-        #             x=test_steps + test_steps[::-1],
-        #             y=(np.array(mean_test_free_energies) + np.array(std_test_free_energies)).tolist() +
-        #               (np.array(mean_test_free_energies) - np.array(std_test_free_energies))[::-1].tolist(),
-        #             fill='toself',
-        #             fillcolor=f"rgba({int(colors[color_idx][1:3], 16)}, "
-        #                       f"{int(colors[color_idx][3:5], 16)}, "
-        #                       f"{int(colors[color_idx][5:], 16)}, 0.2)",
-        #             line=dict(color='rgba(255,255,255,0)'),
-        #             name=f"{label} Free Energy Std Dev",
-        #         ))
-        #
-        #         color_idx = (color_idx + 1) % len(colors)
-        #
-        # # Customize layout for free energy
-        # fig_free_energy.update_layout(
-        #     title=f"Training Free Energy for {task_name} by Curriculum towards {target_env_desc}",
-        #     xaxis_title="Steps",
-        #     yaxis_title="Average Free Energy",
-        #     legend_title="Subtasks",
-        #     font=dict(size=14),
-        #     width=1200,
-        #     height=800,
-        # )
-        #
-        # # Save plot for free energy
-        # plot_path_free_energy = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)[
-        #                             "save_path"] + f"_training_free_energy_cl-{target_env_desc}.png"
-        # fig_free_energy.write_image(plot_path_free_energy, scale=2)
-        # print(f"Saved evaluation plot for free energy: {plot_path_free_energy}")
-
-    return aggregated_results
-
-
-def run_all_evals_and_plot(task_names_and_num_experiments: Dict[str, int], max_workers):
-    tasks = []
-    run_id = 0
-    for task_name, runs in task_names_and_num_experiments.items():
-        num_envs = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)["num_envs"]
-        for env_idx in range(num_envs):
-            for _ in range(runs):
-                tasks.append({
-                    "task_name": task_name,
-                    "env_idx": env_idx,
-                    "run_id": run_id,
-                })
-                run_id += 1
-
-    print(f"Total tasks: {run_id}.")
-
-    # Execute tasks in parallel
-    if max_workers > 1:
-        with Pool(processes=max_workers, maxtasksperchild=1) as pool:
-            all_results = pool.map(run_eval_unpack, tasks)
-    else:
-        all_results = [run_eval_unpack(task) for task in tasks]
-
-    # Aggregate results for each group
-    aggregated_results = {}
-
-    # Group results by task_name and env_idx
-    grouped_results = {}
-    for task_name, run_id, env_idx, test_results, test_control_infos, test_free_energies, test_weights in all_results:
-        if not (test_results and test_control_infos and test_free_energies and test_weights):
-            print("run id: {}, task_name: {}, env_idx: {} has no test results".format(run_id, task_name, env_idx))
-            continue
-        if task_name not in grouped_results:
-            grouped_results[task_name] = {}
-        if env_idx not in grouped_results[task_name]:
-            grouped_results[task_name][env_idx] = {
-                "test_results": [],
-                "test_control_infos": [],
-                "test_free_energies": [],
-                "test_weights": []
-            }
-
-        # Append results to the corresponding group
-        grouped_results[task_name][env_idx]["test_results"].append(test_results)
-        grouped_results[task_name][env_idx]["test_control_infos"].append(test_control_infos)
-        grouped_results[task_name][env_idx]["test_free_energies"].append(test_free_energies)
-        grouped_results[task_name][env_idx]["test_weights"].append(test_weights)
-
-    # Aggregate data for each task_name and env_idx
-    for task_name, env_idxs in grouped_results.items():
-        aggregated_results[task_name] = {}
-        for env_idx, data in env_idxs.items():
-            if not any(data["test_results"]):
-                continue
-            test_results_array = np.array(data["test_results"])  # Shape: (runs, weights)
-            test_control_infos_array = np.array(data["test_control_infos"])  # Shape: (runs, weights)
-            test_free_energies_array = np.array(data["test_free_energies"])  # Shape: (runs, weights)
-            test_weights = data["test_weights"][0]  # Assume all runs share the same weights
-
-            # Compute mean and std for test_results and test_free_energies
-            mean_test_results = test_results_array.mean(axis=0)
-            std_test_results = test_results_array.std(axis=0)
-
-            mean_test_control_infos = test_control_infos_array.mean(axis=0)
-            std_test_control_infos = test_control_infos_array.std(axis=0)
-
-            mean_test_free_energies = test_free_energies_array.mean(axis=0)
-            std_test_free_energies = test_free_energies_array.std(axis=0)
-
-            # Store aggregated results
-            aggregated_results[task_name][env_idx] = {
-                "mean_test_results": mean_test_results.tolist(),
-                "std_test_results": std_test_results.tolist(),
-                "mean_test_control_infos": mean_test_control_infos.tolist(),
-                "std_test_control_infos": std_test_control_infos.tolist(),
-                "mean_test_free_energies": mean_test_free_energies.tolist(),
-                "std_test_free_energies": std_test_free_energies.tolist(),
-                "test_weights": test_weights,
-            }
-
-        if not aggregated_results[task_name]:
-            del aggregated_results[task_name]
-
-    # Plot results
-    for task_name, env_idxs in aggregated_results.items():
-        if not env_idxs:
-            continue
-
-        fig = go.Figure()
-
-        # Use hex color codes for consistency
-        colors = [
-            '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
-            '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf',
-            '#fdae61', '#4daf4a', '#a65628', '#984ea3', '#e41a1c',
-            '#377eb8', '#ff69b4', '#f781bf', '#66c2a5', '#ffcc00',
-        ]
-
-        color_idx = 0
-
-        for env_idx in sorted(env_idxs.keys()):  # Sort subtasks alphabetically
-            subtask_data = env_idxs[env_idx]
-            if not subtask_data["mean_test_results"]:
-                continue
-
-            # Extract aggregated data
-            mean_test_results = subtask_data["mean_test_results"]
-            std_test_results = subtask_data["std_test_results"]
-            test_weights = subtask_data["test_weights"]
-
-            _, _, env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, env_idx)
-
-            # Add mean test results curve
-            fig.add_trace(go.Scatter(
-                x=test_weights,
-                y=mean_test_results,
-                mode='lines',
-                name=f"{env_desc} Mean Test Results",
-                line=dict(color=colors[color_idx], width=2),
-            ))
-
-            # Add shaded area for std
-            fig.add_trace(go.Scatter(
-                x=test_weights + test_weights[::-1],  # Create a filled region
-                y=(np.array(mean_test_results) + np.array(std_test_results)).tolist() +
-                  (np.array(mean_test_results) - np.array(std_test_results))[::-1].tolist(),
-                fill='toself',
-                fillcolor=f"rgba({int(colors[color_idx][1:3], 16)}, "
-                          f"{int(colors[color_idx][3:5], 16)}, "
-                          f"{int(colors[color_idx][5:], 16)}, 0.2)",  # Match line color
-                line=dict(color='rgba(255,255,255,0)'),
-                name=f"{env_desc} Std Dev",
-                showlegend=False,
-            ))
-
-            color_idx = (color_idx + 1) % len(colors)
-
-        # Customize layout
-        fig.update_layout(
-            title=f"Evaluation Results for {task_name}",
-            xaxis_title="Weight (p)",
-            yaxis_title="Average Test Reward",
-            legend_title="Subtasks",
-            font=dict(size=14),
-            width=1200,  # High resolution width
-            height=800,  # High resolution height
-        )
-
-        # Save plot to file
-        plot_path = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)[
-                        "save_path"] + "_eval.png"
-        fig.write_image(plot_path, scale=2)  # High-resolution PNG
-        print(f"Saved evaluation plot for {task_name} at {plot_path}")
-
-        # Plot Control Information
-        fig_control_info = go.Figure()
-        color_idx = 0
-
-        for env_idx in sorted(env_idxs.keys()):
-            subtask_data = env_idxs[env_idx]
-            if not subtask_data["mean_test_results"]:
-                continue
-
-            mean_test_control_infos = subtask_data["mean_test_control_infos"]
-            std_test_control_infos = subtask_data["std_test_control_infos"]
-            test_weights = subtask_data["test_weights"]
-
-            _, _, env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, env_idx)
-
-            fig_control_info.add_trace(go.Scatter(
-                x=test_weights,
-                y=mean_test_control_infos,
-                mode='lines',
-                name=f"{env_desc} Mean Control Information",
-                line=dict(color=colors[color_idx], width=2),
-            ))
-
-            fig_control_info.add_trace(go.Scatter(
-                x=test_weights + test_weights[::-1],
-                y=(np.array(mean_test_control_infos) + np.array(std_test_control_infos)).tolist() +
-                  (np.array(mean_test_control_infos) - np.array(std_test_control_infos))[::-1].tolist(),
-                fill='toself',
-                fillcolor=f"rgba({int(colors[color_idx][1:3], 16)}, "
-                          f"{int(colors[color_idx][3:5], 16)}, "
-                          f"{int(colors[color_idx][5:], 16)}, 0.2)",
-                line=dict(color='rgba(255,255,255,0)'),
-                name=f"{env_desc} Control Information Std Dev",
-                showlegend=False,
-            ))
-
-            color_idx = (color_idx + 1) % len(colors)
-
-        fig_control_info.update_layout(
-            title=f"Control Information for {task_name}",
-            xaxis_title="Weight (p)",
-            yaxis_title="Average Control Information",
-            legend_title="Subtasks",
-            font=dict(size=14),
-            width=1200,
-            height=800,
-        )
-
-        plot_path_control_info = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)[
-                                     "save_path"] + "_control_info.png"
-        fig_control_info.write_image(plot_path_control_info, scale=2)
-
-        print(f"Saved evaluation plot for control information: {plot_path_control_info}")
-
-        # Plot results for free energy
-        fig_free_energy = go.Figure()
-
-        color_idx = 0
-        for env_idx in sorted(env_idxs.keys()):
-            subtask_data = env_idxs[env_idx]
-            if not subtask_data["mean_test_results"]:
-                continue
-
-            mean_test_free_energies = subtask_data["mean_test_free_energies"]
-            std_test_free_energies = subtask_data["std_test_free_energies"]
-            test_weights = subtask_data["test_weights"]
-
-            _, _, env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, env_idx)
-
-            # Add mean free energy curve
-            fig_free_energy.add_trace(go.Scatter(
-                x=test_weights,
-                y=mean_test_free_energies,
-                mode='lines',
-                name=f"{env_desc} Mean Free Energy",
-                line=dict(color=colors[color_idx], width=2),
-            ))
-
-            # Add shaded area for std
-            fig_free_energy.add_trace(go.Scatter(
-                x=test_weights + test_weights[::-1],
-                y=(np.array(mean_test_free_energies) + np.array(std_test_free_energies)).tolist() +
-                  (np.array(mean_test_free_energies) - np.array(std_test_free_energies))[::-1].tolist(),
-                fill='toself',
-                fillcolor=f"rgba({int(colors[color_idx][1:3], 16)}, "
-                          f"{int(colors[color_idx][3:5], 16)}, "
-                          f"{int(colors[color_idx][5:], 16)}, 0.2)",
-                line=dict(color='rgba(255,255,255,0)'),
-                name=f"{env_desc} Free Energy Std Dev",
-                showlegend=False,
-            ))
-
-            color_idx = (color_idx + 1) % len(colors)
-
-        # Customize layout for free energy
-        fig_free_energy.update_layout(
-            title=f"Free Energy for {task_name}",
-            xaxis_title="Weight (p)",
-            yaxis_title="Average Free Energy",
-            legend_title="Subtasks",
-            font=dict(size=14),
-            width=1200,
-            height=800,
-        )
-
-        # Save plot for free energy
-        plot_path_free_energy = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)[
-                                    "save_path"] + "_free_energy.png"
-        fig_free_energy.write_image(plot_path_free_energy, scale=2)
-        print(f"Saved evaluation plot for free energy: {plot_path_free_energy}")
-
-    return aggregated_results
-
-
 def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[int, int]], max_workers):
     run_id = 0
 
@@ -1474,6 +552,14 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
         target_run_ids = env_run_ids[target_env_idx]  # All run IDs for the target environment
 
         for target_run_id in target_run_ids:
+            paired_tasks.append({
+                "task_name": task_name,
+                "prior_env_idx": -1,
+                "target_env_idx": -1,
+                "prior_run_id": -1,
+                "target_run_id": -1,
+                "final_target_env_idx": target_env_idx,
+            })
             paired_tasks.append({
                 "task_name": task_name,
                 "prior_env_idx": -1,
@@ -1518,9 +604,9 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
     # Group results by task_name, prior_env_idx, and target_env_idx
     grouped_results = {}
 
-    for task_name, prior_run_id, target_run_id, prior_env_idx, target_env_idx, test_results, test_control_info, test_free_energies, test_weights in all_results:
+    for task_name, prior_run_id, target_run_id, prior_env_idx, target_env_idx, test_results, avg_test_reward_final_target, test_control_info, test_control_info_final_target, test_free_energies, test_weights in all_results:
         # Skip empty results
-        if not (test_results and test_control_info and test_free_energies and test_weights):
+        if not (test_results and test_weights):
             print("run id: {}, task_name: {}, prior_env_idx: {} has no test results".format(prior_run_id, task_name,
                                                                                             prior_env_idx))
             continue
@@ -1537,14 +623,18 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
         if target_env_idx not in grouped_results[task_name][prior_env_idx]:
             grouped_results[task_name][prior_env_idx][target_env_idx] = {
                 "test_results": [],
+                "avg_test_reward_final_target": [],
                 "test_control_info": [],
+                "test_control_info_final_target": [],
                 "test_free_energies": [],
                 "test_weights": []
             }
 
         # Append results to the corresponding group
         grouped_results[task_name][prior_env_idx][target_env_idx]["test_results"].append(test_results)
+        grouped_results[task_name][prior_env_idx][target_env_idx]["avg_test_reward_final_target"].append(avg_test_reward_final_target)
         grouped_results[task_name][prior_env_idx][target_env_idx]["test_control_info"].append(test_control_info)
+        grouped_results[task_name][prior_env_idx][target_env_idx]["test_control_info_final_target"].append(test_control_info_final_target)
         grouped_results[task_name][prior_env_idx][target_env_idx]["test_free_energies"].append(test_free_energies)
         grouped_results[task_name][prior_env_idx][target_env_idx]["test_weights"].append(test_weights)
 
@@ -1564,7 +654,9 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
 
                 # Convert lists to numpy arrays
                 test_results_array = np.array(data["test_results"])
+                test_results_final_target_array = np.array(data["avg_test_reward_final_target"])
                 test_control_info_array = np.array(data["test_control_info"])
+                test_control_info_final_target_array = np.array(data["test_control_info_final_target"])
                 test_free_energies_array = np.array(data["test_free_energies"])
                 test_weights = data["test_weights"][0]
 
@@ -1572,8 +664,14 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
                 mean_test_results = test_results_array.mean(axis=0)
                 std_test_results = test_results_array.std(axis=0)
 
+                mean_test_results_final_target = test_results_final_target_array.mean(axis=0)
+                std_test_results_final_target = test_results_final_target_array.std(axis=0)
+
                 mean_test_control_info = test_control_info_array.mean(axis=0)
                 std_test_control_info = test_control_info_array.std(axis=0)
+
+                mean_test_control_info_final_target = test_control_info_final_target_array.mean(axis=0)
+                std_test_control_info_final_target = test_control_info_final_target_array.std(axis=0)
 
                 mean_test_free_energies = test_free_energies_array.mean(axis=0)
                 std_test_free_energies = test_free_energies_array.std(axis=0)
@@ -1582,8 +680,12 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
                 aggregated_results[task_name][prior_env_idx][target_env_idx] = {
                     "mean_test_results": mean_test_results.tolist(),
                     "std_test_results": std_test_results.tolist(),
+                    "mean_test_results_final_target": mean_test_results_final_target.tolist(),
+                    "std_test_results_final_target": std_test_results_final_target.tolist(),
                     "mean_test_control_info": float(mean_test_control_info),
                     "std_test_control_info": float(std_test_control_info),
+                    "mean_test_control_info_final_target": float(mean_test_control_info_final_target),
+                    "std_test_control_info_final_target": float(std_test_control_info_final_target),
                     "mean_test_free_energies": mean_test_free_energies.tolist(),
                     "std_test_free_energies": std_test_free_energies.tolist(),
                     "test_weights": test_weights,
@@ -1627,7 +729,11 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
                     _, _, prior_env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, prior_env_idx)
                 else:
                     prior_env_desc = "scratch"
-                _, _, target_env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, target_env_idx)
+
+                if target_env_idx != -1:
+                    _, _, target_env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, target_env_idx)
+                else:
+                    target_env_desc = "scratch"
 
                 # Label format: "Env X - Env Y"
                 label = f"{prior_env_desc} - {target_env_desc}"
@@ -1696,9 +802,15 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
                 integral_std = np.mean(std_test_results)  # Equivalent to integral error divided by length
 
                 # Get environment description
-                prior_env_desc = "scratch" if prior_env_idx == -1 else \
-                get_envs_discretizers_and_configs(task_name, prior_env_idx)[2]
-                target_env_desc = get_envs_discretizers_and_configs(task_name, target_env_idx)[2]
+                if prior_env_idx != -1:
+                    _, _, prior_env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, prior_env_idx)
+                else:
+                    prior_env_desc = "scratch"
+
+                if target_env_idx != -1:
+                    _, _, target_env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, target_env_idx)
+                else:
+                    target_env_desc = "scratch"
 
                 # Label format: "Env X - Env Y"
                 label = f"{prior_env_desc} - {target_env_desc}"
@@ -1754,9 +866,15 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
                 std_test_control_info = subtask_data["std_test_control_info"]
 
                 # Get environment description
-                prior_env_desc = "scratch" if prior_env_idx == -1 else \
-                get_envs_discretizers_and_configs(task_name, prior_env_idx)[2]
-                target_env_desc = get_envs_discretizers_and_configs(task_name, target_env_idx)[2]
+                if prior_env_idx != -1:
+                    _, _, prior_env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, prior_env_idx)
+                else:
+                    prior_env_desc = "scratch"
+
+                if target_env_idx != -1:
+                    _, _, target_env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, target_env_idx)
+                else:
+                    target_env_desc = "scratch"
 
                 # Label format: "Env X - Env Y"
                 label = f"{prior_env_desc} - {target_env_desc}"
@@ -1798,11 +916,6 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
         fig_free_energy = go.Figure()
         color_idx = 0
 
-        # Store bar data
-        bar_labels = []  # X-axis labels
-        bar_means = []  # Heights of bars
-        bar_errors = []  # Error bars
-
         for prior_env_idx, target_envs in prior_envs.items():
             for target_env_idx, subtask_data in target_envs.items():
                 if not subtask_data["mean_test_results"]:
@@ -1817,7 +930,11 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
                     _, _, prior_env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, prior_env_idx)
                 else:
                     prior_env_desc = "scratch"
-                _, _, target_env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, target_env_idx)
+
+                if target_env_idx != -1:
+                    _, _, target_env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, target_env_idx)
+                else:
+                    target_env_desc = "scratch"
 
                 # Label format: "Env X - Env Y"
                 label = f"{prior_env_desc} - {target_env_desc}"
@@ -1886,9 +1003,15 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
                 integral_std = np.mean(std_test_free_energies)  # Equivalent to integral error divided by length
 
                 # Get environment description
-                prior_env_desc = "scratch" if prior_env_idx == -1 else \
-                    get_envs_discretizers_and_configs(task_name, prior_env_idx)[2]
-                target_env_desc = get_envs_discretizers_and_configs(task_name, target_env_idx)[2]
+                if prior_env_idx != -1:
+                    _, _, prior_env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, prior_env_idx)
+                else:
+                    prior_env_desc = "scratch"
+
+                if target_env_idx != -1:
+                    _, _, target_env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, target_env_idx)
+                else:
+                    target_env_desc = "scratch"
 
                 # Label format: "Env X - Env Y"
                 label = f"{prior_env_desc} - {target_env_desc}"
@@ -1925,6 +1048,71 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
         fig_free_energy_integral.write_image(plot_path_integral, scale=2)
 
         print(f"Saved free energy performance plot for {task_name} at {plot_path_integral}")
+
+        # Store data
+        scatter_x = []
+        scatter_y = []
+        scatter_labels = []
+        scatter_colors = []
+        final_target_env_idx = all_task_runs[task_name]["target_env_idx"]
+
+        for task_name, prior_envs in aggregated_results.items():
+            for prior_env_idx, target_envs in prior_envs.items():
+                if prior_env_idx != -1:  # Only include "scratch" prior environments
+                    continue  # Skip environments that are not "scratch"
+
+                for target_env_idx, subtask_data in target_envs.items():
+                    if not subtask_data["mean_test_results"]:
+                        continue  # Skip empty results
+
+                    # Get x (test_control_info_final_target) and y (result_final_target)
+                    x_value = subtask_data["mean_test_control_info_final_target"]
+                    y_value = subtask_data["mean_test_results_final_target"]
+
+                    # Ensure y_value > 0 before applying log10 transformation
+                    if y_value > 0:
+                        if target_env_idx != -1:
+                            _, _, target_env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, target_env_idx)
+                        else:
+                            target_env_desc = "scratch"
+
+                        # Use only target_env_desc as label
+                        scatter_x.append(x_value)
+                        scatter_y.append(np.log10(y_value))  # Apply log10 transformation
+                        scatter_labels.append(target_env_desc)
+
+                        # Highlight if target_env_idx is final_target_env_idx
+                        scatter_colors.append(
+                            'red' if target_env_idx == final_target_env_idx
+                            else ('green' if target_env_idx == -1 else 'blue')
+                        )
+
+        # Create Matplotlib figure
+        fig, ax = plt.subplots(figsize=(12, 8))
+
+        # Plot scatter points with different colors
+        ax.scatter(scatter_x, scatter_y, c=scatter_colors, alpha=0.7, s=100, label="Data Points")
+
+        # Add text labels with arrows
+        texts = []
+        for i, label in enumerate(scatter_labels):
+            texts.append(ax.text(scatter_x[i], scatter_y[i], label, fontsize=12, color='black'))
+
+        # Automatically adjust text to prevent overlapping, adding arrows if needed
+        adjust_text(texts, ax=ax, arrowprops=dict(arrowstyle='->', color='gray', lw=1))
+
+        # Set title and axis labels
+        ax.set_title("Scatter Plot of Reward vs. Control Info", fontsize=16)
+        ax.set_xlabel("Control Info", fontsize=14)
+        ax.set_ylabel("Reward (log10)", fontsize=14)
+
+        # Save figure
+        plot_path_scatter = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)[
+                                "save_path"] + "_scatter_result_vs_control_info.png"
+        plt.savefig(plot_path_scatter, dpi=300, bbox_inches='tight')
+        plt.close()
+
+        print(f"Saved scatter plot for result vs. test control info at {plot_path_scatter}")
 
     return aggregated_results
 
