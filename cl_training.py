@@ -481,8 +481,8 @@ def run_all_2_stage_cl_training_and_plot(task_names_and_num_experiments: Dict[st
             yaxis_title="Mean Integrated Target Test Reward",
             legend_title="Metrics",
             font=dict(size=14),
-            width=1000,
-            height=750,
+            width=1200,
+            height=800,
         )
 
         fig_success_steps = go.Figure()
@@ -501,8 +501,8 @@ def run_all_2_stage_cl_training_and_plot(task_names_and_num_experiments: Dict[st
             yaxis_title="Mean Success Steps",
             legend_title="Metrics",
             font=dict(size=14),
-            width=1000,
-            height=750,
+            width=1200,
+            height=800,
         )
 
         # ---- Save figures ----

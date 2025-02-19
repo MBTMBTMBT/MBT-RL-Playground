@@ -226,7 +226,7 @@ def run_cl_eval(task_name: str, prior_env_idx: int, target_env_idx: int, prior_r
     else:
         pass  # not implemented yet
 
-    weights = np.linspace(0, 1, 25)
+    weights = np.linspace(0, 1, 2)
 
     pbar = tqdm(
         total=len(weights),
@@ -240,12 +240,10 @@ def run_cl_eval(task_name: str, prior_env_idx: int, target_env_idx: int, prior_r
     test_free_energies = []
     avg_test_control_info = 0.0
     avg_test_control_info_final_target = 0.0
-    avg_test_free_energy = 0.0
     avg_test_reward_final_target = 0.0
     for p in weights:
         periodic_test_rewards = []
         periodic_test_control_infos = []
-        periodic_test_free_energies = []
         for t in range(configs["exploit_policy_eval_episodes"]):
             test_state, _ = target_test_env.reset()
             test_total_reward = 0
@@ -508,8 +506,8 @@ def run_all_trainings_and_plot(task_names_and_num_experiments: Dict[str, int], m
             yaxis_title="Test Results",
             legend_title="Subtasks",
             font=dict(size=14),
-            width=1000,
-            height=750,
+            width=1200,
+            height=800,
         )
 
         # Save plot to file using your specified path
@@ -558,6 +556,14 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
                 "target_env_idx": -1,
                 "prior_run_id": -1,
                 "target_run_id": -1,
+                "final_target_env_idx": target_env_idx,
+            })
+            paired_tasks.append({
+                "task_name": task_name,
+                "prior_env_idx": target_env_idx,
+                "target_env_idx": target_env_idx,
+                "prior_run_id": target_run_id,
+                "target_run_id": target_run_id,
                 "final_target_env_idx": target_env_idx,
             })
             paired_tasks.append({
@@ -837,8 +843,8 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
             yaxis_title="Mean Integrated Test Reward",
             legend_title="Subtasks",
             font=dict(size=14),
-            width=1000,
-            height=750,
+            width=1200,
+            height=800,
         )
 
         # Save plot
@@ -901,8 +907,8 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
             yaxis_title="Average Control Information by Curriculum",
             legend_title="Subtasks",
             font=dict(size=14),
-            width=1000,
-            height=750,
+            width=1200,
+            height=800,
         )
 
         # Save plot
@@ -1038,8 +1044,8 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
             yaxis_title="Mean Integrated Free Energy",
             legend_title="Subtasks",
             font=dict(size=14),
-            width=1000,
-            height=750,
+            width=1200,
+            height=800,
         )
 
         # Save plot
@@ -1088,7 +1094,7 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
                         )
 
         # Create Matplotlib figure
-        fig, ax = plt.subplots(figsize=(8, 8))
+        fig, ax = plt.subplots(figsize=(12, 8))
 
         # Plot scatter points with different colors
         ax.scatter(scatter_x, scatter_y, c=scatter_colors, alpha=0.7, s=100, label="Data Points")
@@ -1103,13 +1109,75 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
 
         # Set title and axis labels
         ax.set_title("Scatter Plot of Reward vs. Control Info", fontsize=16)
-        ax.set_xlabel("Control Info", fontsize=14)
+        ax.set_xlabel("Control Info with Uniform Prior", fontsize=14)
         ax.set_ylabel("Reward (log10)", fontsize=14)
 
         # Save figure
         plot_path_scatter = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)[
                                 "save_path"] + "_scatter_result_vs_control_info.png"
-        plt.savefig(plot_path_scatter, dpi=300, bbox_inches='tight')
+        plt.savefig(plot_path_scatter, dpi=100, bbox_inches='tight')
+        plt.close()
+
+        print(f"Saved scatter plot for result vs. test control info at {plot_path_scatter}")
+
+        # Store data
+        scatter_x = []
+        scatter_y = []
+        scatter_labels = []
+        scatter_colors = []
+
+        for task_name, prior_envs in aggregated_results.items():
+            for prior_env_idx, target_envs in prior_envs.items():
+                for target_env_idx, subtask_data in target_envs.items():
+                    if not subtask_data["mean_test_results"]:
+                        continue  # Skip empty results
+                    if target_env_idx != final_target_env_idx:
+                        continue
+
+                    # Get x (test_control_info_final_target) and y (result_final_target)
+                    x_value = subtask_data["mean_test_control_info_final_target"]
+                    y_value = subtask_data["mean_test_control_info"]
+
+                    if prior_env_idx != -1:
+                        _, _, prior_env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name,
+                                                                                           prior_env_idx)
+                    else:
+                        prior_env_desc = "scratch"
+
+                    # Use only prior_env_desc as label
+                    scatter_x.append(x_value)
+                    scatter_y.append(-y_value)
+                    scatter_labels.append(prior_env_desc)
+
+                    # Highlight if target_env_idx is final_target_env_idx
+                    scatter_colors.append(
+                        'red' if prior_env_idx == final_target_env_idx
+                        else ('green' if prior_env_idx == -1 else 'blue')
+                    )
+
+        # Create Matplotlib figure
+        fig, ax = plt.subplots(figsize=(12, 8))
+
+        # Plot scatter points with different colors
+        ax.scatter(scatter_x, scatter_y, c=scatter_colors, alpha=0.7, s=100, label="Data Points")
+
+        # Add text labels with arrows
+        texts = []
+        for i, label in enumerate(scatter_labels):
+            texts.append(ax.text(scatter_x[i], scatter_y[i], label, fontsize=12, color='black'))
+
+        # Automatically adjust text to prevent overlapping, adding arrows if needed
+        adjust_text(texts, ax=ax, arrowprops=dict(arrowstyle='->', color='gray', lw=1))
+
+        # Set title and axis labels
+        ax.set_title("Scatter Plot of Reward vs. Control Info", fontsize=16)
+        ax.set_xlabel("Control Info with Uniform Prior", fontsize=14)
+        ax.set_ylabel("Minus Control with Optimal Prior of the Sub Env", fontsize=14)
+
+        # Save figure
+        plot_path_scatter = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)[
+                                "save_path"] + "_scatter_learned_control_info_vs_control_info.png"
+        plt.savefig(plot_path_scatter, dpi=100, bbox_inches='tight')
         plt.close()
 
         print(f"Saved scatter plot for result vs. test control info at {plot_path_scatter}")
@@ -1152,10 +1220,10 @@ if __name__ == '__main__':
     #     task_names_and_num_experiments={"frozen_lake-88": (8, 1), },
     #     max_workers=27,
     # )
-    run_all_trainings_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": 4, },
-        max_workers=27,
-    )
+    # run_all_trainings_and_plot(
+    #     task_names_and_num_experiments={"frozen_lake-custom": 4, },
+    #     max_workers=27,
+    # )
     run_all_cl_evals_and_plot(
         task_names_and_num_experiments={"frozen_lake-custom": (4, 17), },
         max_workers=27,
