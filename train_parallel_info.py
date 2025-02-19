@@ -462,7 +462,7 @@ def run_all_trainings_and_plot(task_names_and_num_experiments: Dict[str, int], m
                 x=test_steps,
                 y=mean_test_results,
                 mode='lines',
-                name=f"{env_desc} Mean Test Results",
+                name=f"{env_desc}",
                 line=dict(color=colors[color_idx], width=2),
             ))
 
@@ -485,7 +485,7 @@ def run_all_trainings_and_plot(task_names_and_num_experiments: Dict[str, int], m
                 x=[test_steps[0], test_steps[-1]],
                 y=[mean_final_rewards, mean_final_rewards],
                 mode='lines',
-                name=f"{env_desc} Final Mean",
+                name=f"{env_desc} Final",
                 line=dict(color='black', width=2, dash=line_styles[color_idx % len(line_styles)]),
             ))
 
@@ -508,8 +508,8 @@ def run_all_trainings_and_plot(task_names_and_num_experiments: Dict[str, int], m
             yaxis_title="Test Results",
             legend_title="Subtasks",
             font=dict(size=14),
-            width=1200,  # High resolution width
-            height=800,  # High resolution height
+            width=1000,
+            height=750,
         )
 
         # Save plot to file using your specified path
@@ -743,7 +743,7 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
                     x=test_weights,
                     y=mean_test_results,
                     mode='lines',
-                    name=f"{label} Mean Test Results",
+                    name=f"{label}",
                     line=dict(color=colors[color_idx], width=2),
                 ))
 
@@ -837,8 +837,8 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
             yaxis_title="Mean Integrated Test Reward",
             legend_title="Subtasks",
             font=dict(size=14),
-            width=1200,
-            height=800,
+            width=1000,
+            height=750,
         )
 
         # Save plot
@@ -901,8 +901,8 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
             yaxis_title="Average Control Information by Curriculum",
             legend_title="Subtasks",
             font=dict(size=14),
-            width=1200,
-            height=800,
+            width=1000,
+            height=750,
         )
 
         # Save plot
@@ -944,7 +944,7 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
                     x=test_weights,
                     y=mean_test_free_energies,
                     mode='lines',
-                    name=f"{label} Mean Free Energy",
+                    name=f"{label}",
                     line=dict(color=colors[color_idx], width=2),
                 ))
 
@@ -1038,8 +1038,8 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
             yaxis_title="Mean Integrated Free Energy",
             legend_title="Subtasks",
             font=dict(size=14),
-            width=1200,
-            height=800,
+            width=1000,
+            height=750,
         )
 
         # Save plot
@@ -1153,15 +1153,15 @@ if __name__ == '__main__':
     #     max_workers=27,
     # )
     run_all_trainings_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": 8, },
+        task_names_and_num_experiments={"frozen_lake-custom": 4, },
         max_workers=27,
     )
     run_all_cl_evals_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": (8, 11), },
+        task_names_and_num_experiments={"frozen_lake-custom": (4, 17), },
         max_workers=27,
     )
     run_all_2_stage_cl_training_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": (8, 11), },
+        task_names_and_num_experiments={"frozen_lake-custom": (4, 17), },
         max_workers=27,
     )
 

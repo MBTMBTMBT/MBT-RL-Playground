@@ -385,7 +385,7 @@ def run_all_2_stage_cl_training_and_plot(task_names_and_num_experiments: Dict[st
                     x=test_steps,
                     y=mean_test_results,
                     mode='lines',
-                    name=f"{label} Mean Test Results",
+                    name=f"{label}",
                     line=dict(color=colors[color_idx], width=2),
                 ))
 
@@ -405,7 +405,7 @@ def run_all_2_stage_cl_training_and_plot(task_names_and_num_experiments: Dict[st
                     x=test_steps,
                     y=mean_target_test_results,
                     mode='lines',
-                    name=f"{label} Mean Target Test Results",
+                    name=f"{label}",
                     line=dict(color=colors[color_idx], width=2),
                     # showlegend=False,
                 ))
@@ -437,6 +437,7 @@ def run_all_2_stage_cl_training_and_plot(task_names_and_num_experiments: Dict[st
                             mode="lines",
                             line=dict(color=line_color, dash="dash"),
                             name=f"Env Transition (Step {step})",
+                            showlegend=False,
                         ))
 
                 color_idx = (color_idx + 1) % len(colors)
@@ -480,8 +481,8 @@ def run_all_2_stage_cl_training_and_plot(task_names_and_num_experiments: Dict[st
             yaxis_title="Mean Integrated Target Test Reward",
             legend_title="Metrics",
             font=dict(size=14),
-            width=1200,
-            height=800,
+            width=1000,
+            height=750,
         )
 
         fig_success_steps = go.Figure()
@@ -491,7 +492,7 @@ def run_all_2_stage_cl_training_and_plot(task_names_and_num_experiments: Dict[st
             error_y=dict(type='data', array=bar_errors_success_steps, visible=True),
             name="Success Steps",
             marker_color=[colors[i % len(colors)] for i in range(len(bar_labels))],
-            text=[f"{val}" for val in bar_means_success_steps],
+            text=[f"{val:d}" for val in bar_means_success_steps],
             textposition='outside'
         ))
         fig_success_steps.update_layout(
@@ -500,8 +501,8 @@ def run_all_2_stage_cl_training_and_plot(task_names_and_num_experiments: Dict[st
             yaxis_title="Mean Success Steps",
             legend_title="Metrics",
             font=dict(size=14),
-            width=1200,
-            height=800,
+            width=1000,
+            height=750,
         )
 
         # ---- Save figures ----
