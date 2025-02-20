@@ -2151,7 +2151,7 @@ class Agent:
         deep_model_file_path = file_path + "_deep_model.zip"
         transition_table_file_path = file_path + "_transition_table.csv"
         if self.use_deep_agent:
-            self.exploit_agent = PPO.load(deep_model_file_path, env=self.double_env, print_system_info=True)
+            self.exploit_agent = PPO.load(deep_model_file_path, env=self.double_env, print_system_info=True, device='cpu')
         else:
             self.exploit_agent.load_q_table(file_path=q_table_file_path)
         if load_transition_table:

@@ -435,7 +435,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
         envs = [
             dict(
                 id='CustomAcrobot-v1',
-                termination_height=1.9,
+                termination_height=1.8,
                 friction=0.0,
                 torque_scaling=1.0,
                 gravity=9.8,
@@ -444,7 +444,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             ),
             dict(
                 id='CustomAcrobot-v1',
-                termination_height=1.75,
+                termination_height=1.6,
                 friction=0.0,
                 torque_scaling=1.0,
                 gravity=9.8,
@@ -453,7 +453,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             ),
             dict(
                 id='CustomAcrobot-v1',
-                termination_height=1.9,
+                termination_height=1.8,
                 friction=0.01,
                 torque_scaling=1.0,
                 gravity=9.8,
@@ -462,7 +462,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             ),
             dict(
                 id='CustomAcrobot-v1',
-                termination_height=1.9,
+                termination_height=1.8,
                 friction=0.0,
                 torque_scaling=1.0,
                 gravity=7.5,
@@ -507,11 +507,12 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             "save_per_num_steps": int(50e3),
             "save_mdp_graph": False,
             "print_training_info": False,
-            "initialization_distribution": (0.5, 0.5),
+            "initialization_distribution": (0.33, 0.66),
             "use_balanced_random_init": True,
             "quick_test_threshold": 0.33,
-            "quick_test_num_episodes": 25,
+            "quick_test_num_episodes": 100,
             "early_stop_counts": 10,
+            "success_threshold": 0.80,
         }
 
     else:
