@@ -83,7 +83,7 @@ def run_2_stage_cl_training(task_name: str, prior_env_idx: int, target_env_idx: 
             periodic_test_rewards = []
 
             frames = []
-            for t in range(configs["exploit_policy_eval_episodes"]):
+            for t in range(configs["exploit_policy_test_episodes"]):
                 test_state, _ = test_envs[idx].reset()
                 test_total_reward = 0
                 test_done = False
@@ -110,7 +110,7 @@ def run_2_stage_cl_training(task_name: str, prior_env_idx: int, target_env_idx: 
 
             if idx < len(envs) - 1:
                 periodic_test_rewards = []
-                for t in range(configs["exploit_policy_eval_episodes"]):
+                for t in range(configs["exploit_policy_test_episodes"]):
                     test_state, _ = test_envs[-1].reset()
                     test_total_reward = 0
                     test_done = False
