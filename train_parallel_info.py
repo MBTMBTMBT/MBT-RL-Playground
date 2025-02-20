@@ -1166,28 +1166,28 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
 
 if __name__ == '__main__':
     from cl_training import run_all_2_stage_cl_training_and_plot
-    run_all_trainings_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": 16, },
-        max_workers=24,
-    )
-    run_all_cl_evals_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": (16, 14), },
-        max_workers=24,
-    )
-    run_all_2_stage_cl_training_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": (16, 14), },
-        max_workers=24,
-    )
+    # run_all_trainings_and_plot(
+    #     task_names_and_num_experiments={"frozen_lake-custom": 16, },
+    #     max_workers=24,
+    # )
+    # run_all_cl_evals_and_plot(
+    #     task_names_and_num_experiments={"frozen_lake-custom": (16, 14), },
+    #     max_workers=24,
+    # )
+    # run_all_2_stage_cl_training_and_plot(
+    #     task_names_and_num_experiments={"frozen_lake-custom": (16, 14), },
+    #     max_workers=24,
+    # )
 
     run_all_trainings_and_plot(
-        task_names_and_num_experiments={"acrobot-custom": 3, },
-        max_workers=12,
+        task_names_and_num_experiments={"acrobot-custom": 5, },
+        max_workers=15,
     )
     run_all_cl_evals_and_plot(
-        task_names_and_num_experiments={"acrobot-custom": (3, 0), },
-        max_workers=12,
+        task_names_and_num_experiments={"acrobot-custom": (5, 0), },
+        max_workers=15,
     )
     run_all_2_stage_cl_training_and_plot(
-        task_names_and_num_experiments={"acrobot-custom": (3, 0), },
-        max_workers=12,
+        task_names_and_num_experiments={"acrobot-custom": (5, 0), },
+        max_workers=15,
     )
