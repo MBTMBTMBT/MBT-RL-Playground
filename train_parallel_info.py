@@ -4,6 +4,7 @@ from multiprocessing import Pool
 from typing import List, Dict, Tuple
 
 import numpy as np
+import torch
 from gymnasium import spaces
 from tqdm import tqdm
 import plotly.graph_objs as go
@@ -44,6 +45,9 @@ def run_training(task_name: str, env_idx: int, run_id: int,):
     #     configs["exploit_value_decay"],
     #     configs["exploit_policy_reward_rate"],
     # )
+
+    if configs["use_deep_agent"]:
+        agent.exploit_agent.policy.to("cpu")
 
     if "fast_exploit_policy_training_steps" in configs.keys():
         exploit_policy_training_steps = configs["fast_exploit_policy_training_steps"]
@@ -336,9 +340,11 @@ def run_cl_eval(task_name: str, prior_env_idx: int, target_env_idx: int, prior_r
 
 # A wrapper function for unpacking arguments
 def run_training_unpack(args):
+    torch.set_num_threads(1)
     return run_training(**args)  # Unpack the dictionary into keyword arguments
 
 def run_cl_eval_unpack(args):
+    torch.set_num_threads(1)
     return run_cl_eval(**args)
 
 
@@ -1172,39 +1178,6 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
 
 if __name__ == '__main__':
     from cl_training import run_all_2_stage_cl_training_and_plot
-    # run_all_trainings_and_plot(
-    #     task_names_and_num_experiments={"frozen_lake-44": 8,},
-    #     max_workers=27,
-    # )
-    # run_all_evals_and_plot(
-    #     task_names_and_num_experiments={"frozen_lake-44": 8, },
-    #     max_workers=27,
-    # )
-    # run_all_cl_training_and_plot(
-    #     task_names_and_num_experiments={"frozen_lake-44": (8, 1),},
-    #     max_workers=27,
-    # )
-    # run_all_cl_evals_and_plot(
-    #     task_names_and_num_experiments={"frozen_lake-44": (8, 1), },
-    #     max_workers=27,
-    # )
-
-    # run_all_trainings_and_plot(
-    #     task_names_and_num_experiments={"frozen_lake-88": 8, },
-    #     max_workers=27,
-    # )
-    # run_all_evals_and_plot(
-    #     task_names_and_num_experiments={"frozen_lake-88": 8, },
-    #     max_workers=27,
-    # )
-    # run_all_cl_training_and_plot(
-    #     task_names_and_num_experiments={"frozen_lake-88": (8, 1), },
-    #     max_workers=27,
-    # )
-    # run_all_cl_evals_and_plot(
-    #     task_names_and_num_experiments={"frozen_lake-88": (8, 1), },
-    #     max_workers=27,
-    # )
     run_all_trainings_and_plot(
         task_names_and_num_experiments={"frozen_lake-custom": 16, },
         max_workers=24,
@@ -1218,36 +1191,15 @@ if __name__ == '__main__':
         max_workers=24,
     )
 
-    # run_all_trainings_and_plot(
-    #     task_names_and_num_experiments={"mountaincar-custom": 3, },
-    #     max_workers=6,
-    # )
-    # run_all_evals_and_plot(
-    #     task_names_and_num_experiments={"mountaincar-custom": 3, },
-    #     max_workers=6,
-    # )
-    # run_all_cl_training_and_plot(
-    #     task_names_and_num_experiments={"mountaincar-custom": (3, 0), },
-    #     max_workers=6,
-    # )
-    # run_all_cl_evals_and_plot(
-    #     task_names_and_num_experiments={"mountaincar-custom": (3, 0), },
-    #     max_workers=27,
-    # )
-    #
-    # run_all_trainings_and_plot(
-    #     task_names_and_num_experiments={"acrobot-custom": 3, },
-    #     max_workers=6,
-    # )
-    # run_all_evals_and_plot(
-    #     task_names_and_num_experiments={"acrobot-custom": 3, },
-    #     max_workers=6,
-    # )
-    # run_all_cl_training_and_plot(
-    #     task_names_and_num_experiments={"acrobot-custom": (3, 0), },
-    #     max_workers=6,
-    # )
-    # run_all_cl_evals_and_plot(
-    #     task_names_and_num_experiments={"acrobot-custom": (3, 0), },
-    #     max_workers=27,
-    # )
+    run_all_trainings_and_plot(
+        task_names_and_num_experiments={"acrobot-custom": 3, },
+        max_workers=8,
+    )
+    run_all_cl_evals_and_plot(
+        task_names_and_num_experiments={"acrobot-custom": (3, 0), },
+        max_workers=8,
+    )
+    run_all_2_stage_cl_training_and_plot(
+        task_names_and_num_experiments={"acrobot-custom": (3, 0), },
+        max_workers=8,
+    )
