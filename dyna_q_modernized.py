@@ -2181,7 +2181,7 @@ class Agent:
         else:
             if isinstance(self.double_env.action_space, spaces.Discrete):
                 # Discrete action space
-                action_distribution = self.exploit_agent.policy.get_distribution(state)
+                action_distribution = self.exploit_agent.policy.get_distribution(torch.tensor(state).unsqueeze(0))
                 logits = action_distribution.distribution.logits
                 if greedy:
                     # Make the optimal action probability 1, others 0
@@ -2196,7 +2196,7 @@ class Agent:
                 return action_probabilities
             else:
                 # Continuous action space
-                action_distribution = self.exploit_agent.policy.get_distribution(state)
+                action_distribution = self.exploit_agent.policy.get_distribution(torch.tensor(state).unsqueeze(0))
                 mean = action_distribution.distribution.mean.detach().cpu().numpy()
                 std = action_distribution.distribution.stddev.detach().cpu().numpy()
                 if greedy:
