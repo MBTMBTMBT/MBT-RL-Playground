@@ -1,5 +1,22 @@
 import numpy as np
+import plotly.graph_objects as go
+from sklearn.model_selection import KFold
+import plotly.io as pio
 
+# Data
+x = np.array([0.15, 0.92, 0.71, 0.70, 0.56, 0.34, 0.89, 0.65, 0.63, 0.45, 0.25, 0.81, 0.55, 0.52, 0.32])
+y = np.array([0.00, 0.11, 0.19, 0.20, 0.79, 0.73, 0.10, 0.14, 0.14, 0.31, 0.20, 0.10, 0.11, 0.10, 0.08])
+z = np.array([
+    4293750, 3339062, 3434375, 3646875, 2693750, 4626562,
+    2423437, 1500000, 2843750, 2404687, 4562500,
+    1781250, 1779687, 2600000, 2579687,
+])
+categories = [
+    "scratch-env-5-hs",
+    "env-1-ls-env5-hs", "env-2-ls-env5-hs", "env-3-ls-env5-hs", "env-4-ls-env5-hs", "env-5-ls-env5-hs",
+    "env-1-ms-env5-hs", "env-2-ms-env5-hs", "env-3-ms-env5-hs", "env-4-ms-env5-hs", "env-5-ms-env5-hs",
+    "env-1-hs-env5-hs", "env-2-hs-env5-hs", "env-3-hs-env5-hs", "env-4-hs-env5-hs",
+]
 
 def least_squares_fit(x: np.ndarray, y: np.ndarray, z: np.ndarray):
     """
@@ -26,12 +43,97 @@ def least_squares_fit(x: np.ndarray, y: np.ndarray, z: np.ndarray):
 
     return (*theta, z_pred)
 
-
-# Example usage
-x = np.array([0.14, 0.89, 0.65, 0.63, 0.46, 0.26, 0.25, 0.81, 0.55, 0.52, 0.32, 0.17])
-y = np.array([0.00, 0.04, 0.04, 0.045, 0.05, 0.13, 0.05, 0.04, 0.04, 0.035, 0.03, 0.028])
-z = np.array([5212500, 3025000, 2900000, 2737500, 2875000, 6475000, 6525000, 3025000, 3037500, 4050000, 4062500, 6712500,])
-
+# Compute overall estimation
 a, b, c, z_pred = least_squares_fit(x, y, z)
-print(f"a = {a}, b = {b}, c = {c}")
-print(f"z' = {z_pred.tolist()}")
+
+# Create overall estimation figure
+fig = go.Figure()
+fig.add_trace(go.Bar(
+    x=categories,
+    y=z,
+    name="Training Performance",
+    marker_color="blue",
+    text=[int(val) for val in z],  # Convert text to integer format
+    textposition='outside'
+))
+fig.add_trace(go.Bar(
+    x=categories,
+    y=z_pred,
+    name="Overall Estimate",
+    marker_color="red",
+    text=[int(val) for val in z_pred],  # Convert text to integer format
+    textposition='outside'
+))
+fig.update_layout(
+    title="Overall Estimation vs Training Performance",
+    xaxis_title="Categories",
+    yaxis_title="Values",
+    barmode="group",
+    template="plotly_white"
+)
+
+# Save overall estimation plot
+pio.write_image(fig, "overall_estimation.png", format="png", scale=1, width=1200, height=800, engine="kaleido")
+
+# Split into 3 groups while keeping the first item in all groups
+n_splits = 2
+kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
+fold = 1
+
+# Ensure first item is always in training data
+indices = np.arange(1, len(x))  # Exclude first item (always selected)
+np.random.shuffle(indices)
+split_size = len(indices) // n_splits
+splits = [indices[i * split_size: (i + 1) * split_size] for i in range(n_splits)]
+
+# Assign remaining elements to folds
+for i, split in enumerate(splits):
+    train_index = np.concatenate(([0], split))  # Ensure first index (0) is always included
+
+    # Select training data
+    x_train, y_train, z_train = x[train_index], y[train_index], z[train_index]
+
+    # Fit using the subset (1/3 of the data + first item)
+    a_fold, b_fold, c_fold, _ = least_squares_fit(x_train, y_train, z_train)
+
+    # Predict on the full dataset
+    z_pred_fold = a_fold * x + b_fold * y + c_fold
+
+    # Create each fold estimation figure
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=categories,
+        y=z,
+        name="Training Performance",
+        marker_color="blue",
+        text=[int(val) for val in z],  # Convert text to integer format
+        textposition='outside'
+    ))
+    fig.add_trace(go.Bar(
+        x=categories,
+        y=z_pred_fold,
+        name=f"Fold {fold} Estimate",
+        marker_color="red",
+        text=[int(val) for val in z_pred_fold],  # Convert text to integer format
+        textposition='outside'
+    ))
+    fig.add_trace(go.Scatter(
+        x=[categories[i] for i in train_index],
+        y=[z[i] for i in train_index],
+        mode='markers',
+        marker=dict(color='green', size=10),
+        name=f"Train Data for Fold {fold}"
+    ))
+    fig.update_layout(
+        title=f"Cross-Validation Fold {fold} Estimation",
+        xaxis_title="Categories",
+        yaxis_title="Values",
+        barmode="group",
+        template="plotly_white"
+    )
+
+    # Save cross-validation plots
+    filename = f"cross_validation_fold_{fold}.png"
+    pio.write_image(fig, filename, format="png", scale=1, width=1200, height=800, engine="kaleido")
+
+    fold += 1
