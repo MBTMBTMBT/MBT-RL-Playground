@@ -34,20 +34,8 @@ def run_training(task_name: str, env_idx: int, run_id: int,):
         configs["exploit_policy_reward_rate"],
     )
 
-    # baseline_agent = Agent(
-    #     state_discretizer,
-    #     action_discretizer,
-    #     env,
-    #     configs["use_deep_agent"],
-    #     configs["train_max_num_steps_per_episode"],
-    #     (1.0, 0.0),
-    #     configs["exploit_agent_lr"],
-    #     configs["exploit_value_decay"],
-    #     configs["exploit_policy_reward_rate"],
-    # )
-
-    if configs["use_deep_agent"]:
-        agent.exploit_agent.policy.to("cpu")
+    # if configs["use_deep_agent"]:
+    #     agent.exploit_agent.policy.to("cpu")
 
     if "fast_exploit_policy_training_steps" in configs.keys():
         exploit_policy_training_steps = configs["fast_exploit_policy_training_steps"]
@@ -198,9 +186,9 @@ def run_cl_eval(task_name: str, prior_env_idx: int, target_env_idx: int, prior_r
     if target_env_idx != -1 and target_run_id != -1:
         target_agent.load_agent(target_save_path + f"_final", load_transition_table=False)
 
-    if configs["use_deep_agent"]:
-        prior_agent.exploit_agent.policy.to("cpu")
-        target_agent.exploit_agent.policy.to("cpu")
+    # if configs["use_deep_agent"]:
+    #     prior_agent.exploit_agent.policy.to("cpu")
+    #     target_agent.exploit_agent.policy.to("cpu")
 
     if prior_env_idx != -1 and prior_run_id != -1 and target_env_idx != -1 and target_run_id != -1:
         if "quick_test_threshold" in configs.keys() and "quick_test_num_episodes" in configs.keys():
@@ -1193,13 +1181,13 @@ if __name__ == '__main__':
 
     run_all_trainings_and_plot(
         task_names_and_num_experiments={"acrobot-custom": 3, },
-        max_workers=8,
+        max_workers=12,
     )
     run_all_cl_evals_and_plot(
         task_names_and_num_experiments={"acrobot-custom": (3, 0), },
-        max_workers=8,
+        max_workers=12,
     )
     run_all_2_stage_cl_training_and_plot(
         task_names_and_num_experiments={"acrobot-custom": (3, 0), },
-        max_workers=8,
+        max_workers=12,
     )

@@ -2117,7 +2117,7 @@ class Agent:
                 gamma=gamma,
                 verbose=0,
                 n_epochs=5,
-                device='auto',
+                device='cpu',
                 policy_kwargs=dict(
                     net_arch=[32, 32,]
                 ),
