@@ -2118,6 +2118,9 @@ class Agent:
                 verbose=0,
                 n_epochs=5,
                 device='auto',
+                policy_kwargs=dict(
+                    net_arch=[32, 32,]
+                ),
             )
         else:
             self.exploit_agent = TabularQAgent(
