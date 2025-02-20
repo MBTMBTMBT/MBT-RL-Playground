@@ -497,7 +497,7 @@ def run_all_2_stage_cl_training_and_plot(task_names_and_num_experiments: Dict[st
             error_y=dict(type='data', array=bar_errors_success_steps, visible=True),
             name="Success Steps",
             marker_color=[colors[i % len(colors)] for i in range(len(bar_labels))],
-            text=[f"{val:d}" for val in bar_means_success_steps],
+            text=[f"{int(val):d}" for val in bar_means_success_steps],
             textposition='outside'
         ))
         fig_success_steps.update_layout(
