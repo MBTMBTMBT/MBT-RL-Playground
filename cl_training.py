@@ -4,6 +4,7 @@ from multiprocessing import Pool
 from typing import List, Dict, Tuple
 
 import numpy as np
+import torch
 from gymnasium import spaces
 from tqdm import tqdm
 import plotly.graph_objs as go
@@ -40,6 +41,9 @@ def run_2_stage_cl_training(task_name: str, prior_env_idx: int, target_env_idx: 
         configs["exploit_policy_reward_rate"],
         configs["use_balanced_random_init"],
     )
+
+    if configs["use_deep_agent"]:
+        agent.exploit_agent.policy.to("cpu")
 
     pbar = tqdm(
         total=configs["exploit_policy_training_steps"],
@@ -184,6 +188,7 @@ def run_2_stage_cl_training(task_name: str, prior_env_idx: int, target_env_idx: 
 
 
 def run_2_stage_cl_training_unpack(args):
+    torch.set_num_threads(1)
     return run_2_stage_cl_training(**args)
 
 
