@@ -284,7 +284,7 @@ def run_cl_eval(task_name: str, prior_env_idx: int, target_env_idx: int, prior_r
         trajectory = [test_state]
         while not test_done:
             test_action = target_agent.choose_action(
-                test_state, temperature=1.0
+                test_state, temperature=0.25
             )
             test_next_state, test_reward, test_done, test_truncated, _ = final_target_test_env.step(test_action)
             trajectory.append(test_next_state)
@@ -302,9 +302,9 @@ def run_cl_eval(task_name: str, prior_env_idx: int, target_env_idx: int, prior_r
         if isinstance(action_space, spaces.Discrete):
             for state in trajectory:
                 action_distribution_target = np.array(
-                    target_agent.get_action_probabilities(state, temperature=1.0))
+                    target_agent.get_action_probabilities(state, temperature=0.25))
                 action_distribution_prior = np.array(
-                    prior_agent.get_action_probabilities(state, temperature=1.0))
+                    prior_agent.get_action_probabilities(state, temperature=0.25))
                 default_action_distribution = np.array(prior_agent.get_default_policy_distribution(state,))
                 kl_divergence_target_prior = compute_discrete_kl_divergence(
                     action_distribution_target, action_distribution_prior
@@ -1207,15 +1207,15 @@ if __name__ == '__main__':
     # )
     run_all_trainings_and_plot(
         task_names_and_num_experiments={"frozen_lake-custom": 16, },
-        max_workers=27,
+        max_workers=24,
     )
     run_all_cl_evals_and_plot(
         task_names_and_num_experiments={"frozen_lake-custom": (16, 14), },
-        max_workers=27,
+        max_workers=24,
     )
     run_all_2_stage_cl_training_and_plot(
         task_names_and_num_experiments={"frozen_lake-custom": (16, 14), },
-        max_workers=27,
+        max_workers=24,
     )
 
     # run_all_trainings_and_plot(
