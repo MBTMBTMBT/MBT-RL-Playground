@@ -226,7 +226,7 @@ def run_cl_eval(task_name: str, prior_env_idx: int, target_env_idx: int, prior_r
     else:
         pass  # not implemented yet
 
-    weights = np.linspace(0, 1, 2)
+    weights = np.linspace(0, 1, 20)
 
     pbar = tqdm(
         total=len(weights),
@@ -237,14 +237,9 @@ def run_cl_eval(task_name: str, prior_env_idx: int, target_env_idx: int, prior_r
 
     test_results = []
     test_weights = []
-    test_free_energies = []
-    avg_test_control_info = 0.0
-    avg_test_control_info_final_target = 0.0
-    avg_test_reward_final_target = 0.0
     for p in weights:
         periodic_test_rewards = []
-        periodic_test_control_infos = []
-        for t in range(configs["exploit_policy_eval_episodes"]):
+        for t in range(configs["exploit_policy_test_episodes"]):
             test_state, _ = target_test_env.reset()
             test_total_reward = 0
             test_done = False
@@ -268,93 +263,75 @@ def run_cl_eval(task_name: str, prior_env_idx: int, target_env_idx: int, prior_r
                     break
             periodic_test_rewards.append(test_total_reward)
 
-            # if p == weights[-1]:
-            trajectory.reverse()
-            control_info = 0.0
-            if isinstance(action_space, spaces.Discrete):
-                for state in trajectory:
-                    if prior_env_idx != -1 and prior_run_id != -1:
-                        weighted_action_distribution = np.array(target_agent.get_action_probabilities(state, temperature=1.0))
-                        default_action_distribution = np.array(prior_agent.get_action_probabilities(state,))
-                    else:
-                        weighted_action_distribution = np.array(target_agent.get_action_probabilities(state, temperature=1.0))
-                        default_action_distribution = np.array(prior_agent.get_default_policy_distribution(state,))
-                    kl_divergence = compute_discrete_kl_divergence(
-                        weighted_action_distribution, default_action_distribution
-                    )
-                    control_info += kl_weight * kl_divergence
-            else:
-                pass
-            periodic_test_control_infos.append(control_info)  # / len(trajectory))
-
-        periodic_test_rewards_final_target = []
-        periodic_test_control_infos_final_target = []
-        periodic_test_free_energies = []
-        for t in range(configs["exploit_policy_eval_episodes"]):
-            test_state, _ = final_target_test_env.reset()
-            test_total_reward = 0
-            test_done = False
-            trajectory = [test_state]
-            while not test_done:
-                if prior_env_idx != -1 and prior_run_id != -1:
-                    test_action = target_agent.choose_action_by_weight(
-                        test_state, p=p, default_policy_func=prior_agent.get_greedy_weighted_action_distribution,
-                    )
-                    # test_action = target_agent.choose_action(test_state, greedy=True)
-                else:
-                    test_action = target_agent.choose_action_by_weight(
-                        test_state, p=p, default_policy_func=prior_agent.get_default_policy_distribution,
-                    )
-                    # test_action = target_agent.choose_action(test_state, greedy=True)
-                test_next_state, test_reward, test_done, test_truncated, _ = final_target_test_env.step(test_action)
-                trajectory.append(test_next_state)
-                test_state = test_next_state
-                test_total_reward += test_reward
-                if test_done or test_truncated:
-                    break
-            periodic_test_rewards_final_target.append(test_total_reward)
-
-            # if p == weights[-1]:
-            trajectory.reverse()
-            control_info = 0.0
-            if isinstance(action_space, spaces.Discrete):
-                for state in trajectory:
-                    weighted_action_distribution = np.array(
-                        target_agent.get_action_probabilities(state, temperature=1.0))
-                    default_action_distribution = np.array(prior_agent.get_default_policy_distribution(state, ))
-                    kl_divergence = compute_discrete_kl_divergence(
-                        weighted_action_distribution, default_action_distribution
-                    )
-                    control_info += kl_weight * kl_divergence
-            else:
-                pass
-            periodic_test_control_infos_final_target.append(control_info)  # / len(trajectory))
-
         avg_test_reward = np.mean(periodic_test_rewards)
-        avg_test_reward_final_target = np.mean(periodic_test_rewards_final_target)
-        avg_test_control_info = np.mean(periodic_test_control_infos)
-        avg_test_control_info_final_target = np.mean(periodic_test_control_infos_final_target)
-        for control_info, test_total_reward in zip(periodic_test_control_infos_final_target, periodic_test_rewards_final_target):
-            periodic_test_free_energies.append(
-                # (control_info - configs["train_max_num_steps_per_episode"] * test_total_reward) / configs["train_max_num_steps_per_episode"]
-                (control_info - 1.0 * test_total_reward) / 1.0
-            )
-        avg_test_free_energy = np.mean(periodic_test_free_energies)
         test_results.append(avg_test_reward)
         test_weights.append(p)
-        test_free_energies.append(avg_test_free_energy)
 
         pbar.set_postfix({
             "Weight": f"{p:.2f}",
             "Rwd": f"{avg_test_reward:05.3f}",
-            "CI": f"{avg_test_control_info:05.1f}",
-            "FE": f"{avg_test_free_energy:05.1f}",
         })
         pbar.update(1)
-
     pbar.close()
 
-    return task_name, prior_run_id, target_run_id, prior_env_idx, target_env_idx, test_results, avg_test_reward_final_target, avg_test_control_info, avg_test_control_info_final_target, test_free_energies, test_weights
+    periodic_test_control_infos = []
+    periodic_test_rewards_final_target = []
+    periodic_test_control_infos_default = []
+    for t in range(configs["exploit_policy_eval_episodes"]):
+        test_state, _ = final_target_test_env.reset()
+        test_total_reward = 0
+        test_done = False
+        trajectory = [test_state]
+        while not test_done:
+            test_action = target_agent.choose_action(
+                test_state, temperature=1.0
+            )
+            test_next_state, test_reward, test_done, test_truncated, _ = final_target_test_env.step(test_action)
+            trajectory.append(test_next_state)
+            test_state = test_next_state
+            test_total_reward += test_reward
+            if test_done or test_truncated:
+                break
+        periodic_test_rewards_final_target.append(test_total_reward)
+
+        # if p == weights[-1]:
+        trajectory.reverse()
+        control_info_target_prior = 0.0
+        control_info_target_default = 0.0
+        control_info_prior_default = 0.0
+        if isinstance(action_space, spaces.Discrete):
+            for state in trajectory:
+                action_distribution_target = np.array(
+                    target_agent.get_action_probabilities(state, temperature=1.0))
+                action_distribution_prior = np.array(
+                    prior_agent.get_action_probabilities(state, temperature=1.0))
+                default_action_distribution = np.array(prior_agent.get_default_policy_distribution(state,))
+                kl_divergence_target_prior = compute_discrete_kl_divergence(
+                    action_distribution_target, action_distribution_prior
+                )
+                kl_divergence_target_default = compute_discrete_kl_divergence(
+                    action_distribution_target, default_action_distribution
+                )
+                kl_divergence_prior_default = compute_discrete_kl_divergence(
+                    action_distribution_prior, default_action_distribution
+                )
+                control_info_target_prior += kl_weight * kl_divergence_target_prior
+                control_info_target_default += kl_weight * kl_divergence_target_default
+                control_info_prior_default += kl_weight * kl_divergence_prior_default
+        else:
+            pass
+        periodic_test_control_infos.append(control_info_target_prior)
+        if prior_env_idx != -1 and prior_run_id != -1:
+            periodic_test_control_infos_default.append(control_info_prior_default)  # / len(trajectory))
+        else:
+            periodic_test_control_infos_default.append(control_info_target_default)
+
+    avg_test_reward_final_target = np.mean(periodic_test_rewards_final_target)
+    avg_test_control_info = np.mean(periodic_test_control_infos)
+    avg_test_control_info_default = np.mean(periodic_test_control_infos_default)
+
+    test_free_energies = np.zeros(len(weights)).tolist()
+    return task_name, prior_run_id, target_run_id, prior_env_idx, target_env_idx, test_results, avg_test_reward_final_target, avg_test_control_info, avg_test_control_info_default, test_free_energies, test_weights
 
 
 # A wrapper function for unpacking arguments
@@ -1084,7 +1061,7 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
 
                         # Use only target_env_desc as label
                         scatter_x.append(x_value)
-                        scatter_y.append(np.log10(y_value))  # Apply log10 transformation
+                        scatter_y.append(y_value)
                         scatter_labels.append(target_env_desc)
 
                         # Highlight if target_env_idx is final_target_env_idx
@@ -1097,7 +1074,12 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
         fig, ax = plt.subplots(figsize=(12, 8))
 
         # Plot scatter points with different colors
-        ax.scatter(scatter_x, scatter_y, c=scatter_colors, alpha=0.7, s=100, label="Data Points")
+        ax.scatter(scatter_x, scatter_y, c=scatter_colors, alpha=0.7, s=50, label="Data Points")
+
+        ax.set_yscale('log')
+
+        # Add grid for better visualization
+        ax.grid(True, which="both", linestyle="--", linewidth=0.5)  # Grid on both major & minor ticks
 
         # Add text labels with arrows
         texts = []
@@ -1159,7 +1141,10 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
         fig, ax = plt.subplots(figsize=(12, 8))
 
         # Plot scatter points with different colors
-        ax.scatter(scatter_x, scatter_y, c=scatter_colors, alpha=0.7, s=100, label="Data Points")
+        ax.scatter(scatter_x, scatter_y, c=scatter_colors, alpha=0.7, s=50, label="Data Points")
+
+        # Add grid for better visualization
+        ax.grid(True, which="both", linestyle="--", linewidth=0.5)  # Grid on both major & minor ticks
 
         # Add text labels with arrows
         texts = []
@@ -1220,16 +1205,16 @@ if __name__ == '__main__':
     #     task_names_and_num_experiments={"frozen_lake-88": (8, 1), },
     #     max_workers=27,
     # )
-    # run_all_trainings_and_plot(
-    #     task_names_and_num_experiments={"frozen_lake-custom": 4, },
-    #     max_workers=27,
-    # )
+    run_all_trainings_and_plot(
+        task_names_and_num_experiments={"frozen_lake-custom": 16, },
+        max_workers=27,
+    )
     run_all_cl_evals_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": (4, 17), },
+        task_names_and_num_experiments={"frozen_lake-custom": (16, 14), },
         max_workers=27,
     )
     run_all_2_stage_cl_training_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": (4, 17), },
+        task_names_and_num_experiments={"frozen_lake-custom": (16, 14), },
         max_workers=27,
     )
 

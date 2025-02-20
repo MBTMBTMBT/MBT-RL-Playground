@@ -146,16 +146,6 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             [
                 "SFFFFFFF",
                 "FFFFFFFF",
-                "HHHHHHHF",
-                "FFFFFFFF",
-                "FFFFFFFF",
-                "FFFFFGFF",
-                "FFFFFFFF",
-                "FFFFHFFF",
-            ],
-            [
-                "SFFFFFFF",
-                "FFFFFFFF",
                 "FFHFFHHF",
                 "FFFFFFFF",
                 "FFFFHHFF",
@@ -170,7 +160,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                 desc=descs[0],
                 map_name=None,
                 is_slippery=True,
-                slipperiness=0.1,
+                slipperiness=0.33,
                 render_mode="rgb_array",
             ),
             dict(
@@ -178,7 +168,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                 desc=descs[1],
                 map_name=None,
                 is_slippery=True,
-                slipperiness=0.1,
+                slipperiness=0.33,
                 render_mode="rgb_array",
             ),
             dict(
@@ -186,7 +176,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                 desc=descs[2],
                 map_name=None,
                 is_slippery=True,
-                slipperiness=0.1,
+                slipperiness=0.33,
                 render_mode="rgb_array",
             ),
             dict(
@@ -194,7 +184,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                 desc=descs[3],
                 map_name=None,
                 is_slippery=True,
-                slipperiness=0.1,
+                slipperiness=0.33,
                 render_mode="rgb_array",
             ),
             dict(
@@ -202,15 +192,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                 desc=descs[4],
                 map_name=None,
                 is_slippery=True,
-                slipperiness=0.1,
-                render_mode="rgb_array",
-            ),
-            dict(
-                id='CustomFrozenLake-v1',
-                desc=descs[5],
-                map_name=None,
-                is_slippery=True,
-                slipperiness=0.1,
+                slipperiness=0.33,
                 render_mode="rgb_array",
             ),
             dict(
@@ -255,14 +237,6 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             ),
             dict(
                 id='CustomFrozenLake-v1',
-                desc=descs[5],
-                map_name=None,
-                is_slippery=True,
-                slipperiness=0.66,
-                render_mode="rgb_array",
-            ),
-            dict(
-                id='CustomFrozenLake-v1',
                 desc=descs[0],
                 map_name=None,
                 is_slippery=True,
@@ -296,14 +270,6 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             dict(
                 id='CustomFrozenLake-v1',
                 desc=descs[4],
-                map_name=None,
-                is_slippery=True,
-                slipperiness=0.99,
-                render_mode="rgb_array",
-            ),
-            dict(
-                id='CustomFrozenLake-v1',
-                desc=descs[5],
                 map_name=None,
                 is_slippery=True,
                 slipperiness=0.99,
@@ -312,24 +278,21 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
         ]
         test_envs = envs
         env_descs = [
-            "env-1-ns",
-            "env-2-ns",
-            "env-3-ns",
-            "env-4-ns",
-            "env-5-ns",
-            "env-6-ns",
             "env-1-ls",
             "env-2-ls",
             "env-3-ls",
             "env-4-ls",
             "env-5-ls",
-            "env-6-ls",
+            "env-1-ms",
+            "env-2-ms",
+            "env-3-ms",
+            "env-4-ms",
+            "env-5-ms",
             "env-1-hs",
             "env-2-hs",
             "env-3-hs",
             "env-4-hs",
             "env-5-hs",
-            "env-6-hs",
         ]
         state_discretizer = Discretizer(
             ranges=[(0, gym.make(**envs[0]).observation_space.n)],
@@ -354,7 +317,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             "exploit_policy_training_steps": int(7500e3),
             "exploit_policy_test_per_num_steps": int(25e3),
             "exploit_policy_test_episodes": 500,
-            "exploit_policy_eval_episodes": 500,
+            "exploit_policy_eval_episodes": 5000,
             "save_per_num_steps": int(50e3),
             "save_mdp_graph": False,
             "print_training_info": False,
