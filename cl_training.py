@@ -1,11 +1,9 @@
-import gc
 import os
 from multiprocessing import Pool
 from typing import List, Dict, Tuple
 
 import numpy as np
 import torch
-from gymnasium import spaces
 from tqdm import tqdm
 import plotly.graph_objs as go
 

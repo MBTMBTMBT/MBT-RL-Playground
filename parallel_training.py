@@ -1,5 +1,7 @@
 import numpy as np
 import gymnasium as gym
+import matplotlib
+matplotlib.use("Agg")
 from matplotlib import pyplot as plt
 from matplotlib.animation import FuncAnimation
 import plotly.graph_objs as go
@@ -28,8 +30,8 @@ CUSTOM_ENVS = {
 
 # Generate GIF for the final test episode
 def generate_test_gif(frames, gif_path, to_print=True):
+    plt.ioff()
     fig, ax = plt.subplots()
-    ax.axis('off')  # Turn off axis
     img = ax.imshow(frames[0])
 
     def update(frame):
