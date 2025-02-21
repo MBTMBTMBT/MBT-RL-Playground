@@ -512,7 +512,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             "quick_test_threshold": 0.33,
             "quick_test_num_episodes": 100,
             "early_stop_counts": 5,
-            "success_threshold": 0.85,
+            "success_threshold": 0.9,
         }
 
     else:
