@@ -294,10 +294,10 @@ def run_cl_eval(task_name: str, prior_env_idx: int, target_env_idx: int, prior_r
         if isinstance(action_space, spaces.Discrete):
             for state in trajectory:
                 action_distribution_target = np.array(
-                    target_agent.get_action_probabilities(state, temperature=0.25))
+                    target_agent.get_action_probabilities(state, temperature=0.25)).squeeze()
                 action_distribution_prior = np.array(
-                    prior_agent.get_action_probabilities(state, temperature=0.25))
-                default_action_distribution = np.array(prior_agent.get_default_policy_distribution(state,))
+                    prior_agent.get_action_probabilities(state, temperature=0.25)).squeeze()
+                default_action_distribution = np.array(prior_agent.get_default_policy_distribution(state,)).squeeze()
                 kl_divergence_target_prior = compute_discrete_kl_divergence(
                     action_distribution_target, action_distribution_prior
                 )

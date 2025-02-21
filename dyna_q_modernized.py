@@ -2189,10 +2189,7 @@ class Agent:
                     action_probabilities = np.zeros_like(logits)
                     action_probabilities[optimal_action] = 1.0
                 else:
-                    # Apply temperature to logits and compute probabilities
-                    logits = logits / temperature
-                    exp_logits = np.exp(logits - np.max(logits))  # For numerical stability
-                    action_probabilities = exp_logits / np.sum(exp_logits)
+                    action_probabilities = torch.softmax(logits, dim=-1).detach().numpy()
                 return action_probabilities
             else:
                 # Continuous action space
