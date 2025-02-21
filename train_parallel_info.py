@@ -8,6 +8,8 @@ import torch
 from gymnasium import spaces
 from tqdm import tqdm
 import plotly.graph_objs as go
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from adjustText import adjust_text
 
@@ -1171,26 +1173,26 @@ if __name__ == '__main__':
     from cl_training import run_all_2_stage_cl_training_and_plot
     run_all_trainings_and_plot(
         task_names_and_num_experiments={"frozen_lake-custom": 8, },
-        max_workers=15,
+        max_workers=24,
     )
     run_all_cl_evals_and_plot(
         task_names_and_num_experiments={"frozen_lake-custom": (8, 14), },
-        max_workers=15,
+        max_workers=24,
     )
     run_all_2_stage_cl_training_and_plot(
         task_names_and_num_experiments={"frozen_lake-custom": (8, 14), },
-        max_workers=15,
+        max_workers=24,
     )
 
     run_all_trainings_and_plot(
-        task_names_and_num_experiments={"acrobot-custom": 5, },
-        max_workers=15,
+        task_names_and_num_experiments={"acrobot-custom": 8, },
+        max_workers=24,
     )
     run_all_cl_evals_and_plot(
-        task_names_and_num_experiments={"acrobot-custom": (5, 0), },
-        max_workers=15,
+        task_names_and_num_experiments={"acrobot-custom": (8, 0), },
+        max_workers=24,
     )
     run_all_2_stage_cl_training_and_plot(
-        task_names_and_num_experiments={"acrobot-custom": (5, 0), },
-        max_workers=15,
+        task_names_and_num_experiments={"acrobot-custom": (8, 0), },
+        max_workers=24,
     )

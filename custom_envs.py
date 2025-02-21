@@ -268,6 +268,8 @@ class CustomAcrobotEnv(AcrobotEnv):
         obs, reward, terminated, truncated, info = super().step(a)
         if self.reward_type == "sparse":
             reward = 1.0 if terminated else 0.0
+        elif self.reward_type == "scaled":
+            reward = -1.0 / 150 if not terminated else 0.0
         return obs, reward, terminated, truncated, info
 
     def _terminal(self):
