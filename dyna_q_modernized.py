@@ -2370,4 +2370,4 @@ class Agent:
         if self.use_deep_agent:
             self.exploit_agent.learn(total_timesteps=total_timesteps, progress_bar=progress_bar)
         else:
-            self.exploit_agent.learn(total_timesteps=total_timesteps, progress_bar=progress_bar, temperature=1.0)
+            self.exploit_agent.learn(total_timesteps=total_timesteps, progress_bar=progress_bar, temperature=1.5)

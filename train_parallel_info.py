@@ -281,7 +281,7 @@ def run_cl_eval(task_name: str, prior_env_idx: int, target_env_idx: int, prior_r
         trajectory = [test_state]
         while not test_done:
             test_action = target_agent.choose_action(
-                test_state, temperature=1.0
+                test_state, temperature=1.5
             )
             test_next_state, test_reward, test_done, test_truncated, _ = final_target_test_env.step(test_action)
             trajectory.append(test_next_state)
@@ -299,9 +299,9 @@ def run_cl_eval(task_name: str, prior_env_idx: int, target_env_idx: int, prior_r
         if isinstance(action_space, spaces.Discrete):
             for state in trajectory:
                 action_distribution_target = np.array(
-                    target_agent.get_action_probabilities(state, temperature=1.0)).squeeze()
+                    target_agent.get_action_probabilities(state, temperature=1.5)).squeeze()
                 action_distribution_prior = np.array(
-                    prior_agent.get_action_probabilities(state, temperature=1.0)).squeeze()
+                    prior_agent.get_action_probabilities(state, temperature=1.5)).squeeze()
                 default_action_distribution = np.array(prior_agent.get_default_policy_distribution(state,)).squeeze()
                 kl_divergence_target_prior = compute_discrete_kl_divergence(
                     action_distribution_target, action_distribution_prior
