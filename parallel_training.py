@@ -32,6 +32,7 @@ CUSTOM_ENVS = {
 def generate_test_gif(frames, gif_path, to_print=True):
     plt.ioff()
     fig, ax = plt.subplots()
+    ax.axis('off')  # Turn off axis
     img = ax.imshow(frames[0])
 
     def update(frame):
