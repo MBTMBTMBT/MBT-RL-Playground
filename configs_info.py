@@ -435,7 +435,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
         envs = [
             dict(
                 id='CustomAcrobot-v1',
-                termination_height=1.8,
+                termination_height=1.5,
                 friction=0.0,
                 torque_scaling=1.0,
                 gravity=9.8,
@@ -444,7 +444,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             ),
             dict(
                 id='CustomAcrobot-v1',
-                termination_height=1.65,
+                termination_height=1.25,
                 friction=0.0,
                 torque_scaling=1.0,
                 gravity=9.8,
@@ -453,7 +453,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             ),
             dict(
                 id='CustomAcrobot-v1',
-                termination_height=1.8,
+                termination_height=1.5,
                 friction=0.005,
                 torque_scaling=1.0,
                 gravity=9.8,
@@ -462,7 +462,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             ),
             dict(
                 id='CustomAcrobot-v1',
-                termination_height=1.8,
+                termination_height=1.5,
                 friction=0.0,
                 torque_scaling=1.0,
                 gravity=7.5,
@@ -499,9 +499,9 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             "exploit_softmax_temperature": 1.0,
             "exploit_policy_reward_rate": 1,
             "exploit_value_decay": 0.99,
-            "fast_exploit_policy_training_steps": int(500e3),
-            "exploit_policy_training_steps": int(1000e3),
-            "exploit_policy_test_per_num_steps": int(25e3),
+            "fast_exploit_policy_training_steps": int(250e3),
+            "exploit_policy_training_steps": int(500e3),
+            "exploit_policy_test_per_num_steps": int(10e3),
             "exploit_policy_test_episodes": 500,
             "exploit_policy_eval_episodes": 2500,
             "save_per_num_steps": int(50e3),
