@@ -527,7 +527,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             "save_per_num_steps": int(50e3),
             "save_mdp_graph": False,
             "print_training_info": False,
-            "initialization_distribution": (0.66, 0.33),
+            "initialization_distribution": (0.5, 0.5),
             "use_balanced_random_init": False,
             "quick_test_threshold": -0.75,
             "quick_test_num_episodes": 100,
