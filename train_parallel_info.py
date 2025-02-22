@@ -468,7 +468,7 @@ def run_all_trainings_and_plot(task_names_and_num_experiments: Dict[str, int], m
                 x=[test_steps[-1]],  # Position at the end of the line
                 y=[mean_final_rewards],
                 mode='text',
-                text=[f"{mean_final_rewards:.2f}"],  # Format the number with two decimals
+                text=[f"{mean_final_rewards:.3f}"],  # Format the number with two decimals
                 textposition="top right",
                 showlegend=False  # Do not show in legend
             ))
@@ -808,7 +808,7 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
             y=bar_means,
             error_y=dict(type='data', array=bar_errors, visible=True),
             marker_color=[colors[i % len(colors)] for i in range(len(bar_labels))],  # Assign colors
-            text=[f"{val:.2f}" for val in bar_means],  # Format values to 2 decimal places
+            text=[f"{val:.3f}" for val in bar_means],  # Format values to 2 decimal places
             textposition='outside'  # Auto-adjust text position
         ))
 
@@ -872,7 +872,7 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
             y=bar_means,
             error_y=dict(type='data', array=bar_errors, visible=True),
             marker_color=[colors[i % len(colors)] for i in range(len(bar_labels))],  # Assign colors
-            text=[f"{val:.2f}" for val in bar_means],  # Format values to 2 decimal places
+            text=[f"{val:.3f}" for val in bar_means],  # Format values to 2 decimal places
             textposition='outside'  # Auto-adjust text position
         ))
 
@@ -1009,7 +1009,7 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
             y=bar_means,
             error_y=dict(type='data', array=bar_errors, visible=True),
             marker_color=[colors[i % len(colors)] for i in range(len(bar_labels))],  # Assign colors
-            text=[f"{val:.2f}" for val in bar_means],  # Format values to 2 decimal places
+            text=[f"{val:.3f}" for val in bar_means],  # Format values to 2 decimal places
             textposition='outside'  # Auto-adjust text position
         ))
 

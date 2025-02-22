@@ -474,7 +474,7 @@ def run_all_2_stage_cl_training_and_plot(task_names_and_num_experiments: Dict[st
             error_y=dict(type='data', array=bar_errors_target_test, visible=True),
             name="Target Test Results",
             marker_color=[colors[i % len(colors)] for i in range(len(bar_labels))],
-            text=[f"{val:.2f}" for val in bar_means_target_test],  # Format values to 2 decimal places
+            text=[f"{val:.3f}" for val in bar_means_target_test],  # Format values to 2 decimal places
             textposition='outside'  # Auto-adjust text position
         ))
 
