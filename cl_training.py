@@ -147,7 +147,7 @@ def run_2_stage_cl_training(task_name: str, prior_env_idx: int, target_env_idx: 
 
             # Ignore the first test result when considering early stopping
             if not first_test:
-                if avg_test_reward < best_avg_reward or best_avg_reward >= 0.99:
+                if avg_test_reward < best_avg_reward or best_avg_reward >= configs["success_threshold"]:
                     no_improvement_count += 1
                 else:
                     no_improvement_count = 0  # Reset counter if reward improves
