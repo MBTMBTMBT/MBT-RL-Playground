@@ -46,6 +46,8 @@ def least_squares_fit(x: np.ndarray, y: np.ndarray, z: np.ndarray):
 # Compute overall estimation
 a, b, c, z_pred = least_squares_fit(x, y, z)
 
+print(a, b, c)
+
 # Create overall estimation figure
 fig = go.Figure()
 fig.add_trace(go.Bar(
