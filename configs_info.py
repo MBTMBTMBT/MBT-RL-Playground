@@ -314,7 +314,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             "exploit_policy_reward_rate": 1,
             "exploit_value_decay": 0.99,
             "fast_exploit_policy_training_steps": int(500e3),
-            "exploit_policy_training_steps": int(7500e3),
+            "exploit_policy_training_steps": int(6000e3),
             "exploit_policy_test_per_num_steps": int(25e3),
             "exploit_policy_test_episodes": 500,
             "exploit_policy_eval_episodes": 5000,
