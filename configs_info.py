@@ -514,8 +514,8 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             "num_envs": len(env_descs),
             "use_deep_agent": True,
             "save_path": save_path,
-            "train_max_num_steps_per_episode": 150,
-            "exploit_agent_lr": 2.5e-4,
+            "train_max_num_steps_per_episode": 500,
+            "exploit_agent_lr": 1e-4,
             "exploit_softmax_temperature": 1.0,
             "exploit_policy_reward_rate": 1,
             "exploit_value_decay": 0.99,
@@ -523,7 +523,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             "exploit_policy_training_steps": int(300e3),
             "exploit_policy_test_per_num_steps": int(10e3),
             "exploit_policy_test_episodes": 500,
-            "exploit_policy_eval_episodes": 2500,
+            "exploit_policy_eval_episodes": 2000,
             "save_per_num_steps": int(50e3),
             "save_mdp_graph": False,
             "print_training_info": False,
@@ -532,7 +532,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             "quick_test_threshold": -0.75,
             "quick_test_num_episodes": 100,
             "early_stop_counts": 5,
-            "success_threshold": -0.25,
+            "success_threshold": -0.225,
         }
 
     else:
