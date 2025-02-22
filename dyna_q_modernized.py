@@ -2118,7 +2118,7 @@ class Agent:
                 n_epochs=5,
                 device='cpu',
                 policy_kwargs=dict(
-                    net_arch=[48, 48,]
+                    net_arch=[24, 24, 24,]
                 ),
             )
         else:
