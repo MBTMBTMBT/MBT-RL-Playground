@@ -53,7 +53,7 @@ register(
         "max_velocities": (4 * pi, 9 * pi),
         "reward_type": "default",
     },
-    max_episode_steps=500,
+    max_episode_steps=250,
 )
 
 
@@ -269,7 +269,7 @@ class CustomAcrobotEnv(AcrobotEnv):
         if self.reward_type == "sparse":
             reward = 1.0 if terminated else 0.0
         elif self.reward_type == "scaled":
-            reward = -1.0 / 500 if not terminated else 0.0
+            reward = -1.0 / 250 if not terminated else 0.0
         return obs, reward, terminated, truncated, info
 
     def _terminal(self):
