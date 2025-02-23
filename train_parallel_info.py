@@ -237,6 +237,7 @@ def run_cl_eval(task_name: str, prior_env_idx: int, target_env_idx: int, prior_r
     for p in weights:
         periodic_test_rewards = []
         for t in range(configs["exploit_policy_test_episodes"]):
+        # for t in range(1):
             test_state, _ = target_test_env.reset()
             test_total_reward = 0
             test_done = False
@@ -275,8 +276,9 @@ def run_cl_eval(task_name: str, prior_env_idx: int, target_env_idx: int, prior_r
     periodic_test_rewards_final_target = []
     periodic_test_control_infos_default = []
     for t in range(configs["exploit_policy_eval_episodes"]):
+    # for t in range(1):
         test_state, _ = final_target_test_env.reset()
-        test_total_reward = 0
+        test_total_reward = 0.0
         test_done = False
         trajectory = [test_state]
         while not test_done:
@@ -720,6 +722,9 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
                 # Label format: "Env X - Env Y"
                 label = f"{prior_env_desc} - {target_env_desc}"
 
+                if prior_env_desc != "scratch" or target_env_desc == "scratch":
+                    continue
+
                 # Add mean test results curve
                 fig.add_trace(go.Scatter(
                     x=test_weights,
@@ -797,6 +802,9 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
                 # Label format: "Env X - Env Y"
                 label = f"{prior_env_desc} - {target_env_desc}"
 
+                if prior_env_desc != "scratch" or target_env_desc == "scratch":
+                    continue
+
                 # Store data
                 bar_labels.append(label)
                 bar_means.append(integral_mean)
@@ -860,6 +868,9 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
 
                 # Label format: "Env X - Env Y"
                 label = f"{prior_env_desc} - {target_env_desc}"
+
+                if prior_env_desc == "scratch" or target_env_desc == "scratch":
+                    continue
 
                 # Store data
                 bar_labels.append(label)
@@ -1051,23 +1062,21 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
                     x_value = subtask_data["mean_test_control_info_final_target"]
                     y_value = subtask_data["mean_test_results_final_target"]
 
-                    # Ensure y_value > 0 before applying log10 transformation
-                    if y_value > 0:
-                        if target_env_idx != -1:
-                            _, _, target_env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, target_env_idx)
-                        else:
-                            target_env_desc = "scratch"
+                    if target_env_idx != -1:
+                        _, _, target_env_desc, _, _, _ = get_envs_discretizers_and_configs(task_name, target_env_idx)
+                    else:
+                        target_env_desc = "scratch"
 
-                        # Use only target_env_desc as label
-                        scatter_x.append(x_value)
-                        scatter_y.append(y_value)
-                        scatter_labels.append(target_env_desc)
+                    # Use only target_env_desc as label
+                    scatter_x.append(x_value)
+                    scatter_y.append(y_value)
+                    scatter_labels.append(target_env_desc)
 
-                        # Highlight if target_env_idx is final_target_env_idx
-                        scatter_colors.append(
-                            'red' if target_env_idx == final_target_env_idx
-                            else ('green' if target_env_idx == -1 else 'blue')
-                        )
+                    # Highlight if target_env_idx is final_target_env_idx
+                    scatter_colors.append(
+                        'red' if target_env_idx == final_target_env_idx
+                        else ('green' if target_env_idx == -1 else 'blue')
+                    )
 
         # Create Matplotlib figure
         fig, ax = plt.subplots(figsize=(12, 8))
@@ -1075,7 +1084,7 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
         # Plot scatter points with different colors
         ax.scatter(scatter_x, scatter_y, c=scatter_colors, alpha=0.7, s=50, label="Data Points")
 
-        ax.set_yscale('log')
+        # ax.set_yscale('log')
 
         # Add grid for better visualization
         ax.grid(True, which="both", linestyle="--", linewidth=0.5)  # Grid on both major & minor ticks
@@ -1091,7 +1100,7 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
         # Set title and axis labels
         ax.set_title("Scatter Plot of Reward vs. Control Info", fontsize=16)
         ax.set_xlabel("Control Info with Uniform Prior", fontsize=14)
-        ax.set_ylabel("Reward (log10)", fontsize=14)
+        ax.set_ylabel("Reward", fontsize=14)
 
         # Save figure
         plot_path_scatter = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)[
@@ -1171,18 +1180,6 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
 
 if __name__ == '__main__':
     from cl_training import run_all_2_stage_cl_training_and_plot
-    run_all_trainings_and_plot(
-        task_names_and_num_experiments={"acrobot-custom": 8, },
-        max_workers=24,
-    )
-    run_all_cl_evals_and_plot(
-        task_names_and_num_experiments={"acrobot-custom": (8, 0), },
-        max_workers=24,
-    )
-    run_all_2_stage_cl_training_and_plot(
-        task_names_and_num_experiments={"acrobot-custom": (8, 0), },
-        max_workers=24,
-    )
 
     run_all_trainings_and_plot(
         task_names_and_num_experiments={"frozen_lake-custom": 8, },
@@ -1194,5 +1191,18 @@ if __name__ == '__main__':
     )
     run_all_2_stage_cl_training_and_plot(
         task_names_and_num_experiments={"frozen_lake-custom": (8, 14), },
+        max_workers=24,
+    )
+
+    run_all_trainings_and_plot(
+        task_names_and_num_experiments={"acrobot-custom": 8, },
+        max_workers=24,
+    )
+    run_all_cl_evals_and_plot(
+        task_names_and_num_experiments={"acrobot-custom": (8, 0), },
+        max_workers=24,
+    )
+    run_all_2_stage_cl_training_and_plot(
+        task_names_and_num_experiments={"acrobot-custom": (8, 0), },
         max_workers=24,
     )

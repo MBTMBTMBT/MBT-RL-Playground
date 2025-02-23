@@ -278,21 +278,21 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
         ]
         test_envs = envs
         env_descs = [
-            "env-1-ls",
-            "env-2-ls",
-            "env-3-ls",
-            "env-4-ls",
-            "env-5-ls",
-            "env-1-ms",
-            "env-2-ms",
-            "env-3-ms",
-            "env-4-ms",
-            "env-5-ms",
-            "env-1-hs",
-            "env-2-hs",
-            "env-3-hs",
-            "env-4-hs",
-            "env-5-hs",
+            "env-1-lowslipperiness",
+            "env-2-lowslipperiness",
+            "env-3-lowslipperiness",
+            "env-4-lowslipperiness",
+            "env-5-lowslipperiness",
+            "env-1-midslipperiness",
+            "env-2-midslipperiness",
+            "env-3-midslipperiness",
+            "env-4-midslipperiness",
+            "env-5-midslipperiness",
+            "env-1-highslipperiness",
+            "env-2-highslipperiness",
+            "env-3-highslipperiness",
+            "env-4-highslipperiness",
+            "env-5-highslipperiness",
         ]
         state_discretizer = Discretizer(
             ranges=[(0, gym.make(**envs[0]).observation_space.n)],
@@ -462,8 +462,8 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             ),
             dict(
                 id='CustomAcrobot-v1',
-                termination_height=1.5,
-                friction=0.0025,
+                termination_height=0.75,
+                friction=0.0,
                 torque_scaling=1.0,
                 gravity=9.8,
                 reward_type="scaled",
@@ -474,7 +474,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                 termination_height=1.5,
                 friction=0.0,
                 torque_scaling=1.0,
-                gravity=7.5,
+                gravity=8.8,
                 reward_type="scaled",
                 render_mode="rgb_array",
             ),
@@ -483,7 +483,16 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                 termination_height=1.5,
                 friction=0.0,
                 torque_scaling=1.0,
-                gravity=5.0,
+                gravity=7.8,
+                reward_type="scaled",
+                render_mode="rgb_array",
+            ),
+            dict(
+                id='CustomAcrobot-v1',
+                termination_height=1.5,
+                friction=0.0,
+                torque_scaling=1.0,
+                gravity=6.8,
                 reward_type="scaled",
                 render_mode="rgb_array",
             ),
@@ -491,11 +500,12 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
         test_envs = envs
         env_descs = [
             "target",
-            "mid-term",
-            "low-term",
-            "friction",
-            "mid-grav",
-            "low-grav",
+            "mid-termination",
+            "low-termination",
+            "verylow-termination",
+            "mid-gravity",
+            "low-gravity",
+            "verylow-gravity",
         ]
         state_discretizer = Discretizer(
             ranges=[
@@ -519,7 +529,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             "exploit_softmax_temperature": 1.0,
             "exploit_policy_reward_rate": 1,
             "exploit_value_decay": 0.99,
-            "fast_exploit_policy_training_steps": int(150e3),
+            "fast_exploit_policy_training_steps": int(100e3),
             "exploit_policy_training_steps": int(300e3),
             "exploit_policy_test_per_num_steps": int(10e3),
             "exploit_policy_test_episodes": 500,
@@ -532,7 +542,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             "quick_test_threshold": -0.75,
             "quick_test_num_episodes": 100,
             "early_stop_counts": 5,
-            "success_threshold": -0.5,
+            "success_threshold": -0.45,
         }
 
     else:
