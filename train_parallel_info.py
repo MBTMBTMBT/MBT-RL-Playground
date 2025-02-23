@@ -1194,28 +1194,28 @@ if __name__ == '__main__':
         max_workers=24,
     )
 
-    # run_all_trainings_and_plot(
-    #     task_names_and_num_experiments={"frozen_lake-custom": 8, },
-    #     max_workers=24,
-    # )
-    # run_all_cl_evals_and_plot(
-    #     task_names_and_num_experiments={"frozen_lake-custom": (8, 14), },
-    #     max_workers=24,
-    # )
-    # run_all_2_stage_cl_training_and_plot(
-    #     task_names_and_num_experiments={"frozen_lake-custom": (8, 14), },
-    #     max_workers=24,
-    # )
-    #
-    # run_all_trainings_and_plot(
-    #     task_names_and_num_experiments={"acrobot-custom": 8, },
-    #     max_workers=24,
-    # )
-    # run_all_cl_evals_and_plot(
-    #     task_names_and_num_experiments={"acrobot-custom": (8, 0), },
-    #     max_workers=24,
-    # )
-    # run_all_2_stage_cl_training_and_plot(
-    #     task_names_and_num_experiments={"acrobot-custom": (8, 0), },
-    #     max_workers=24,
-    # )
+    run_all_trainings_and_plot(
+        task_names_and_num_experiments={"frozen_lake-custom": 8, },
+        max_workers=24,
+    )
+    run_all_cl_evals_and_plot(
+        task_names_and_num_experiments={"frozen_lake-custom": (8, 14), },
+        max_workers=24,
+    )
+    run_all_2_stage_cl_training_and_plot(
+        task_names_and_num_experiments={"frozen_lake-custom": (8, 14), },
+        max_workers=24,
+    )
+
+    run_all_trainings_and_plot(
+        task_names_and_num_experiments={"acrobot-custom": 8, },
+        max_workers=24,
+    )
+    run_all_cl_evals_and_plot(
+        task_names_and_num_experiments={"acrobot-custom": (8, 0), },
+        max_workers=24,
+    )
+    run_all_2_stage_cl_training_and_plot(
+        task_names_and_num_experiments={"acrobot-custom": (8, 0), },
+        max_workers=24,
+    )
