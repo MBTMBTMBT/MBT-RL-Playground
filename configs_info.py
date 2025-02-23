@@ -50,7 +50,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             "quick_test_threshold": 0.1,
             "quick_test_num_episodes": 25,
             "early_stop_counts": 10,
-            "success_threshold": 0.63,
+            "success_threshold": 0.70,
         }
 
     elif name == "frozen_lake-88":
