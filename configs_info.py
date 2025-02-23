@@ -4,8 +4,8 @@ from dyna_q_modernized import Discretizer
 
 
 def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=False):
-    if name == "frozen_lake-44":
-        save_path = "./experiments/env-info/frozen_lake-44/frozen_lake-44"
+    if name == "frozen_lake-4-times-4":
+        save_path = "./experiments/env-info/frozen_lake-44/frozen_lake-4-times-4"
         envs = [
             dict(id='FrozenLake-v1', desc=None, map_name="4x4", is_slippery=False, render_mode="rgb_array"),
             dict(id='FrozenLake-v1', desc=None, map_name="4x4", is_slippery=True, render_mode="rgb_array"),
@@ -15,8 +15,8 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             dict(id='FrozenLake-v1', desc=None, map_name="4x4", is_slippery=True, render_mode="rgb_array"),
         ]
         env_descs = [
-            "44-not-slippery",
-            "44-slippery",
+            "not-slippery",
+            "slippery",
         ]
         state_discretizer = Discretizer(
             ranges=[(0, gym.make(**envs[0]).observation_space.n)],
