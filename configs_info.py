@@ -39,7 +39,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             "exploit_value_decay": 0.99,
             "fast_exploit_policy_training_steps": int(50e3),
             "exploit_policy_training_steps": int(100e3),
-            "exploit_policy_test_per_num_steps": int(0.25e3),
+            "exploit_policy_test_per_num_steps": int(0.5e3),
             "exploit_policy_test_episodes": 25,
             "exploit_policy_eval_episodes": 250,
             "save_per_num_steps": int(5e3),
@@ -50,6 +50,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             "quick_test_threshold": 0.1,
             "quick_test_num_episodes": 25,
             "early_stop_counts": 10,
+            "success_threshold": 0.63,
         }
 
     elif name == "frozen_lake-88":
