@@ -7,15 +7,15 @@ import plotly.io as pio
 x = np.array([0.149, 0.918, 0.712, 0.694, 0.560, 0.331, 0.889, 0.658, 0.642, 0.463, 0.254, 0.810, 0.555, 0.521, 0.322])
 y = np.array([0.00, 0.002, 0.005, 0.006, 0.030, 0.028, 0.002, 0.003, 0.003, 0.008, 0.005, 0.002, 0.002, 0.002, 0.002])
 z = np.array([
-    5300000, 2393750, 2559375, 4468750, 4468750, 5246875,
-    2740625, 2553125, 4740625, 3684375, 5109375,
-    3209375, 3187500, 4785625, 4537500,
+    4834375, 2315625, 2521875, 4125000, 3956250, 5275000,
+    2793750, 2246875, 4721875, 4153125, 4800000,
+    2853125, 2806250, 5146875, 4665625,
 ])
 categories = [
-    "scratch-env-5-hs",
-    "env-1-ls-env5-hs", "env-2-ls-env5-hs", "env-3-ls-env5-hs", "env-4-ls-env5-hs", "env-5-ls-env5-hs",
-    "env-1-ms-env5-hs", "env-2-ms-env5-hs", "env-3-ms-env5-hs", "env-4-ms-env5-hs", "env-5-ms-env5-hs",
-    "env-1-hs-env5-hs", "env-2-hs-env5-hs", "env-3-hs-env5-hs", "env-4-hs-env5-hs",
+    "scratch-env-5-highslipperiness",
+    "env-1-lowslipperiness-env5-highslipperiness", "env-2-lowslipperiness-env5-highslipperiness", "env-3-lowslipperiness-env5-highslipperiness", "env-4-lowslipperiness-env5-highslipperiness", "env-5-lowslipperiness-env5-highslipperiness",
+    "env-1-midlipperiness-env5-highslipperiness", "env-2-midlipperiness-env5-highslipperiness", "env-3-midlipperiness-env5-highslipperiness", "env-4-midlipperiness-env5-highslipperiness", "env-5-midlipperiness-env5-highslipperiness",
+    "env-1-highslipperiness-env5-highslipperiness", "env-2-highslipperiness-env5-highslipperiness", "env-3-highslipperiness-env5-highslipperiness", "env-4-highslipperiness-env5-highslipperiness",
 ]
 
 def least_squares_fit(x: np.ndarray, y: np.ndarray, z: np.ndarray):
