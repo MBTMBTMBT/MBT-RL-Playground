@@ -1084,7 +1084,7 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
         # Plot scatter points with different colors
         ax.scatter(scatter_x, scatter_y, c=scatter_colors, alpha=0.7, s=50, label="Data Points")
 
-        ax.set_yscale('symlog', linthresh=0.1)
+        # ax.set_yscale('symlog', linthresh=0.1)
 
         # Add grid for better visualization
         ax.grid(True, which="both", linestyle="--", linewidth=0.5)  # Grid on both major & minor ticks
