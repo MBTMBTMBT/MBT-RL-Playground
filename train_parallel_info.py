@@ -410,7 +410,7 @@ def run_all_trainings_and_plot(task_names_and_num_experiments: Dict[str, int], m
             }
 
         save_path = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)["save_path"]
-        save_file = os.path.join(save_path, "aggregated_results.json")
+        save_file = save_path + "-train-aggregated_results.json"
 
         with open(save_file, "w") as f:
             json.dump(aggregated_results[task_name], f, indent=4)
@@ -693,7 +693,7 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
             del aggregated_results[task_name]
 
         save_path = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)["save_path"]
-        save_file = os.path.join(save_path, "aggregated_results.json")
+        save_file = save_path + "-eval-aggregated_results.json"
 
         with open(save_file, "w") as f:
             json.dump(aggregated_results[task_name], f, indent=4)
@@ -1225,14 +1225,14 @@ if __name__ == '__main__':
     # )
 
     run_all_trainings_and_plot(
-        task_names_and_num_experiments={"acrobot-custom": 8, },
+        task_names_and_num_experiments={"acrobot-custom": 12, },
         max_workers=24,
     )
     run_all_cl_evals_and_plot(
-        task_names_and_num_experiments={"acrobot-custom": (8, 0), },
+        task_names_and_num_experiments={"acrobot-custom": (12, 0), },
         max_workers=24,
     )
     run_all_2_stage_cl_training_and_plot(
-        task_names_and_num_experiments={"acrobot-custom": (8, 0), },
+        task_names_and_num_experiments={"acrobot-custom": (12, 0), },
         max_workers=24,
     )
