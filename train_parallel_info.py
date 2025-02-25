@@ -1,4 +1,5 @@
 import gc
+import json
 import os
 from multiprocessing import Pool
 from typing import List, Dict, Tuple
@@ -408,6 +409,14 @@ def run_all_trainings_and_plot(task_names_and_num_experiments: Dict[str, int], m
                 "std_final_rewards": std_final_rewards,
             }
 
+        save_path = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)["save_path"]
+        save_file = os.path.join(save_path, "aggregated_results.json")
+
+        with open(save_file, "w") as f:
+            json.dump(aggregated_results[task_name], f, indent=4)
+
+        print(f"Aggregated results of task {task_name} saved to {save_file}")
+
     # Plot results
     for task_name, env_idxs in aggregated_results.items():
         fig = go.Figure()
@@ -682,6 +691,14 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
         # Remove empty task_name
         if not aggregated_results[task_name]:
             del aggregated_results[task_name]
+
+        save_path = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)["save_path"]
+        save_file = os.path.join(save_path, "aggregated_results.json")
+
+        with open(save_file, "w") as f:
+            json.dump(aggregated_results[task_name], f, indent=4)
+
+        print(f"Aggregated results of task {task_name} saved to {save_file}")
 
     # Use hex color codes for consistency
     colors = [
@@ -1181,31 +1198,31 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
 if __name__ == '__main__':
     from cl_training import run_all_2_stage_cl_training_and_plot
 
-    run_all_trainings_and_plot(
-        task_names_and_num_experiments={"frozen_lake-4-times-4": 8, },
-        max_workers=24,
-    )
-    run_all_cl_evals_and_plot(
-        task_names_and_num_experiments={"frozen_lake-4-times-4": (8, 1), },
-        max_workers=24,
-    )
-    run_all_2_stage_cl_training_and_plot(
-        task_names_and_num_experiments={"frozen_lake-4-times-4": (8, 1), },
-        max_workers=24,
-    )
-
-    run_all_trainings_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": 8, },
-        max_workers=24,
-    )
-    run_all_cl_evals_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": (8, 14), },
-        max_workers=24,
-    )
-    run_all_2_stage_cl_training_and_plot(
-        task_names_and_num_experiments={"frozen_lake-custom": (8, 14), },
-        max_workers=24,
-    )
+    # run_all_trainings_and_plot(
+    #     task_names_and_num_experiments={"frozen_lake-4-times-4": 8, },
+    #     max_workers=24,
+    # )
+    # run_all_cl_evals_and_plot(
+    #     task_names_and_num_experiments={"frozen_lake-4-times-4": (8, 1), },
+    #     max_workers=24,
+    # )
+    # run_all_2_stage_cl_training_and_plot(
+    #     task_names_and_num_experiments={"frozen_lake-4-times-4": (8, 1), },
+    #     max_workers=24,
+    # )
+    #
+    # run_all_trainings_and_plot(
+    #     task_names_and_num_experiments={"frozen_lake-custom": 8, },
+    #     max_workers=24,
+    # )
+    # run_all_cl_evals_and_plot(
+    #     task_names_and_num_experiments={"frozen_lake-custom": (8, 14), },
+    #     max_workers=24,
+    # )
+    # run_all_2_stage_cl_training_and_plot(
+    #     task_names_and_num_experiments={"frozen_lake-custom": (8, 14), },
+    #     max_workers=24,
+    # )
 
     run_all_trainings_and_plot(
         task_names_and_num_experiments={"acrobot-custom": 8, },
