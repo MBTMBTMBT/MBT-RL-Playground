@@ -345,12 +345,21 @@ def run_cl_eval_unpack(args):
 
 
 # Aggregating results for consistent step-based plotting
-def run_all_trainings_and_plot(task_names_and_num_experiments: Dict[str, int], max_workers):
+def run_all_trainings_and_plot(task_names_and_num_experiments: Dict[str, Tuple[int, int]], max_workers):
     tasks = []
     run_id = 0
-    for task_name, runs in task_names_and_num_experiments.items():
+    for task_name, (runs, target_env_idx) in task_names_and_num_experiments.items():
         num_envs = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)["num_envs"]
+        for _ in range(runs):
+            tasks.append({
+                "task_name": task_name,
+                "env_idx": target_env_idx,
+                "run_id": run_id,
+            })
+            run_id += 1
         for env_idx in range(num_envs):
+            if env_idx == target_env_idx:
+                continue
             for _ in range(runs):
                 tasks.append({
                     "task_name": task_name,
@@ -432,7 +441,7 @@ def run_all_trainings_and_plot(task_names_and_num_experiments: Dict[str, int], m
         line_styles = ['dash', 'dot', 'longdash', 'dashdot']  # Line styles for final results
         color_idx = 0
 
-        for env_idx in sorted(env_idxs.keys()):  # Sort subtasks alphabetically
+        for env_idx in env_idxs.keys():  # Sort subtasks alphabetically
             subtask_data = env_idxs[env_idx]
             # Extract aggregated data
             mean_test_results = subtask_data["mean_test_results"]
@@ -537,14 +546,14 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
         target_run_ids = env_run_ids[target_env_idx]  # All run IDs for the target environment
 
         for target_run_id in target_run_ids:
-            paired_tasks.append({
-                "task_name": task_name,
-                "prior_env_idx": -1,
-                "target_env_idx": -1,
-                "prior_run_id": -1,
-                "target_run_id": -1,
-                "final_target_env_idx": target_env_idx,
-            })
+            # paired_tasks.append({
+            #     "task_name": task_name,
+            #     "prior_env_idx": -1,
+            #     "target_env_idx": -1,
+            #     "prior_run_id": -1,
+            #     "target_run_id": -1,
+            #     "final_target_env_idx": target_env_idx,
+            # })
             paired_tasks.append({
                 "task_name": task_name,
                 "prior_env_idx": target_env_idx,
@@ -1210,29 +1219,29 @@ if __name__ == '__main__':
     #     task_names_and_num_experiments={"frozen_lake-4-times-4": (8, 1), },
     #     max_workers=24,
     # )
-    #
+
     # run_all_trainings_and_plot(
-    #     task_names_and_num_experiments={"frozen_lake-custom": 8, },
+    #     task_names_and_num_experiments={"frozen_lake-custom": (8, 4), },
     #     max_workers=24,
     # )
     # run_all_cl_evals_and_plot(
-    #     task_names_and_num_experiments={"frozen_lake-custom": (8, 14), },
+    #     task_names_and_num_experiments={"frozen_lake-custom": (8, 4), },
     #     max_workers=24,
     # )
     # run_all_2_stage_cl_training_and_plot(
-    #     task_names_and_num_experiments={"frozen_lake-custom": (8, 14), },
+    #     task_names_and_num_experiments={"frozen_lake-custom": (8, 4), },
     #     max_workers=24,
     # )
-
+    #
     run_all_trainings_and_plot(
-        task_names_and_num_experiments={"acrobot-custom": 12, },
+        task_names_and_num_experiments={"acrobot-custom": (8, 0), },
         max_workers=24,
     )
     run_all_cl_evals_and_plot(
-        task_names_and_num_experiments={"acrobot-custom": (12, 0), },
+        task_names_and_num_experiments={"acrobot-custom": (8, 0), },
         max_workers=24,
     )
     run_all_2_stage_cl_training_and_plot(
-        task_names_and_num_experiments={"acrobot-custom": (12, 0), },
+        task_names_and_num_experiments={"acrobot-custom": (8, 0), },
         max_workers=24,
     )

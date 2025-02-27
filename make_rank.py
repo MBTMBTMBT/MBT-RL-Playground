@@ -26,7 +26,7 @@ categories = [
 true_rank = np.argsort(z)  # Smallest z gets highest rank
 
 # Generate different values of b in log scale
-b_values = np.logspace(-1, 3.5, 2500)  # From 10^-3 to 10^3
+b_values = np.logspace(-1, 3.5, 5000)  # From 10^-3 to 10^3
 ranking_errors = []
 ranking_results = []
 
