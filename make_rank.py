@@ -32,7 +32,7 @@ ranking_results = []
 
 # Compute rankings for different b values
 for b in b_values:
-    z_pred = x - b * y
+    z_pred = -x + b * y
     pred_rank = np.argsort(z_pred)  # Smallest prediction gets highest rank
 
     # Compute ranking error using Kendall’s Tau
