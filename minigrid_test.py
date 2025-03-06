@@ -1,49 +1,42 @@
 import gymnasium as gym
 import numpy as np
 import json
+import imageio
 from minigrid.core.grid import Grid
 from minigrid.core.world_object import WorldObj
+from collections import defaultdict
 
 
+# Encoding and Decoding functions for state storage and retrieval
 def encode_state(env):
-    env = env.unwrapped  # Unwrap to access internal attributes
+    """Encode the current environment state into a hashable JSON string."""
+    env = env.unwrapped
 
-    # Extract grid encoding (3D list)
-    grid_array = env.grid.encode()  # numpy array shape=(W,H,3)
-    grid_list = grid_array.tolist()  # Convert to list for JSON serialization
+    # Ensure deterministic ordering
+    grid_array = env.grid.encode()
+    grid_list = np.array(grid_array, dtype=np.uint8).tolist()  # Standardize format
 
-    # Extract agent position and direction
-    agent_pos = tuple(int(x) for x in env.agent_pos)
+    # Ensure integer position (no float conversion issues)
+    agent_pos = tuple(map(int, env.agent_pos))
     agent_dir = int(env.agent_dir)
 
-    # Extract carried object (if any)
+    # Standardize carried object encoding
     carrying = None
     if env.carrying is not None:
-        carrying = tuple(env.carrying.encode())  # Object type, color, state
+        carrying = tuple(map(int, env.carrying.encode()))  # Standardized integer tuple
 
-    # Extract random state (optional)
-    rng_state = None
-    try:
-        rng_state = env.np_random.bit_generator.state
-    except AttributeError:
-        rng_state = env.np_random.get_state()
-
-    # Extract step count (optional)
-    step_count = env.step_count if hasattr(env, 'step_count') else None
-
-    # Assemble dictionary and serialize to JSON
+    # Ensure JSON ordering is stable
     state = {
         "grid": grid_list,
         "agent_pos": agent_pos,
         "agent_dir": agent_dir,
-        "carrying": carrying,
-        "step_count": step_count,
-        "rng_state": rng_state
+        "carrying": carrying
     }
-    return json.dumps(state)
+    return json.dumps(state, sort_keys=True)  # Ensure stable JSON ordering
 
 
 def decode_state(env, state_str):
+    """Restore environment from encoded JSON string."""
     env = env.unwrapped  # Unwrap the environment
 
     data = json.loads(state_str)
@@ -69,36 +62,123 @@ def decode_state(env, state_str):
     if data.get("step_count") is not None:
         env.step_count = data["step_count"]
 
-    # Restore random state
-    if data.get("rng_state") is not None:
-        try:
-            env.np_random.bit_generator.state = data["rng_state"]
-        except AttributeError:
-            env.np_random.set_state(data["rng_state"])
+
+# MDP Exploration with Correct Reset Mechanism
+def explore_environment(env_name, seed=0):
+    """Fully explore the environment and build the transition table."""
+    env = gym.make(env_name, render_mode="rgb_array")
+    obs, _ = env.reset(seed=seed)
+
+    transition_table = defaultdict(lambda: defaultdict(str))
+    rewards = defaultdict(lambda: defaultdict(float))
+
+    explored_states = set()  # Fully explored states
+    new_states = set([encode_state(env)])  # Newly discovered states
+
+    while new_states:
+        state_str = new_states.pop()
+        if state_str in explored_states:
+            continue
+
+        decode_state(env, state_str)  # Restore environment to this state
+
+        unvisited_actions = 0  # Track number of unexplored actions
+
+        for action in range(env.action_space.n):
+            prev_state_str = encode_state(env)  # Save the current state
+            obs, reward, done, truncated, _ = env.step(action)
+            next_state_str = encode_state(env)
+
+            transition_table[prev_state_str][action] = next_state_str
+            rewards[prev_state_str][action] = reward
+
+            # If the new state is not explored and is not terminal, add to new_states
+            if next_state_str not in explored_states and not done and not truncated:
+                if next_state_str not in new_states:
+                    new_states.add(next_state_str)
+                    unvisited_actions += 1  # Count how many actions lead to unknown states
+
+            decode_state(env, prev_state_str)  # Restore the original state
+
+        # Only move to `explored_states` if all actions have been fully explored
+        if unvisited_actions == 0:
+            explored_states.add(state_str)
+
+        print(f"New states: {len(new_states)}, Explored states: {len(explored_states)}")
+
+    env.close()
+    return transition_table, rewards
 
 
-# Example usage:
-env = gym.make("MiniGrid-MultiRoom-N6-v0", render_mode="rgb_array")
-obs, info = env.reset(seed=42)  # Set seed for reproducibility
+# Value Iteration for MDP Solving
+def value_iteration(transition_table, rewards, gamma=0.95, theta=1e-5, max_iterations=10000000):
+    """Solve the MDP using Value Iteration algorithm."""
+    states = list(transition_table.keys())
+    V = {s: 0 for s in states}  # Initialize values to zero
 
-# Perform some actions to modify state
-env.step(2)  # Move forward
-env.step(5)  # Open door or interact
+    for iteration in range(max_iterations):  # Limit iteration count
+        delta = 0
+        for s in states:
+            if s not in transition_table or not transition_table[s]:
+                continue  # Skip terminal states
 
-# Encode current state
-state_str = encode_state(env)
-print("Encoded length:", len(state_str))
-print("State hash:", __import__("hashlib").sha256(state_str.encode()).hexdigest()[:16])
+            max_value = float("-inf")
+            for a in transition_table[s]:
+                next_s = transition_table[s][a]
+                reward = rewards[s][a]
+                value = reward + gamma * V.get(next_s, 0)
 
-# Create a new environment instance and restore state
-env2 = gym.make("MiniGrid-MultiRoom-N6-v0", render_mode="rgb_array")
-obs2, info2 = env2.reset()  # Initialize new environment
-decode_state(env2, state_str)  # Restore previous state
+                max_value = max(max_value, value)
 
-# Validate restoration
-assert env2.unwrapped.agent_dir == env.unwrapped.agent_dir
-assert np.array_equal(env2.unwrapped.agent_pos, env.unwrapped.agent_pos)
-assert env2.unwrapped.carrying.encode() == env.unwrapped.carrying.encode() if env.unwrapped.carrying else env2.unwrapped.carrying is env.unwrapped.carrying
-assert env2.unwrapped.grid == env.unwrapped.grid  # Use Grid.__eq__ for comparison
+            delta = max(delta, abs(V[s] - max_value))
+            V[s] = max_value
 
-print("State successfully restored!")
+        if delta < theta:
+            break
+
+    # Extract policy
+    policy = {}
+    for s in states:
+        if s not in transition_table or not transition_table[s]:
+            continue  # Skip terminal states
+
+        best_action = max(transition_table[s], key=lambda a: rewards[s][a] + gamma * V.get(transition_table[s][a], 0))
+        policy[s] = best_action
+
+    return policy
+
+
+# Execute the Optimal Policy and Save as GIF
+def execute_policy(env_name, policy, seed=0, output_gif="optimal_policy.gif"):
+    """Execute the optimal policy and record the trajectory."""
+    env = gym.make(env_name, render_mode="rgb_array")
+    obs, _ = env.reset(seed=seed)
+
+    state_str = encode_state(env)
+    frames = [env.render()]
+
+    while state_str in policy:
+        action = policy[state_str]
+        obs, reward, done, truncated, _ = env.step(action)
+        frames.append(env.render())
+
+        state_str = encode_state(env)
+        if done or truncated:
+            break
+
+    env.close()
+
+    # Save as GIF
+    imageio.mimsave(output_gif, frames, duration=0.2)
+
+
+# Solve MiniGrid-DoorKey-5x5-v0
+transition_table_door, rewards_door = explore_environment("MiniGrid-DoorKey-5x5-v0", seed=0)
+policy_door = value_iteration(transition_table_door, rewards_door)
+execute_policy("MiniGrid-DoorKey-5x5-v0", policy_door, seed=0, output_gif="doorkey_solution.gif")
+
+# Solve MiniGrid-Dynamic-Obstacles-5x5-v0
+transition_table_obstacles, rewards_obstacles = explore_environment("MiniGrid-Dynamic-Obstacles-5x5-v0", seed=0)
+policy_obstacles = value_iteration(transition_table_obstacles, rewards_obstacles)
+execute_policy("MiniGrid-Dynamic-Obstacles-5x5-v0", policy_obstacles, seed=0,
+               output_gif="dynamic_obstacles_solution.gif")
