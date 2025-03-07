@@ -446,12 +446,42 @@ class TabularQAgent:
         print(f"Q-Table loaded from {f'{file_path}' if file_path else 'DataFrame'}.")
         self.print_q_table_info()
 
-    def get_action_probabilities(self, state: np.ndarray, temperature: float = 1.0) -> np.ndarray:
+    # def get_action_probabilities(self, state: np.ndarray, temperature: float = 1.0) -> np.ndarray:
+    #     """
+    #     Calculate action probabilities based on the specified strategy.
+    #
+    #     :param state: The current state.
+    #     :param temperature: Temperature parameter for softmax.
+    #     :return: An array of action probabilities.
+    #     """
+    #     encoded_state = self.state_discretizer.encode_indices([*self.state_discretizer.discretize(state)[1]])
+    #
+    #     # Retrieve Q-values for all actions
+    #     q_values = np.array([self.q_table[(encoded_state, a)] for a in self.all_actions_encoded])
+    #     visitation = sum([self.visit_table[(encoded_state, a)] for a in self.all_actions_encoded])
+    #
+    #     if np.all(q_values == 0):  # Handle all-zero Q-values
+    #         probabilities = np.ones_like(q_values, dtype=float) / len(q_values)
+    #     else:
+    #         # Subtract the maximum value for numerical stability
+    #         q_values_stable = q_values - np.max(q_values)
+    #         exp_values = np.exp(q_values_stable / temperature)
+    #         probabilities = exp_values / (np.sum(exp_values) + 1e-10)  # Add small value to prevent division by zero
+    #
+    #     if visitation == 0:
+    #         probabilities = np.ones_like(q_values, dtype=float) / len(q_values)
+    #
+    #     # if np.isnan(probabilities[0]):
+    #     #     print()
+    #
+    #     return probabilities
+
+    def get_action_probabilities(self, state: np.ndarray, temperature: float = None) -> np.ndarray:
         """
         Calculate action probabilities based on the specified strategy.
 
         :param state: The current state.
-        :param temperature: Temperature parameter for softmax.
+        :param temperature: Temperature parameter for softmax. If None, uses ||Q||_2.
         :return: An array of action probabilities.
         """
         encoded_state = self.state_discretizer.encode_indices([*self.state_discretizer.discretize(state)[1]])
@@ -463,20 +493,21 @@ class TabularQAgent:
         if np.all(q_values == 0):  # Handle all-zero Q-values
             probabilities = np.ones_like(q_values, dtype=float) / len(q_values)
         else:
+            # Compute ||Q||_2 if temperature is None
+            temp = np.linalg.norm(q_values, ord=2) if temperature is None else temperature
+            temp = max(temp, 1e-6)  # Avoid division by zero
+
             # Subtract the maximum value for numerical stability
             q_values_stable = q_values - np.max(q_values)
-            exp_values = np.exp(q_values_stable / temperature)
+            exp_values = np.exp(q_values_stable / temp)
             probabilities = exp_values / (np.sum(exp_values) + 1e-10)  # Add small value to prevent division by zero
 
         if visitation == 0:
             probabilities = np.ones_like(q_values, dtype=float) / len(q_values)
 
-        # if np.isnan(probabilities[0]):
-        #     print()
-
         return probabilities
 
-    def choose_action(self, state: np.ndarray, temperature: float = 1.0, greedy: bool = False) -> np.ndarray:
+    def choose_action(self, state: np.ndarray, temperature: float = None, greedy: bool = False) -> np.ndarray:
         action_probabilities = self.get_action_probabilities(state, temperature)
         if greedy:
             action_encoded = np.argmax(action_probabilities)
@@ -526,7 +557,7 @@ class TabularQAgent:
             total_timesteps: int,
             reset_num_timesteps: bool = True,
             progress_bar: bool = False,
-            temperature: float = 1.0,
+            temperature: float = None,
     ):
         state, info = self.env.reset()
         episode_step_count = 0
@@ -1713,7 +1744,7 @@ class TabularDynaQAgent:
         )
 
     def choose_action(
-            self, state: np.ndarray, explore_action: bool = False, temperature: float = 1.0, greedy: bool = False,
+            self, state: np.ndarray, explore_action: bool = False, temperature: float = None, greedy: bool = False,
     ) -> np.ndarray:
         if explore_action:
             action = self.exploration_agent.choose_action(state, temperature=temperature, greedy=greedy)
@@ -1742,7 +1773,7 @@ class TabularDynaQAgent:
             total_timesteps: int,
             train_exploration_agent: bool = False,
             progress_bar: bool = False,
-            temperature: float = 1.0,
+            temperature: float = None,
     ):
         if train_exploration_agent:
             self.transition_table_env_e.reset(reset_all=True)
@@ -1907,7 +1938,7 @@ class DeepDynaQAgent:
         )
 
     def choose_action(
-            self, state: np.ndarray, explore_action: bool = False, temperature: float = 1.0, greedy: bool = False,
+            self, state: np.ndarray, explore_action: bool = False, temperature: float = None, greedy: bool = False,
     ) -> np.ndarray:
         if explore_action:
             action = self.exploration_agent.choose_action(state, temperature=temperature, greedy=greedy)
@@ -2020,7 +2051,7 @@ class DeepPyramidDynaQAgent:
             transition_table_env.print_transition_table_info()
 
     def choose_action(
-            self, state: np.ndarray, explore_action: bool = False, temperature: float = 1.0, greedy: bool = False,
+            self, state: np.ndarray, explore_action: bool = False, temperature: float = None, greedy: bool = False,
     ) -> np.ndarray:
         if explore_action:
             action = self.exploration_agent.choose_action(state, temperature=temperature, greedy=greedy)
@@ -2157,7 +2188,7 @@ class Agent:
             self.transition_table_env.load_transition_table(file_path=transition_table_file_path)
 
     def choose_action(
-            self, state: np.ndarray, temperature: float = 1.0, greedy: bool = False,
+            self, state: np.ndarray, temperature: float = None, greedy: bool = False,
     ) -> np.ndarray:
         if not self.use_deep_agent:
             action = self.exploit_agent.choose_action(state, temperature=temperature, greedy=greedy)
@@ -2167,7 +2198,7 @@ class Agent:
             action = int(action)
         return action
 
-    def get_action_probabilities(self, state: np.ndarray, temperature: float = 1.0, greedy: bool = False):
+    def get_action_probabilities(self, state: np.ndarray, temperature: float = None, greedy: bool = False):
         if not self.use_deep_agent:
             action_probabilities = self.exploit_agent.get_action_probabilities(state, temperature)
             if greedy:
@@ -2244,19 +2275,21 @@ class Agent:
         assert 0 <= p <= 1, "p must be between 0 and 1 (inclusive)."
 
         if not self.use_deep_agent:
-            action_probabilities = self.exploit_agent.get_action_probabilities(state)
+            action_probabilities = self.exploit_agent.get_action_probabilities(state, temperature=1e-5)
             if isinstance(self.action_discretizer.get_gym_space(), spaces.Discrete):
                 # Greedy discrete action
                 # Find the maximum probability action
-                greedy_action = np.argmax(action_probabilities)
-                max_prob = action_probabilities[greedy_action]
+                # greedy_action = np.argmax(action_probabilities)
+                # max_prob = action_probabilities[greedy_action]
+                #
+                # # Find all actions whose probability is at least 99% of the maximum probability
+                # optimal_actions = np.where(action_probabilities >= 0.9999 * max_prob)[0]
+                #
+                # # Create a new greedy distribution where all optimal actions share the probability equally
+                # greedy_distribution = np.zeros_like(action_probabilities)
+                # greedy_distribution[optimal_actions] = 1.0 / len(optimal_actions)  # Equally distribute probability
 
-                # Find all actions whose probability is at least 99% of the maximum probability
-                optimal_actions = np.where(action_probabilities >= 0.9999 * max_prob)[0]
-
-                # Create a new greedy distribution where all optimal actions share the probability equally
-                greedy_distribution = np.zeros_like(action_probabilities)
-                greedy_distribution[optimal_actions] = 1.0 / len(optimal_actions)  # Equally distribute probability
+                greedy_distribution = action_probabilities
 
                 # Normalize to ensure sum = 1
                 greedy_distribution /= np.sum(greedy_distribution)
@@ -2277,24 +2310,16 @@ class Agent:
             if isinstance(self.double_env.action_space, spaces.Discrete):
                 # Deep agent with discrete action space
                 with torch.no_grad():
-                    action_distribution = self.exploit_agent.policy.get_distribution(torch.tensor(state).unsqueeze(0).to(self.exploit_agent.policy.device))
+                    action_distribution = self.exploit_agent.policy.get_distribution(
+                        torch.tensor(state).unsqueeze(0).to(self.exploit_agent.policy.device)
+                    )
                     logits = action_distribution.distribution.logits.cpu().squeeze().numpy()
 
-                # Compute softmax probabilities with numerical stability
-                probabilities = np.exp(logits) / (np.sum(np.exp(logits)) + 1e-10)
+                temperature = 1e-3
 
-                # Find the maximum probability action
-                greedy_action = np.argmax(probabilities)
-                max_prob = probabilities[greedy_action]
-
-                # Find all actions whose probability is at least 99% of the maximum probability
-                optimal_actions = np.where(probabilities >= 0.9999 * max_prob)[0]
-
-                # Create a new greedy distribution
-                greedy_distribution = np.zeros_like(probabilities)
-
-                # Assign equal probability to all optimal actions
-                greedy_distribution[optimal_actions] = 1.0 / len(optimal_actions)
+                logits_stable = logits - np.max(logits)
+                exp_logits = np.exp(logits_stable / temperature)
+                greedy_distribution = exp_logits / (np.sum(exp_logits) + 1e-10)
 
                 # Normalize to ensure sum = 1
                 greedy_distribution /= np.sum(greedy_distribution)
