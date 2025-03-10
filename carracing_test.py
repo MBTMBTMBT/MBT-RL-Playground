@@ -15,6 +15,7 @@ import numpy as np
 import pandas as pd
 import imageio
 import os
+from tqdm import tqdm
 
 # Configuration
 NUM_SEEDS = 5
@@ -28,7 +29,6 @@ GIF_LENGTH = 500
 SAVE_PATH = "./car_racing_results"
 
 os.makedirs(SAVE_PATH, exist_ok=True)
-
 
 # Custom FrameSkip wrapper
 class FrameSkip(gym.Wrapper):
@@ -49,7 +49,6 @@ class FrameSkip(gym.Wrapper):
                 break
         return obs, total_reward, terminated, truncated, info
 
-
 # Environment wrapper pipeline
 def wrap_carracing(env, frame_skip=2, resize_shape=64):
     env = FrameSkip(env, skip=frame_skip)
@@ -57,6 +56,16 @@ def wrap_carracing(env, frame_skip=2, resize_shape=64):
     env = ResizeObservation(env, shape=(resize_shape, resize_shape))
     return env
 
+# Environment factory
+def make_env(seed: int):
+    def _init():
+        env = gym.make("CarRacing-v2", continuous=True, render_mode="rgb_array")
+        env = wrap_carracing(env)
+        env.reset(seed=seed)
+        env.action_space.seed(seed)
+        env.observation_space.seed(seed)
+        return env
+    return _init
 
 # Evaluation and GIF callback
 class EvalAndGifCallback(BaseCallback):
@@ -71,13 +80,7 @@ class EvalAndGifCallback(BaseCallback):
         self.last_eval_step = 0
 
         # Create evaluation environment
-        self.eval_env = DummyVecEnv(
-            [
-                lambda: wrap_carracing(
-                    gym.make("CarRacing-v2", continuous=True, render_mode="rgb_array")
-                )
-            ]
-        )
+        self.eval_env = DummyVecEnv([make_env(seed)])
         self.eval_env = VecTransposeImage(self.eval_env)
         self.eval_env = VecFrameStack(self.eval_env, n_stack=2)
 
@@ -114,18 +117,19 @@ class EvalAndGifCallback(BaseCallback):
 
     def save_gif(self):
         frames = []
-        single_env = wrap_carracing(
-            gym.make("CarRacing-v2", continuous=True, render_mode="rgb_array")
-        )
-        obs, _ = single_env.reset(seed=self.seed)
+
+        single_env = DummyVecEnv([make_env(self.seed)])
+        single_env = VecTransposeImage(single_env)
+        single_env = VecFrameStack(single_env, n_stack=2)
+
+        obs = single_env.reset()
 
         for _ in range(GIF_LENGTH):
-            # Need to transpose manually because not using VecEnv here
-            obs_input = np.transpose(obs, (2, 0, 1))
-            action, _ = self.model.predict(obs_input, deterministic=True)
-            obs, _, terminated, truncated, _ = single_env.step(action)
-            frames.append(single_env.render())
-            if terminated or truncated:
+            action, _ = self.model.predict(obs, deterministic=True)
+            obs, rewards, dones, infos = single_env.step(action)
+            frame = single_env.render(mode="rgb_array")[0]
+            frames.append(frame)
+            if dones[0]:
                 break
 
         single_env.close()
@@ -133,17 +137,29 @@ class EvalAndGifCallback(BaseCallback):
         gif_path = os.path.join(SAVE_PATH, f"car_racing_seed_{self.seed}.gif")
         imageio.mimsave(gif_path, frames, duration=20, loop=0)
 
+# Progress bar callback
+class ProgressBarCallback(BaseCallback):
+    """
+    Custom progress bar callback using tqdm.
+    """
+    def __init__(self, total_timesteps, verbose=1):
+        super().__init__(verbose)
+        self.total_timesteps = total_timesteps
+        self.pbar = None
+        self._last_num_timesteps = 0
 
-# Environment factory
-def make_env(seed: int):
-    def _init():
-        env = gym.make("CarRacing-v2", continuous=True, render_mode="rgb_array")
-        env = wrap_carracing(env)
-        env.reset(seed=seed)
-        return env
+    def _on_training_start(self):
+        self.pbar = tqdm(total=self.total_timesteps, desc="Training Progress")
+        self._last_num_timesteps = 0
 
-    return _init
+    def _on_step(self):
+        delta_steps = self.num_timesteps - self._last_num_timesteps
+        self.pbar.update(delta_steps)
+        self._last_num_timesteps = self.num_timesteps
+        return True
 
+    def _on_training_end(self):
+        self.pbar.close()
 
 # Main training loop
 if __name__ == "__main__":
@@ -171,32 +187,38 @@ if __name__ == "__main__":
             n_steps=n_steps_value,
         )
 
-        callback = EvalAndGifCallback(
-            seed=seed,
-            eval_interval=EVAL_INTERVAL,
-            optimal_score=NEAR_OPTIMAL_SCORE,
-            verbose=1,
-        )
+        callback_list = [
+            EvalAndGifCallback(
+                seed=seed,
+                eval_interval=EVAL_INTERVAL,
+                optimal_score=NEAR_OPTIMAL_SCORE,
+                verbose=1,
+            ),
+            ProgressBarCallback(
+                total_timesteps=TRAIN_STEPS,
+                verbose=1
+            )
+        ]
 
-        model.learn(total_timesteps=TRAIN_STEPS, callback=callback, progress_bar=True)
+        model.learn(total_timesteps=TRAIN_STEPS, callback=callback_list)
 
         model_path = os.path.join(SAVE_PATH, f"ppo_carracing_seed_{seed}.zip")
         model.save(model_path)
 
-        df_records = pd.DataFrame(callback.records, columns=["Steps", "MeanReward"])
+        df_records = pd.DataFrame(callback_list[0].records, columns=["Steps", "MeanReward"])
         df_records_path = os.path.join(SAVE_PATH, f"training_log_seed_{seed}.csv")
         df_records.to_csv(df_records_path, index=False)
 
         optimal_step = (
-            callback.step_reached_optimal
-            if callback.step_reached_optimal
+            callback_list[0].step_reached_optimal
+            if callback_list[0].step_reached_optimal
             else TRAIN_STEPS
         )
         final_results.append(
             {
                 "Seed": seed,
                 "OptimalStep": optimal_step,
-                "BestScore": callback.best_score,
+                "BestScore": callback_list[0].best_score,
             }
         )
 
