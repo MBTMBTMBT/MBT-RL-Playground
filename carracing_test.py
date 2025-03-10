@@ -4,10 +4,6 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.callbacks import BaseCallback
-import torch
-import torch.nn as nn
-import torchvision.models as models
-from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 import numpy as np
 import pandas as pd
 import imageio
@@ -17,43 +13,11 @@ NUM_SEEDS = 5
 N_ENVS = 12
 TRAIN_STEPS = 1_000_000
 EVAL_INTERVAL = 5_000 * N_ENVS
-EVAL_EPISODES = 48
+EVAL_EPISODES = 1
 NEAR_OPTIMAL_SCORE = 900
 GIF_LENGTH = 500
 SAVE_PATH = "./car_racing_results"
 os.makedirs(SAVE_PATH, exist_ok=True)
-
-
-class ResNet18FeatureExtractor(BaseFeaturesExtractor):
-    def __init__(self, observation_space, features_dim=512):
-        super().__init__(observation_space, features_dim)
-
-        # Load torchvision resnet18, pretrained=False for simplicity
-        resnet = models.resnet18(weights=None)
-
-        # Modify first conv layer to match CarRacing input shape (default is 3 channels)
-        n_input_channels = observation_space.shape[0]
-        resnet.conv1 = nn.Conv2d(
-            n_input_channels,
-            64,
-            kernel_size=7,
-            stride=2,
-            padding=3,
-            bias=False
-        )
-
-        # Remove the classifier head (fc layer)
-        self.resnet = nn.Sequential(*list(resnet.children())[:-1])
-
-        # Final feature dimension from resnet18
-        self._features_dim = resnet.fc.in_features
-
-    def forward(self, observations):
-        # Normalize observation to [0, 1]
-        x = observations / 255.0
-        x = self.resnet(x)
-        # Flatten output
-        return torch.flatten(x, 1)
 
 
 class EvalAndGifCallback(BaseCallback):
@@ -128,18 +92,16 @@ if __name__ == '__main__':
 
         train_env = SubprocVecEnv([make_env(seed) for _ in range(N_ENVS)])
 
-        eval_env = SubprocVecEnv([make_env(seed) for _ in range(N_ENVS)])
+        eval_env = gym.make("CarRacing-v3", continuous=True, render_mode="rgb_array")
+        eval_env.reset(seed=seed)
 
-        policy_kwargs = dict(
-            features_extractor_class=ResNet18FeatureExtractor,
-        )
         n_steps_value = max(2048 // N_ENVS, 512)
+
         model = PPO(
             "CnnPolicy",
             train_env,
             verbose=1,
             seed=seed,
-            policy_kwargs=policy_kwargs,
             batch_size=32,
             n_steps=n_steps_value
         )
