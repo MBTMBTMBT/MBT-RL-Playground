@@ -89,7 +89,7 @@ if __name__ == '__main__':
 
     final_results = []
 
-    seeds = [range(NUM_SEEDS)]
+    seeds = [s for s in range(NUM_SEEDS)]
     random.shuffle(seeds)
     for seed in seeds:
         print(f"\n===== Training Seed {seed} =====")
