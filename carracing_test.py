@@ -1,3 +1,4 @@
+import random
 from multiprocessing import freeze_support
 import gymnasium as gym
 from stable_baselines3 import PPO
@@ -9,12 +10,13 @@ import pandas as pd
 import imageio
 import os
 
-NUM_SEEDS = 5
+NUM_SEEDS = 10
 N_ENVS = 12
-TRAIN_STEPS = 1_000_000
+TRAIN_STEPS = 2_500_000
 EVAL_INTERVAL = 2_500 * N_ENVS
 EVAL_EPISODES = 1
-NEAR_OPTIMAL_SCORE = 900
+NEAR_OPTIMAL_SCORE = 850
+MIN_N_STEPS = 1024
 GIF_LENGTH = 500
 SAVE_PATH = "./car_racing_results"
 os.makedirs(SAVE_PATH, exist_ok=True)
@@ -87,7 +89,9 @@ if __name__ == '__main__':
 
     final_results = []
 
-    for seed in range(NUM_SEEDS):
+    seeds = [range(NUM_SEEDS)]
+    random.shuffle(seeds)
+    for seed in seeds:
         print(f"\n===== Training Seed {seed} =====")
 
         train_env = SubprocVecEnv([make_env(seed) for _ in range(N_ENVS)])
@@ -95,7 +99,7 @@ if __name__ == '__main__':
         eval_env = gym.make("CarRacing-v3", continuous=True, render_mode="rgb_array")
         eval_env.reset(seed=seed)
 
-        n_steps_value = max(2048 // N_ENVS, 512)
+        n_steps_value = max(2048 // N_ENVS, MIN_N_STEPS)
 
         model = PPO(
             "CnnPolicy",
