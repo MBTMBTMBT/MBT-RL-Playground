@@ -127,7 +127,7 @@ class EvalAndGifCallback(BaseCallback):
         for _ in range(GIF_LENGTH):
             action, _ = self.model.predict(obs, deterministic=True)
             obs, rewards, dones, infos = single_env.step(action)
-            frame = single_env.render(mode="rgb_array")[0]
+            frame = single_env.render(mode="rgb_array")
             frames.append(frame)
             if dones[0]:
                 break
