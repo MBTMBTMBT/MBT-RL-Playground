@@ -1,4 +1,4 @@
-if __name__ == '__main__':
+if __name__ == "__main__":
     import numpy as np
     import gymnasium as gym
     from matplotlib import pyplot as plt
@@ -13,39 +13,41 @@ if __name__ == '__main__':
 
     # Define Lunar Lander state and action spaces
     state_space = [
-        {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 16},  # Horizontal coordinate
-        {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 16},  # Vertical coordinate
-        {'type': 'continuous', 'range': (-1.5, 1.5), 'bins': 16},  # Horizontal speed
-        {'type': 'continuous', 'range': (-2.0, 0.5), 'bins': 16},  # Vertical speed
-        {'type': 'continuous', 'range': (-np.pi, np.pi), 'bins': 16},  # Angle
-        {'type': 'continuous', 'range': (-2.0, 2.0), 'bins': 16},  # Angular speed
-        {'type': 'continuous', 'range': (0.0, 1.0), 'bins': 2},   # Left leg contact
-        {'type': 'continuous', 'range': (0.0, 1.0), 'bins': 2}    # Right leg contact
+        {
+            "type": "continuous",
+            "range": (-1.0, 1.0),
+            "bins": 16,
+        },  # Horizontal coordinate
+        {"type": "continuous", "range": (-1.0, 1.0), "bins": 16},  # Vertical coordinate
+        {"type": "continuous", "range": (-1.5, 1.5), "bins": 16},  # Horizontal speed
+        {"type": "continuous", "range": (-2.0, 0.5), "bins": 16},  # Vertical speed
+        {"type": "continuous", "range": (-np.pi, np.pi), "bins": 16},  # Angle
+        {"type": "continuous", "range": (-2.0, 2.0), "bins": 16},  # Angular speed
+        {"type": "continuous", "range": (0.0, 1.0), "bins": 2},  # Left leg contact
+        {"type": "continuous", "range": (0.0, 1.0), "bins": 2},  # Right leg contact
     ]
 
-    action_space = [
-        {'type': 'discrete', 'bins': 4}  # Discrete actions: 0, 1, 2, 3
-    ]
+    action_space = [{"type": "discrete", "bins": 4}]  # Discrete actions: 0, 1, 2, 3
 
     # Create QTableAgent instance
     agent = __QTableAgent(state_space, action_space)
 
     # Initialize Lunar Lander environment
-    env = gym.make('LunarLander-v3')
+    env = gym.make("LunarLander-v3")
 
     # Training parameters
-    total_steps = int(0.05e6)       # Total steps
-    alpha = 0.1                 # Learning rate
-    gamma = 0.99                # Discount factor
-    epsilon_start = 0.3         # Starting exploration rate
-    epsilon_end = 0.01          # Minimum exploration rate
+    total_steps = int(0.05e6)  # Total steps
+    alpha = 0.1  # Learning rate
+    gamma = 0.99  # Discount factor
+    epsilon_start = 0.3  # Starting exploration rate
+    epsilon_end = 0.01  # Minimum exploration rate
     epsilon_decay = (epsilon_start - epsilon_end) / total_steps  # Linear decay rate
-    epsilon = epsilon_start     # Initial exploration rate
+    epsilon = epsilon_start  # Initial exploration rate
 
     # Metrics
-    train_rewards = []           # Store rewards for each episode
-    step_rewards = []            # Store rewards with step as x-axis
-    current_steps = 0            # Track total steps so far
+    train_rewards = []  # Store rewards for each episode
+    step_rewards = []  # Store rewards with step as x-axis
+    current_steps = 0  # Track total steps so far
 
     # Define custom initialization ranges for each state variable
     custom_state_range = {
@@ -56,7 +58,7 @@ if __name__ == '__main__':
         "Angle": (-np.pi / 2, np.pi / 2),
         "Angular_velocity": (-1.0, 1.0),
         "Left_leg_contact": (0, 0),
-        "Right_leg_contact": (0, 0)
+        "Right_leg_contact": (0, 0),
     }
 
     with tqdm(total=total_steps, desc="Training Progress") as pbar:
@@ -78,7 +80,9 @@ if __name__ == '__main__':
                 if np.random.random() < epsilon:
                     action = [np.random.choice([0, 1, 2, 3])]  # Random action
                 else:
-                    probabilities = agent.get_action_probabilities(state, strategy="greedy")
+                    probabilities = agent.get_action_probabilities(
+                        state, strategy="greedy"
+                    )
                     action = [np.argmax(probabilities)]  # Exploit the best action
 
                 # Perform action in the environment
@@ -119,7 +123,7 @@ if __name__ == '__main__':
     agent = __QTableAgent.load_q_table(os.path.join(save_dir, "q_table_agent.csv"))
 
     # Initialize Lunar Lander environment for testing and rendering
-    env = gym.make('LunarLander-v3', render_mode="rgb_array")
+    env = gym.make("LunarLander-v3", render_mode="rgb_array")
 
     # Save test episode as a video
     state, _ = env.reset()
@@ -138,7 +142,7 @@ if __name__ == '__main__':
 
     # Save the frames as a video using matplotlib.animation
     fig, ax = plt.subplots()
-    ax.axis('off')  # Turn off axes for a cleaner output
+    ax.axis("off")  # Turn off axes for a cleaner output
     img = ax.imshow(frames[0])  # Display the first frame
 
     def update(frame):
@@ -168,13 +172,15 @@ if __name__ == '__main__':
     # Plot training and testing results
     steps, rewards = zip(*step_rewards)
     plt.figure(figsize=(10, 6))
-    plt.plot(steps, rewards, label='Training Rewards')
-    plt.axhline(np.mean(test_rewards), color='r', linestyle='--', label='Mean Test Reward')
+    plt.plot(steps, rewards, label="Training Rewards")
+    plt.axhline(
+        np.mean(test_rewards), color="r", linestyle="--", label="Mean Test Reward"
+    )
     plt.title("Lunar Lander Training and Testing Results")
     plt.xlabel("Steps")
     plt.ylabel("Total Reward")
     plt.legend()
     plt.grid()
     save_path = os.path.join(save_dir, "lunar_lander_training_results.png")
-    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    plt.savefig(save_path, dpi=300, bbox_inches="tight")
     print(f"Training and testing results saved to {save_path}")

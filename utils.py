@@ -6,7 +6,9 @@ import pandas as pd
 from dqn_agent import DQNAgent
 
 
-def merge_q_table_with_counts(q_table_df: pd.DataFrame, counts_df: pd.DataFrame) -> pd.DataFrame:
+def merge_q_table_with_counts(
+    q_table_df: pd.DataFrame, counts_df: pd.DataFrame
+) -> pd.DataFrame:
     """
     Merge the Q-Table DataFrame with the wrapper's state-action counts DataFrame.
 
@@ -15,8 +17,12 @@ def merge_q_table_with_counts(q_table_df: pd.DataFrame, counts_df: pd.DataFrame)
     :return: A merged DataFrame containing states, actions, Q-values, and counts.
     """
     # Identify state and action columns
-    state_columns = sorted([col for col in counts_df.columns if col.startswith("state_dim_")])
-    action_columns = sorted([col for col in counts_df.columns if col.startswith("action_dim_")])
+    state_columns = sorted(
+        [col for col in counts_df.columns if col.startswith("state_dim_")]
+    )
+    action_columns = sorted(
+        [col for col in counts_df.columns if col.startswith("action_dim_")]
+    )
 
     # Convert sparse Q-Table to dense for merging
     dense_q_table_df = q_table_df.copy()
@@ -29,7 +35,7 @@ def merge_q_table_with_counts(q_table_df: pd.DataFrame, counts_df: pd.DataFrame)
         counts_df,
         on=state_columns + action_columns,
         how="inner",  # Use "inner" to keep only matching rows
-        suffixes=('_q_table', '_counts')
+        suffixes=("_q_table", "_counts"),
     )
 
     # Keep only relevant columns and rename for clarity
@@ -37,16 +43,21 @@ def merge_q_table_with_counts(q_table_df: pd.DataFrame, counts_df: pd.DataFrame)
 
     return merged_df
 
-def sample_q_table_with_counts(agent: DQNAgent, counts_df: pd.DataFrame) -> pd.DataFrame:
-    """
-        Sample Q-values from an agent using the states in counts_df and merge with the counts.
 
-        :param agent: An agent with a `get_action_probabilities` method.
-        :param counts_df: DataFrame containing state-action counts (state, action, count).
-        :return: A merged DataFrame containing states, actions, Q-values, and counts.
-        """
+def sample_q_table_with_counts(
+    agent: DQNAgent, counts_df: pd.DataFrame
+) -> pd.DataFrame:
+    """
+    Sample Q-values from an agent using the states in counts_df and merge with the counts.
+
+    :param agent: An agent with a `get_action_probabilities` method.
+    :param counts_df: DataFrame containing state-action counts (state, action, count).
+    :return: A merged DataFrame containing states, actions, Q-values, and counts.
+    """
     # Identify state columns
-    state_columns = sorted([col for col in counts_df.columns if col.startswith("state_dim_")])
+    state_columns = sorted(
+        [col for col in counts_df.columns if col.startswith("state_dim_")]
+    )
 
     # Create a DataFrame to store sampled Q-values
     sampled_data = []
@@ -57,7 +68,9 @@ def sample_q_table_with_counts(agent: DQNAgent, counts_df: pd.DataFrame) -> pd.D
 
         for action_idx, q_value in enumerate(q_values):
             sampled_row = {col: row[col] for col in state_columns}
-            sampled_row[f"action_dim_0"] = action_idx  # Assuming single-dimensional action
+            sampled_row[
+                f"action_dim_0"
+            ] = action_idx  # Assuming single-dimensional action
             sampled_row["q_value"] = q_value
             sampled_row["count"] = row["count"]
             sampled_data.append(sampled_row)
@@ -67,11 +80,11 @@ def sample_q_table_with_counts(agent: DQNAgent, counts_df: pd.DataFrame) -> pd.D
 
 
 def compute_action_probabilities(
-        df: pd.DataFrame,
-        strategy: str = "greedy",
-        epsilon: float = 0.0,
-        temperature: float = 1.0
-    ) -> pd.DataFrame:
+    df: pd.DataFrame,
+    strategy: str = "greedy",
+    epsilon: float = 0.0,
+    temperature: float = 1.0,
+) -> pd.DataFrame:
     """
     Compute action probabilities for each state using the specified strategy, organize actions horizontally,
     and retain both the action index and `Visit_Count` columns.
@@ -92,10 +105,14 @@ def compute_action_probabilities(
     action_index_columns = [col for col in df.columns if col.startswith("action_dim")]
 
     if not action_index_columns:
-        raise ValueError("No valid action index columns detected in the input DataFrame.")
+        raise ValueError(
+            "No valid action index columns detected in the input DataFrame."
+        )
 
     # Group by unique state and calculate probabilities for each action
-    grouped = df.groupby(state_value_columns)  # df.groupby(state_index_columns + state_value_columns)
+    grouped = df.groupby(
+        state_value_columns
+    )  # df.groupby(state_index_columns + state_value_columns)
 
     # Dynamically generate all possible action combinations
     unique_action_combinations = np.array(
@@ -134,7 +151,9 @@ def compute_action_probabilities(
                 action_tuple = tuple(action)
                 action_idx = all_action_indices.index(action_tuple)
                 probabilities[action_idx] = epsilon / len(all_action_indices)
-            probabilities[all_action_indices.index(tuple(actions[best_action_idx]))] += 1.0 - epsilon
+            probabilities[
+                all_action_indices.index(tuple(actions[best_action_idx]))
+            ] += (1.0 - epsilon)
         elif strategy == "softmax":
             exp_q_values = np.exp(q_values / temperature)
             softmax_probs = exp_q_values / np.sum(exp_q_values)
@@ -161,11 +180,11 @@ def compute_action_probabilities(
 
 
 def compute_mutual_information(
-        df: pd.DataFrame,
-        group1_columns: Union[str, List[str]],
-        group2_columns: Optional[Union[str, List[str]]] = None,
-        use_visit_count: bool = False
-    ) -> float:
+    df: pd.DataFrame,
+    group1_columns: Union[str, List[str]],
+    group2_columns: Optional[Union[str, List[str]]] = None,
+    use_visit_count: bool = False,
+) -> float:
     """
     Compute mutual information (MI) between two groups of features or between features and actions.
 
@@ -197,16 +216,22 @@ def compute_mutual_information(
         full_action_columns = []
         for base_col in group2_columns:
             matching_columns = [
-                col for col in df.columns if col.startswith(base_col) and "_Probability" in col
+                col
+                for col in df.columns
+                if col.startswith(base_col) and "_Probability" in col
             ]
             if not matching_columns:
-                raise ValueError(f"Invalid or missing action columns for base: {base_col}")
+                raise ValueError(
+                    f"Invalid or missing action columns for base: {base_col}"
+                )
             full_action_columns.extend(matching_columns)
         group2_columns = full_action_columns
 
     # Check for visit counts if `use_visit_count` is enabled
     if use_visit_count and "count" not in df.columns:
-        raise ValueError("Visit count column ('count') is required when 'use_visit_count=True'.")
+        raise ValueError(
+            "Visit count column ('count') is required when 'use_visit_count=True'."
+        )
 
     # Normalize probabilities, optionally weighted by visit counts
     if use_visit_count:
@@ -228,7 +253,11 @@ def compute_mutual_information(
         joint_prob = df.groupby(group1_columns, as_index=False)[group2_columns].sum()
     else:
         # For feature groups, compute joint probabilities using Visit_Prob
-        joint_prob = df.groupby(group1_columns + group2_columns)["Visit_Prob"].sum().reset_index()
+        joint_prob = (
+            df.groupby(group1_columns + group2_columns)["Visit_Prob"]
+            .sum()
+            .reset_index()
+        )
         joint_prob.rename(columns={"Visit_Prob": "P(Group1,Group2)"}, inplace=True)
 
     # Compute marginal probabilities P(Group1) and P(Group2)
@@ -237,11 +266,19 @@ def compute_mutual_information(
         marginal_group2_prob = df[group2_columns].sum()
     else:
         # For feature groups, compute marginals
-        marginal_group1_prob = joint_prob.groupby(group1_columns)["P(Group1,Group2)"].sum().reset_index()
-        marginal_group1_prob.rename(columns={"P(Group1,Group2)": "P(Group1)"}, inplace=True)
+        marginal_group1_prob = (
+            joint_prob.groupby(group1_columns)["P(Group1,Group2)"].sum().reset_index()
+        )
+        marginal_group1_prob.rename(
+            columns={"P(Group1,Group2)": "P(Group1)"}, inplace=True
+        )
 
-        marginal_group2_prob = joint_prob.groupby(group2_columns)["P(Group1,Group2)"].sum().reset_index()
-        marginal_group2_prob.rename(columns={"P(Group1,Group2)": "P(Group2)"}, inplace=True)
+        marginal_group2_prob = (
+            joint_prob.groupby(group2_columns)["P(Group1,Group2)"].sum().reset_index()
+        )
+        marginal_group2_prob.rename(
+            columns={"P(Group1,Group2)": "P(Group2)"}, inplace=True
+        )
 
     # Merge joint and marginal probabilities
     if not is_action_group:
@@ -268,79 +305,88 @@ def compute_mutual_information(
 
     return mi
 
+
 def compute_average_kl_divergence_between_dfs(
-        df1: pd.DataFrame,
-        df2: pd.DataFrame,
-        visit_threshold: int = 0,
-        weighted_by_visitation: bool = False
-    ) -> float:
-        """
-        Compute the average KL divergence between action distributions in two DataFrames for shared states.
-        The filtering and optional weighting are based on the first DataFrame's visitation count.
+    df1: pd.DataFrame,
+    df2: pd.DataFrame,
+    visit_threshold: int = 0,
+    weighted_by_visitation: bool = False,
+) -> float:
+    """
+    Compute the average KL divergence between action distributions in two DataFrames for shared states.
+    The filtering and optional weighting are based on the first DataFrame's visitation count.
 
-        :param df1: The first DataFrame, generated using `compute_action_probabilities`.
-        :param df2: The second DataFrame, generated using `compute_action_probabilities`.
-        :param visit_threshold: Minimum visit count in df1 required for states to be considered. Default is 0.
-        :param weighted_by_visitation: Whether to weight KL divergence by df1's visitation distribution. Default is False.
-        :return: The average KL divergence for shared states based on action distributions.
-        """
-        # Identify the state columns
-        state_columns = [col for col in df1.columns if col.startswith("state_dim")]
+    :param df1: The first DataFrame, generated using `compute_action_probabilities`.
+    :param df2: The second DataFrame, generated using `compute_action_probabilities`.
+    :param visit_threshold: Minimum visit count in df1 required for states to be considered. Default is 0.
+    :param weighted_by_visitation: Whether to weight KL divergence by df1's visitation distribution. Default is False.
+    :return: The average KL divergence for shared states based on action distributions.
+    """
+    # Identify the state columns
+    state_columns = [col for col in df1.columns if col.startswith("state_dim")]
 
-        # Identify action probability columns in both DataFrames
-        action_prob_columns_df1 = [col for col in df1.columns if col.endswith("_Probability")]
-        action_prob_columns_df2 = [col for col in df2.columns if col.endswith("_Probability")]
+    # Identify action probability columns in both DataFrames
+    action_prob_columns_df1 = [
+        col for col in df1.columns if col.endswith("_Probability")
+    ]
+    action_prob_columns_df2 = [
+        col for col in df2.columns if col.endswith("_Probability")
+    ]
 
-        # Ensure the action columns match between the two DataFrames
-        if set(action_prob_columns_df1) != set(action_prob_columns_df2):
-            raise ValueError("Action probability columns do not match between the two DataFrames.")
-
-        # Merge the two DataFrames on state columns
-        merged_df = pd.merge(
-            df1[state_columns + action_prob_columns_df1 + ["count"]],
-            df2[state_columns + action_prob_columns_df2],
-            on=state_columns,
-            suffixes=("_df1", "_df2")
+    # Ensure the action columns match between the two DataFrames
+    if set(action_prob_columns_df1) != set(action_prob_columns_df2):
+        raise ValueError(
+            "Action probability columns do not match between the two DataFrames."
         )
 
-        # Apply visit threshold filter based on df1
-        if visit_threshold > 0:
-            merged_df = merged_df[merged_df["count"] > visit_threshold]
+    # Merge the two DataFrames on state columns
+    merged_df = pd.merge(
+        df1[state_columns + action_prob_columns_df1 + ["count"]],
+        df2[state_columns + action_prob_columns_df2],
+        on=state_columns,
+        suffixes=("_df1", "_df2"),
+    )
 
-        # If no states meet the threshold, return 0 to avoid division by zero
-        if merged_df.empty:
-            return 0.0
+    # Apply visit threshold filter based on df1
+    if visit_threshold > 0:
+        merged_df = merged_df[merged_df["count"] > visit_threshold]
 
-        # Compute KL divergence for each shared state
-        kl_divergences = []
-        visitation_weights = []
-        for _, row in merged_df.iterrows():
-            # Extract the probabilities from both DataFrames
-            p = row[[f"{col}_df1" for col in action_prob_columns_df1]].values
-            q = row[[f"{col}_df2" for col in action_prob_columns_df2]].values
+    # If no states meet the threshold, return 0 to avoid division by zero
+    if merged_df.empty:
+        return 0.0
 
-            # Avoid division by zero and log(0) by adding a small epsilon
-            epsilon = 1e-20
-            p = np.clip(p, epsilon, 1.0)
-            q = np.clip(q, epsilon, 1.0)
+    # Compute KL divergence for each shared state
+    kl_divergences = []
+    visitation_weights = []
+    for _, row in merged_df.iterrows():
+        # Extract the probabilities from both DataFrames
+        p = row[[f"{col}_df1" for col in action_prob_columns_df1]].values
+        q = row[[f"{col}_df2" for col in action_prob_columns_df2]].values
 
-            # Normalize the distributions to ensure they sum to 1
-            p /= p.sum()
-            q /= q.sum()
+        # Avoid division by zero and log(0) by adding a small epsilon
+        epsilon = 1e-20
+        p = np.clip(p, epsilon, 1.0)
+        q = np.clip(q, epsilon, 1.0)
 
-            # Compute the KL divergence for this state
-            kl_divergence = np.sum(p * np.log(p / q))
-            kl_divergences.append(kl_divergence)
+        # Normalize the distributions to ensure they sum to 1
+        p /= p.sum()
+        q /= q.sum()
 
-            # Append the visit count from df1 if weighting is enabled
-            if weighted_by_visitation:
-                visitation_weights.append(row["count"])
+        # Compute the KL divergence for this state
+        kl_divergence = np.sum(p * np.log(p / q))
+        kl_divergences.append(kl_divergence)
 
-        # Compute and return the average KL divergence
+        # Append the visit count from df1 if weighting is enabled
         if weighted_by_visitation:
-            visitation_weights = np.array(visitation_weights) / np.sum(visitation_weights)  # Normalize weights
-            average_kl_divergence = np.sum(np.array(kl_divergences) * visitation_weights)
-        else:
-            average_kl_divergence = np.mean(kl_divergences)
+            visitation_weights.append(row["count"])
 
-        return average_kl_divergence
+    # Compute and return the average KL divergence
+    if weighted_by_visitation:
+        visitation_weights = np.array(visitation_weights) / np.sum(
+            visitation_weights
+        )  # Normalize weights
+        average_kl_divergence = np.sum(np.array(kl_divergences) * visitation_weights)
+    else:
+        average_kl_divergence = np.mean(kl_divergences)
+
+    return average_kl_divergence

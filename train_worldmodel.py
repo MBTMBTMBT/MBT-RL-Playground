@@ -28,21 +28,29 @@ def generate_visualization_gif(world_model, test_batch, epoch, save_dir, history
     """
     with torch.no_grad():
         # Extract test batch data
-        true_obs = torch.tensor(test_batch["state"], dtype=torch.float32, device=world_model.device)
-        true_actions = torch.tensor(test_batch["action"], dtype=torch.float32, device=world_model.device)
-        next_obs = torch.tensor(test_batch["next_state"], dtype=torch.float32, device=world_model.device)
+        true_obs = torch.tensor(
+            test_batch["state"], dtype=torch.float32, device=world_model.device
+        )
+        true_actions = torch.tensor(
+            test_batch["action"], dtype=torch.float32, device=world_model.device
+        )
+        next_obs = torch.tensor(
+            test_batch["next_state"], dtype=torch.float32, device=world_model.device
+        )
 
         batch_size, seq_len, channels, height, width = true_obs.size()
 
         # Initialize RNN hidden state
         rnn_hidden = torch.zeros(
-            batch_size, world_model.rssm.rnn_hidden_dim, device=world_model.device,
+            batch_size,
+            world_model.rssm.rnn_hidden_dim,
+            device=world_model.device,
         )
 
         current_latent = torch.zeros(
             true_obs.size(0),  # Batch size
             world_model.rssm.latent_dim,
-            device=world_model.device
+            device=world_model.device,
         )
 
         # Generate predictions for remaining frames
@@ -55,7 +63,13 @@ def generate_visualization_gif(world_model, test_batch, epoch, save_dir, history
                 next_latent_obs = world_model.encoder(next_obs[:, t])
 
             # Compute RSSM outputs
-            prior_mean, prior_log_var, post_mean, post_log_var, rnn_hidden = world_model.rssm(
+            (
+                prior_mean,
+                prior_log_var,
+                post_mean,
+                post_log_var,
+                rnn_hidden,
+            ) = world_model.rssm(
                 current_latent,
                 true_actions[:, t],
                 rnn_hidden,
@@ -64,9 +78,13 @@ def generate_visualization_gif(world_model, test_batch, epoch, save_dir, history
 
             # Reparameterize to sample latent
             if t < history_len:
-                sampled_latent = world_model.rssm.reparameterize(post_mean.squeeze(1), post_log_var.squeeze(1))
+                sampled_latent = world_model.rssm.reparameterize(
+                    post_mean.squeeze(1), post_log_var.squeeze(1)
+                )
             else:
-                sampled_latent = world_model.rssm.reparameterize(prior_mean.squeeze(1), prior_log_var.squeeze(1))
+                sampled_latent = world_model.rssm.reparameterize(
+                    prior_mean.squeeze(1), prior_log_var.squeeze(1)
+                )
 
             # Decode the predicted latent state
             combined_latent = torch.cat([sampled_latent, rnn_hidden], dim=1)
@@ -85,11 +103,19 @@ def generate_visualization_gif(world_model, test_batch, epoch, save_dir, history
         # Combine frames for visualization
         combined_frames = []
         for t in range(recon_obs.shape[1]):
-            actual_row = np.concatenate([true_obs[i, t].transpose(1, 2, 0) for i in range(batch_size)], axis=1)
-            predicted_row = np.concatenate([recon_obs[i, t].transpose(1, 2, 0) for i in range(batch_size)], axis=1)
-            difference_row = np.concatenate([diff_obs[i, t].transpose(1, 2, 0) for i in range(batch_size)], axis=1)
+            actual_row = np.concatenate(
+                [true_obs[i, t].transpose(1, 2, 0) for i in range(batch_size)], axis=1
+            )
+            predicted_row = np.concatenate(
+                [recon_obs[i, t].transpose(1, 2, 0) for i in range(batch_size)], axis=1
+            )
+            difference_row = np.concatenate(
+                [diff_obs[i, t].transpose(1, 2, 0) for i in range(batch_size)], axis=1
+            )
 
-            combined_frame = np.concatenate((actual_row, predicted_row, difference_row), axis=0)
+            combined_frame = np.concatenate(
+                (actual_row, predicted_row, difference_row), axis=0
+            )
             combined_frames.append((combined_frame * 255).astype(np.uint8))
 
         # Save the GIF
@@ -126,7 +152,7 @@ def add_gif_to_tensorboard(writer, gif_path, tag, global_step):
     writer.add_video(tag, frames, global_step=global_step, fps=1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     batch_size = 8
     test_batch_size = 8
     buffer_size = 8192
@@ -139,7 +165,11 @@ if __name__ == '__main__':
     ae_latent_dim = 32
     latent_dim = 64
     rnn_latent_dim = 256 - 64
-    encoder_hidden_net_dims = [16, 32, 64,]
+    encoder_hidden_net_dims = [
+        16,
+        32,
+        64,
+    ]
     lr = 1e-4
     num_epochs = 25
     log_dir = "./experiments/worldmodel/logs"
@@ -150,7 +180,10 @@ if __name__ == '__main__':
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    env = make("Acrobot-v1", render_mode="rgb_array",)
+    env = make(
+        "Acrobot-v1",
+        render_mode="rgb_array",
+    )
     action_space = env.action_space
     if isinstance(action_space, gym.spaces.Discrete):
         action_dim = action_space.n
@@ -215,12 +248,17 @@ if __name__ == '__main__':
         total_termination_loss = 0
 
         progress_bar = tqdm(
-            range((buffer_size // batch_size) * data_repeat_times),  #  * int(traj_len_end // traj_len)
+            range(
+                (buffer_size // batch_size) * data_repeat_times
+            ),  #  * int(traj_len_end // traj_len)
             desc=f"Epoch {epoch + 1}/{num_epochs}, traj_len={int(traj_len)}",
         )
 
         for step in progress_bar:
-            batch = dataset.sample(batch_size=batch_size, traj_len=int(traj_len),)
+            batch = dataset.sample(
+                batch_size=batch_size,
+                traj_len=int(traj_len),
+            )
             losses = world_model.train_batch(batch, kl_min=1.0)  # * rnn_latent_dim)
 
             # Update total losses
@@ -234,29 +272,43 @@ if __name__ == '__main__':
             # Write batch losses to TensorBoard
             previous_steps = epoch * (buffer_size // batch_size) * data_repeat_times
             writer.add_scalar("Loss/Total", losses["total_loss"], previous_steps + step)
-            writer.add_scalar("Loss/Reconstruction", losses["recon_loss"], previous_steps + step)
-            writer.add_scalar("Loss/KL_Dynamic", losses["kl_dyn_loss"], previous_steps + step)
-            writer.add_scalar("Loss/KL_Representation", losses["kl_rep_loss"],
-                              previous_steps + step)
-            writer.add_scalar("Loss/KL_Dynamic_Raw", losses["kl_dyn_loss_raw"],
-                              previous_steps + step)
-            writer.add_scalar("Loss/KL_Representation_Raw", losses["kl_rep_loss_raw"],
-                              previous_steps + step)
-            writer.add_scalar("Loss/Reward", losses["reward_loss"], previous_steps + step)
-            writer.add_scalar("Loss/Termination", losses["termination_loss"],
-                              previous_steps + step)
+            writer.add_scalar(
+                "Loss/Reconstruction", losses["recon_loss"], previous_steps + step
+            )
+            writer.add_scalar(
+                "Loss/KL_Dynamic", losses["kl_dyn_loss"], previous_steps + step
+            )
+            writer.add_scalar(
+                "Loss/KL_Representation", losses["kl_rep_loss"], previous_steps + step
+            )
+            writer.add_scalar(
+                "Loss/KL_Dynamic_Raw", losses["kl_dyn_loss_raw"], previous_steps + step
+            )
+            writer.add_scalar(
+                "Loss/KL_Representation_Raw",
+                losses["kl_rep_loss_raw"],
+                previous_steps + step,
+            )
+            writer.add_scalar(
+                "Loss/Reward", losses["reward_loss"], previous_steps + step
+            )
+            writer.add_scalar(
+                "Loss/Termination", losses["termination_loss"], previous_steps + step
+            )
 
             # Update progress bar with detailed losses
-            progress_bar.set_postfix({
-                "Total": f"{losses['total_loss']:.4f}",
-                "Recon": f"{losses['recon_loss']:.4f}",
-                "KLDyn": f"{losses['kl_dyn_loss']:.2f}",
-                "KLRep": f"{losses['kl_rep_loss']:.2f}",
-                "KLDynRaw": f"{losses['kl_dyn_loss_raw']:.2f}",
-                "KLRepRaw": f"{losses['kl_rep_loss_raw']:.2f}",
-                "Reward": f"{losses['reward_loss']:.4f}",
-                "Termination": f"{losses['termination_loss']:.4f}",
-            })
+            progress_bar.set_postfix(
+                {
+                    "Total": f"{losses['total_loss']:.4f}",
+                    "Recon": f"{losses['recon_loss']:.4f}",
+                    "KLDyn": f"{losses['kl_dyn_loss']:.2f}",
+                    "KLRep": f"{losses['kl_rep_loss']:.2f}",
+                    "KLDynRaw": f"{losses['kl_dyn_loss_raw']:.2f}",
+                    "KLRepRaw": f"{losses['kl_rep_loss_raw']:.2f}",
+                    "Reward": f"{losses['reward_loss']:.4f}",
+                    "Termination": f"{losses['termination_loss']:.4f}",
+                }
+            )
 
             # step_count += 1
 
@@ -287,11 +339,16 @@ if __name__ == '__main__':
         print(f"    Avg Termination Loss: {avg_termination_loss:.4f}")
 
         # Generate test batch and save visualization GIF
-        test_batch = dataset.sample(batch_size=test_batch_size, traj_len=int(traj_len_end),)
+        test_batch = dataset.sample(
+            batch_size=test_batch_size,
+            traj_len=int(traj_len_end),
+        )
         gif_path = generate_visualization_gif(world_model, test_batch, epoch, save_dir)
 
         # Add GIF as a video to TensorBoard
         add_gif_to_tensorboard(writer, gif_path, "Visualization/GIF", epoch)
 
         # Save model parameters
-        torch.save(world_model.state_dict(), f"{save_dir}/world_model_epoch_{epoch + 1}.pth")
+        torch.save(
+            world_model.state_dict(), f"{save_dir}/world_model_epoch_{epoch + 1}.pth"
+        )

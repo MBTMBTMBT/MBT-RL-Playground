@@ -7,12 +7,36 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
     if name == "frozen_lake-4-times-4":
         save_path = "./experiments/env-info/frozen_lake-44/frozen_lake-4-times-4"
         envs = [
-            dict(id='FrozenLake-v1', desc=None, map_name="4x4", is_slippery=False, render_mode="rgb_array"),
-            dict(id='FrozenLake-v1', desc=None, map_name="4x4", is_slippery=True, render_mode="rgb_array"),
+            dict(
+                id="FrozenLake-v1",
+                desc=None,
+                map_name="4x4",
+                is_slippery=False,
+                render_mode="rgb_array",
+            ),
+            dict(
+                id="FrozenLake-v1",
+                desc=None,
+                map_name="4x4",
+                is_slippery=True,
+                render_mode="rgb_array",
+            ),
         ]
         test_envs = [
-            dict(id='FrozenLake-v1', desc=None, map_name="4x4", is_slippery=False, render_mode="rgb_array"),
-            dict(id='FrozenLake-v1', desc=None, map_name="4x4", is_slippery=True, render_mode="rgb_array"),
+            dict(
+                id="FrozenLake-v1",
+                desc=None,
+                map_name="4x4",
+                is_slippery=False,
+                render_mode="rgb_array",
+            ),
+            dict(
+                id="FrozenLake-v1",
+                desc=None,
+                map_name="4x4",
+                is_slippery=True,
+                render_mode="rgb_array",
+            ),
         ]
         env_descs = [
             "not-slippery",
@@ -21,19 +45,25 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
         state_discretizer = Discretizer(
             ranges=[(0, gym.make(**envs[0]).observation_space.n)],
             num_buckets=[0],
-            normal_params=[None, ],
+            normal_params=[
+                None,
+            ],
         )
         action_discretizer = Discretizer(
-            ranges=[(0, 3), ],
+            ranges=[
+                (0, 3),
+            ],
             num_buckets=[0],
-            normal_params=[None, ],
+            normal_params=[
+                None,
+            ],
         )
         configs = {
             "num_envs": len(env_descs),
             "use_deep_agent": False,
             "save_path": save_path,
             "train_max_num_steps_per_episode": 100,
-            "exploit_agent_lr":0.05,
+            "exploit_agent_lr": 0.05,
             "exploit_softmax_temperature": 1.0,
             "exploit_policy_reward_rate": 1,
             "exploit_value_decay": 0.99,
@@ -56,12 +86,36 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
     elif name == "frozen_lake-88":
         save_path = "./experiments/env-info/frozen_lake-88/frozen_lake-88"
         envs = [
-            dict(id='FrozenLake-v1', desc=None, map_name="8x8", is_slippery=False, render_mode="rgb_array"),
-            dict(id='FrozenLake-v1', desc=None, map_name="8x8", is_slippery=True, render_mode="rgb_array"),
+            dict(
+                id="FrozenLake-v1",
+                desc=None,
+                map_name="8x8",
+                is_slippery=False,
+                render_mode="rgb_array",
+            ),
+            dict(
+                id="FrozenLake-v1",
+                desc=None,
+                map_name="8x8",
+                is_slippery=True,
+                render_mode="rgb_array",
+            ),
         ]
         test_envs = [
-            dict(id='FrozenLake-v1', desc=None, map_name="8x8", is_slippery=False, render_mode="rgb_array"),
-            dict(id='FrozenLake-v1', desc=None, map_name="8x8", is_slippery=True, render_mode="rgb_array"),
+            dict(
+                id="FrozenLake-v1",
+                desc=None,
+                map_name="8x8",
+                is_slippery=False,
+                render_mode="rgb_array",
+            ),
+            dict(
+                id="FrozenLake-v1",
+                desc=None,
+                map_name="8x8",
+                is_slippery=True,
+                render_mode="rgb_array",
+            ),
         ]
         env_descs = [
             "88-not-slippery",
@@ -70,19 +124,25 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
         state_discretizer = Discretizer(
             ranges=[(0, gym.make(**envs[0]).observation_space.n)],
             num_buckets=[0],
-            normal_params=[None, ],
+            normal_params=[
+                None,
+            ],
         )
         action_discretizer = Discretizer(
-            ranges=[(0, 3), ],
+            ranges=[
+                (0, 3),
+            ],
             num_buckets=[0],
-            normal_params=[None, ],
+            normal_params=[
+                None,
+            ],
         )
         configs = {
             "num_envs": len(env_descs),
             "use_deep_agent": False,
             "save_path": save_path,
             "train_max_num_steps_per_episode": 100,
-            "exploit_agent_lr":0.05,
+            "exploit_agent_lr": 0.05,
             "exploit_softmax_temperature": 1.0,
             "exploit_policy_reward_rate": 1,
             "exploit_value_decay": 0.99,
@@ -237,7 +297,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             #     render_mode="rgb_array",
             # ),
             dict(
-                id='CustomFrozenLake-v1',
+                id="CustomFrozenLake-v1",
                 desc=descs[0],
                 map_name=None,
                 is_slippery=True,
@@ -245,7 +305,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                 render_mode="rgb_array",
             ),
             dict(
-                id='CustomFrozenLake-v1',
+                id="CustomFrozenLake-v1",
                 desc=descs[1],
                 map_name=None,
                 is_slippery=True,
@@ -253,7 +313,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                 render_mode="rgb_array",
             ),
             dict(
-                id='CustomFrozenLake-v1',
+                id="CustomFrozenLake-v1",
                 desc=descs[2],
                 map_name=None,
                 is_slippery=True,
@@ -261,7 +321,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                 render_mode="rgb_array",
             ),
             dict(
-                id='CustomFrozenLake-v1',
+                id="CustomFrozenLake-v1",
                 desc=descs[3],
                 map_name=None,
                 is_slippery=True,
@@ -269,7 +329,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                 render_mode="rgb_array",
             ),
             dict(
-                id='CustomFrozenLake-v1',
+                id="CustomFrozenLake-v1",
                 desc=descs[4],
                 map_name=None,
                 is_slippery=True,
@@ -298,19 +358,25 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
         state_discretizer = Discretizer(
             ranges=[(0, gym.make(**envs[0]).observation_space.n)],
             num_buckets=[0],
-            normal_params=[None, ],
+            normal_params=[
+                None,
+            ],
         )
         action_discretizer = Discretizer(
-            ranges=[(0, 3), ],
+            ranges=[
+                (0, 3),
+            ],
             num_buckets=[0],
-            normal_params=[None, ],
+            normal_params=[
+                None,
+            ],
         )
         configs = {
             "num_envs": len(env_descs),
             "use_deep_agent": False,
             "save_path": save_path,
             "train_max_num_steps_per_episode": 200,
-            "exploit_agent_lr":0.025,
+            "exploit_agent_lr": 0.025,
             "exploit_softmax_temperature": 1.0,
             "exploit_policy_reward_rate": 1,
             "exploit_value_decay": 0.99,
@@ -334,7 +400,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
         save_path = "./experiments/env-info/mountaincar-custom/mountaincar-custom"
         envs = [
             dict(
-                id='CustomMountainCar-v0',
+                id="CustomMountainCar-v0",
                 goal_velocity=0,
                 custom_gravity=0.0025,
                 custom_force=0.001,
@@ -343,7 +409,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                 render_mode="rgb_array",
             ),
             dict(
-                id='CustomMountainCar-v0',
+                id="CustomMountainCar-v0",
                 goal_velocity=0,
                 custom_gravity=0.002,
                 custom_force=0.001,
@@ -351,9 +417,8 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                 reward_type="sparse",
                 render_mode="rgb_array",
             ),
-
             dict(
-                id='CustomMountainCar-v0',
+                id="CustomMountainCar-v0",
                 goal_velocity=0,
                 custom_gravity=0.005,
                 custom_force=0.001,
@@ -362,7 +427,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                 render_mode="rgb_array",
             ),
             dict(
-                id='CustomMountainCar-v0',
+                id="CustomMountainCar-v0",
                 goal_velocity=0,
                 custom_gravity=0.0025,
                 custom_force=0.0015,
@@ -371,7 +436,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                 render_mode="rgb_array",
             ),
             dict(
-                id='CustomMountainCar-v0',
+                id="CustomMountainCar-v0",
                 goal_velocity=0,
                 custom_gravity=0.0025,
                 custom_force=0.001,
@@ -380,7 +445,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                 render_mode="rgb_array",
             ),
             dict(
-                id='CustomMountainCar-v0',
+                id="CustomMountainCar-v0",
                 goal_velocity=0,
                 custom_gravity=0.0025,
                 custom_force=0.001,
@@ -399,14 +464,21 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
             "xlow-pos",
         ]
         state_discretizer = Discretizer(
-            ranges=[(-1.2, 0.6), (-0.07, 0.07), ],
+            ranges=[
+                (-1.2, 0.6),
+                (-0.07, 0.07),
+            ],
             num_buckets=[25, 13],
             normal_params=[None, None],
         )
         action_discretizer = Discretizer(
-            ranges=[(0, 2), ],
+            ranges=[
+                (0, 2),
+            ],
             num_buckets=[0],
-            normal_params=[None, ],
+            normal_params=[
+                None,
+            ],
         )
         configs = {
             "num_envs": len(env_descs),
@@ -435,7 +507,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
         save_path = "./experiments/env-info/acrobot-custom/acrobot-custom"
         envs = [
             dict(
-                id='CustomAcrobot-v1',
+                id="CustomAcrobot-v1",
                 termination_height=1.8,
                 friction=0.0,
                 torque_scaling=1.0,
@@ -444,7 +516,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                 render_mode="rgb_array",
             ),
             dict(
-                id='CustomAcrobot-v1',
+                id="CustomAcrobot-v1",
                 termination_height=1.6,
                 friction=0.0,
                 torque_scaling=1.0,
@@ -453,7 +525,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                 render_mode="rgb_array",
             ),
             dict(
-                id='CustomAcrobot-v1',
+                id="CustomAcrobot-v1",
                 termination_height=1.4,
                 friction=0.0,
                 torque_scaling=1.0,
@@ -462,7 +534,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                 render_mode="rgb_array",
             ),
             dict(
-                id='CustomAcrobot-v1',
+                id="CustomAcrobot-v1",
                 termination_height=1.2,
                 friction=0.0,
                 torque_scaling=1.0,
@@ -471,7 +543,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                 render_mode="rgb_array",
             ),
             dict(
-                id='CustomAcrobot-v1',
+                id="CustomAcrobot-v1",
                 termination_height=1.8,
                 friction=0.0,
                 torque_scaling=1.0,
@@ -480,7 +552,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                 render_mode="rgb_array",
             ),
             dict(
-                id='CustomAcrobot-v1',
+                id="CustomAcrobot-v1",
                 termination_height=1.8,
                 friction=0.0,
                 torque_scaling=1.0,
@@ -489,7 +561,7 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
                 render_mode="rgb_array",
             ),
             dict(
-                id='CustomAcrobot-v1',
+                id="CustomAcrobot-v1",
                 termination_height=1.8,
                 friction=0.0,
                 torque_scaling=1.0,
@@ -510,16 +582,38 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
         ]
         state_discretizer = Discretizer(
             ranges=[
-                (-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0),
-                (-6.0, 6.0), (-12.0, 12.0),
+                (-1.0, 1.0),
+                (-1.0, 1.0),
+                (-1.0, 1.0),
+                (-1.0, 1.0),
+                (-6.0, 6.0),
+                (-12.0, 12.0),
             ],
-            num_buckets=[9, 9, 9, 9, 9, 9,],
-            normal_params=[None, None, None, None, None, None,],
+            num_buckets=[
+                9,
+                9,
+                9,
+                9,
+                9,
+                9,
+            ],
+            normal_params=[
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+            ],
         )
         action_discretizer = Discretizer(
-            ranges=[(0, 2), ],
+            ranges=[
+                (0, 2),
+            ],
             num_buckets=[0],
-            normal_params=[None, ],
+            normal_params=[
+                None,
+            ],
         )
         configs = {
             "num_envs": len(env_descs),
@@ -551,4 +645,11 @@ def get_envs_discretizers_and_configs(name: str, env_idx: int, configs_only=Fals
 
     if configs_only:
         return configs
-    return gym.make(**envs[env_idx]), gym.make(**test_envs[env_idx]), env_descs[env_idx], state_discretizer, action_discretizer, configs
+    return (
+        gym.make(**envs[env_idx]),
+        gym.make(**test_envs[env_idx]),
+        env_descs[env_idx],
+        state_discretizer,
+        action_discretizer,
+        configs,
+    )

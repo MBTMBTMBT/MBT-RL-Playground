@@ -155,14 +155,14 @@ class CustomMountainCarEnv(MountainCarEnv):
     """
 
     def __init__(
-            self,
-            render_mode: Optional[str] = None,
-            goal_velocity=0,
-            custom_gravity=0.0025,
-            custom_force=0.001,
-            # max_episode_steps=200,
-            goal_position=0.5,
-            reward_type='default',
+        self,
+        render_mode: Optional[str] = None,
+        goal_velocity=0,
+        custom_gravity=0.0025,
+        custom_force=0.001,
+        # max_episode_steps=200,
+        goal_position=0.5,
+        reward_type="default",
     ):
         super().__init__(render_mode=render_mode, goal_velocity=goal_velocity)
         # Override gravity and max_episode_steps with custom values
@@ -194,19 +194,22 @@ class CustomMountainCarEnv(MountainCarEnv):
         )
 
         # Custom reward function based on reward_type
-        if self.reward_type == 'default':
+        if self.reward_type == "default":
             reward = -1.0 if not terminated else 0.0
-        elif self.reward_type == 'distance':
+        elif self.reward_type == "distance":
             # Reward based on the distance from the starting position (-0.5)
             reward = abs(position + 0.5) - (
-                1.0 if position <= self.min_position or position >= self.max_position else 0.0)
+                1.0
+                if position <= self.min_position or position >= self.max_position
+                else 0.0
+            )
             reward += -1.0 if not terminated else 0.0
-        elif self.reward_type == 'progress':
+        elif self.reward_type == "progress":
             # Reward based on progress towards the goal, incentivizing movement to the right and higher speed
             reward = (position - self.min_position) if position >= 0.0 else 0.0
             reward += velocity if velocity >= self.goal_velocity else 0.0
             reward += -1.0 if not terminated else 0.0
-        elif self.reward_type == 'sparse':
+        elif self.reward_type == "sparse":
             reward = -0.0 if not terminated else 1.0
         else:
             raise ValueError(f"Unknown reward_type: {self.reward_type}")
@@ -234,16 +237,16 @@ class CustomAcrobotEnv(AcrobotEnv):
     """
 
     def __init__(
-            self,
-            render_mode: Optional[str] = None,
-            termination_height: float = 1.0,  # Height to trigger termination
-            friction: float = 0.0,  # Friction factor for joints
-            torque_scaling: float = 1.0,  # Scaling factor for torque
-            gravity: float = 9.8,  # Gravity value
-            link_lengths: tuple = (1.0, 1.0),  # Lengths of the links
-            link_masses: tuple = (1.0, 1.0),  # Masses of the links
-            max_velocities: tuple = (4 * pi, 9 * pi),  # Max angular velocities
-            reward_type: str = "default",
+        self,
+        render_mode: Optional[str] = None,
+        termination_height: float = 1.0,  # Height to trigger termination
+        friction: float = 0.0,  # Friction factor for joints
+        torque_scaling: float = 1.0,  # Scaling factor for torque
+        gravity: float = 9.8,  # Gravity value
+        link_lengths: tuple = (1.0, 1.0),  # Lengths of the links
+        link_masses: tuple = (1.0, 1.0),  # Masses of the links
+        max_velocities: tuple = (4 * pi, 9 * pi),  # Max angular velocities
+        reward_type: str = "default",
     ):
         super().__init__(render_mode=render_mode)
 
@@ -257,7 +260,9 @@ class CustomAcrobotEnv(AcrobotEnv):
         self.MAX_VEL_1, self.MAX_VEL_2 = max_velocities
 
         # Update observation space with new velocity limits
-        high = np.array([1.0, 1.0, 1.0, 1.0, self.MAX_VEL_1, self.MAX_VEL_2], dtype=np.float32)
+        high = np.array(
+            [1.0, 1.0, 1.0, 1.0, self.MAX_VEL_1, self.MAX_VEL_2], dtype=np.float32
+        )
         self.observation_space = spaces.Box(low=-high, high=high, dtype=np.float32)
 
         # Scale available torques
@@ -293,23 +298,28 @@ class CustomAcrobotEnv(AcrobotEnv):
         s = s_augmented[:-1]
 
         theta1, theta2, dtheta1, dtheta2 = s
-        d1 = m1 * lc1 ** 2 + m2 * (l1 ** 2 + lc2 ** 2 + 2 * l1 * lc2 * cos(theta2)) + I1 + I2
-        d2 = m2 * (lc2 ** 2 + l1 * lc2 * cos(theta2)) + I2
+        d1 = (
+            m1 * lc1**2
+            + m2 * (l1**2 + lc2**2 + 2 * l1 * lc2 * cos(theta2))
+            + I1
+            + I2
+        )
+        d2 = m2 * (lc2**2 + l1 * lc2 * cos(theta2)) + I2
         phi2 = m2 * lc2 * g * cos(theta1 + theta2 - pi / 2.0)
         phi1 = (
-                -m2 * l1 * lc2 * dtheta2 ** 2 * sin(theta2)
-                - 2 * m2 * l1 * lc2 * dtheta2 * dtheta1 * sin(theta2)
-                + (m1 * lc1 + m2 * l1) * g * cos(theta1 - pi / 2)
-                + phi2
+            -m2 * l1 * lc2 * dtheta2**2 * sin(theta2)
+            - 2 * m2 * l1 * lc2 * dtheta2 * dtheta1 * sin(theta2)
+            + (m1 * lc1 + m2 * l1) * g * cos(theta1 - pi / 2)
+            + phi2
         )
 
         # Compute angular accelerations
         if self.book_or_nips == "nips":
-            ddtheta2 = (a + d2 / d1 * phi1 - phi2) / (m2 * lc2 ** 2 + I2 - d2 ** 2 / d1)
+            ddtheta2 = (a + d2 / d1 * phi1 - phi2) / (m2 * lc2**2 + I2 - d2**2 / d1)
         else:
             ddtheta2 = (
-                               a + d2 / d1 * phi1 - m2 * l1 * lc2 * dtheta1 ** 2 * sin(theta2) - phi2
-                       ) / (m2 * lc2 ** 2 + I2 - d2 ** 2 / d1)
+                a + d2 / d1 * phi1 - m2 * l1 * lc2 * dtheta1**2 * sin(theta2) - phi2
+            ) / (m2 * lc2**2 + I2 - d2**2 / d1)
         ddtheta1 = -(d2 * ddtheta2 + phi1) / d1
 
         # Apply friction to angular velocities

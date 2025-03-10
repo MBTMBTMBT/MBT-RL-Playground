@@ -1,5 +1,6 @@
-if __name__ == '__main__':
+if __name__ == "__main__":
     from train_dyna_q_parallel_modernized import *
+
     # aggregated_results = run_all_experiments_and_plot({"cartpole": 3}, max_workers=3)
     # print(aggregated_results)
     # aggregated_results = run_all_experiments_and_plot({"pendulum": 3}, max_workers=3)
@@ -14,7 +15,9 @@ if __name__ == '__main__':
     # print(aggregated_results)
     # aggregated_results = run_all_experiments_and_plot({"texi": 4}, max_workers=12)
     # print(aggregated_results)
-    aggregated_results = run_all_experiments_and_plot({"half_cheetah": 1}, max_workers=2)
+    aggregated_results = run_all_experiments_and_plot(
+        {"half_cheetah": 1}, max_workers=2
+    )
     print(aggregated_results)
     # aggregated_results = run_all_experiments_and_plot({"bipedalWalker": 1}, max_workers=1)
     # print(aggregated_results)

@@ -11,14 +11,14 @@ class CustomCartPoleEnv(CartPoleEnv):
     }
 
     def __init__(
-            self,
-            gravity: float = 9.8,
-            masscart: float = 1.0,
-            masspole: float = 0.1,
-            length: float = 0.5,
-            force_mag: float = 10.0,
-            render_mode: Optional[str] = None,
-            max_episode_steps: int = 500,
+        self,
+        gravity: float = 9.8,
+        masscart: float = 1.0,
+        masspole: float = 0.1,
+        length: float = 0.5,
+        force_mag: float = 10.0,
+        render_mode: Optional[str] = None,
+        max_episode_steps: int = 500,
     ):
         """
         Initialize the custom CartPole environment.
@@ -84,9 +84,11 @@ class CustomCartPoleEnv(CartPoleEnv):
         costheta = np.cos(theta)
         sintheta = np.sin(theta)
 
-        temp = (force + self.polemass_length * theta_dot ** 2 * sintheta) / self.total_mass
+        temp = (
+            force + self.polemass_length * theta_dot**2 * sintheta
+        ) / self.total_mass
         thetaacc = (self.gravity * sintheta - costheta * temp) / (
-                self.length * (4.0 / 3.0 - self.masspole * costheta ** 2 / self.total_mass)
+            self.length * (4.0 / 3.0 - self.masspole * costheta**2 / self.total_mass)
         )
         xacc = temp - self.polemass_length * thetaacc * costheta / self.total_mass
 
@@ -104,12 +106,7 @@ class CustomCartPoleEnv(CartPoleEnv):
         self.state = (x, x_dot, theta, theta_dot)
         self.steps += 1
 
-        terminated = (
-                x < -2.4
-                or x > 2.4
-                or theta < -0.2095
-                or theta > 0.2095
-        )
+        terminated = x < -2.4 or x > 2.4 or theta < -0.2095 or theta > 0.2095
 
         truncated = self.steps >= self.max_episode_steps
 

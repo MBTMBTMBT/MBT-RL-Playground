@@ -1,6 +1,7 @@
 import numpy as np
 from typing import List, Tuple
 
+
 class Discretizer:
     def __init__(self, ranges: List[Tuple[float, float]], num_buckets: List[int]):
         """
@@ -11,7 +12,9 @@ class Discretizer:
                             A value of 0 means no discretization (output the original number),
                             and a value of 1 means all values map to the single bucket midpoint.
         """
-        assert len(ranges) == len(num_buckets), "Ranges and num_buckets must have the same length."
+        assert len(ranges) == len(
+            num_buckets
+        ), "Ranges and num_buckets must have the same length."
 
         self.ranges: List[Tuple[float, float]] = ranges
         self.num_buckets: List[int] = num_buckets
@@ -20,7 +23,9 @@ class Discretizer:
         for (min_val, max_val), buckets in zip(ranges, num_buckets):
             if buckets > 1:
                 step = (max_val - min_val) / buckets
-                midpoints = [round(min_val + (i + 0.5) * step, 6) for i in range(buckets)]  # Round to 6 decimal places
+                midpoints = [
+                    round(min_val + (i + 0.5) * step, 6) for i in range(buckets)
+                ]  # Round to 6 decimal places
                 self.bucket_midpoints.append(midpoints)
             else:
                 self.bucket_midpoints.append([])
@@ -34,12 +39,16 @@ class Discretizer:
                  - The first vector contains the bucket midpoints (or original value if no discretization).
                  - The second vector contains the bucket indices (or -1 if no discretization).
         """
-        assert len(vector) == len(self.ranges), "Input vector must have the same length as ranges."
+        assert len(vector) == len(
+            self.ranges
+        ), "Input vector must have the same length as ranges."
 
         midpoints: List[float] = []
         bucket_indices: List[int] = []
 
-        for i, (value, (min_val, max_val), buckets) in enumerate(zip(vector, self.ranges, self.num_buckets)):
+        for i, (value, (min_val, max_val), buckets) in enumerate(
+            zip(vector, self.ranges, self.num_buckets)
+        ):
             if buckets == 0:
                 # No discretization
                 midpoints.append(value)
@@ -53,7 +62,9 @@ class Discretizer:
                 # Regular discretization
                 step = (max_val - min_val) / buckets
                 bucket = int((value - min_val) / step)
-                bucket = min(max(bucket, 0), buckets - 1)  # Ensure bucket index is within bounds
+                bucket = min(
+                    max(bucket, 0), buckets - 1
+                )  # Ensure bucket index is within bounds
                 midpoints.append(self.bucket_midpoints[i][bucket])
                 bucket_indices.append(bucket)
 
@@ -63,7 +74,9 @@ class Discretizer:
         """
         Print all buckets and their corresponding ranges.
         """
-        for i, ((min_val, max_val), buckets) in enumerate(zip(self.ranges, self.num_buckets)):
+        for i, ((min_val, max_val), buckets) in enumerate(
+            zip(self.ranges, self.num_buckets)
+        ):
             if buckets == 0:
                 print(f"Dimension {i}: No discretization")
             elif buckets == 1:
@@ -74,7 +87,10 @@ class Discretizer:
                 for j in range(buckets):
                     bucket_min = round(min_val + j * step, 6)
                     bucket_max = round(bucket_min + step, 6)
-                    print(f"Dimension {i}, Bucket {j}: Range [{bucket_min}, {bucket_max})")
+                    print(
+                        f"Dimension {i}, Bucket {j}: Range [{bucket_min}, {bucket_max})"
+                    )
+
 
 # Example Usage
 if __name__ == "__main__":

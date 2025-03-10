@@ -12,8 +12,12 @@ from torch.nn import functional as F
 
 
 class Discretizer:
-    def __init__(self, ranges: List[Tuple[float, float]], num_buckets: List[int],
-                 normal_params: List[Optional[Tuple[float, float]]] = None):
+    def __init__(
+        self,
+        ranges: List[Tuple[float, float]],
+        num_buckets: List[int],
+        normal_params: List[Optional[Tuple[float, float]]] = None,
+    ):
         """
         Initialize the Discretizer.
 
@@ -25,9 +29,13 @@ class Discretizer:
         :param normal_params: List of tuples specifying the mean and std for normal distribution for each dimension.
                               If None, use uniform distribution. [(mean1, std1), None, (mean3, std3), ...]
         """
-        assert len(ranges) == len(num_buckets), "Ranges and num_buckets must have the same length."
+        assert len(ranges) == len(
+            num_buckets
+        ), "Ranges and num_buckets must have the same length."
         if normal_params:
-            assert len(normal_params) == len(num_buckets), "normal_params must match the length of num_buckets."
+            assert len(normal_params) == len(
+                num_buckets
+            ), "normal_params must match the length of num_buckets."
 
         self.ranges: List[Tuple[float, float]] = ranges
         self.input_num_buckets: List[int] = num_buckets
@@ -35,16 +43,21 @@ class Discretizer:
             int(np.floor(max_val) - np.ceil(min_val) + 1) if buckets == 0 else buckets
             for (min_val, max_val), buckets in zip(ranges, num_buckets)
         ]
-        self.normal_params: List[Optional[Tuple[float, float]]] = normal_params if normal_params else [None] * len(
-            num_buckets)
+        self.normal_params: List[Optional[Tuple[float, float]]] = (
+            normal_params if normal_params else [None] * len(num_buckets)
+        )
         self.bucket_midpoints: List[List[float]] = []
 
-        for i, ((min_val, max_val), buckets, normal_param) in enumerate(zip(ranges, num_buckets, self.normal_params)):
+        for i, ((min_val, max_val), buckets, normal_param) in enumerate(
+            zip(ranges, num_buckets, self.normal_params)
+        ):
             if buckets == -1:
                 self.bucket_midpoints.append([])
             elif buckets == 0:
                 # Discretize into integers within range
-                midpoints = list(range(int(np.ceil(min_val)), int(np.floor(max_val)) + 1))
+                midpoints = list(
+                    range(int(np.ceil(min_val)), int(np.floor(max_val)) + 1)
+                )
                 self.bucket_midpoints.append(midpoints)
             elif buckets == 1:
                 midpoint = [(min_val + max_val) / 2]
@@ -53,11 +66,20 @@ class Discretizer:
                 if normal_param:
                     mean, std = normal_param
                     # Restrict edges to a finite range if necessary
-                    edges = [scipy.stats.norm.ppf(min(max((j / buckets), 1e-6), 1 - 1e-6), loc=mean, scale=std) for j in range(buckets + 1)]
-                    midpoints = [round((edges[j] + edges[j + 1]) / 2, 6) for j in range(buckets)]
+                    edges = [
+                        scipy.stats.norm.ppf(
+                            min(max((j / buckets), 1e-6), 1 - 1e-6), loc=mean, scale=std
+                        )
+                        for j in range(buckets + 1)
+                    ]
+                    midpoints = [
+                        round((edges[j] + edges[j + 1]) / 2, 6) for j in range(buckets)
+                    ]
                 else:
                     step = (max_val - min_val) / buckets
-                    midpoints = [round(min_val + (i + 0.5) * step, 6) for i in range(buckets)]
+                    midpoints = [
+                        round(min_val + (i + 0.5) * step, 6) for i in range(buckets)
+                    ]
                 self.bucket_midpoints.append(midpoints)
 
     def discretize(self, vector: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
@@ -70,28 +92,34 @@ class Discretizer:
                  - The second vector contains the bucket indices (or -1 if no discretization).
         """
         if (
-                isinstance(vector, int)
-                or isinstance(vector, np.int64)
-                or isinstance(vector, float)
-                or isinstance(vector, np.float32)
+            isinstance(vector, int)
+            or isinstance(vector, np.int64)
+            or isinstance(vector, float)
+            or isinstance(vector, np.float32)
         ):
             vector = [vector]
         elif isinstance(vector, np.ndarray) and vector.size == 1:
             vector = vector.item()
             vector = [vector]
-        assert len(vector) == len(self.ranges), "Input vector must have the same length as ranges."
+        assert len(vector) == len(
+            self.ranges
+        ), "Input vector must have the same length as ranges."
 
         midpoints: List[float] = []
         bucket_indices: List[int] = []
 
-        for i, (value, (min_val, max_val), buckets, normal_param) in enumerate(zip(vector, self.ranges, self.num_buckets, self.normal_params)):
+        for i, (value, (min_val, max_val), buckets, normal_param) in enumerate(
+            zip(vector, self.ranges, self.num_buckets, self.normal_params)
+        ):
             if buckets == -1:
                 # No discretization
                 midpoints.append(value)
                 bucket_indices.append(-1)
             elif buckets == 0:
                 # Discretize into integers within range
-                int_range = list(range(int(np.ceil(min_val)), int(np.floor(max_val)) + 1))
+                int_range = list(
+                    range(int(np.ceil(min_val)), int(np.floor(max_val)) + 1)
+                )
                 closest = min(int_range, key=lambda x: abs(x - value))
                 midpoints.append(closest)
                 bucket_indices.append(int_range.index(closest))
@@ -103,19 +131,32 @@ class Discretizer:
             else:
                 if normal_param:
                     mean, std = normal_param
-                    bucket_edges = [scipy.stats.norm.ppf(min(max((j / buckets), 1e-6), 1 - 1e-6), loc=mean, scale=std) for j in range(buckets + 1)]
+                    bucket_edges = [
+                        scipy.stats.norm.ppf(
+                            min(max((j / buckets), 1e-6), 1 - 1e-6), loc=mean, scale=std
+                        )
+                        for j in range(buckets + 1)
+                    ]
                     for idx in range(buckets):
                         if bucket_edges[idx] <= value < bucket_edges[idx + 1]:
-                            midpoints.append(round((bucket_edges[idx] + bucket_edges[idx + 1]) / 2, 6))
+                            midpoints.append(
+                                round(
+                                    (bucket_edges[idx] + bucket_edges[idx + 1]) / 2, 6
+                                )
+                            )
                             bucket_indices.append(idx)
                             break
                     else:
-                        midpoints.append(round((bucket_edges[0] + bucket_edges[-1]) / 2, 6))  # Fallback to average if out of range
+                        midpoints.append(
+                            round((bucket_edges[0] + bucket_edges[-1]) / 2, 6)
+                        )  # Fallback to average if out of range
                         bucket_indices.append(-1)
                 else:
                     step = (max_val - min_val) / buckets
                     bucket = int((value - min_val) / step)
-                    bucket = min(max(bucket, 0), buckets - 1)  # Ensure bucket index is within bounds
+                    bucket = min(
+                        max(bucket, 0), buckets - 1
+                    )  # Ensure bucket index is within bounds
                     midpoints.append(self.bucket_midpoints[i][bucket])
                     bucket_indices.append(bucket)
 
@@ -128,7 +169,9 @@ class Discretizer:
         :param indices: List of bucket indices.
         :return: Encoded integer.
         """
-        assert len(indices) == len(self.num_buckets), "Indices must match the number of dimensions."
+        assert len(indices) == len(
+            self.num_buckets
+        ), "Indices must match the number of dimensions."
         encoded = 0
         multiplier = 1
 
@@ -153,7 +196,9 @@ class Discretizer:
             if buckets == -1:
                 indices.append(-1)  # No discretization
             else:
-                indices.append(remaining_code % buckets)  # Extract the current dimension index
+                indices.append(
+                    remaining_code % buckets
+                )  # Extract the current dimension index
                 remaining_code //= buckets  # Update the remaining code
 
         # Reverse the indices to match the original order
@@ -176,7 +221,9 @@ class Discretizer:
 
         return midpoints
 
-    def list_all_possible_combinations(self) -> Tuple[List[Tuple[float, ...]], List[Tuple[int, ...]]]:
+    def list_all_possible_combinations(
+        self,
+    ) -> Tuple[List[Tuple[float, ...]], List[Tuple[int, ...]]]:
         """
         List all possible combinations of bucket midpoints and their indices.
 
@@ -216,11 +263,15 @@ class Discretizer:
         """
         Print all buckets and their corresponding ranges.
         """
-        for i, ((min_val, max_val), buckets, normal_param) in enumerate(zip(self.ranges, self.num_buckets, self.normal_params)):
+        for i, ((min_val, max_val), buckets, normal_param) in enumerate(
+            zip(self.ranges, self.num_buckets, self.normal_params)
+        ):
             if buckets == -1:
                 print(f"Dimension {i}: No discretization")
             elif buckets == 0:
-                int_range = list(range(int(np.ceil(min_val)), int(np.floor(max_val)) + 1))
+                int_range = list(
+                    range(int(np.ceil(min_val)), int(np.floor(max_val)) + 1)
+                )
                 print(f"Dimension {i}: Integer buckets {int_range}")
             elif buckets == 1:
                 midpoint = round((min_val + max_val) / 2, 6)
@@ -228,17 +279,26 @@ class Discretizer:
             else:
                 if normal_param:
                     mean, std = normal_param
-                    edges = [scipy.stats.norm.ppf(min(max((j / buckets), 1e-6), 1 - 1e-6), loc=mean, scale=std) for j in range(buckets + 1)]
+                    edges = [
+                        scipy.stats.norm.ppf(
+                            min(max((j / buckets), 1e-6), 1 - 1e-6), loc=mean, scale=std
+                        )
+                        for j in range(buckets + 1)
+                    ]
                     for j in range(buckets):
                         bucket_min = round(edges[j], 6)
                         bucket_max = round(edges[j + 1], 6)
-                        print(f"Dimension {i}, Bucket {j}: Range [{bucket_min}, {bucket_max})")
+                        print(
+                            f"Dimension {i}, Bucket {j}: Range [{bucket_min}, {bucket_max})"
+                        )
                 else:
                     step = (max_val - min_val) / buckets
                     for j in range(buckets):
                         bucket_min = round(min_val + j * step, 6)
                         bucket_max = round(bucket_min + step, 6)
-                        print(f"Dimension {i}, Bucket {j}: Range [{bucket_min}, {bucket_max})")
+                        print(
+                            f"Dimension {i}, Bucket {j}: Range [{bucket_min}, {bucket_max})"
+                        )
 
     def get_gym_space(self) -> spaces.Space:
         """
@@ -267,9 +327,15 @@ class Discretizer:
                 else:
                     low.append(min_val)
                     high.append(max_val)
-            return spaces.Box(low=np.array(low, dtype=np.float32), high=np.array(high, dtype=np.float32), dtype=np.float32)
+            return spaces.Box(
+                low=np.array(low, dtype=np.float32),
+                high=np.array(high, dtype=np.float32),
+                dtype=np.float32,
+            )
 
-    def get_space_length(self,):
+    def get_space_length(
+        self,
+    ):
         """
         Return the flattened vector length of a given Gymnasium space.
         """
@@ -293,11 +359,15 @@ class Discretizer:
         :param vector: Input vector to add noise. Must have the same length as ranges.
         :return: A new vector with added noise.
         """
-        assert len(vector) == len(self.ranges), "Input vector must have the same length as ranges."
+        assert len(vector) == len(
+            self.ranges
+        ), "Input vector must have the same length as ranges."
 
         noisy_vector = np.copy(vector)
 
-        for i, (value, (min_val, max_val), buckets) in enumerate(zip(vector, self.ranges, self.num_buckets)):
+        for i, (value, (min_val, max_val), buckets) in enumerate(
+            zip(vector, self.ranges, self.num_buckets)
+        ):
             if buckets > 1:
                 # Discretized dimension: Calculate bucket size and add noise
                 bucket_size = (max_val - min_val) / buckets
@@ -308,11 +378,19 @@ class Discretizer:
 
 
 class TransitionTable:
-    def __init__(self, state_discretizer: Discretizer, action_discretizer: Discretizer, reward_resolution: int = -1):
+    def __init__(
+        self,
+        state_discretizer: Discretizer,
+        action_discretizer: Discretizer,
+        reward_resolution: int = -1,
+    ):
         self.state_discretizer = state_discretizer
         self.action_discretizer = action_discretizer
-        self.transition_table: Dict[int, Dict[int, Dict[int, Dict[float, int]]]] \
-            = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: 0))))  # {state: {action: {next_state: {reward: count}}}
+        self.transition_table: Dict[
+            int, Dict[int, Dict[int, Dict[float, int]]]
+        ] = defaultdict(
+            lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: 0)))
+        )  # {state: {action: {next_state: {reward: count}}}
         self.neighbour_dict = defaultdict(lambda: set())
         self.forward_dict = defaultdict(lambda: defaultdict(lambda: set()))
         self.inverse_dict = defaultdict(lambda: defaultdict(lambda: set()))
@@ -320,8 +398,11 @@ class TransitionTable:
         # They will not be saved!
         self.state_count = defaultdict(lambda: 0)
         self.state_action_count = defaultdict(lambda: defaultdict(lambda: 0))
-        self.transition_prob_table: Dict[int, Dict[int, Dict[int, float]]] \
-            = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: 0)))  # {state: {action: {next_state: rate}}
+        self.transition_prob_table: Dict[
+            int, Dict[int, Dict[int, float]]
+        ] = defaultdict(
+            lambda: defaultdict(lambda: defaultdict(lambda: 0))
+        )  # {state: {action: {next_state: rate}}
         self.done_set = set()
         self.start_set = set()
         self.reward_set_dict = defaultdict(lambda: set())
@@ -338,18 +419,37 @@ class TransitionTable:
         total_reward_count = 0
         for reward, reward_set in self.reward_set_dict.items():
             total_reward_count += len(reward_set)
-        for reward, reward_set in sorted(self.reward_set_dict.items(), key=lambda x: x[0]):
-            print(f"{reward}: {len(reward_set)} - {len(reward_set) / total_reward_count * 100:.2f}%")
+        for reward, reward_set in sorted(
+            self.reward_set_dict.items(), key=lambda x: x[0]
+        ):
+            print(
+                f"{reward}: {len(reward_set)} - {len(reward_set) / total_reward_count * 100:.2f}%"
+            )
 
-    def update(self, state: np.ndarray, action: np.ndarray, reward: float, next_state: np.ndarray, done: bool):
-        encoded_state = self.state_discretizer.encode_indices(list(self.state_discretizer.discretize(state)[1]))
-        encoded_next_state = self.state_discretizer.encode_indices(list(self.state_discretizer.discretize(next_state)[1]))
-        encoded_action = self.action_discretizer.encode_indices(list(self.action_discretizer.discretize(action)[1]))
+    def update(
+        self,
+        state: np.ndarray,
+        action: np.ndarray,
+        reward: float,
+        next_state: np.ndarray,
+        done: bool,
+    ):
+        encoded_state = self.state_discretizer.encode_indices(
+            list(self.state_discretizer.discretize(state)[1])
+        )
+        encoded_next_state = self.state_discretizer.encode_indices(
+            list(self.state_discretizer.discretize(next_state)[1])
+        )
+        encoded_action = self.action_discretizer.encode_indices(
+            list(self.action_discretizer.discretize(action)[1])
+        )
 
         if done:
             self.done_set.add(encoded_next_state)
 
-        self.transition_table[encoded_state][encoded_action][encoded_next_state][round(reward, 1)] += 1
+        self.transition_table[encoded_state][encoded_action][encoded_next_state][
+            round(reward, 1)
+        ] += 1
         self.neighbour_dict[encoded_state].add(encoded_action)
         self.neighbour_dict[encoded_next_state].add(encoded_action)
         self.forward_dict[encoded_state][encoded_next_state].add(encoded_action)
@@ -357,19 +457,31 @@ class TransitionTable:
         self.state_count[encoded_state] += 1
         self.state_action_count[encoded_state][encoded_action] += 1
 
-        transition_state_avg_reward_and_prob \
-            = self.get_transition_state_avg_reward_and_prob(encoded_state, encoded_action)
-        for encoded_next_state, (avg_reward, prob) in transition_state_avg_reward_and_prob.items():
-            self.transition_prob_table[encoded_state][encoded_action][encoded_next_state] = prob
+        transition_state_avg_reward_and_prob = (
+            self.get_transition_state_avg_reward_and_prob(encoded_state, encoded_action)
+        )
+        for encoded_next_state, (
+            avg_reward,
+            prob,
+        ) in transition_state_avg_reward_and_prob.items():
+            self.transition_prob_table[encoded_state][encoded_action][
+                encoded_next_state
+            ] = prob
 
         if self.reward_resolution > 0:
-            self.reward_set_dict[round(reward / self.reward_resolution) * self.reward_resolution].add(encoded_next_state)
+            self.reward_set_dict[
+                round(reward / self.reward_resolution) * self.reward_resolution
+            ].add(encoded_next_state)
         elif self.reward_resolution < 0:
-            self.reward_set_dict[round(reward, abs(self.reward_resolution))].add(encoded_next_state)
+            self.reward_set_dict[round(reward, abs(self.reward_resolution))].add(
+                encoded_next_state
+            )
         else:
             self.reward_set_dict[reward].add(encoded_next_state)
 
-    def get_transition_state_avg_reward_and_prob(self, encoded_state: int, encoded_action: int) -> Dict[int, Tuple[float, float]]:
+    def get_transition_state_avg_reward_and_prob(
+        self, encoded_state: int, encoded_action: int
+    ) -> Dict[int, Tuple[float, float]]:
         # Transition to state probs: from given state, with given action, probs of getting into next states
         # Avg Reward: from given state, with given action, ending up in certain state, the average reward it gets
         transition_state_reward_and_prob = {}
@@ -377,23 +489,38 @@ class TransitionTable:
         encoded_next_states = []
         encoded_next_state_counts = []
         avg_rewards = []
-        for encoded_next_state in self.transition_table[encoded_state][encoded_action].keys():
+        for encoded_next_state in self.transition_table[encoded_state][
+            encoded_action
+        ].keys():
             encoded_next_state_count = 0
             _transition_state_reward_and_prob[encoded_next_state] = {}
             rewards = []
             reward_counts = []
-            for reward in self.transition_table[encoded_state][encoded_action][encoded_next_state].keys():
-                reward_count = self.transition_table[encoded_state][encoded_action][encoded_next_state][reward]
-                _transition_state_reward_and_prob[encoded_next_state][reward] = reward_count
+            for reward in self.transition_table[encoded_state][encoded_action][
+                encoded_next_state
+            ].keys():
+                reward_count = self.transition_table[encoded_state][encoded_action][
+                    encoded_next_state
+                ][reward]
+                _transition_state_reward_and_prob[encoded_next_state][
+                    reward
+                ] = reward_count
                 encoded_next_state_count += reward_count
                 rewards.append(reward)
                 reward_counts.append(reward_count)
             avg_rewards.append(np.average(rewards, weights=reward_counts))
             encoded_next_states.append(encoded_next_state)
             encoded_next_state_counts.append(encoded_next_state_count)
-        encoded_next_state_probs = np.array(encoded_next_state_counts) / np.sum(encoded_next_state_counts)
-        for encoded_next_state, avg_reward, prob in zip(encoded_next_states, avg_rewards, encoded_next_state_probs):
-            transition_state_reward_and_prob[encoded_next_state] = (float(avg_reward), float(prob))
+        encoded_next_state_probs = np.array(encoded_next_state_counts) / np.sum(
+            encoded_next_state_counts
+        )
+        for encoded_next_state, avg_reward, prob in zip(
+            encoded_next_states, avg_rewards, encoded_next_state_probs
+        ):
+            transition_state_reward_and_prob[encoded_next_state] = (
+                float(avg_reward),
+                float(prob),
+            )
         return transition_state_reward_and_prob
 
     def get_neighbours(self, encoded_state: int) -> set[int]:
@@ -411,7 +538,9 @@ class TransitionTable:
     def add_start_state(self, state):
         if isinstance(state, int) or isinstance(state, float):
             state = [state]
-        encoded_state = self.state_discretizer.encode_indices(list(self.state_discretizer.discretize(state)[1]))
+        encoded_state = self.state_discretizer.encode_indices(
+            list(self.state_discretizer.discretize(state)[1])
+        )
         self.start_set.add(encoded_state)
 
     def get_start_set(self) -> set[int]:
@@ -420,13 +549,13 @@ class TransitionTable:
 
 class TransitionModel(nn.Module):
     def __init__(
-            self,
-            state_discretizer: Discretizer,
-            action_discretizer: Discretizer,
-            network_layers: list = None,
-            dropout: float = 0.0,
-            lr: float = 1e-4,
-            device=torch.device("cpu"),
+        self,
+        state_discretizer: Discretizer,
+        action_discretizer: Discretizer,
+        network_layers: list = None,
+        dropout: float = 0.0,
+        lr: float = 1e-4,
+        device=torch.device("cpu"),
     ):
         super(TransitionModel, self).__init__()
         self.state_discretizer = state_discretizer
@@ -458,11 +587,12 @@ class TransitionModel(nn.Module):
         self.feature_extractor = nn.Sequential(*layers)
 
         # Separate heads for predicting next state, reward, and terminal
-        self.next_state_head = nn.Linear(self.network_layers[-1], self.obs_dim)  # Next state prediction
+        self.next_state_head = nn.Linear(
+            self.network_layers[-1], self.obs_dim
+        )  # Next state prediction
         self.reward_head = nn.Linear(self.network_layers[-1], 1)  # Reward prediction
         self.terminal_head = nn.Sequential(
-            nn.Linear(self.network_layers[-1], 1),  # Terminal prediction
-            nn.Sigmoid()
+            nn.Linear(self.network_layers[-1], 1), nn.Sigmoid()  # Terminal prediction
         )
 
         self.optimizer = torch.optim.Adam(self.parameters(), lr=lr)
@@ -489,12 +619,17 @@ class TransitionModel(nn.Module):
         terminal = self.terminal_head(features)
         return next_state, reward, terminal
 
-    def normalize_batch(self, batch,):
+    def normalize_batch(
+        self,
+        batch,
+    ):
         obs_space, action_space = self.obs_space, self.action_space
         # Normalize observations
         true_obs = torch.tensor(batch["state"], dtype=torch.float32, device=self.device)
         if isinstance(obs_space, spaces.Discrete):
-            normalized_obs = torch.nn.functional.one_hot(true_obs.long(), num_classes=obs_space.n).float()
+            normalized_obs = torch.nn.functional.one_hot(
+                true_obs.long(), num_classes=obs_space.n
+            ).float()
         elif isinstance(obs_space, spaces.MultiDiscrete):
             split_obs = torch.split(true_obs.long(), 1, dim=-1)
             one_hot_obs_list = [
@@ -507,15 +642,24 @@ class TransitionModel(nn.Module):
             high = torch.tensor(obs_space.high, dtype=torch.float32, device=self.device)
             finite_mask = torch.isfinite(low) & torch.isfinite(high)
             normalized_obs = true_obs.clone()
-            normalized_obs[..., finite_mask] = 2 * (true_obs[..., finite_mask] - low[finite_mask]) / (
-                    high[finite_mask] - low[finite_mask]
-            ) - 1
+            normalized_obs[..., finite_mask] = (
+                2
+                * (true_obs[..., finite_mask] - low[finite_mask])
+                / (high[finite_mask] - low[finite_mask])
+                - 1
+            )
         else:
-            raise NotImplementedError(f"Observation space {type(obs_space)} not supported.")
+            raise NotImplementedError(
+                f"Observation space {type(obs_space)} not supported."
+            )
 
-        next_obs = torch.tensor(batch["next_state"], dtype=torch.float32, device=self.device)
+        next_obs = torch.tensor(
+            batch["next_state"], dtype=torch.float32, device=self.device
+        )
         if isinstance(obs_space, spaces.Discrete):
-            normalized_next_obs = torch.nn.functional.one_hot(next_obs.long(), num_classes=obs_space.n).float()
+            normalized_next_obs = torch.nn.functional.one_hot(
+                next_obs.long(), num_classes=obs_space.n
+            ).float()
         elif isinstance(obs_space, spaces.MultiDiscrete):
             split_next_obs = torch.split(next_obs.long(), 1, dim=-1)
             one_hot_next_obs_list = [
@@ -528,16 +672,25 @@ class TransitionModel(nn.Module):
             high = torch.tensor(obs_space.high, dtype=torch.float32, device=self.device)
             finite_mask = torch.isfinite(low) & torch.isfinite(high)
             normalized_next_obs = next_obs.clone()
-            normalized_next_obs[..., finite_mask] = 2 * (next_obs[..., finite_mask] - low[finite_mask]) / (
-                    high[finite_mask] - low[finite_mask]
-            ) - 1
+            normalized_next_obs[..., finite_mask] = (
+                2
+                * (next_obs[..., finite_mask] - low[finite_mask])
+                / (high[finite_mask] - low[finite_mask])
+                - 1
+            )
         else:
-            raise NotImplementedError(f"Observation space {type(obs_space)} not supported.")
+            raise NotImplementedError(
+                f"Observation space {type(obs_space)} not supported."
+            )
 
         # Normalize actions
-        true_actions = torch.tensor(batch["action"], dtype=torch.float32, device=self.device)
+        true_actions = torch.tensor(
+            batch["action"], dtype=torch.float32, device=self.device
+        )
         if isinstance(action_space, spaces.Discrete):
-            normalized_actions = torch.nn.functional.one_hot(true_actions.long(), num_classes=action_space.n).float()
+            normalized_actions = torch.nn.functional.one_hot(
+                true_actions.long(), num_classes=action_space.n
+            ).float()
         elif isinstance(action_space, spaces.MultiDiscrete):
             split_actions = torch.split(true_actions.long(), 1, dim=-1)
             one_hot_action_list = [
@@ -548,11 +701,17 @@ class TransitionModel(nn.Module):
         elif isinstance(action_space, spaces.Box):
             normalized_actions = true_actions
         else:
-            raise NotImplementedError(f"Action space {type(action_space)} not supported.")
+            raise NotImplementedError(
+                f"Action space {type(action_space)} not supported."
+            )
 
         # Process rewards and terminations
-        true_rewards = torch.tensor(batch["reward"], dtype=torch.float32, device=self.device)
-        true_terminations = torch.tensor(batch["terminal"], dtype=torch.float32, device=self.device)
+        true_rewards = torch.tensor(
+            batch["reward"], dtype=torch.float32, device=self.device
+        )
+        true_terminations = torch.tensor(
+            batch["terminal"], dtype=torch.float32, device=self.device
+        )
 
         # Return the processed batch
         return {
@@ -563,18 +722,36 @@ class TransitionModel(nn.Module):
             "terminal": true_terminations,
         }
 
-    def train_batch(self, batch, recon_weight=1.0, reward_weight=1.0, termination_weight=1.0,):
+    def train_batch(
+        self,
+        batch,
+        recon_weight=1.0,
+        reward_weight=1.0,
+        termination_weight=1.0,
+    ):
         self.train()
 
         # Convert batch data to tensors
         true_obs = torch.tensor(batch["state"], dtype=torch.float32, device=self.device)
-        next_obs = torch.tensor(batch["next_state"], dtype=torch.float32, device=self.device)
-        true_actions = torch.tensor(batch["action"], dtype=torch.float32, device=self.device)
-        true_rewards = torch.tensor(batch["reward"], dtype=torch.float32, device=self.device)
-        true_terminations = torch.tensor(batch["terminal"], dtype=torch.float32, device=self.device)
+        next_obs = torch.tensor(
+            batch["next_state"], dtype=torch.float32, device=self.device
+        )
+        true_actions = torch.tensor(
+            batch["action"], dtype=torch.float32, device=self.device
+        )
+        true_rewards = torch.tensor(
+            batch["reward"], dtype=torch.float32, device=self.device
+        )
+        true_terminations = torch.tensor(
+            batch["terminal"], dtype=torch.float32, device=self.device
+        )
         masks = torch.tensor(batch["mask"], dtype=torch.float32, device=self.device)
 
-        batch_size, seq_len, _, = true_obs.size()
+        (
+            batch_size,
+            seq_len,
+            _,
+        ) = true_obs.size()
         time_weights = torch.linspace(1.0, 0.1, steps=seq_len, device=self.device)
 
         # Initialize loss accumulators as tensors
@@ -587,15 +764,29 @@ class TransitionModel(nn.Module):
             next_state, reward, terminal = self.forward(state, true_actions[:, t])
 
             # Reconstruction loss against next observation
-            recon_loss += F.mse_loss(
-                next_state * masks[:, t].unsqueeze(-1).unsqueeze(-1), next_obs[:, t] * masks[:, t].unsqueeze(-1).unsqueeze(-1)
-            ) * time_weights[t]
-            reward_loss += F.mse_loss(
-                reward.squeeze() * masks[:, t].unsqueeze(-1), true_rewards[:, t] * masks[:, t].unsqueeze(-1), reduction="mean"
-            ) * time_weights[t]
-            termination_loss += F.binary_cross_entropy_with_logits(
-                terminal.squeeze() * masks[:, t].unsqueeze(-1), true_terminations[:, t] * masks[:, t].unsqueeze(-1), reduction="mean"
-            ) * time_weights[t]
+            recon_loss += (
+                F.mse_loss(
+                    next_state * masks[:, t].unsqueeze(-1).unsqueeze(-1),
+                    next_obs[:, t] * masks[:, t].unsqueeze(-1).unsqueeze(-1),
+                )
+                * time_weights[t]
+            )
+            reward_loss += (
+                F.mse_loss(
+                    reward.squeeze() * masks[:, t].unsqueeze(-1),
+                    true_rewards[:, t] * masks[:, t].unsqueeze(-1),
+                    reduction="mean",
+                )
+                * time_weights[t]
+            )
+            termination_loss += (
+                F.binary_cross_entropy_with_logits(
+                    terminal.squeeze() * masks[:, t].unsqueeze(-1),
+                    true_terminations[:, t] * masks[:, t].unsqueeze(-1),
+                    reduction="mean",
+                )
+                * time_weights[t]
+            )
             state = next_state
 
         # Total loss

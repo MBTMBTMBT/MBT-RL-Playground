@@ -20,7 +20,7 @@ class Encoder(nn.Module):
         # Final layer for latent representation
         self.fc_latent = nn.Sequential(
             nn.Linear(net_arch[-1], latent_dim),
-            nn.Tanh()  # Use tanh activation to constrain output to (-1, 1)
+            nn.Tanh(),  # Use tanh activation to constrain output to (-1, 1)
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -74,6 +74,7 @@ class Decoder(nn.Module):
         x_recon = self.net(z)
         return x_recon
 
+
 # Define the Deterministic Autoencoder class
 class DeterministicAE(nn.Module):
     def __init__(self, num_input_values: int, latent_dim: int, net_arch: list[int]):
@@ -90,7 +91,9 @@ class DeterministicAE(nn.Module):
 
 
 # Define the loss function
-def ae_total_correlation_uniform_loss(recon_x: torch.Tensor, x: torch.Tensor, z: torch.Tensor, beta: float, gamma: float) -> tuple[torch.Tensor, float, float, float]:
+def ae_total_correlation_uniform_loss(
+    recon_x: torch.Tensor, x: torch.Tensor, z: torch.Tensor, beta: float, gamma: float
+) -> tuple[torch.Tensor, float, float, float]:
     """
     Compute the Deterministic AE loss with Total Correlation and Uniform regularization.
 
@@ -105,14 +108,16 @@ def ae_total_correlation_uniform_loss(recon_x: torch.Tensor, x: torch.Tensor, z:
     - tuple[torch.Tensor, float, float, float]: Total loss, reconstruction loss, Total Correlation, and Uniform Loss.
     """
     # Reconstruction loss (Mean Squared Error)
-    recon_loss = nn.functional.l1_loss(recon_x, x, reduction='mean')
+    recon_loss = nn.functional.l1_loss(recon_x, x, reduction="mean")
     # Total Correlation (using variance of z as a proxy for dependence)
     # batch_size, latent_dim = z.size()
     mean_z = torch.mean(z, dim=0)
     var_z = torch.mean((z - mean_z) ** 2, dim=0)
     total_correlation = torch.sum(var_z)
     # Uniform Loss (encourage z to be uniformly distributed)
-    uniform_loss = torch.mean((z + 1) * (1 - z))  # Encouraging z values to be close to -1 or 1
+    uniform_loss = torch.mean(
+        (z + 1) * (1 - z)
+    )  # Encouraging z values to be close to -1 or 1
     # Total loss
     total_loss = recon_loss + beta * total_correlation + gamma * uniform_loss
     return total_loss, recon_loss.item(), total_correlation.item(), uniform_loss.item()
@@ -131,7 +136,9 @@ class BetaVAE(nn.Module):
         eps = torch.randn_like(std)
         return mu + eps * std
 
-    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def forward(
+        self, x: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         # Encoder step
         mu, logvar = self.encoder(x)
         # Reparameterization step
@@ -142,7 +149,13 @@ class BetaVAE(nn.Module):
 
 
 # Define the loss function
-def beta_vae_loss(recon_x: torch.Tensor, x: torch.Tensor, mu: torch.Tensor, logvar: torch.Tensor, beta: float) -> tuple[torch.Tensor, float, float]:
+def beta_vae_loss(
+    recon_x: torch.Tensor,
+    x: torch.Tensor,
+    mu: torch.Tensor,
+    logvar: torch.Tensor,
+    beta: float,
+) -> tuple[torch.Tensor, float, float]:
     """
     Compute the Beta VAE loss, including reconstruction loss and KL divergence.
 
@@ -164,7 +177,9 @@ def beta_vae_loss(recon_x: torch.Tensor, x: torch.Tensor, mu: torch.Tensor, logv
     return recon_loss + beta * kl_divergence, recon_loss.item(), kl_divergence.item()
 
 
-def contrastive_loss_v2(z_anchor: torch.Tensor, z_positive: torch.Tensor, z_negative: torch.Tensor) -> torch.Tensor:
+def contrastive_loss_v2(
+    z_anchor: torch.Tensor, z_positive: torch.Tensor, z_negative: torch.Tensor
+) -> torch.Tensor:
     """
     Compute the contrastive loss for the given anchor, positive, and negative samples.
 
@@ -195,7 +210,9 @@ def main() -> None:
     # Model, optimizer, and data
     model = BetaVAE(num_input_values, latent_dim, net_arch)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-    data = torch.randn(64, num_input_values)  # Random data to simulate training (batch_size=64)
+    data = torch.randn(
+        64, num_input_values
+    )  # Random data to simulate training (batch_size=64)
 
     # Training loop
     for epoch in range(epochs):

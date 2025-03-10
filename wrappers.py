@@ -55,12 +55,15 @@ class AddNoiseDimensionWrapper(gym.Wrapper):
     Attributes:
         env (gym.Env): The original environment.
     """
+
     def __init__(self, env):
         super().__init__(env)
         # Modify the observation space to include the new noise dimension
         original_obs_space = env.observation_space
         if not isinstance(original_obs_space, gym.spaces.Box):
-            raise ValueError("This wrapper only supports environments with Box observation spaces.")
+            raise ValueError(
+                "This wrapper only supports environments with Box observation spaces."
+            )
 
         low = np.append(original_obs_space.low, -1.0)
         high = np.append(original_obs_space.high, 1.0)
@@ -96,20 +99,20 @@ class AddNoiseDimensionWrapper(gym.Wrapper):
 
 class AEWrapper(gym.Wrapper):
     def __init__(
-            self,
-            env: gym.Env,
-            num_hidden_values: int,
-            net_arch: list[int],
-            do_training: bool,
-            buffer_size: int,
-            iterations: int,
-            batch_size: int,
-            beta: float = 1.0,
-            gamma: float = 1.0,
-            lr: float = 1e-4,
-            state_min: np.ndarray = None,
-            state_max: np.ndarray = None,
-            device: torch.device = torch.device("cpu"),
+        self,
+        env: gym.Env,
+        num_hidden_values: int,
+        net_arch: list[int],
+        do_training: bool,
+        buffer_size: int,
+        iterations: int,
+        batch_size: int,
+        beta: float = 1.0,
+        gamma: float = 1.0,
+        lr: float = 1e-4,
+        state_min: np.ndarray = None,
+        state_max: np.ndarray = None,
+        device: torch.device = torch.device("cpu"),
     ):
         super().__init__(env)
         self.observation_space = env.observation_space
@@ -117,7 +120,11 @@ class AEWrapper(gym.Wrapper):
         self.dataset = GymDataset(buffer_size)
         self.iterations = iterations
         self.batch_size = batch_size
-        self.ae_model = DeterministicAE(self.observation_space.shape[0], num_hidden_values, net_arch, )
+        self.ae_model = DeterministicAE(
+            self.observation_space.shape[0],
+            num_hidden_values,
+            net_arch,
+        )
         self.beta = beta
         self.gamma = gamma
         self.lr = lr
@@ -164,25 +171,29 @@ class AEWrapper(gym.Wrapper):
         next_obs, reward, done, truncated, info = self.env.step(action)
         self.step_counter += 1
         if self.do_training:
-            self.dataset.add_samples([
-                {
-                    'obs': self.previous_obs,
-                    'action': action,
-                    'next_obs': next_obs,
-                    'reward': reward,
-                    'done': done
-                }
-            ])
-            if done:
-                self.dataset.add_samples([
+            self.dataset.add_samples(
+                [
                     {
-                        'obs': next_obs,
-                        'action': action,
-                        'next_obs': next_obs,
-                        'reward': 0.0,
-                        'done': done
+                        "obs": self.previous_obs,
+                        "action": action,
+                        "next_obs": next_obs,
+                        "reward": reward,
+                        "done": done,
                     }
-                ])
+                ]
+            )
+            if done:
+                self.dataset.add_samples(
+                    [
+                        {
+                            "obs": next_obs,
+                            "action": action,
+                            "next_obs": next_obs,
+                            "reward": 0.0,
+                            "done": done,
+                        }
+                    ]
+                )
             if self.dataset.full:
                 # print(f"Step {self.step_counter}, start training...")
                 self._train()
@@ -207,16 +218,19 @@ class AEWrapper(gym.Wrapper):
         # Create directory if it doesn't exist
         os.makedirs(os.path.dirname(path), exist_ok=True)
         # Save model and optimizer state dicts
-        torch.save({
-            'model_state_dict': self.ae_model.state_dict(),
-            'optimizer_state_dict': self.optimizer.state_dict()
-        }, path)
+        torch.save(
+            {
+                "model_state_dict": self.ae_model.state_dict(),
+                "optimizer_state_dict": self.optimizer.state_dict(),
+            },
+            path,
+        )
 
     def load_model(self, path):
         # Load model and optimizer state dicts
         checkpoint = torch.load(path, map_location=self.device)
-        self.ae_model.load_state_dict(checkpoint['model_state_dict'])
-        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        self.ae_model.load_state_dict(checkpoint["model_state_dict"])
+        self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
 
     def normalize_state(self, state):
         normalized_state = (state - self.state_min) / (self.state_max - self.state_min)
@@ -229,8 +243,9 @@ class AEWrapper(gym.Wrapper):
         return state
 
     def _train(self):
-        dataloader = torch.utils.data.DataLoader(self.dataset, batch_size=self.batch_size, shuffle=True,
-                                                 drop_last=False)
+        dataloader = torch.utils.data.DataLoader(
+            self.dataset, batch_size=self.batch_size, shuffle=True, drop_last=False
+        )
         total_losses = []
         recon_losses = []
         total_correlations = []
@@ -258,7 +273,12 @@ class AEWrapper(gym.Wrapper):
                 _, z_next_obss = self.ae_model(next_obss)
 
                 # Calculate AE loss
-                ae_loss, recon_loss_val, total_correlation, uniform_loss_val = ae_total_correlation_uniform_loss(
+                (
+                    ae_loss,
+                    recon_loss_val,
+                    total_correlation,
+                    uniform_loss_val,
+                ) = ae_total_correlation_uniform_loss(
                     fake_obss, obss, z_obss, self.beta, self.gamma
                 )
 
@@ -294,7 +314,13 @@ class AEWrapper(gym.Wrapper):
 
 
 class DiscretizerWrapper(gym.Wrapper):
-    def __init__(self, env: gym.Env, state_discretizer, action_discretizer, enable_counting: bool = True):
+    def __init__(
+        self,
+        env: gym.Env,
+        state_discretizer,
+        action_discretizer,
+        enable_counting: bool = True,
+    ):
         """
         Wrapper to apply state and action discretization with counting functionality.
 
@@ -320,7 +346,9 @@ class DiscretizerWrapper(gym.Wrapper):
         discretized_state, _ = self.state_discretizer.discretize(state)
         return discretized_state, info
 
-    def step(self, action: Union[int, List[float]]) -> tuple[Any, SupportsFloat, bool, bool, dict[str, Any]]:
+    def step(
+        self, action: Union[int, List[float]]
+    ) -> tuple[Any, SupportsFloat, bool, bool, dict[str, Any]]:
         """
         Take a step in the environment using a discretized action.
 
@@ -400,7 +428,12 @@ class DiscretizerWrapper(gym.Wrapper):
 # Example Usage
 if __name__ == "__main__":
     # Define ranges and number of buckets for each dimension based on CartPole state space
-    state_ranges = [(-4.8, 4.8), (-3.4, 3.4), (-0.418, 0.418), (-3.4, 3.4)]  # CartPole observation ranges
+    state_ranges = [
+        (-4.8, 4.8),
+        (-3.4, 3.4),
+        (-0.418, 0.418),
+        (-3.4, 3.4),
+    ]  # CartPole observation ranges
     action_ranges = [(0, 1)]  # Two discrete actions: 0 and 1
 
     state_buckets = [5, 5, 5, 5]  # Discretize each state variable into 5 buckets
@@ -410,7 +443,9 @@ if __name__ == "__main__":
     action_discretizer = Discretizer(action_ranges, action_buckets)
 
     env = gym.make("CartPole-v1")
-    wrapped_env = DiscretizerWrapper(env, state_discretizer, action_discretizer, enable_counting=True)
+    wrapped_env = DiscretizerWrapper(
+        env, state_discretizer, action_discretizer, enable_counting=True
+    )
 
     state, info = wrapped_env.reset()
     print("Initial Discretized State:", state)
@@ -418,7 +453,9 @@ if __name__ == "__main__":
     for step in range(1000):  # Perform 10 steps in the CartPole environment
         action = random.randint(0, 1)  # Randomly choose between action 0 or 1
         next_state, reward, done, truncated, info = wrapped_env.step(action)
-        print(f"Step {step + 1}: Action: {action}, Next Discretized State: {next_state}, Reward: {reward}, Done: {done}")
+        print(
+            f"Step {step + 1}: Action: {action}, Next Discretized State: {next_state}, Reward: {reward}, Done: {done}"
+        )
         if done:
             print("Episode finished. Resetting environment.")
             state, info = wrapped_env.reset()
@@ -481,8 +518,13 @@ class NoMovementTruncateWrapper(gym.Wrapper):
         # Only check when the buffer is full
         if len(self.obs_buffer) == self.n:
             # Compute MSE between all consecutive observations in the buffer
-            mse = np.sum([(np.array(self.obs_buffer[i]) - np.array(self.obs_buffer[i + 1])) ** 2
-                           for i in range(len(self.obs_buffer) - 1)])
+            mse = np.sum(
+                [
+                    (np.array(self.obs_buffer[i]) - np.array(self.obs_buffer[i + 1]))
+                    ** 2
+                    for i in range(len(self.obs_buffer) - 1)
+                ]
+            )
 
             if mse <= self.mse_threshold:
                 # Truncate if no significant movement
@@ -494,4 +536,3 @@ class NoMovementTruncateWrapper(gym.Wrapper):
                 self.obs_buffer.pop(0)
 
         return obs, reward, done, truncated, info
-

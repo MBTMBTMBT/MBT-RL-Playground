@@ -18,12 +18,13 @@ class ExponentialMovingAverages(nn.Module):
     """
 
     def __init__(
-            self,
-            shape_or_initial_value: Union[Tuple[int, ...], Tensor],
-            decay: float,
-            bias_correction: bool) -> None:
+        self,
+        shape_or_initial_value: Union[Tuple[int, ...], Tensor],
+        decay: float,
+        bias_correction: bool,
+    ) -> None:
         super().__init__()
-        self.register_buffer('_decay', torch.tensor(decay, dtype=torch.float64))
+        self.register_buffer("_decay", torch.tensor(decay, dtype=torch.float64))
         self._bias_correction = bias_correction
 
         if isinstance(shape_or_initial_value, Tensor):
@@ -37,14 +38,14 @@ class ExponentialMovingAverages(nn.Module):
             if initial_value is None:
                 initial_value = torch.zeros(shape)
 
-            self.register_buffer('_average', torch.zeros(shape))
-            self.register_buffer('_values', initial_value)
-            self.register_buffer('_counter', torch.zeros(1, dtype=torch.long))
+            self.register_buffer("_average", torch.zeros(shape))
+            self.register_buffer("_values", initial_value)
+            self.register_buffer("_counter", torch.zeros(1, dtype=torch.long))
         else:
             if initial_value is None:
                 initial_value = torch.randn(shape)  # TODO
 
-            self.register_buffer('_average', initial_value)
+            self.register_buffer("_average", initial_value)
 
     @property
     def decay(self) -> float:
@@ -73,9 +74,13 @@ class ExponentialMovingAverages(nn.Module):
         if self._bias_correction:
             self._counter += 1
             self._values -= (self._values - new_values) * (1 - self._decay)
-            self._average.copy_(self._values / (1 - torch.pow(self._decay, self._counter[0]).float()))
+            self._average.copy_(
+                self._values / (1 - torch.pow(self._decay, self._counter[0]).float())
+            )
         else:
-            self._average.copy_(self._decay * self._average + (1 - self._decay) * new_values)
+            self._average.copy_(
+                self._decay * self._average + (1 - self._decay) * new_values
+            )
         return self._average
 
     def copy_(self, new_values: Tensor) -> None:
@@ -111,19 +116,22 @@ class VectorQuantizer(nn.Module):
     """
 
     def __init__(
-            self,
-            num_embeddings: int,
-            embedding_size: int,
-            commitment_cost: float = 0.25,
-            exponential_moving_averages: bool = False,
-            ema_decay: Optional[float] = 0.99,
-            ema_epsilon: Optional[float] = 1e-5) -> None:
+        self,
+        num_embeddings: int,
+        embedding_size: int,
+        commitment_cost: float = 0.25,
+        exponential_moving_averages: bool = False,
+        ema_decay: Optional[float] = 0.99,
+        ema_epsilon: Optional[float] = 1e-5,
+    ) -> None:
         super().__init__()
         self.embeddings = nn.Parameter(torch.zeros(num_embeddings, embedding_size))
-        limit = np.sqrt(3. / num_embeddings)  # LeCun's uniform initialization
+        limit = np.sqrt(3.0 / num_embeddings)  # LeCun's uniform initialization
         nn.init.uniform_(self.embeddings, -limit, limit)
 
-        self.register_buffer('_commitment_cost', torch.tensor(commitment_cost, dtype=torch.float))
+        self.register_buffer(
+            "_commitment_cost", torch.tensor(commitment_cost, dtype=torch.float)
+        )
 
         self._exponential_moving_averages = exponential_moving_averages
         if exponential_moving_averages:
@@ -132,19 +140,25 @@ class VectorQuantizer(nn.Module):
 
             self._ema_dw = ExponentialMovingAverages(
                 torch.zeros(num_embeddings, embedding_size),
-                decay=ema_decay, bias_correction=True)
+                decay=ema_decay,
+                bias_correction=True,
+            )
 
             self._ema_cluster_sizes = ExponentialMovingAverages(
-                torch.zeros(num_embeddings),
-                decay=ema_decay, bias_correction=False)
+                torch.zeros(num_embeddings), decay=ema_decay, bias_correction=False
+            )
 
             self.embeddings.requires_grad_(False)
 
             # nn.functional.one_hot seems to be slow (at least PyTorch 1.6.0),
             # so we cache the results and index the variable
             self.register_buffer(
-                '_one_hot_cache', nn.functional.one_hot(torch.arange(num_embeddings), num_embeddings).float(),
-                persistent=False)
+                "_one_hot_cache",
+                nn.functional.one_hot(
+                    torch.arange(num_embeddings), num_embeddings
+                ).float(),
+                persistent=False,
+            )
 
     @property
     def num_embeddings(self) -> int:
@@ -166,7 +180,11 @@ class VectorQuantizer(nn.Module):
         assert z_e.shape[-1] == self.embedding_size
         w = self.embeddings
         z_e_flat = z_e.reshape(-1, self.embedding_size)
-        distances_flat = z_e_flat.square().sum(1).unsqueeze(1) - 2 * (z_e_flat @ w.T) + w.square().sum(1).unsqueeze(0)
+        distances_flat = (
+            z_e_flat.square().sum(1).unsqueeze(1)
+            - 2 * (z_e_flat @ w.T)
+            + w.square().sum(1).unsqueeze(0)
+        )
         z = torch.argmin(distances_flat, dim=-1).reshape(z_e.shape[:-1])
         return z
 
@@ -176,18 +194,15 @@ class VectorQuantizer(nn.Module):
         return z_q
 
     def compute_loss(
-            self,
-            z_e: Tensor,
-            z: Tensor,
-            z_q: Tensor,
-            update_ema: bool = True) -> Tuple[Tensor, Dict[str, Tensor]]:
+        self, z_e: Tensor, z: Tensor, z_q: Tensor, update_ema: bool = True
+    ) -> Tuple[Tensor, Dict[str, Tensor]]:
         """TODO docstring"""
         z_e_loss = nn.functional.mse_loss(z_q.detach(), z_e)
         if self._exponential_moving_averages:
             loss = self._commitment_cost * z_e_loss
             stats = {
-                'vq_loss': loss.detach().clone(),
-                'z_e_loss': z_e_loss.detach().clone()
+                "vq_loss": loss.detach().clone(),
+                "z_e_loss": z_e_loss.detach().clone(),
             }
             if update_ema:
                 self.update_ema(z_e, z)
@@ -195,9 +210,9 @@ class VectorQuantizer(nn.Module):
             z_q_loss = nn.functional.mse_loss(z_q, z_e.detach())
             loss = z_q_loss + self._commitment_cost * z_e_loss
             stats = {
-                'vq_loss': loss.detach().clone(),
-                'z_e_loss': z_q_loss.detach().clone(),
-                'z_q_loss': z_q_loss.detach().clone()
+                "vq_loss": loss.detach().clone(),
+                "z_e_loss": z_q_loss.detach().clone(),
+                "z_q_loss": z_q_loss.detach().clone(),
             }
         return loss, stats
 
@@ -219,10 +234,16 @@ class VectorQuantizer(nn.Module):
             average_dw = self._ema_dw.update(dw)
 
             n = average_cluster_sizes.sum()
-            stable_average_cluster_sizes = \
-                (average_cluster_sizes + self._ema_epsilon) / (n + self.num_embeddings * self._ema_epsilon) * n
+            stable_average_cluster_sizes = (
+                (average_cluster_sizes + self._ema_epsilon)
+                / (n + self.num_embeddings * self._ema_epsilon)
+                * n
+            )
 
-            self.embeddings.data = average_dw / stable_average_cluster_sizes.unsqueeze(1)
+            self.embeddings.data = average_dw / stable_average_cluster_sizes.unsqueeze(
+                1
+            )
+
 
 class VQVAE(nn.Module, ABC):
     """Base class for VQ-VAEs [1]. Subclasses have to implement `encode()` and `decode()`.
@@ -250,24 +271,31 @@ class VQVAE(nn.Module, ABC):
     """
 
     def __init__(
-            self,
-            num_embeddings: int,
-            embedding_size: int,
-            latent_height: int,
-            latent_width: int,
-            commitment_cost: float = 0.25,
-            exponential_moving_averages: bool = False,
-            ema_decay: Optional[float] = 0.99,
-            ema_epsilon: Optional[float] = 1e-5) -> None:
+        self,
+        num_embeddings: int,
+        embedding_size: int,
+        latent_height: int,
+        latent_width: int,
+        commitment_cost: float = 0.25,
+        exponential_moving_averages: bool = False,
+        ema_decay: Optional[float] = 0.99,
+        ema_epsilon: Optional[float] = 1e-5,
+    ) -> None:
         super().__init__()
         self.vq = VectorQuantizer(
-            num_embeddings, embedding_size, commitment_cost, exponential_moving_averages, ema_decay, ema_epsilon)
+            num_embeddings,
+            embedding_size,
+            commitment_cost,
+            exponential_moving_averages,
+            ema_decay,
+            ema_epsilon,
+        )
         self.latent_height = latent_height
         self.latent_width = latent_width
 
-        prob = 1. / self.num_embeddings
+        prob = 1.0 / self.num_embeddings
         kl = -math.log(prob) * (latent_height * latent_width)
-        self.register_buffer('_kl', torch.tensor(kl), persistent=False)
+        self.register_buffer("_kl", torch.tensor(kl), persistent=False)
 
     @property
     def num_embeddings(self) -> int:
@@ -296,7 +324,17 @@ class VQVAE(nn.Module, ABC):
 
         h, w = self.latent_shape
         prob = 1 / self.num_embeddings
-        probs = torch.full((1, h, w, self.num_embeddings,), prob, dtype=torch.float, device=device)
+        probs = torch.full(
+            (
+                1,
+                h,
+                w,
+                self.num_embeddings,
+            ),
+            prob,
+            dtype=torch.float,
+            device=device,
+        )
 
         return Independent(Categorical(probs=probs), reinterpreted_batch_ndims=2)
 
@@ -328,20 +366,18 @@ class VQVAE(nn.Module, ABC):
         return z_q
 
     def compute_loss(
-            self,
-            x: Tensor,
-            z_e: Tensor,
-            z: Tensor,
-            z_q: Tensor,
-            x_posterior: Distribution) -> Tuple[Tensor, Dict[str, Tensor]]:
+        self, x: Tensor, z_e: Tensor, z: Tensor, z_q: Tensor, x_posterior: Distribution
+    ) -> Tuple[Tensor, Dict[str, Tensor]]:
         """TODO docstring"""
         # ELBO = E[log p(x|z)] - KL(q(z)||p(z))
         log_likelihood = x_posterior.log_prob(x).mean(0)
         elbo = log_likelihood - self._kl
 
-        stats = {'elbo': elbo.detach().clone(),
-                 'log_likelihood': log_likelihood.detach().clone(),
-                 'kl': self._kl.clone()}
+        stats = {
+            "elbo": elbo.detach().clone(),
+            "log_likelihood": log_likelihood.detach().clone(),
+            "kl": self._kl.clone(),
+        }
 
         vq_loss, vq_stats = self.vq.compute_loss(z_e, z, z_q)
         loss = -elbo + vq_loss
@@ -350,10 +386,11 @@ class VQVAE(nn.Module, ABC):
         return loss, stats
 
     def sample(
-            self,
-            sample_shape: torch.Size = torch.Size(),
-            sample_decoder: bool = False,
-            device: Optional[torch.device] = None) -> Tensor:
+        self,
+        sample_shape: torch.Size = torch.Size(),
+        sample_decoder: bool = False,
+        device: Optional[torch.device] = None,
+    ) -> Tensor:
         """TODO docstring"""
         with torch.no_grad():
             if device is None:
@@ -370,4 +407,3 @@ class VQVAE(nn.Module, ABC):
             z_e, z, z_q, x_posterior = self.forward(x)
             x_recon = x_posterior.sample() if sample else mode(x_posterior)
             return x_recon
-

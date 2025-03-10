@@ -16,8 +16,14 @@ NUM_EVAL_EPISODES = 3  # Number of episodes to evaluate per GIF
 
 # Define custom callback to save GIFs periodically
 class GifRecorderCallback(BaseCallback):
-    def __init__(self, eval_env, save_path="./", eval_freq=EVAL_INTERVAL, n_episodes=NUM_EVAL_EPISODES,
-                 verbose=1):
+    def __init__(
+        self,
+        eval_env,
+        save_path="./",
+        eval_freq=EVAL_INTERVAL,
+        n_episodes=NUM_EVAL_EPISODES,
+        verbose=1,
+    ):
         super(GifRecorderCallback, self).__init__(verbose)
         self.eval_env = eval_env
         self.save_path = save_path
@@ -56,7 +62,9 @@ eval_env = gym.make("BipedalWalker-v3", render_mode="rgb_array")
 eval_env.reset(seed=SEED)
 
 # Define PPO model with appropriate policy
-model = PPO("MlpPolicy", env, seed=SEED, verbose=1, tensorboard_log="./ppo_bipedalwalker/")
+model = PPO(
+    "MlpPolicy", env, seed=SEED, verbose=1, tensorboard_log="./ppo_bipedalwalker/"
+)
 
 # Train model with callback for GIF saving
 callback = GifRecorderCallback(eval_env)

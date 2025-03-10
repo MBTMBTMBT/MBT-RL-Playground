@@ -7,8 +7,18 @@ from tqdm import tqdm
 
 
 class TianshouPPO:
-    def __init__(self, policy, env, learning_rate=3e-4, gamma=0.99, gae_lambda=0.95,
-                 n_steps=2048, batch_size=64, verbose=0, device="auto"):
+    def __init__(
+        self,
+        policy,
+        env,
+        learning_rate=3e-4,
+        gamma=0.99,
+        gae_lambda=0.95,
+        n_steps=2048,
+        batch_size=64,
+        verbose=0,
+        device="auto",
+    ):
         """
         Tianshou wrapper for PPO.
 
@@ -24,17 +34,23 @@ class TianshouPPO:
         """
         if policy != "MlpPolicy":
             raise NotImplementedError(
-                f"Policy '{policy}' is not implemented. Currently, only 'MlpPolicy' is supported.")
+                f"Policy '{policy}' is not implemented. Currently, only 'MlpPolicy' is supported."
+            )
 
         self.env = env
         self.verbose = verbose
-        self.device = torch.device("cuda" if device == "auto" and torch.cuda.is_available() else device)
+        self.device = torch.device(
+            "cuda" if device == "auto" and torch.cuda.is_available() else device
+        )
         self.state_shape = env.observation_space.shape
         self.action_shape = env.action_space.n
 
         # Define actor-critic network
         net = Net(self.state_shape, hidden_sizes=[64, 64], device=self.device)
-        actor_critic = ActorCritic(net, self.action_shape,)
+        actor_critic = ActorCritic(
+            net,
+            self.action_shape,
+        )
         self.optimizer = torch.optim.Adam(actor_critic.parameters(), lr=learning_rate)
 
         # Define PPO policy
@@ -61,7 +77,9 @@ class TianshouPPO:
         :param deterministic: Whether to use deterministic policy.
         :return: Predicted action.
         """
-        state = torch.tensor(state, dtype=torch.float32, device=self.device).unsqueeze(0)
+        state = torch.tensor(state, dtype=torch.float32, device=self.device).unsqueeze(
+            0
+        )
         action = self.policy(state, deterministic=deterministic)[0]
         return action.cpu().numpy()
 
@@ -90,8 +108,19 @@ class TianshouPPO:
 
 
 class TianshouSAC:
-    def __init__(self, policy, env, learning_rate=3e-4, gamma=0.99, tau=0.005, alpha=0.2,
-                 buffer_size=1000000, batch_size=256, verbose=0, device="auto"):
+    def __init__(
+        self,
+        policy,
+        env,
+        learning_rate=3e-4,
+        gamma=0.99,
+        tau=0.005,
+        alpha=0.2,
+        buffer_size=1000000,
+        batch_size=256,
+        verbose=0,
+        device="auto",
+    ):
         """
         Tianshou wrapper for SAC.
 
@@ -107,22 +136,44 @@ class TianshouSAC:
         :param device: Device for computation ("auto", "cpu", or "cuda").
         """
         if policy != "MlpPolicy":
-            raise NotImplementedError(f"Policy '{policy}' is not implemented. Currently, only 'MlpPolicy' is supported.")
+            raise NotImplementedError(
+                f"Policy '{policy}' is not implemented. Currently, only 'MlpPolicy' is supported."
+            )
 
         self.env = env
         self.verbose = verbose
-        self.device = torch.device("cuda" if device == "auto" and torch.cuda.is_available() else device)
+        self.device = torch.device(
+            "cuda" if device == "auto" and torch.cuda.is_available() else device
+        )
         self.state_shape = env.observation_space.shape
         self.action_shape = env.action_space.shape[0]
 
         # Define networks
-        actor = ActorProb(Net(self.state_shape, hidden_sizes=[64, 64], device=self.device), self.action_shape, max_action=1.0)
-        critic1 = Critic(Net(self.state_shape + (self.action_shape,), hidden_sizes=[64, 64], device=self.device))
-        critic2 = Critic(Net(self.state_shape + (self.action_shape,), hidden_sizes=[64, 64], device=self.device))
+        actor = ActorProb(
+            Net(self.state_shape, hidden_sizes=[64, 64], device=self.device),
+            self.action_shape,
+            max_action=1.0,
+        )
+        critic1 = Critic(
+            Net(
+                self.state_shape + (self.action_shape,),
+                hidden_sizes=[64, 64],
+                device=self.device,
+            )
+        )
+        critic2 = Critic(
+            Net(
+                self.state_shape + (self.action_shape,),
+                hidden_sizes=[64, 64],
+                device=self.device,
+            )
+        )
 
         # Define optimizers
         self.actor_optim = torch.optim.Adam(actor.parameters(), lr=learning_rate)
-        self.critic_optim = torch.optim.Adam(list(critic1.parameters()) + list(critic2.parameters()), lr=learning_rate)
+        self.critic_optim = torch.optim.Adam(
+            list(critic1.parameters()) + list(critic2.parameters()), lr=learning_rate
+        )
 
         # Define SAC policy
         self.policy = SACPolicy(
@@ -151,7 +202,9 @@ class TianshouSAC:
         :param deterministic: Whether to use deterministic policy.
         :return: Predicted action.
         """
-        state = torch.tensor(state, dtype=torch.float32, device=self.device).unsqueeze(0)
+        state = torch.tensor(state, dtype=torch.float32, device=self.device).unsqueeze(
+            0
+        )
         action = self.policy(state, deterministic=deterministic)[0]
         return action.cpu().numpy()
 

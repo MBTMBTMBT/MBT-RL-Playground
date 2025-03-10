@@ -13,15 +13,17 @@ from torch.utils.data import DataLoader, TensorDataset
 
 
 class DQNAgent:
-    def __init__(self,
-                 input_dims: int,
-                 action_space: List[int],
-                 hidden_layers: List[int],
-                 max_q_value_abs: float = 1.0,
-                 replay_buffer_size: int = 10000,
-                 batch_size: int = 64,
-                 train_epochs: int = 1,
-                 device: str = "cpu"):
+    def __init__(
+        self,
+        input_dims: int,
+        action_space: List[int],
+        hidden_layers: List[int],
+        max_q_value_abs: float = 1.0,
+        replay_buffer_size: int = 10000,
+        batch_size: int = 64,
+        train_epochs: int = 1,
+        device: str = "cpu",
+    ):
         """
         Initialize the DQN agent.
 
@@ -74,8 +76,9 @@ class DQNAgent:
                     nn.init.constant_(layer.bias, 0.0)
         return model
 
-    def get_action_probabilities(self, state: np.ndarray, strategy: str = "greedy",
-                                 temperature: float = 1.0) -> np.ndarray:
+    def get_action_probabilities(
+        self, state: np.ndarray, strategy: str = "greedy", temperature: float = 1.0
+    ) -> np.ndarray:
         """
         Calculate action probabilities based on the specified strategy.
 
@@ -85,7 +88,9 @@ class DQNAgent:
         :return: An array of action probabilities.
         """
         self.model.to("cpu")
-        state_tensor = torch.tensor(state, dtype=torch.float32, device="cpu").unsqueeze(0)
+        state_tensor = torch.tensor(state, dtype=torch.float32, device="cpu").unsqueeze(
+            0
+        )
         q_values = self.model(state_tensor).squeeze(0).detach().cpu().numpy()
 
         # Rescale q values
@@ -102,7 +107,9 @@ class DQNAgent:
 
         return probabilities
 
-    def select_action(self, state: np.ndarray, strategy: str = "greedy", temperature: float = 1.0) -> List[int]:
+    def select_action(
+        self, state: np.ndarray, strategy: str = "greedy", temperature: float = 1.0
+    ) -> List[int]:
         """
         Select an action based on the strategy.
 
@@ -133,7 +140,14 @@ class DQNAgent:
             index = index * size + action[i]
         return index
 
-    def store_experience(self, state: np.ndarray, action: List[int], reward: float, next_state: np.ndarray, done: bool):
+    def store_experience(
+        self,
+        state: np.ndarray,
+        action: List[int],
+        reward: float,
+        next_state: np.ndarray,
+        done: bool,
+    ):
         """
         Store an experience in the replay buffer.
 
@@ -160,9 +174,17 @@ class DQNAgent:
         states, actions, rewards, next_states, dones = zip(*experiences)
 
         states = torch.tensor(np.array(states), dtype=torch.float32, device=self.device)
-        actions = torch.tensor([self._action_to_flat_index(a) for a in actions], dtype=torch.long, device=self.device)
-        rewards = torch.tensor(np.array(rewards), dtype=torch.float32, device=self.device)
-        next_states = torch.tensor(np.array(next_states), dtype=torch.float32, device=self.device)
+        actions = torch.tensor(
+            [self._action_to_flat_index(a) for a in actions],
+            dtype=torch.long,
+            device=self.device,
+        )
+        rewards = torch.tensor(
+            np.array(rewards), dtype=torch.float32, device=self.device
+        )
+        next_states = torch.tensor(
+            np.array(next_states), dtype=torch.float32, device=self.device
+        )
         dones = torch.tensor(np.array(dones), dtype=torch.float32, device=self.device)
 
         dataset = TensorDataset(states, actions, rewards, next_states, dones)
@@ -173,7 +195,13 @@ class DQNAgent:
         losses = 0.0
         counter = 0
         for _ in range(self.train_epochs):
-            for batch_states, batch_actions, batch_rewards, batch_next_states, batch_dones in dataloader:
+            for (
+                batch_states,
+                batch_actions,
+                batch_rewards,
+                batch_next_states,
+                batch_dones,
+            ) in dataloader:
                 q_values = self.model(batch_states)
                 q_value = q_values[torch.arange(len(batch_actions)), batch_actions]
 
@@ -186,7 +214,9 @@ class DQNAgent:
 
                 # Correctly handle the `done` flag
                 target = batch_rewards + gamma * max_next_q_value * (1 - batch_dones)
-                target[batch_dones.bool()] = batch_rewards[batch_dones.bool()]  # Override target for done states
+                target[batch_dones.bool()] = batch_rewards[
+                    batch_dones.bool()
+                ]  # Override target for done states
 
                 loss = self.criterion(q_value, target)
                 losses += loss.item()
@@ -198,11 +228,22 @@ class DQNAgent:
 
         # Discard half of the replay buffer
         remaining_size = len(self.replay_buffer) // 2
-        self.replay_buffer = deque(random.sample(self.replay_buffer, remaining_size), maxlen=self.replay_buffer.maxlen)
+        self.replay_buffer = deque(
+            random.sample(self.replay_buffer, remaining_size),
+            maxlen=self.replay_buffer.maxlen,
+        )
         # print("Loss:", losses / counter)
 
-    def update(self, state: np.ndarray, action: List[int], reward: float, next_state: np.ndarray, done: bool,
-               alpha: float = 0.001, gamma: float = 0.99):
+    def update(
+        self,
+        state: np.ndarray,
+        action: List[int],
+        reward: float,
+        next_state: np.ndarray,
+        done: bool,
+        alpha: float = 0.001,
+        gamma: float = 0.99,
+    ):
         """
         Store the experience and trigger training if sufficient data is available.
 
@@ -219,18 +260,23 @@ class DQNAgent:
         state_key = tuple(state)
         action_key = tuple(action)
 
-        state_tensor = torch.tensor(state, dtype=torch.float32, device="cpu").unsqueeze(0)
+        state_tensor = torch.tensor(state, dtype=torch.float32, device="cpu").unsqueeze(
+            0
+        )
         self.model.to("cpu")
         q_values = self.model(state_tensor).squeeze(0).detach().cpu().numpy()
 
         # Rescale q values
         q_values *= self.max_q_value_abs
 
-        if not hasattr(self, 'q_table'):
+        if not hasattr(self, "q_table"):
             from collections import defaultdict
+
             self.q_table = defaultdict(lambda: 0.0)  # Initialize Q-table
 
-        self.q_table[(state_key, action_key)] = q_values[self._action_to_flat_index(action)]
+        self.q_table[(state_key, action_key)] = q_values[
+            self._action_to_flat_index(action)
+        ]
 
     def clone(self):
         """
@@ -244,10 +290,12 @@ class DQNAgent:
             hidden_layers=self.hidden_layers,
             replay_buffer_size=self.replay_buffer.maxlen,
             batch_size=self.batch_size,
-            train_epochs=self.train_epochs
+            train_epochs=self.train_epochs,
         )
         cloned_agent.model.load_state_dict(self.model.state_dict())
-        cloned_agent.replay_buffer = deque(self.replay_buffer, maxlen=self.replay_buffer.maxlen)
+        cloned_agent.replay_buffer = deque(
+            self.replay_buffer, maxlen=self.replay_buffer.maxlen
+        )
         cloned_agent.q_table = self.q_table.copy()
         return cloned_agent
 

@@ -83,12 +83,14 @@ agent = QTableAgent(state_space, action_space, normal_partition_state=True, norm
 
 
 class __QTableAgent:
-    def __init__(self,
-                 state_space: List[Dict[str, Union[str, Tuple[float, float], int]]],
-                 action_space: List[Dict[str, Union[str, Tuple[float, float], int]]],
-                 action_combination: bool = False,
-                 normal_partition_state: bool = False,
-                 normal_partition_action: bool = False):
+    def __init__(
+        self,
+        state_space: List[Dict[str, Union[str, Tuple[float, float], int]]],
+        action_space: List[Dict[str, Union[str, Tuple[float, float], int]]],
+        action_combination: bool = False,
+        normal_partition_state: bool = False,
+        normal_partition_action: bool = False,
+    ):
         """
         Initialize the Q-Table Agent.
 
@@ -112,15 +114,24 @@ class __QTableAgent:
         self.normal_partition_action: bool = normal_partition_action
 
         # Discretize the state space and create a mapping to their original values
-        self.state_bins: List[np.ndarray] = [self._discretize_space(dim, normal_partition_state) for dim in state_space]
-        self.state_value_map: List[np.ndarray] = self.state_bins  # Save the bin edges as the mapping
+        self.state_bins: List[np.ndarray] = [
+            self._discretize_space(dim, normal_partition_state) for dim in state_space
+        ]
+        self.state_value_map: List[
+            np.ndarray
+        ] = self.state_bins  # Save the bin edges as the mapping
 
         # Discretize the action space and create a mapping
         if action_combination:
-            self.action_bins: np.ndarray = self._generate_action_combinations(action_space)
+            self.action_bins: np.ndarray = self._generate_action_combinations(
+                action_space
+            )
             self.action_value_map: np.ndarray = self.action_bins
         else:
-            self.action_bins: List[np.ndarray] = [self._discretize_space(dim, normal_partition_action) for dim in action_space]
+            self.action_bins: List[np.ndarray] = [
+                self._discretize_space(dim, normal_partition_action)
+                for dim in action_space
+            ]
             self.action_value_map: List[np.ndarray] = self.action_bins
 
         # Initialize Q-Table and visit counts as defaultdicts
@@ -130,7 +141,7 @@ class __QTableAgent:
         # Print Q-table size and dimension details
         self.print_q_table_info()
 
-    def clone(self, retain_visit_counts: bool = True) -> '__QTableAgent':
+    def clone(self, retain_visit_counts: bool = True) -> "__QTableAgent":
         """
         Create a new QTableAgent object that is an identical but independent copy of the current agent.
         Optionally clear visit counts in the cloned agent.
@@ -141,23 +152,33 @@ class __QTableAgent:
         # Create a new instance with the same initialization parameters
         print("Cloning agent...")
         new_agent = __QTableAgent(
-            state_space=[dim.copy() for dim in self.state_space],  # Copy each state space definition
-            action_space=[dim.copy() for dim in self.action_space],  # Copy each action space definition
+            state_space=[
+                dim.copy() for dim in self.state_space
+            ],  # Copy each state space definition
+            action_space=[
+                dim.copy() for dim in self.action_space
+            ],  # Copy each action space definition
             action_combination=self.action_combination,
             normal_partition_state=self.normal_partition_state,
-            normal_partition_action=self.normal_partition_action
+            normal_partition_action=self.normal_partition_action,
         )
 
         # Manually copy over attributes that are generated during initialization
         new_agent.state_bins = [np.copy(bin_edges) for bin_edges in self.state_bins]
-        new_agent.state_value_map = [np.copy(bin_edges) for bin_edges in self.state_value_map]
+        new_agent.state_value_map = [
+            np.copy(bin_edges) for bin_edges in self.state_value_map
+        ]
 
         if self.action_combination:
             new_agent.action_bins = np.copy(self.action_bins)
             new_agent.action_value_map = np.copy(self.action_value_map)
         else:
-            new_agent.action_bins = [np.copy(bin_edges) for bin_edges in self.action_bins]
-            new_agent.action_value_map = [np.copy(bin_edges) for bin_edges in self.action_value_map]
+            new_agent.action_bins = [
+                np.copy(bin_edges) for bin_edges in self.action_bins
+            ]
+            new_agent.action_value_map = [
+                np.copy(bin_edges) for bin_edges in self.action_value_map
+            ]
 
         # Copy the Q-table
         new_agent.q_table = defaultdict(
@@ -170,20 +191,24 @@ class __QTableAgent:
                 lambda: 0, {key: value for key, value in self.visit_counts.items()}
             )
         else:
-            new_agent.visit_counts = defaultdict(lambda: 0)  # Initialize all visit counts to 0
+            new_agent.visit_counts = defaultdict(
+                lambda: 0
+            )  # Initialize all visit counts to 0
 
         return new_agent
 
-    def _discretize_space(self, space: Dict[str, Any], normal_partition: bool) -> np.ndarray:
+    def _discretize_space(
+        self, space: Dict[str, Any], normal_partition: bool
+    ) -> np.ndarray:
         """Discretize a single state or action dimension."""
-        if space['type'] == 'discrete':
-            return np.arange(space['bins'])
-        elif space['type'] == 'continuous':
+        if space["type"] == "discrete":
+            return np.arange(space["bins"])
+        elif space["type"] == "continuous":
             if normal_partition:
-                return self._discretize_normal(space['bins'])
+                return self._discretize_normal(space["bins"])
             else:
-                low, high = space['range']
-                return np.linspace(low, high, space['bins'])
+                low, high = space["range"]
+                return np.linspace(low, high, space["bins"])
         else:
             raise ValueError("Invalid space type. Use 'discrete' or 'continuous'.")
 
@@ -193,16 +218,23 @@ class __QTableAgent:
         bin_edges = [norm.ppf((i + 1) / (bins + 1)) for i in range(bins)]
         return np.array(bin_edges)
 
-    def _generate_action_combinations(self, action_space: List[Dict[str, Any]]) -> np.ndarray:
+    def _generate_action_combinations(
+        self, action_space: List[Dict[str, Any]]
+    ) -> np.ndarray:
         """Generate all possible combinations of actions when action combination is enabled."""
-        action_bins: List[np.ndarray] = [self._discretize_space(dim) for dim in action_space]
+        action_bins: List[np.ndarray] = [
+            self._discretize_space(dim) for dim in action_space
+        ]
         return np.array(np.meshgrid(*action_bins)).T.reshape(-1, len(action_space))
 
     def print_q_table_info(self) -> None:
         """Print detailed information about the sparse Q-Table."""
         state_sizes = [len(bins) for bins in self.state_bins]
-        action_size = len(self.action_bins) if self.action_combination else np.prod(
-            [len(bins) for bins in self.action_bins])
+        action_size = (
+            len(self.action_bins)
+            if self.action_combination
+            else np.prod([len(bins) for bins in self.action_bins])
+        )
 
         # Calculate sparsity information
         total_entries = np.prod(state_sizes) * action_size  # Full dense size
@@ -211,7 +243,9 @@ class __QTableAgent:
         print("Sparse Q-Table Details:")
         print(f" - State Space Dimensions: {len(state_sizes)}")
         print(f"   Sizes: {state_sizes}")
-        print(f" - Action Space Dimensions: {1 if self.action_combination else len(self.action_bins)}")
+        print(
+            f" - Action Space Dimensions: {1 if self.action_combination else len(self.action_bins)}"
+        )
         print(f"   Sizes: {action_size}")
         print(f" - Non-Zero Entries in Sparse Q-Table: {non_zero_entries}")
         print(f" - Total Possible Entries (Dense): {total_entries}")
@@ -226,30 +260,36 @@ class __QTableAgent:
 
         # Calculate decimal places for states and actions (only for continuous)
         state_decimals = [
-            max(0, int(-np.floor(np.log10(np.abs(bins[1] - bins[0]))))) + 1 if dim['type'] == 'continuous' else 0
+            max(0, int(-np.floor(np.log10(np.abs(bins[1] - bins[0]))))) + 1
+            if dim["type"] == "continuous"
+            else 0
             for bins, dim in zip(self.state_bins, self.state_space)
         ]
         action_decimals = [
-            max(0, int(-np.floor(np.log10(np.abs(bins[1] - bins[0]))))) + 1 if dim['type'] == 'continuous' else 0
+            max(0, int(-np.floor(np.log10(np.abs(bins[1] - bins[0]))))) + 1
+            if dim["type"] == "continuous"
+            else 0
             for bins, dim in zip(self.action_bins, self.action_space)
         ]
 
         # Prepare data for saving
         data = []
         for key, q_value in self.q_table.items():
-            state_indices = key[:len(self.state_bins)]
-            action_indices = key[len(self.state_bins):]
+            state_indices = key[: len(self.state_bins)]
+            action_indices = key[len(self.state_bins) :]
 
             # Map state indices to values (only for continuous states)
             state_values = [
                 round(self.state_bins[dim][state_idx], state_decimals[dim])
-                if self.state_space[dim]['type'] == 'continuous' else None
+                if self.state_space[dim]["type"] == "continuous"
+                else None
                 for dim, state_idx in enumerate(state_indices)
             ]
             # Map action indices to values (only for continuous actions)
             action_values = [
                 round(self.action_bins[dim][action_idx], action_decimals[dim])
-                if self.action_space[dim]['type'] == 'continuous' else None
+                if self.action_space[dim]["type"] == "continuous"
+                else None
                 for dim, action_idx in enumerate(action_indices)
             ]
 
@@ -258,18 +298,28 @@ class __QTableAgent:
 
             # Append row to data
             data.append(
-                list(state_indices) + list(filter(lambda x: x is not None, state_values)) +
-                list(action_indices) + list(filter(lambda x: x is not None, action_values)) +
-                [q_value, visit_count]
+                list(state_indices)
+                + list(filter(lambda x: x is not None, state_values))
+                + list(action_indices)
+                + list(filter(lambda x: x is not None, action_values))
+                + [q_value, visit_count]
             )
 
         # Define column names
         column_names = (
-                [f"State_{i}_Index" for i, dim in enumerate(self.state_space)] +
-                [f"State_{i}_Value" for i, dim in enumerate(self.state_space) if dim['type'] == 'continuous'] +
-                [f"Action_{i}_Index" for i, dim in enumerate(self.action_space)] +
-                [f"Action_{i}_Value" for i, dim in enumerate(self.action_space) if dim['type'] == 'continuous'] +
-                ["Q_Value", "Visit_Count"]
+            [f"State_{i}_Index" for i, dim in enumerate(self.state_space)]
+            + [
+                f"State_{i}_Value"
+                for i, dim in enumerate(self.state_space)
+                if dim["type"] == "continuous"
+            ]
+            + [f"Action_{i}_Index" for i, dim in enumerate(self.action_space)]
+            + [
+                f"Action_{i}_Value"
+                for i, dim in enumerate(self.action_space)
+                if dim["type"] == "continuous"
+            ]
+            + ["Q_Value", "Visit_Count"]
         )
 
         # Convert to DataFrame
@@ -282,7 +332,7 @@ class __QTableAgent:
         metadata = {
             "state_space": self.state_space,
             "action_space": self.action_space,
-            "action_combination": self.action_combination
+            "action_combination": self.action_combination,
         }
         metadata_str = base64.b64encode(repr(metadata).encode("utf-8")).decode("utf-8")
         metadata_df = pd.DataFrame({"Metadata": [metadata_str]})
@@ -332,7 +382,8 @@ class __QTableAgent:
             else:
                 # Otherwise, handle as multi-dimensional action indices
                 action_index = tuple(
-                    int(row[f"Action_{dim}_Index"]) for dim in range(len(agent.action_bins))
+                    int(row[f"Action_{dim}_Index"])
+                    for dim in range(len(agent.action_bins))
                 )
 
             # Retrieve Q-value and visit count
@@ -340,7 +391,9 @@ class __QTableAgent:
             visit_count = row["Visit_Count"]
 
             # Update the sparse Q-Table
-            key = state_indices + (action_index if agent.action_combination else action_index)
+            key = state_indices + (
+                action_index if agent.action_combination else action_index
+            )
             agent.q_table[key] = q_value
             agent.visit_counts[key] = visit_count
 
@@ -384,7 +437,9 @@ class __QTableAgent:
                 bins = self.action_bins[i]
                 clipped_value = np.clip(value, bins[0], bins[-1])  # Clip to bin range
                 action_index.append(np.digitize(clipped_value, bins) - 1)
-            return np.ravel_multi_index(action_index, [len(bins) for bins in self.action_bins])
+            return np.ravel_multi_index(
+                action_index, [len(bins) for bins in self.action_bins]
+            )
 
     def get_q_value(self, state: List[float], action: List[float]) -> float:
         """
@@ -398,8 +453,9 @@ class __QTableAgent:
         action_idx = self.get_action_index(action)
         return self.q_table[state_idx + (action_idx,)]
 
-    def get_action_probabilities(self, state: List[float], strategy: str = "greedy",
-                                 temperature: float = 1.0) -> np.ndarray:
+    def get_action_probabilities(
+        self, state: List[float], strategy: str = "greedy", temperature: float = 1.0
+    ) -> np.ndarray:
         """
         Get the action probabilities for a given state based on the strategy.
 
@@ -414,7 +470,9 @@ class __QTableAgent:
         if self.action_combination:
             total_actions = len(self.action_bins)  # Combined actions
         else:
-            total_actions = np.prod([len(bins) for bins in self.action_bins])  # Individual dimensions
+            total_actions = np.prod(
+                [len(bins) for bins in self.action_bins]
+            )  # Individual dimensions
 
         # Initialize Q-values for all actions
         q_values: np.ndarray = np.zeros(total_actions)
@@ -435,7 +493,9 @@ class __QTableAgent:
 
         return probabilities
 
-    def update_q_value(self, state: List[float], action: List[float], value: float) -> None:
+    def update_q_value(
+        self, state: List[float], action: List[float], value: float
+    ) -> None:
         """
         Update the Q-value for a given state and action.
 
@@ -447,8 +507,15 @@ class __QTableAgent:
         action_idx = self.get_action_index(action)
         self.q_table[state_idx + (action_idx,)] = value
 
-    def update(self, state: List[float], action: List[float], reward: float, next_state: List[float],
-               alpha: float = 0.1, gamma: float = 0.99) -> None:
+    def update(
+        self,
+        state: List[float],
+        action: List[float],
+        reward: float,
+        next_state: List[float],
+        alpha: float = 0.1,
+        gamma: float = 0.99,
+    ) -> None:
         """
         Update the Q-Table using the standard Q-Learning update rule.
 
@@ -472,7 +539,9 @@ class __QTableAgent:
 
         # Get next Q-values for all possible actions in the next state
         next_state_idx = self.get_state_index(next_state)
-        next_q_values = [self.q_table.get(next_state_idx + (a,), 0) for a in range(total_actions)]
+        next_q_values = [
+            self.q_table.get(next_state_idx + (a,), 0) for a in range(total_actions)
+        ]
         next_q = max(next_q_values)
 
         # Compute the Q-Learning target
@@ -486,9 +555,7 @@ class __QTableAgent:
         self.visit_counts[key] = self.visit_counts.get(key, 0) + 1
 
     def query_q_table(
-            self,
-            filters: List[Dict[str, Union[str, Any]]] = None,
-            logic: str = "AND"
+        self, filters: List[Dict[str, Union[str, Any]]] = None, logic: str = "AND"
     ) -> pd.DataFrame:
         """
         Query the Q-Table based on specified filters and return a filtered sub-table.
@@ -504,17 +571,21 @@ class __QTableAgent:
         # Prepare data for query
         data = []
         for key, q_value in self.q_table.items():
-            state_indices = key[:len(self.state_bins)]
-            action_indices = key[len(self.state_bins):]
+            state_indices = key[: len(self.state_bins)]
+            action_indices = key[len(self.state_bins) :]
 
             # Map state indices to values (only for continuous states)
             state_values = [
-                self.state_bins[dim][idx] if self.state_space[dim]["type"] == "continuous" else None
+                self.state_bins[dim][idx]
+                if self.state_space[dim]["type"] == "continuous"
+                else None
                 for dim, idx in enumerate(state_indices)
             ]
             # Map action indices to values (only for continuous actions)
             action_values = [
-                self.action_bins[dim][idx] if self.action_space[dim]["type"] == "continuous" else None
+                self.action_bins[dim][idx]
+                if self.action_space[dim]["type"] == "continuous"
+                else None
                 for dim, idx in enumerate(action_indices)
             ]
 
@@ -522,20 +593,28 @@ class __QTableAgent:
 
             # Append row to data
             data.append(
-                list(state_indices) +
-                list(filter(lambda x: x is not None, state_values)) +  # Only continuous state values
-                list(action_indices) +
-                list(filter(lambda x: x is not None, action_values)) +  # Only continuous action values
-                [q_value, visit_count]
+                list(state_indices)
+                + list(filter(lambda x: x is not None, state_values))
+                + list(action_indices)  # Only continuous state values
+                + list(filter(lambda x: x is not None, action_values))
+                + [q_value, visit_count]  # Only continuous action values
             )
 
         # Define column names
         column_names = (
-                [f"State_{i}_Index" for i in range(len(self.state_bins))] +
-                [f"State_{i}_Value" for i, dim in enumerate(self.state_space) if dim["type"] == "continuous"] +
-                [f"Action_{i}_Index" for i, dim in enumerate(self.action_space)] +
-                [f"Action_{i}_Value" for i, dim in enumerate(self.action_space) if dim["type"] == "continuous"] +
-                ["Q_Value", "Visit_Count"]
+            [f"State_{i}_Index" for i in range(len(self.state_bins))]
+            + [
+                f"State_{i}_Value"
+                for i, dim in enumerate(self.state_space)
+                if dim["type"] == "continuous"
+            ]
+            + [f"Action_{i}_Index" for i, dim in enumerate(self.action_space)]
+            + [
+                f"Action_{i}_Value"
+                for i, dim in enumerate(self.action_space)
+                if dim["type"] == "continuous"
+            ]
+            + ["Q_Value", "Visit_Count"]
         )
 
         # Convert to DataFrame
@@ -572,7 +651,9 @@ class __QTableAgent:
                 mask = filtered_df[field].isin(value)
             elif operator == "BETWEEN":
                 if not isinstance(value, tuple) or len(value) != 2:
-                    raise ValueError(f"BETWEEN operator requires a tuple of two values, got: {value}")
+                    raise ValueError(
+                        f"BETWEEN operator requires a tuple of two values, got: {value}"
+                    )
                 low, high = value
                 mask = (filtered_df[field] >= low) & (filtered_df[field] <= high)
             else:
@@ -594,11 +675,11 @@ class __QTableAgent:
 
     @classmethod
     def compute_action_probabilities(
-            cls,
-            df: pd.DataFrame,
-            strategy: str = "greedy",
-            epsilon: float = 0.0,
-            temperature: float = 1.0
+        cls,
+        df: pd.DataFrame,
+        strategy: str = "greedy",
+        epsilon: float = 0.0,
+        temperature: float = 1.0,
     ) -> pd.DataFrame:
         """
         Compute action probabilities for each state using the specified strategy, organize actions horizontally,
@@ -615,12 +696,20 @@ class __QTableAgent:
             raise ValueError("Invalid strategy. Use 'greedy' or 'softmax'.")
 
         # Extract state and action columns dynamically
-        state_index_columns = [col for col in df.columns if col.startswith("State_") and "Index" in col]
-        state_value_columns = [col for col in df.columns if col.startswith("State_") and "Value" in col]
-        action_index_columns = [col for col in df.columns if col.startswith("Action_") and "Index" in col]
+        state_index_columns = [
+            col for col in df.columns if col.startswith("State_") and "Index" in col
+        ]
+        state_value_columns = [
+            col for col in df.columns if col.startswith("State_") and "Value" in col
+        ]
+        action_index_columns = [
+            col for col in df.columns if col.startswith("Action_") and "Index" in col
+        ]
 
         if not action_index_columns:
-            raise ValueError("No valid action index columns detected in the input DataFrame.")
+            raise ValueError(
+                "No valid action index columns detected in the input DataFrame."
+            )
 
         # Group by unique state and calculate probabilities for each action
         grouped = df.groupby(state_index_columns + state_value_columns)
@@ -635,14 +724,19 @@ class __QTableAgent:
             f"{'_'.join(f'{col}_{value}' for col, value in zip(action_index_columns, action))}_Probability"
             for action in all_action_indices
         ]
-        new_columns = state_index_columns + state_value_columns + action_column_names + ["Visit_Count"]
+        new_columns = (
+            state_index_columns
+            + state_value_columns
+            + action_column_names
+            + ["Visit_Count"]
+        )
 
         new_data = []
 
         for group_keys, group in grouped:
             # Dynamically unpack state indices and values
-            state_indices = group_keys[:len(state_index_columns)]
-            state_values = group_keys[len(state_index_columns):]
+            state_indices = group_keys[: len(state_index_columns)]
+            state_values = group_keys[len(state_index_columns) :]
 
             q_values = group["Q_Value"].values
             actions = group[action_index_columns].to_numpy()
@@ -656,7 +750,9 @@ class __QTableAgent:
                     action_tuple = tuple(action)
                     action_idx = all_action_indices.index(action_tuple)
                     probabilities[action_idx] = epsilon / len(all_action_indices)
-                probabilities[all_action_indices.index(tuple(actions[best_action_idx]))] += 1.0 - epsilon
+                probabilities[
+                    all_action_indices.index(tuple(actions[best_action_idx]))
+                ] += (1.0 - epsilon)
             elif strategy == "softmax":
                 exp_q_values = np.exp(q_values / temperature)
                 softmax_probs = exp_q_values / np.sum(exp_q_values)
@@ -667,7 +763,12 @@ class __QTableAgent:
                     probabilities[action_idx] = softmax_probs[i]
 
             # Append state, action probabilities, and visit count as one row
-            row = list(state_indices) + list(state_values) + list(probabilities) + [visit_count]
+            row = (
+                list(state_indices)
+                + list(state_values)
+                + list(probabilities)
+                + [visit_count]
+            )
             new_data.append(row)
 
         # Create and return the new DataFrame
@@ -676,10 +777,10 @@ class __QTableAgent:
 
     @staticmethod
     def compute_mutual_information(
-            df: pd.DataFrame,
-            group1_columns: Union[str, List[str]],
-            group2_columns: Optional[Union[str, List[str]]] = None,
-            use_visit_count: bool = False
+        df: pd.DataFrame,
+        group1_columns: Union[str, List[str]],
+        group2_columns: Optional[Union[str, List[str]]] = None,
+        use_visit_count: bool = False,
     ) -> float:
         """
         Compute mutual information (MI) between two groups of features or between features and actions.
@@ -712,16 +813,22 @@ class __QTableAgent:
             full_action_columns = []
             for base_col in group2_columns:
                 matching_columns = [
-                    col for col in df.columns if col.startswith(base_col) and "_Probability" in col
+                    col
+                    for col in df.columns
+                    if col.startswith(base_col) and "_Probability" in col
                 ]
                 if not matching_columns:
-                    raise ValueError(f"Invalid or missing action columns for base: {base_col}")
+                    raise ValueError(
+                        f"Invalid or missing action columns for base: {base_col}"
+                    )
                 full_action_columns.extend(matching_columns)
             group2_columns = full_action_columns
 
         # Check for visit counts if `use_visit_count` is enabled
         if use_visit_count and "count" not in df.columns:
-            raise ValueError("Visit count column ('count') is required when 'use_visit_count=True'.")
+            raise ValueError(
+                "Visit count column ('count') is required when 'use_visit_count=True'."
+            )
 
         # Normalize probabilities, optionally weighted by visit counts
         if use_visit_count:
@@ -740,10 +847,16 @@ class __QTableAgent:
 
         # Compute joint probability P(Group1, Group2)
         if is_action_group:
-            joint_prob = df.groupby(group1_columns, as_index=False)[group2_columns].sum()
+            joint_prob = df.groupby(group1_columns, as_index=False)[
+                group2_columns
+            ].sum()
         else:
             # For feature groups, compute joint probabilities using Visit_Prob
-            joint_prob = df.groupby(group1_columns + group2_columns)["Visit_Prob"].sum().reset_index()
+            joint_prob = (
+                df.groupby(group1_columns + group2_columns)["Visit_Prob"]
+                .sum()
+                .reset_index()
+            )
             joint_prob.rename(columns={"Visit_Prob": "P(Group1,Group2)"}, inplace=True)
 
         # Compute marginal probabilities P(Group1) and P(Group2)
@@ -752,11 +865,23 @@ class __QTableAgent:
             marginal_group2_prob = df[group2_columns].sum()
         else:
             # For feature groups, compute marginals
-            marginal_group1_prob = joint_prob.groupby(group1_columns)["P(Group1,Group2)"].sum().reset_index()
-            marginal_group1_prob.rename(columns={"P(Group1,Group2)": "P(Group1)"}, inplace=True)
+            marginal_group1_prob = (
+                joint_prob.groupby(group1_columns)["P(Group1,Group2)"]
+                .sum()
+                .reset_index()
+            )
+            marginal_group1_prob.rename(
+                columns={"P(Group1,Group2)": "P(Group1)"}, inplace=True
+            )
 
-            marginal_group2_prob = joint_prob.groupby(group2_columns)["P(Group1,Group2)"].sum().reset_index()
-            marginal_group2_prob.rename(columns={"P(Group1,Group2)": "P(Group2)"}, inplace=True)
+            marginal_group2_prob = (
+                joint_prob.groupby(group2_columns)["P(Group1,Group2)"]
+                .sum()
+                .reset_index()
+            )
+            marginal_group2_prob.rename(
+                columns={"P(Group1,Group2)": "P(Group2)"}, inplace=True
+            )
 
         # Merge joint and marginal probabilities
         if not is_action_group:
@@ -853,10 +978,10 @@ class __QTableAgent:
 
     @staticmethod
     def compute_average_kl_divergence_between_dfs(
-            df1: pd.DataFrame,
-            df2: pd.DataFrame,
-            visit_threshold: int = 0,
-            weighted_by_visitation: bool = False
+        df1: pd.DataFrame,
+        df2: pd.DataFrame,
+        visit_threshold: int = 0,
+        weighted_by_visitation: bool = False,
     ) -> float:
         """
         Compute the average KL divergence between action distributions in two DataFrames for shared states.
@@ -869,22 +994,30 @@ class __QTableAgent:
         :return: The average KL divergence for shared states based on action distributions.
         """
         # Identify the state columns
-        state_columns = [col for col in df1.columns if col.startswith("State_") and "Index" in col]
+        state_columns = [
+            col for col in df1.columns if col.startswith("State_") and "Index" in col
+        ]
 
         # Identify action probability columns in both DataFrames
-        action_prob_columns_df1 = [col for col in df1.columns if col.endswith("_Probability")]
-        action_prob_columns_df2 = [col for col in df2.columns if col.endswith("_Probability")]
+        action_prob_columns_df1 = [
+            col for col in df1.columns if col.endswith("_Probability")
+        ]
+        action_prob_columns_df2 = [
+            col for col in df2.columns if col.endswith("_Probability")
+        ]
 
         # Ensure the action columns match between the two DataFrames
         if set(action_prob_columns_df1) != set(action_prob_columns_df2):
-            raise ValueError("Action probability columns do not match between the two DataFrames.")
+            raise ValueError(
+                "Action probability columns do not match between the two DataFrames."
+            )
 
         # Merge the two DataFrames on state columns
         merged_df = pd.merge(
             df1[state_columns + action_prob_columns_df1 + ["Visit_Count"]],
             df2[state_columns + action_prob_columns_df2],
             on=state_columns,
-            suffixes=("_df1", "_df2")
+            suffixes=("_df1", "_df2"),
         )
 
         # Apply visit threshold filter based on df1
@@ -922,10 +1055,13 @@ class __QTableAgent:
 
         # Compute and return the average KL divergence
         if weighted_by_visitation:
-            visitation_weights = np.array(visitation_weights) / np.sum(visitation_weights)  # Normalize weights
-            average_kl_divergence = np.sum(np.array(kl_divergences) * visitation_weights)
+            visitation_weights = np.array(visitation_weights) / np.sum(
+                visitation_weights
+            )  # Normalize weights
+            average_kl_divergence = np.sum(
+                np.array(kl_divergences) * visitation_weights
+            )
         else:
             average_kl_divergence = np.mean(kl_divergences)
 
         return average_kl_divergence
-

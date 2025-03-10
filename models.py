@@ -7,13 +7,13 @@ from losses import FlexibleThresholdedLoss
 
 class SimpleTransitionModel(nn.Module):
     def __init__(
-            self,
-            obs_dim: int,
-            action_dim: int,
-            network_layers: list = None,
-            dropout: float = 0.0,
-            lr: float = 1e-4,
-            device=torch.device("cpu"),
+        self,
+        obs_dim: int,
+        action_dim: int,
+        network_layers: list = None,
+        dropout: float = 0.0,
+        lr: float = 1e-4,
+        device=torch.device("cpu"),
     ):
         """
         A simple fully connected neural network for transition modeling.
@@ -50,11 +50,12 @@ class SimpleTransitionModel(nn.Module):
         self.feature_extractor = nn.Sequential(*layers)
 
         # Separate heads for predicting next state, reward, and terminal
-        self.next_state_head = nn.Linear(self.network_layers[-1], obs_dim)  # Next state prediction
+        self.next_state_head = nn.Linear(
+            self.network_layers[-1], obs_dim
+        )  # Next state prediction
         self.reward_head = nn.Linear(self.network_layers[-1], 1)  # Reward prediction
         self.terminal_head = nn.Sequential(
-            nn.Linear(self.network_layers[-1], 1),  # Terminal prediction
-            nn.Sigmoid()
+            nn.Linear(self.network_layers[-1], 1), nn.Sigmoid()  # Terminal prediction
         )
 
         self.optimizer = torch.optim.Adam(self.parameters(), lr=lr)
@@ -81,18 +82,36 @@ class SimpleTransitionModel(nn.Module):
         terminal = self.terminal_head(features)
         return next_state, reward, terminal
 
-    def train_batch(self, batch, recon_weight=1.0, reward_weight=1.0, termination_weight=1.0,):
+    def train_batch(
+        self,
+        batch,
+        recon_weight=1.0,
+        reward_weight=1.0,
+        termination_weight=1.0,
+    ):
         self.train()
 
         # Convert batch data to tensors
         true_obs = torch.tensor(batch["state"], dtype=torch.float32, device=self.device)
-        next_obs = torch.tensor(batch["next_state"], dtype=torch.float32, device=self.device)
-        true_actions = torch.tensor(batch["action"], dtype=torch.float32, device=self.device)
-        true_rewards = torch.tensor(batch["reward"], dtype=torch.float32, device=self.device)
-        true_terminations = torch.tensor(batch["terminal"], dtype=torch.float32, device=self.device)
+        next_obs = torch.tensor(
+            batch["next_state"], dtype=torch.float32, device=self.device
+        )
+        true_actions = torch.tensor(
+            batch["action"], dtype=torch.float32, device=self.device
+        )
+        true_rewards = torch.tensor(
+            batch["reward"], dtype=torch.float32, device=self.device
+        )
+        true_terminations = torch.tensor(
+            batch["terminal"], dtype=torch.float32, device=self.device
+        )
         masks = torch.tensor(batch["mask"], dtype=torch.float32, device=self.device)
 
-        batch_size, seq_len, _, = true_obs.size()
+        (
+            batch_size,
+            seq_len,
+            _,
+        ) = true_obs.size()
         time_weights = torch.linspace(1.0, 0.1, steps=seq_len, device=self.device)
 
         # Initialize loss accumulators as tensors
@@ -105,15 +124,29 @@ class SimpleTransitionModel(nn.Module):
             next_state, reward, terminal = self.forward(state, true_actions[:, t])
 
             # Reconstruction loss against next observation
-            recon_loss += F.mse_loss(
-                next_state * masks[:, t].unsqueeze(-1).unsqueeze(-1), next_obs[:, t] * masks[:, t].unsqueeze(-1).unsqueeze(-1)
-            ) * time_weights[t]
-            reward_loss += F.mse_loss(
-                reward.squeeze() * masks[:, t].unsqueeze(-1), true_rewards[:, t] * masks[:, t].unsqueeze(-1), reduction="mean"
-            ) * time_weights[t]
-            termination_loss += F.binary_cross_entropy_with_logits(
-                terminal.squeeze() * masks[:, t].unsqueeze(-1), true_terminations[:, t] * masks[:, t].unsqueeze(-1), reduction="mean"
-            ) * time_weights[t]
+            recon_loss += (
+                F.mse_loss(
+                    next_state * masks[:, t].unsqueeze(-1).unsqueeze(-1),
+                    next_obs[:, t] * masks[:, t].unsqueeze(-1).unsqueeze(-1),
+                )
+                * time_weights[t]
+            )
+            reward_loss += (
+                F.mse_loss(
+                    reward.squeeze() * masks[:, t].unsqueeze(-1),
+                    true_rewards[:, t] * masks[:, t].unsqueeze(-1),
+                    reduction="mean",
+                )
+                * time_weights[t]
+            )
+            termination_loss += (
+                F.binary_cross_entropy_with_logits(
+                    terminal.squeeze() * masks[:, t].unsqueeze(-1),
+                    true_terminations[:, t] * masks[:, t].unsqueeze(-1),
+                    reduction="mean",
+                )
+                * time_weights[t]
+            )
             state = next_state
 
         # Total loss
@@ -139,10 +172,19 @@ class SimpleTransitionModel(nn.Module):
 class ResidualBlock(nn.Module):
     def __init__(self, in_channels, out_channels, stride=1, downsample=None):
         super(ResidualBlock, self).__init__()
-        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=False)
+        self.conv1 = nn.Conv2d(
+            in_channels,
+            out_channels,
+            kernel_size=3,
+            stride=stride,
+            padding=1,
+            bias=False,
+        )
         self.bn1 = nn.InstanceNorm2d(out_channels, affine=True)
         self.relu = nn.LeakyReLU()
-        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=False)
+        self.conv2 = nn.Conv2d(
+            out_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=False
+        )
         self.bn2 = nn.InstanceNorm2d(out_channels, affine=True)
         self.downsample = downsample
         self.stride = stride
@@ -166,18 +208,28 @@ class ResidualBlock(nn.Module):
 
 
 class Encoder(nn.Module):
-    def __init__(self, in_channels: int, latent_dim: int, hidden_net_dims: list = None, input_size=(60, 80)):
+    def __init__(
+        self,
+        in_channels: int,
+        latent_dim: int,
+        hidden_net_dims: list = None,
+        input_size=(60, 80),
+    ):
         super(Encoder, self).__init__()
         self.latent_dim = latent_dim
         self.input_height, self.input_width = input_size
-        self.hidden_net_dims = hidden_net_dims if hidden_net_dims else [64, 128, 256, 512, 1024]
+        self.hidden_net_dims = (
+            hidden_net_dims if hidden_net_dims else [64, 128, 256, 512, 1024]
+        )
 
         # Encoder layers
         self.encoder = self.build_encoder(in_channels)
 
         # Dynamically compute flattened dimension
         with torch.no_grad():
-            dummy_input = torch.zeros(1, in_channels, self.input_height, self.input_width)
+            dummy_input = torch.zeros(
+                1, in_channels, self.input_height, self.input_width
+            )
             encoder_output = self.encoder(dummy_input)
             self.encoder_output_channels = encoder_output.shape[1]
             self.encoder_output_height = encoder_output.shape[2]
@@ -192,21 +244,31 @@ class Encoder(nn.Module):
             downsample = nn.Sequential(
                 nn.Conv2d(in_channels, h_dim, kernel_size=1, stride=2, bias=False),
                 nn.InstanceNorm2d(h_dim, affine=True),
-                nn.LeakyReLU()
+                nn.LeakyReLU(),
             )
-            layers.append(ResidualBlock(in_channels, h_dim, stride=2, downsample=downsample))
+            layers.append(
+                ResidualBlock(in_channels, h_dim, stride=2, downsample=downsample)
+            )
             in_channels = h_dim
         return nn.Sequential(*layers)
 
     def forward(self, x):
         x = self.encoder(x)
         x = torch.flatten(x, start_dim=1)
-        latent = torch.tanh(self.fc(x))  # Remove log_var, only return latent representation
+        latent = torch.tanh(
+            self.fc(x)
+        )  # Remove log_var, only return latent representation
         return latent
 
 
 class Decoder(nn.Module):
-    def __init__(self, latent_dim: int, out_channels: int, hidden_net_dims: list, input_size=(60, 80)):
+    def __init__(
+        self,
+        latent_dim: int,
+        out_channels: int,
+        hidden_net_dims: list,
+        input_size=(60, 80),
+    ):
         """
         Decoder to reconstruct observations from latent representations.
 
@@ -219,7 +281,9 @@ class Decoder(nn.Module):
         super(Decoder, self).__init__()
         self.latent_dim = latent_dim
         self.out_channels = out_channels
-        self.hidden_net_dims = hidden_net_dims[::-1]  # Reverse the dimensions for decoding
+        self.hidden_net_dims = hidden_net_dims[
+            ::-1
+        ]  # Reverse the dimensions for decoding
         self.input_height, self.input_width = input_size
 
         # Compute the starting height and width of the decoder feature map
@@ -227,7 +291,9 @@ class Decoder(nn.Module):
         self.start_width = self.input_width // (2 ** len(self.hidden_net_dims))
 
         # Input layer to map latent vector to initial feature map
-        self.decoder_input = nn.Linear(latent_dim, self.hidden_net_dims[0] * self.start_height * self.start_width)
+        self.decoder_input = nn.Linear(
+            latent_dim, self.hidden_net_dims[0] * self.start_height * self.start_width
+        )
 
         # Build decoder layers
         self.decoder = self.build_decoder()
@@ -235,7 +301,7 @@ class Decoder(nn.Module):
         # Final adjustment layer to match the output dimensions
         self.final_layer = nn.Sequential(
             nn.Conv2d(self.hidden_net_dims[-1], out_channels, kernel_size=3, padding=1),
-            nn.Tanh()
+            nn.Tanh(),
         )
 
     def build_decoder(self):
@@ -243,12 +309,21 @@ class Decoder(nn.Module):
         for i in range(len(self.hidden_net_dims) - 1):
             layers.append(
                 nn.Sequential(
-                    nn.ConvTranspose2d(self.hidden_net_dims[i], self.hidden_net_dims[i + 1], kernel_size=3, stride=2, padding=1, output_padding=1),
+                    nn.ConvTranspose2d(
+                        self.hidden_net_dims[i],
+                        self.hidden_net_dims[i + 1],
+                        kernel_size=3,
+                        stride=2,
+                        padding=1,
+                        output_padding=1,
+                    ),
                     nn.InstanceNorm2d(self.hidden_net_dims[i + 1], affine=True),
-                    nn.LeakyReLU()
+                    nn.LeakyReLU(),
                 )
             )
-            layers.append(ResidualBlock(self.hidden_net_dims[i + 1], self.hidden_net_dims[i + 1]))
+            layers.append(
+                ResidualBlock(self.hidden_net_dims[i + 1], self.hidden_net_dims[i + 1])
+            )
         return nn.Sequential(*layers)
 
     def forward(self, z):
@@ -263,13 +338,20 @@ class Decoder(nn.Module):
 
         # Map latent vector to initial feature map
         x = self.decoder_input(z)
-        x = x.view(batch_size, self.hidden_net_dims[0], self.start_height, self.start_width)
+        x = x.view(
+            batch_size, self.hidden_net_dims[0], self.start_height, self.start_width
+        )
 
         # Pass through decoder layers
         x = self.decoder(x)
 
         # Upsample to the original input size and apply final adjustment layer
-        x = nn.functional.interpolate(x, size=(self.input_height, self.input_width), mode="bilinear", align_corners=False)
+        x = nn.functional.interpolate(
+            x,
+            size=(self.input_height, self.input_width),
+            mode="bilinear",
+            align_corners=False,
+        )
         x = self.final_layer(x)
         return x
 
@@ -281,7 +363,10 @@ class RSSM(nn.Module):
         self.rnn_hidden_dim = rnn_hidden_dim
 
         # RNN
-        self.rnn = nn.GRUCell(latent_dim, rnn_hidden_dim,)
+        self.rnn = nn.GRUCell(
+            latent_dim,
+            rnn_hidden_dim,
+        )
 
         # State-Action MLP
         self.state_action_fc = nn.Sequential(
@@ -326,7 +411,9 @@ class RSSM(nn.Module):
         Returns:
             prior_mean, prior_log_var, post_mean, post_log_var, rnn_hidden
         """
-        x = torch.cat([latents, actions], dim=-1)  # (batch_size, seq_len, latent_dim + action_dim)
+        x = torch.cat(
+            [latents, actions], dim=-1
+        )  # (batch_size, seq_len, latent_dim + action_dim)
         x = self.state_action_fc(x)
         rnn_output = self.rnn(x, rnn_hidden)  # (batch_size, seq_len, rnn_hidden_dim)
 
@@ -347,7 +434,6 @@ class RSSM(nn.Module):
         return prior_mean, prior_log_var, post_mean, post_log_var, rnn_hidden
 
 
-
 class MultiHeadPredictor(nn.Module):
     def __init__(self, rnn_hidden_dim, hidden_dim=128):
         """
@@ -363,14 +449,13 @@ class MultiHeadPredictor(nn.Module):
 
         # Reward prediction head
         self.reward_head = nn.Sequential(
-            nn.LeakyReLU(),
-            nn.Linear(hidden_dim, 1)  # Output 1 scalar for reward
+            nn.LeakyReLU(), nn.Linear(hidden_dim, 1)  # Output 1 scalar for reward
         )
 
         # Termination prediction head
         self.termination_head = nn.Sequential(
             nn.LeakyReLU(),
-            nn.Linear(hidden_dim, 1)  # Output 1 scalar for termination flag
+            nn.Linear(hidden_dim, 1),  # Output 1 scalar for termination flag
         )
 
     def forward(self, rnn_hidden):
@@ -395,13 +480,13 @@ class MultiHeadPredictor(nn.Module):
 
 class WorldModel(nn.Module):
     def __init__(
-            self,
-            encoder: Encoder,
-            decoder: Decoder,
-            rssm: RSSM,
-            predictor: MultiHeadPredictor,
-            lr: float = 1e-4,
-            device: torch.device = "cpu",
+        self,
+        encoder: Encoder,
+        decoder: Decoder,
+        rssm: RSSM,
+        predictor: MultiHeadPredictor,
+        lr: float = 1e-4,
+        device: torch.device = "cpu",
     ):
         super(WorldModel, self).__init__()
         self.encoder = encoder
@@ -413,7 +498,7 @@ class WorldModel(nn.Module):
         self.pixel_loss = FlexibleThresholdedLoss(
             use_mse_threshold=True,
             use_mae_threshold=True,
-            reduction='mean',
+            reduction="mean",
             l1_weight=1.0,
             l2_weight=1.0,
             threshold_weight=1.0,
@@ -423,8 +508,17 @@ class WorldModel(nn.Module):
         )
         self.to(device)
 
-    def train_batch(self, batch, start_t=3, recon_weight=1.0, kl_dyn_weight=1.0, kl_rep_weight=0.1, reward_weight=1.0,
-                    termination_weight=1.0, kl_min=1.0):
+    def train_batch(
+        self,
+        batch,
+        start_t=3,
+        recon_weight=1.0,
+        kl_dyn_weight=1.0,
+        kl_rep_weight=0.1,
+        reward_weight=1.0,
+        termination_weight=1.0,
+        kl_min=1.0,
+    ):
         """
         Train the world model on a single batch.
 
@@ -449,22 +543,26 @@ class WorldModel(nn.Module):
         """
         # Convert batch data to tensors
         true_obs = torch.tensor(batch["state"], dtype=torch.float32, device=self.device)
-        next_obs = torch.tensor(batch["next_state"], dtype=torch.float32, device=self.device)
-        true_actions = torch.tensor(batch["action"], dtype=torch.float32, device=self.device)
-        true_rewards = torch.tensor(batch["reward"], dtype=torch.float32, device=self.device)
-        true_terminations = torch.tensor(batch["terminal"], dtype=torch.float32, device=self.device)
+        next_obs = torch.tensor(
+            batch["next_state"], dtype=torch.float32, device=self.device
+        )
+        true_actions = torch.tensor(
+            batch["action"], dtype=torch.float32, device=self.device
+        )
+        true_rewards = torch.tensor(
+            batch["reward"], dtype=torch.float32, device=self.device
+        )
+        true_terminations = torch.tensor(
+            batch["terminal"], dtype=torch.float32, device=self.device
+        )
         masks = torch.tensor(batch["mask"], dtype=torch.float32, device=self.device)
 
         # Initialize RNN hidden state
         rnn_hidden = torch.zeros(
-            true_obs.size(0),  # Batch size
-            self.rssm.rnn_hidden_dim,
-            device=self.device
+            true_obs.size(0), self.rssm.rnn_hidden_dim, device=self.device  # Batch size
         )
         sampled_latent = torch.zeros(
-            true_obs.size(0),  # Batch size
-            self.rssm.latent_dim,
-            device=self.device
+            true_obs.size(0), self.rssm.latent_dim, device=self.device  # Batch size
         )
 
         batch_size, seq_len, _, _, _ = true_obs.size()
@@ -486,7 +584,9 @@ class WorldModel(nn.Module):
         # Define time decay weights
         time_weights = torch.ones(seq_len, device=self.device)
         if seq_len > start_t:
-            time_weights[start_t:] = torch.linspace(1.0, 0.1, steps=seq_len - start_t, device=self.device)
+            time_weights[start_t:] = torch.linspace(
+                1.0, 0.1, steps=seq_len - start_t, device=self.device
+            )
 
         for t in range(seq_len):
             # Encode the current observation
@@ -501,20 +601,38 @@ class WorldModel(nn.Module):
             )
 
             # Reparameterize to sample latent
-            sampled_latent = self.rssm.reparameterize(post_mean.squeeze(1), post_log_var.squeeze(1))
+            sampled_latent = self.rssm.reparameterize(
+                post_mean.squeeze(1), post_log_var.squeeze(1)
+            )
 
             # Decode reconstructed observation
             combined_latent = torch.cat([sampled_latent, rnn_hidden], dim=1)
             recon_obs = self.decoder(combined_latent)
 
             # Reconstruction loss against next observation
-            recon_loss += self.pixel_loss(recon_obs * masks[:, t].unsqueeze(-1).unsqueeze(-1).unsqueeze(-1), next_obs[:, t] * masks[:, t].unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)) * time_weights[t]
+            recon_loss += (
+                self.pixel_loss(
+                    recon_obs * masks[:, t].unsqueeze(-1).unsqueeze(-1).unsqueeze(-1),
+                    next_obs[:, t]
+                    * masks[:, t].unsqueeze(-1).unsqueeze(-1).unsqueeze(-1),
+                )
+                * time_weights[t]
+            )
 
             # Compute dynamic KL loss
-            kl_dyn = -0.5 * torch.sum(
-                (1 + prior_log_var.squeeze(1) - post_mean.pow(2) - prior_log_var.exp()) * masks[:, t].unsqueeze(-1),
-                dim=-1,
-            ).mean()
+            kl_dyn = (
+                -0.5
+                * torch.sum(
+                    (
+                        1
+                        + prior_log_var.squeeze(1)
+                        - post_mean.pow(2)
+                        - prior_log_var.exp()
+                    )
+                    * masks[:, t].unsqueeze(-1),
+                    dim=-1,
+                ).mean()
+            )
             kl_dyn_loss_raw += kl_dyn
             if kl_dyn.item() > kl_min:
                 kl_dyn_loss += kl_dyn * time_weights[t]
@@ -522,10 +640,19 @@ class WorldModel(nn.Module):
                 kl_dyn_loss += 0.0
 
             # Compute representation KL loss
-            kl_rep = -0.5 * torch.sum(
-                (1 + post_log_var.squeeze(1) - prior_mean.pow(2) - post_log_var.exp()) * masks[:, t].unsqueeze(-1),
-                dim=-1,
-            ).mean()
+            kl_rep = (
+                -0.5
+                * torch.sum(
+                    (
+                        1
+                        + post_log_var.squeeze(1)
+                        - prior_mean.pow(2)
+                        - post_log_var.exp()
+                    )
+                    * masks[:, t].unsqueeze(-1),
+                    dim=-1,
+                ).mean()
+            )
             kl_rep_loss_raw += kl_rep
             if kl_rep.item() > kl_min:
                 kl_rep_loss += kl_rep * time_weights[t]
@@ -535,12 +662,26 @@ class WorldModel(nn.Module):
             # Multi-head predictor losses
             predicted_reward, predicted_termination = self.predictor(combined_latent)
 
-            reward_loss += F.mse_loss(
-                predicted_reward * masks[:, t].unsqueeze(-1).unsqueeze(-1).unsqueeze(-1), true_rewards[:, t].squeeze() * masks[:, t].unsqueeze(-1).unsqueeze(-1).unsqueeze(-1), reduction="mean"
-            ) * time_weights[t]
-            termination_loss += F.binary_cross_entropy_with_logits(
-                predicted_termination * masks[:, t].unsqueeze(-1).unsqueeze(-1).unsqueeze(-1), true_terminations[:, t].squeeze() * masks[:, t].unsqueeze(-1).unsqueeze(-1).unsqueeze(-1), reduction="mean"
-            ) * time_weights[t]
+            reward_loss += (
+                F.mse_loss(
+                    predicted_reward
+                    * masks[:, t].unsqueeze(-1).unsqueeze(-1).unsqueeze(-1),
+                    true_rewards[:, t].squeeze()
+                    * masks[:, t].unsqueeze(-1).unsqueeze(-1).unsqueeze(-1),
+                    reduction="mean",
+                )
+                * time_weights[t]
+            )
+            termination_loss += (
+                F.binary_cross_entropy_with_logits(
+                    predicted_termination
+                    * masks[:, t].unsqueeze(-1).unsqueeze(-1).unsqueeze(-1),
+                    true_terminations[:, t].squeeze()
+                    * masks[:, t].unsqueeze(-1).unsqueeze(-1).unsqueeze(-1),
+                    reduction="mean",
+                )
+                * time_weights[t]
+            )
 
         # Normalize losses by sequence length
         # recon_loss /= seq_len
@@ -553,11 +694,11 @@ class WorldModel(nn.Module):
 
         # Total loss
         total_loss = (
-                recon_weight * recon_loss
-                + kl_dyn_weight * kl_dyn_loss
-                + kl_rep_weight * kl_rep_loss
-                + reward_weight * reward_loss
-                + termination_weight * termination_loss
+            recon_weight * recon_loss
+            + kl_dyn_weight * kl_dyn_loss
+            + kl_rep_weight * kl_rep_loss
+            + reward_weight * reward_loss
+            + termination_weight * termination_loss
         )
 
         # Backpropagation

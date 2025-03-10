@@ -1,4 +1,4 @@
-if __name__ == '__main__':
+if __name__ == "__main__":
     from scipy.ndimage import gaussian_filter1d
     import plotly.graph_objs as go
     import plotly.subplots as sp
@@ -21,7 +21,7 @@ if __name__ == '__main__':
                 "input_dims": 4,
                 "hidden_layers": [64, 64],
                 "max_q_value_abs": 500.0,
-                "replay_buffer_size": 16384*4,
+                "replay_buffer_size": 16384 * 4,
                 "batch_size": 32,
                 "train_epochs": 10,
                 "device": "cuda",
@@ -43,9 +43,15 @@ if __name__ == '__main__':
                 "bins": [16, 32, 32, 32],
             },
             "action_space": {
-                "ranges": [(0, 1), ],
-                "bins": [0, ],
-                "nums": [2, ],
+                "ranges": [
+                    (0, 1),
+                ],
+                "bins": [
+                    0,
+                ],
+                "nums": [
+                    2,
+                ],
             },
             "alpha": 1e-4,
             "gamma": 0.99,
@@ -62,7 +68,7 @@ if __name__ == '__main__':
                 "input_dims": 4,
                 "hidden_layers": [64, 64],
                 "max_q_value_abs": 500.0,
-                "replay_buffer_size": 16384*4,
+                "replay_buffer_size": 16384 * 4,
                 "batch_size": 32,
                 "train_epochs": 10,
                 "device": "cuda",
@@ -84,9 +90,15 @@ if __name__ == '__main__':
                 "bins": [16, 32, 32, 32],
             },
             "action_space": {
-                "ranges": [(0, 1), ],
-                "bins": [0, ],
-                "nums": [2, ],
+                "ranges": [
+                    (0, 1),
+                ],
+                "bins": [
+                    0,
+                ],
+                "nums": [
+                    2,
+                ],
             },
             "alpha": 1e-4,
             "gamma": 0.99,
@@ -103,7 +115,7 @@ if __name__ == '__main__':
                 "input_dims": 4,
                 "hidden_layers": [64, 64],
                 "max_q_value_abs": 500.0,
-                "replay_buffer_size": 16384*4,
+                "replay_buffer_size": 16384 * 4,
                 "batch_size": 32,
                 "train_epochs": 10,
                 "device": "cuda",
@@ -125,9 +137,15 @@ if __name__ == '__main__':
                 "bins": [16, 32, 32, 32],
             },
             "action_space": {
-                "ranges": [(0, 1), ],
-                "bins": [0, ],
-                "nums": [2, ],
+                "ranges": [
+                    (0, 1),
+                ],
+                "bins": [
+                    0,
+                ],
+                "nums": [
+                    2,
+                ],
             },
             "alpha": 1e-4,
             "gamma": 0.99,
@@ -144,7 +162,7 @@ if __name__ == '__main__':
                 "input_dims": 4,
                 "hidden_layers": [64, 64],
                 "max_q_value_abs": 500.0,
-                "replay_buffer_size": 16384*4,
+                "replay_buffer_size": 16384 * 4,
                 "batch_size": 32,
                 "train_epochs": 10,
                 "device": "cuda",
@@ -166,9 +184,15 @@ if __name__ == '__main__':
                 "bins": [16, 32, 32, 32],
             },
             "action_space": {
-                "ranges": [(0, 1), ],
-                "bins": [0, ],
-                "nums": [2, ],
+                "ranges": [
+                    (0, 1),
+                ],
+                "bins": [
+                    0,
+                ],
+                "nums": [
+                    2,
+                ],
             },
             "alpha": 1e-4,
             "gamma": 0.99,
@@ -185,15 +209,28 @@ if __name__ == '__main__':
 
     # Define color map to ensure consistent colors across figures
     color_map = {}
-    colors = ['rgba(31, 119, 180, 1)', 'rgba(255, 127, 14, 1)', 'rgba(44, 160, 44, 1)', 'rgba(214, 39, 40, 1)',
-              'rgba(148, 103, 189, 1)', 'rgba(140, 86, 75, 1)', 'rgba(227, 119, 194, 1)', 'rgba(127, 127, 127, 1)',
-              'rgba(188, 189, 34, 1)', 'rgba(23, 190, 207, 1)']
+    colors = [
+        "rgba(31, 119, 180, 1)",
+        "rgba(255, 127, 14, 1)",
+        "rgba(44, 160, 44, 1)",
+        "rgba(214, 39, 40, 1)",
+        "rgba(148, 103, 189, 1)",
+        "rgba(140, 86, 75, 1)",
+        "rgba(227, 119, 194, 1)",
+        "rgba(127, 127, 127, 1)",
+        "rgba(188, 189, 34, 1)",
+        "rgba(23, 190, 207, 1)",
+    ]
 
     # Create a figure object for average rewards
-    fig = sp.make_subplots(rows=1, cols=1, subplot_titles=["Training Results Across Experiment Groups"])
+    fig = sp.make_subplots(
+        rows=1, cols=1, subplot_titles=["Training Results Across Experiment Groups"]
+    )
 
-    for i, (group_name, (avg_rewards, std_rewards, avg_kls, std_kls, steps, avg_test_reward)) in enumerate(
-            aggregated_results.items()):
+    for i, (
+        group_name,
+        (avg_rewards, std_rewards, avg_kls, std_kls, steps, avg_test_reward),
+    ) in enumerate(aggregated_results.items()):
         # Assign color for each group
         if group_name not in color_map:
             color_map[group_name] = colors[i % len(colors)]
@@ -208,32 +245,33 @@ if __name__ == '__main__':
         trace = go.Scatter(
             x=steps,
             y=avg_rewards_smoothed,
-            mode='lines+markers',
-            name=f'{group_name} Smoothed Training Avg',
-            line_shape='spline',  # Smooth curve
-            line=dict(color=color)
+            mode="lines+markers",
+            name=f"{group_name} Smoothed Training Avg",
+            line_shape="spline",  # Smooth curve
+            line=dict(color=color),
         )
 
         # Plot standard deviation area
         trace_std = go.Scatter(
             x=list(steps) + list(steps)[::-1],
-            y=[v + s for v, s in zip(avg_rewards_smoothed, std_rewards_smoothed)] + [v - s for v, s in
-                                                                                     zip(avg_rewards_smoothed,
-                                                                                         std_rewards_smoothed)][::-1],
-            fill='toself',
-            fillcolor=color.replace('1)', '0.2)'),  # Adjust alpha for fill color
-            line=dict(color='rgba(255,255,255,0)'),
-            name=f'{group_name} Training Std Dev',
-            showlegend=False
+            y=[v + s for v, s in zip(avg_rewards_smoothed, std_rewards_smoothed)]
+            + [v - s for v, s in zip(avg_rewards_smoothed, std_rewards_smoothed)][::-1],
+            fill="toself",
+            fillcolor=color.replace("1)", "0.2)"),  # Adjust alpha for fill color
+            line=dict(color="rgba(255,255,255,0)"),
+            name=f"{group_name} Training Std Dev",
+            showlegend=False,
         )
 
         # Plot test average line
         trace_test = go.Scatter(
             x=[min(steps), max(steps)],
             y=[avg_test_reward, avg_test_reward],
-            mode='lines',
-            name=f'{group_name} Test Avg',
-            line=dict(dash=['dash', 'dot', 'dashdot', 'longdash'][i % 4], color='black')
+            mode="lines",
+            name=f"{group_name} Test Avg",
+            line=dict(
+                dash=["dash", "dot", "dashdot", "longdash"][i % 4], color="black"
+            ),
         )
 
         # Add traces to the figure
@@ -245,10 +283,10 @@ if __name__ == '__main__':
         fig.add_annotation(
             x=max(steps) * 0.98,
             y=avg_test_reward,
-            text=f'{avg_test_reward:.2f}',
+            text=f"{avg_test_reward:.2f}",
             showarrow=False,
-            xanchor='right',
-            yanchor='bottom'
+            xanchor="right",
+            yanchor="bottom",
         )
 
     # Update figure layout
@@ -256,20 +294,24 @@ if __name__ == '__main__':
         xaxis_title="Steps",
         yaxis_title="Average Reward",
         legend_title="Groups",
-        template="plotly_white"
+        template="plotly_white",
     )
 
     print("Saving training curve...")
     # Display figure and save as PNG
     plotly_png_path = os.path.join(save_dir, "aggregated_training_results_plotly.png")
-    pio.write_image(fig, plotly_png_path, format='png', scale=5, width=1200, height=675)
+    pio.write_image(fig, plotly_png_path, format="png", scale=5, width=1200, height=675)
     print(f"Aggregated training results saved to {plotly_png_path}")
 
     # Create a figure object for KL divergence
-    fig_kl = sp.make_subplots(rows=1, cols=1, subplot_titles=["KL Divergence Across Experiment Groups"])
+    fig_kl = sp.make_subplots(
+        rows=1, cols=1, subplot_titles=["KL Divergence Across Experiment Groups"]
+    )
 
-    for i, (group_name, (avg_rewards, std_rewards, avg_kls, std_kls, steps, avg_test_reward)) in enumerate(
-            aggregated_results.items()):
+    for i, (
+        group_name,
+        (avg_rewards, std_rewards, avg_kls, std_kls, steps, avg_test_reward),
+    ) in enumerate(aggregated_results.items()):
         # Use the same color as the rewards plot
         color = color_map[group_name]
 
@@ -284,23 +326,22 @@ if __name__ == '__main__':
         trace_kl = go.Scatter(
             x=steps,
             y=avg_kls_smoothed,
-            mode='lines+markers',
-            name=f'{group_name} Smoothed KL Avg',
-            line_shape='spline',  # Smooth curve
-            line=dict(color=color)
+            mode="lines+markers",
+            name=f"{group_name} Smoothed KL Avg",
+            line_shape="spline",  # Smooth curve
+            line=dict(color=color),
         )
 
         # Plot standard deviation area for KL
         trace_kl_std = go.Scatter(
             x=list(steps) + list(steps)[::-1],
-            y=[v + s for v, s in zip(avg_kls_smoothed, std_kls_smoothed)] + [v - s for v, s in
-                                                                             zip(avg_kls_smoothed, std_kls_smoothed)][
-                                                                            ::-1],
-            fill='toself',
-            fillcolor=color.replace('1)', '0.2)'),  # Adjust alpha for fill color
-            line=dict(color='rgba(255,255,255,0)'),
-            name=f'{group_name} KL Std Dev',
-            showlegend=False
+            y=[v + s for v, s in zip(avg_kls_smoothed, std_kls_smoothed)]
+            + [v - s for v, s in zip(avg_kls_smoothed, std_kls_smoothed)][::-1],
+            fill="toself",
+            fillcolor=color.replace("1)", "0.2)"),  # Adjust alpha for fill color
+            line=dict(color="rgba(255,255,255,0)"),
+            name=f"{group_name} KL Std Dev",
+            showlegend=False,
         )
 
         # Add traces to the figure
@@ -312,11 +353,13 @@ if __name__ == '__main__':
         xaxis_title="Steps",
         yaxis_title="KL Divergence",
         legend_title="Groups",
-        template="plotly_white"
+        template="plotly_white",
     )
 
     print("Saving KL divergence curve...")
     # Display figure and save as PNG
     plotly_kl_png_path = os.path.join(save_dir, "aggregated_kl_results_plotly.png")
-    pio.write_image(fig_kl, plotly_kl_png_path, format='png', scale=5, width=1200, height=675)
+    pio.write_image(
+        fig_kl, plotly_kl_png_path, format="png", scale=5, width=1200, height=675
+    )
     print(f"Aggregated KL divergence results saved to {plotly_kl_png_path}")
