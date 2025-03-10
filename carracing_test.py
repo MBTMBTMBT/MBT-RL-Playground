@@ -191,7 +191,7 @@ if __name__ == "__main__":
             train_env,
             verbose=1,
             seed=seed,
-            batch_size=32,
+            batch_size=128,
             n_steps=n_steps_value,
         )
 
