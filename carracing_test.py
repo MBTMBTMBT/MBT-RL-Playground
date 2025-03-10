@@ -30,6 +30,7 @@ SAVE_PATH = "./car_racing_results"
 
 os.makedirs(SAVE_PATH, exist_ok=True)
 
+
 # Custom FrameSkip wrapper
 class FrameSkip(gym.Wrapper):
     def __init__(self, env, skip=2):
@@ -49,12 +50,14 @@ class FrameSkip(gym.Wrapper):
                 break
         return obs, total_reward, terminated, truncated, info
 
+
 # Environment wrapper pipeline
 def wrap_carracing(env, frame_skip=2, resize_shape=64):
     env = FrameSkip(env, skip=frame_skip)
     env = GrayScaleObservation(env, keep_dim=True)
     env = ResizeObservation(env, shape=(resize_shape, resize_shape))
     return env
+
 
 # Environment factory
 def make_env(seed: int):
@@ -65,7 +68,9 @@ def make_env(seed: int):
         env.action_space.seed(seed)
         env.observation_space.seed(seed)
         return env
+
     return _init
+
 
 # Evaluation and GIF callback
 class EvalAndGifCallback(BaseCallback):
@@ -137,11 +142,13 @@ class EvalAndGifCallback(BaseCallback):
         gif_path = os.path.join(SAVE_PATH, f"car_racing_seed_{self.seed}.gif")
         imageio.mimsave(gif_path, frames, duration=20, loop=0)
 
+
 # Progress bar callback
 class ProgressBarCallback(BaseCallback):
     """
     Custom progress bar callback using tqdm.
     """
+
     def __init__(self, total_timesteps, verbose=1):
         super().__init__(verbose)
         self.total_timesteps = total_timesteps
@@ -160,6 +167,7 @@ class ProgressBarCallback(BaseCallback):
 
     def _on_training_end(self):
         self.pbar.close()
+
 
 # Main training loop
 if __name__ == "__main__":
@@ -194,10 +202,7 @@ if __name__ == "__main__":
                 optimal_score=NEAR_OPTIMAL_SCORE,
                 verbose=1,
             ),
-            ProgressBarCallback(
-                total_timesteps=TRAIN_STEPS,
-                verbose=1
-            )
+            ProgressBarCallback(total_timesteps=TRAIN_STEPS, verbose=1),
         ]
 
         model.learn(total_timesteps=TRAIN_STEPS, callback=callback_list)
@@ -205,7 +210,9 @@ if __name__ == "__main__":
         model_path = os.path.join(SAVE_PATH, f"ppo_carracing_seed_{seed}.zip")
         model.save(model_path)
 
-        df_records = pd.DataFrame(callback_list[0].records, columns=["Steps", "MeanReward"])
+        df_records = pd.DataFrame(
+            callback_list[0].records, columns=["Steps", "MeanReward"]
+        )
         df_records_path = os.path.join(SAVE_PATH, f"training_log_seed_{seed}.csv")
         df_records.to_csv(df_records_path, index=False)
 
