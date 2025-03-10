@@ -12,9 +12,9 @@ import os
 
 # Configurations
 NUM_SEEDS = 5
-N_ENVS = 4
-TRAIN_STEPS = 300_000  # Total timesteps across all environments
-EVAL_INTERVAL = 10_000 * N_ENVS
+N_ENVS = 12
+TRAIN_STEPS = 500_000  # Total timesteps across all environments
+EVAL_INTERVAL = 5_000 * N_ENVS
 EVAL_EPISODES = 50
 NEAR_OPTIMAL_SCORE = 900
 GIF_LENGTH = 500
