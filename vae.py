@@ -185,9 +185,11 @@ class VAE(nn.Module):
         # if kld_weight > _kld_weight:
         #     kld_weight = _kld_weight
         return {
-            "loss": recons_loss + kld_weight * kld_loss
-            if kld_loss.item() >= kld_threshold
-            else recons_loss,
+            "loss": (
+                recons_loss + kld_weight * kld_loss
+                if kld_loss.item() >= kld_threshold
+                else recons_loss
+            ),
             "Reconstruction_Loss": recons_loss,
             "KLD": kld_loss,
         }

@@ -119,9 +119,11 @@ def run_training(
 
         pbar.set_postfix(
             {
-                "Test Rwd": f"{avg_test_reward:04.3f}"
-                if len(f"{int(avg_test_reward)}") <= 6
-                else f"{avg_test_reward:.3f}",
+                "Test Rwd": (
+                    f"{avg_test_reward:04.3f}"
+                    if len(f"{int(avg_test_reward)}") <= 6
+                    else f"{avg_test_reward:.3f}"
+                ),
                 "Found Trans": f"{len(agent.transition_table_env.forward_dict):.2e}",
             }
         )

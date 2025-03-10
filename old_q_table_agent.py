@@ -117,9 +117,9 @@ class __QTableAgent:
         self.state_bins: List[np.ndarray] = [
             self._discretize_space(dim, normal_partition_state) for dim in state_space
         ]
-        self.state_value_map: List[
-            np.ndarray
-        ] = self.state_bins  # Save the bin edges as the mapping
+        self.state_value_map: List[np.ndarray] = (
+            self.state_bins
+        )  # Save the bin edges as the mapping
 
         # Discretize the action space and create a mapping
         if action_combination:
@@ -260,15 +260,19 @@ class __QTableAgent:
 
         # Calculate decimal places for states and actions (only for continuous)
         state_decimals = [
-            max(0, int(-np.floor(np.log10(np.abs(bins[1] - bins[0]))))) + 1
-            if dim["type"] == "continuous"
-            else 0
+            (
+                max(0, int(-np.floor(np.log10(np.abs(bins[1] - bins[0]))))) + 1
+                if dim["type"] == "continuous"
+                else 0
+            )
             for bins, dim in zip(self.state_bins, self.state_space)
         ]
         action_decimals = [
-            max(0, int(-np.floor(np.log10(np.abs(bins[1] - bins[0]))))) + 1
-            if dim["type"] == "continuous"
-            else 0
+            (
+                max(0, int(-np.floor(np.log10(np.abs(bins[1] - bins[0]))))) + 1
+                if dim["type"] == "continuous"
+                else 0
+            )
             for bins, dim in zip(self.action_bins, self.action_space)
         ]
 
@@ -280,16 +284,20 @@ class __QTableAgent:
 
             # Map state indices to values (only for continuous states)
             state_values = [
-                round(self.state_bins[dim][state_idx], state_decimals[dim])
-                if self.state_space[dim]["type"] == "continuous"
-                else None
+                (
+                    round(self.state_bins[dim][state_idx], state_decimals[dim])
+                    if self.state_space[dim]["type"] == "continuous"
+                    else None
+                )
                 for dim, state_idx in enumerate(state_indices)
             ]
             # Map action indices to values (only for continuous actions)
             action_values = [
-                round(self.action_bins[dim][action_idx], action_decimals[dim])
-                if self.action_space[dim]["type"] == "continuous"
-                else None
+                (
+                    round(self.action_bins[dim][action_idx], action_decimals[dim])
+                    if self.action_space[dim]["type"] == "continuous"
+                    else None
+                )
                 for dim, action_idx in enumerate(action_indices)
             ]
 
@@ -576,16 +584,20 @@ class __QTableAgent:
 
             # Map state indices to values (only for continuous states)
             state_values = [
-                self.state_bins[dim][idx]
-                if self.state_space[dim]["type"] == "continuous"
-                else None
+                (
+                    self.state_bins[dim][idx]
+                    if self.state_space[dim]["type"] == "continuous"
+                    else None
+                )
                 for dim, idx in enumerate(state_indices)
             ]
             # Map action indices to values (only for continuous actions)
             action_values = [
-                self.action_bins[dim][idx]
-                if self.action_space[dim]["type"] == "continuous"
-                else None
+                (
+                    self.action_bins[dim][idx]
+                    if self.action_space[dim]["type"] == "continuous"
+                    else None
+                )
                 for dim, idx in enumerate(action_indices)
             ]
 
