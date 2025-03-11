@@ -456,6 +456,7 @@ GRASS_DIM = PLAYFIELD / 20.0
 MAX_SHAPE_DIM = (
     max(GRASS_DIM, TRACK_WIDTH, TRACK_DETAIL_STEP) * math.sqrt(2) * ZOOM * SCALE
 )
+NO_FREEZE = 5000
 
 
 class CarRacingFixedMap(CarRacing):
@@ -552,7 +553,7 @@ class CarRacingFixedMap(CarRacing):
             dest_i = 0
             laps = 0
             track = []
-            no_freeze = 2500
+            no_freeze = NO_FREEZE
             visited_other_side = False
             while True:
                 alpha = np.arctan2(y, x)
