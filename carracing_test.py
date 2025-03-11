@@ -64,7 +64,6 @@ def wrap_carracing(env, frame_skip=2, resize_shape=64):
 def make_env(seed: int):
     def _init():
         env = gym.make("CarRacing-v2", continuous=True, render_mode="rgb_array")
-        env = DoneOnGrassWrapper(env)
         env = wrap_carracing(env)
         env.reset(seed=seed)
         env.action_space.seed(seed)
@@ -143,34 +142,6 @@ class EvalAndGifCallback(BaseCallback):
 
         gif_path = os.path.join(SAVE_PATH, f"car_racing_seed_{self.seed}.gif")
         imageio.mimsave(gif_path, frames, duration=20, loop=0)
-
-
-class DoneOnGrassWrapper(gym.Wrapper):
-    def __init__(self, env, grass_tolerance_steps=5):
-        super().__init__(env)
-        self.grass_tolerance_steps = grass_tolerance_steps
-        self.grass_steps = 0
-
-    def reset(self, **kwargs):
-        self.grass_steps = 0
-        return self.env.reset(**kwargs)
-
-    def step(self, action):
-        obs, reward, terminated, truncated, info = self.env.step(action)
-
-        if info.get("on_grass", False):
-            self.grass_steps += 1
-        else:
-            self.grass_steps = 0
-
-        if self.grass_steps >= self.grass_tolerance_steps:
-            terminated = True
-            info["GrassTerminated"] = True
-        else:
-            info["GrassTerminated"] = False
-
-        return obs, reward, terminated, truncated, info
-
 
 
 # Progress bar callback
