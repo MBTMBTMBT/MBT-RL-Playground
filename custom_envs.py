@@ -484,6 +484,7 @@ class CarRacingFixedMap(CarRacing):
         on_grass = self._check_on_grass()
         if on_grass:
             terminated = True
+            reward -= 1
 
         return obs, reward, terminated, truncated, info
 

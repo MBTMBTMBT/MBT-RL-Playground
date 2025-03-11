@@ -203,7 +203,7 @@ if __name__ == "__main__":
             n_steps=n_steps_value,
             learning_rate=1e-4,
             policy_kwargs=dict(
-                net_arch=[dict(pi=[128, 128,], vf=[128, 128,])]
+                net_arch=dict(pi=[128, 128,], vf=[128, 128,]),
             )
         )
 
