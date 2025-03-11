@@ -24,7 +24,7 @@ from tqdm import tqdm
 import custom_envs
 
 # Configuration
-NUM_SEEDS = 5
+NUM_SEEDS = 10
 N_ENVS = 16
 TRAIN_STEPS = 2_500_000
 EVAL_INTERVAL = 2_500 * N_ENVS
