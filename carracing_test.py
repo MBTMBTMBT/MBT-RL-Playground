@@ -16,7 +16,6 @@ import pandas as pd
 import imageio
 import os
 from tqdm import tqdm
-import matplotlib.pyplot as plt
 import custom_envs
 
 # Configuration
@@ -200,8 +199,12 @@ if __name__ == "__main__":
             train_env,
             verbose=1,
             seed=seed,
-            batch_size=128,
+            batch_size=250,
             n_steps=n_steps_value,
+            learning_rate=1e-4,
+            policy_kwargs=dict(
+                net_arch=[dict(pi=[128, 128,], vf=[128, 128,])]
+            )
         )
 
         callback_list = [
