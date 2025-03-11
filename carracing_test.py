@@ -20,6 +20,7 @@ from tqdm import tqdm
 # Configuration
 NUM_SEEDS = 5
 N_ENVS = 12
+N_STACK = 3
 TRAIN_STEPS = 2_500_000
 EVAL_INTERVAL = 2_500 * N_ENVS
 EVAL_EPISODES = 1
@@ -87,7 +88,7 @@ class EvalAndGifCallback(BaseCallback):
         # Create evaluation environment
         self.eval_env = DummyVecEnv([make_env(seed)])
         self.eval_env = VecTransposeImage(self.eval_env)
-        self.eval_env = VecFrameStack(self.eval_env, n_stack=2)
+        self.eval_env = VecFrameStack(self.eval_env, n_stack=N_STACK)
 
     def _on_step(self):
         if self.num_timesteps - self.last_eval_step >= self.eval_interval:
@@ -125,7 +126,7 @@ class EvalAndGifCallback(BaseCallback):
 
         single_env = DummyVecEnv([make_env(self.seed)])
         single_env = VecTransposeImage(single_env)
-        single_env = VecFrameStack(single_env, n_stack=2)
+        single_env = VecFrameStack(single_env, n_stack=N_STACK)
 
         obs = single_env.reset()
 
@@ -182,7 +183,7 @@ if __name__ == "__main__":
 
         train_env = SubprocVecEnv([make_env(seed) for _ in range(N_ENVS)])
         train_env = VecTransposeImage(train_env)
-        train_env = VecFrameStack(train_env, n_stack=2)
+        train_env = VecFrameStack(train_env, n_stack=N_STACK)
 
         n_steps_value = max(2048 // N_ENVS, MIN_N_STEPS)
 
