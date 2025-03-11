@@ -24,10 +24,10 @@ NUM_SEEDS = 5
 N_ENVS = 12
 N_STACK = 3
 TRAIN_STEPS = 1_000_000
-EVAL_INTERVAL = 1_000 * N_ENVS
+EVAL_INTERVAL = 2_000 * N_ENVS
 EVAL_EPISODES = 1
 NEAR_OPTIMAL_SCORE = 850
-MIN_N_STEPS = 1024
+MIN_N_STEPS = 1000
 GIF_LENGTH = 500
 SAVE_PATH = "./car_racing_results"
 
@@ -193,7 +193,7 @@ if __name__ == "__main__":
         train_env = VecTransposeImage(train_env)
         train_env = VecFrameStack(train_env, n_stack=N_STACK)
 
-        n_steps_value = max(2048 // N_ENVS, MIN_N_STEPS)
+        n_steps_value = max(2000 // N_ENVS, MIN_N_STEPS)
 
         model = PPO(
             "CnnPolicy",
