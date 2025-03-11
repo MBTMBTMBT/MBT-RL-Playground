@@ -481,7 +481,7 @@ class CarRacingFixedMap(CarRacing):
     def step(self, action):
         obs, reward, terminated, truncated, info = super().step(action)
 
-        reward /= 1e2
+        # reward /= 1e2
 
         on_grass = self._check_on_grass()
         if on_grass:

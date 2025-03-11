@@ -25,7 +25,7 @@ N_STACK = 3
 TRAIN_STEPS = 1_000_000
 EVAL_INTERVAL = 2_500 * N_ENVS
 EVAL_EPISODES = 1
-NEAR_OPTIMAL_SCORE = 8.5
+NEAR_OPTIMAL_SCORE = 850
 MIN_N_STEPS = 1000
 GIF_LENGTH = 500
 SAVE_PATH = "./car_racing_results"
@@ -201,9 +201,9 @@ if __name__ == "__main__":
             seed=seed,
             batch_size=32,
             n_steps=n_steps_value,
-            # learning_rate=1e-4,
+            learning_rate=1e-4,
             policy_kwargs=dict(
-                net_arch=dict(pi=[128, 128,], vf=[128, 128,]),
+                net_arch=dict(pi=[128, 128, 128], vf=[128, 128, 128]),
             )
         )
 
