@@ -21,13 +21,15 @@ import custom_envs
 # Configuration
 NUM_SEEDS = 5
 N_ENVS = 16
-N_STACK = 3
 TRAIN_STEPS = 1_500_000
 EVAL_INTERVAL = 2_500 * N_ENVS
 EVAL_EPISODES = 1
 NEAR_OPTIMAL_SCORE = 850
 MIN_N_STEPS = 1000
 GIF_LENGTH = 500
+N_STACK = 5
+FRAME_SKIP = 1
+RESIZE_SHAPE = 96
 SAVE_PATH = "./car_racing_results"
 
 os.makedirs(SAVE_PATH, exist_ok=True)
@@ -62,7 +64,7 @@ class FrameSkip(gym.Wrapper):
 # Environment wrapper pipeline
 def wrap_carracing(env, frame_skip=2, resize_shape=64):
     env = FrameSkip(env, skip=frame_skip)
-    env = GrayScaleObservation(env, keep_dim=True)
+    # env = GrayScaleObservation(env, keep_dim=True)
     env = ResizeObservation(env, shape=(resize_shape, resize_shape))
     return env
 
@@ -71,7 +73,7 @@ def wrap_carracing(env, frame_skip=2, resize_shape=64):
 def make_env(seed: int):
     def _init():
         env = gym.make("CarRacingFixedMap-v2", continuous=True, render_mode="rgb_array", map_seed=seed,)
-        env = wrap_carracing(env)
+        env = wrap_carracing(env, frame_skip=FRAME_SKIP, resize_shape=RESIZE_SHAPE)
         # env.reset(seed=seed)
         # env.action_space.seed(seed)
         # env.observation_space.seed(seed)
