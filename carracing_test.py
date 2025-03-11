@@ -16,13 +16,15 @@ import pandas as pd
 import imageio
 import os
 from tqdm import tqdm
+import matplotlib.pyplot as plt
+import custom_envs
 
 # Configuration
 NUM_SEEDS = 5
 N_ENVS = 12
 N_STACK = 3
-TRAIN_STEPS = 2_500_000
-EVAL_INTERVAL = 2_500 * N_ENVS
+TRAIN_STEPS = 1_000_000
+EVAL_INTERVAL = 1_000 * N_ENVS
 EVAL_EPISODES = 1
 NEAR_OPTIMAL_SCORE = 850
 MIN_N_STEPS = 1024
@@ -37,6 +39,7 @@ class FrameSkip(gym.Wrapper):
     def __init__(self, env, skip=2):
         super().__init__(env)
         self._skip = skip
+        # self.counter = 0
 
     def step(self, action):
         total_reward = 0.0
@@ -44,7 +47,12 @@ class FrameSkip(gym.Wrapper):
         truncated = False
         for _ in range(self._skip):
             obs, reward, term, trunc, info = self.env.step(action)
+            # if self.counter >= 10:
+            #     plt.imshow(obs)
+            #     plt.show()
+            #     self.counter = 0
             total_reward += reward
+            # self.counter += 1
             if term or trunc:
                 terminated = term
                 truncated = trunc
@@ -63,11 +71,11 @@ def wrap_carracing(env, frame_skip=2, resize_shape=64):
 # Environment factory
 def make_env(seed: int):
     def _init():
-        env = gym.make("CarRacing-v2", continuous=True, render_mode="rgb_array")
+        env = gym.make("CarRacingFixedMap-v2", continuous=True, render_mode="rgb_array", map_seed=seed,)
         env = wrap_carracing(env)
-        env.reset(seed=seed)
-        env.action_space.seed(seed)
-        env.observation_space.seed(seed)
+        # env.reset(seed=seed)
+        # env.action_space.seed(seed)
+        # env.observation_space.seed(seed)
         return env
 
     return _init
