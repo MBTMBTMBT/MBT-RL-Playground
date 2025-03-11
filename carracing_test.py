@@ -29,7 +29,7 @@ N_ENVS = 16
 TRAIN_STEPS = 2_500_000
 EVAL_INTERVAL = 2_500 * N_ENVS
 EVAL_EPISODES = 1
-NEAR_OPTIMAL_SCORE = 850
+NEAR_OPTIMAL_SCORE = 8.50
 MIN_N_STEPS = 1000
 GIF_LENGTH = 500
 N_STACK = 5
@@ -240,7 +240,7 @@ if __name__ == "__main__":
             seed=seed,
             batch_size=128,
             n_steps=n_steps_value,
-            learning_rate=2.5e-4,
+            learning_rate=1e-4,
             policy_kwargs=dict(
                 features_extractor_class=ResNet18FeatureExtractor,
                 net_arch=dict(pi=[128, 128, 128], vf=[128, 128, 128]),
