@@ -481,11 +481,13 @@ class CarRacingFixedMap(CarRacing):
     def step(self, action):
         obs, reward, terminated, truncated, info = super().step(action)
 
+        reward /= 1e3
+
         on_grass = self._check_on_grass()
         if on_grass:
             terminated = True
+            reward -= 1
 
-        reward /= 1e3
         return obs, reward, terminated, truncated, info
 
     def _check_on_grass(self):
