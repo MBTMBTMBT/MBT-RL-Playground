@@ -279,7 +279,7 @@ if __name__ == "__main__":
             learning_rate=5e-4,
             buffer_size=800_000,
             train_freq=8,
-            gradient_steps=10,
+            gradient_steps=5,
             learning_starts=1_000,
             tau=0.02,
             use_sde=True,
