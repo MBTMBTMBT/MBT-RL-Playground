@@ -554,7 +554,7 @@ class CarRacingFixedMap(CarRacing):
             data = f"{base_seed}-{retry_count}".encode("utf-8")
             hashed = hashlib.sha256(data).hexdigest()
             # Convert hex digest to int32 range
-            new_seed = int(hashed, 16) % (2 ** 31)
+            new_seed = int(hashed, 16) % (2**31)
             return new_seed
 
         max_retries = np.inf  # To avoid infinite loops
@@ -602,7 +602,9 @@ class CarRacingFixedMap(CarRacing):
                 while True:
                     failed = True
                     while True:
-                        dest_alpha, dest_x, dest_y = checkpoints[dest_i % len(checkpoints)]
+                        dest_alpha, dest_x, dest_y = checkpoints[
+                            dest_i % len(checkpoints)
+                        ]
                         if alpha <= dest_alpha:
                             failed = False
                             break
@@ -654,7 +656,8 @@ class CarRacingFixedMap(CarRacing):
                     success = False
                     break
                 pass_through_start = (
-                        track[i][0] > self.start_alpha and track[i - 1][0] <= self.start_alpha
+                    track[i][0] > self.start_alpha
+                    and track[i - 1][0] <= self.start_alpha
                 )
                 if pass_through_start and i2 == -1:
                     i2 = i
@@ -665,13 +668,13 @@ class CarRacingFixedMap(CarRacing):
             if i1 == -1 or i2 == -1:
                 success = False
             else:
-                track = track[i1: i2 - 1]
+                track = track[i1 : i2 - 1]
                 first_beta = track[0][1]
                 first_perp_x = np.cos(first_beta)
                 first_perp_y = np.sin(first_beta)
                 well_glued_together = np.sqrt(
-                    (first_perp_x * (track[0][2] - track[-1][2])) ** 2 +
-                    (first_perp_y * (track[0][3] - track[-1][3])) ** 2
+                    (first_perp_x * (track[0][2] - track[-1][2])) ** 2
+                    + (first_perp_y * (track[0][3] - track[-1][3])) ** 2
                 )
                 if well_glued_together > TRACK_DETAIL_STEP:
                     success = False
@@ -683,11 +686,14 @@ class CarRacingFixedMap(CarRacing):
             else:
                 retries += 1
                 if self.verbose:
-                    print(f"Retry {retries} for map_seed {self.map_seed} -> seed {current_seed}")
+                    print(
+                        f"Retry {retries} for map_seed {self.map_seed} -> seed {current_seed}"
+                    )
 
         if not success:
             raise RuntimeError(
-                f"Failed to generate valid track after {max_retries} retries for map_seed {self.map_seed}")
+                f"Failed to generate valid track after {max_retries} retries for map_seed {self.map_seed}"
+            )
 
         # === REST OF ORIGINAL GENERATION ===
         border = [False] * len(track)
@@ -709,10 +715,22 @@ class CarRacingFixedMap(CarRacing):
         for i in range(len(track)):
             alpha1, beta1, x1, y1 = track[i]
             alpha2, beta2, x2, y2 = track[i - 1]
-            road1_l = (x1 - TRACK_WIDTH * np.cos(beta1), y1 - TRACK_WIDTH * np.sin(beta1))
-            road1_r = (x1 + TRACK_WIDTH * np.cos(beta1), y1 + TRACK_WIDTH * np.sin(beta1))
-            road2_l = (x2 - TRACK_WIDTH * np.cos(beta2), y2 - TRACK_WIDTH * np.sin(beta2))
-            road2_r = (x2 + TRACK_WIDTH * np.cos(beta2), y2 + TRACK_WIDTH * np.sin(beta2))
+            road1_l = (
+                x1 - TRACK_WIDTH * np.cos(beta1),
+                y1 - TRACK_WIDTH * np.sin(beta1),
+            )
+            road1_r = (
+                x1 + TRACK_WIDTH * np.cos(beta1),
+                y1 + TRACK_WIDTH * np.sin(beta1),
+            )
+            road2_l = (
+                x2 - TRACK_WIDTH * np.cos(beta2),
+                y2 - TRACK_WIDTH * np.sin(beta2),
+            )
+            road2_r = (
+                x2 + TRACK_WIDTH * np.cos(beta2),
+                y2 + TRACK_WIDTH * np.sin(beta2),
+            )
             vertices = [road1_l, road1_r, road2_r, road2_l]
 
             self.fd_tile.shape.vertices = vertices
@@ -729,13 +747,28 @@ class CarRacingFixedMap(CarRacing):
 
             if border[i]:
                 side = np.sign(beta2 - beta1)
-                b1_l = (x1 + side * TRACK_WIDTH * np.cos(beta1), y1 + side * TRACK_WIDTH * np.sin(beta1))
+                b1_l = (
+                    x1 + side * TRACK_WIDTH * np.cos(beta1),
+                    y1 + side * TRACK_WIDTH * np.sin(beta1),
+                )
                 b1_r = (
-                x1 + side * (TRACK_WIDTH + BORDER) * np.cos(beta1), y1 + side * (TRACK_WIDTH + BORDER) * np.sin(beta1))
-                b2_l = (x2 + side * TRACK_WIDTH * np.cos(beta2), y2 + side * TRACK_WIDTH * np.sin(beta2))
+                    x1 + side * (TRACK_WIDTH + BORDER) * np.cos(beta1),
+                    y1 + side * (TRACK_WIDTH + BORDER) * np.sin(beta1),
+                )
+                b2_l = (
+                    x2 + side * TRACK_WIDTH * np.cos(beta2),
+                    y2 + side * TRACK_WIDTH * np.sin(beta2),
+                )
                 b2_r = (
-                x2 + side * (TRACK_WIDTH + BORDER) * np.cos(beta2), y2 + side * (TRACK_WIDTH + BORDER) * np.sin(beta2))
-                self.road_poly.append(([b1_l, b1_r, b2_r, b2_l], (255, 255, 255) if i % 2 == 0 else (255, 0, 0)))
+                    x2 + side * (TRACK_WIDTH + BORDER) * np.cos(beta2),
+                    y2 + side * (TRACK_WIDTH + BORDER) * np.sin(beta2),
+                )
+                self.road_poly.append(
+                    (
+                        [b1_l, b1_r, b2_r, b2_l],
+                        (255, 255, 255) if i % 2 == 0 else (255, 0, 0),
+                    )
+                )
 
         self.track = track
         return True

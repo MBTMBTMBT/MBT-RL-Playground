@@ -51,12 +51,7 @@ class ResNet18FeatureExtractor(BaseFeaturesExtractor):
         # Modify first conv layer to match CarRacing input shape (default is 3 channels)
         n_input_channels = observation_space.shape[0]
         resnet.conv1 = nn.Conv2d(
-            n_input_channels,
-            64,
-            kernel_size=7,
-            stride=2,
-            padding=3,
-            bias=False
+            n_input_channels, 64, kernel_size=7, stride=2, padding=3, bias=False
         )
 
         # Remove the classifier head (fc layer)
@@ -108,7 +103,11 @@ def wrap_carracing(env, frame_skip=2, resize_shape=64):
 
 
 # Environment factory
-def make_env(seed: int, render_mode="rgb_array", fixed_start=True,):
+def make_env(
+    seed: int,
+    render_mode="rgb_array",
+    fixed_start=True,
+):
     def _init():
         env = gym.make(
             "CarRacingFixedMap-v2",
@@ -234,7 +233,16 @@ if __name__ == "__main__":
     for seed in seeds:
         print(f"\n===== Training Seed {seed} =====")
 
-        train_env = SubprocVecEnv([make_env(seed, render_mode="human", fixed_start=False,) for _ in range(N_ENVS)])
+        train_env = SubprocVecEnv(
+            [
+                make_env(
+                    seed,
+                    render_mode="rgb_array",
+                    fixed_start=False,
+                )
+                for _ in range(N_ENVS)
+            ]
+        )
         train_env = VecTransposeImage(train_env)
         train_env = VecFrameStack(train_env, n_stack=N_STACK)
 
@@ -250,7 +258,16 @@ if __name__ == "__main__":
             learning_rate=1e-4,
             policy_kwargs=dict(
                 # features_extractor_class=ResNet18FeatureExtractor,
-                net_arch=dict(pi=[32, 32,], vf=[32, 32,]),
+                net_arch=dict(
+                    pi=[
+                        32,
+                        32,
+                    ],
+                    vf=[
+                        32,
+                        32,
+                    ],
+                ),
             ),
             ent_coef=ENT_COEF,
         )

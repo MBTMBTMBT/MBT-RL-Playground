@@ -4,7 +4,9 @@ import custom_envs
 
 # Create environment with fixed map seed
 seed = 0
-env = gym.make("CarRacingFixedMap-v2", continuous=True, render_mode="rgb_array", map_seed=seed)
+env = gym.make(
+    "CarRacingFixedMap-v2", continuous=True, render_mode="rgb_array", map_seed=seed
+)
 
 # Store frames after reset
 frames = []
@@ -16,7 +18,9 @@ for i in range(3):
 
 env.close()
 
-env = gym.make("CarRacingFixedMap-v2", continuous=True, render_mode="rgb_array", map_seed=seed)
+env = gym.make(
+    "CarRacingFixedMap-v2", continuous=True, render_mode="rgb_array", map_seed=seed
+)
 
 for i in range(3):
     obs, _ = env.reset(seed=seed)  # Reset with the same seed to ensure reproducibility
