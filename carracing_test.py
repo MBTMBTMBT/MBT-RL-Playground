@@ -25,14 +25,14 @@ import custom_envs
 
 # Configuration
 NUM_SEEDS = 10
-N_ENVS = 12
-TRAIN_STEPS = 1_500_000
+N_ENVS = 16
+TRAIN_STEPS = 2_500_000
 EVAL_INTERVAL = 2_500 * N_ENVS
 EVAL_EPISODES = 1
 NEAR_OPTIMAL_SCORE = 8.50
 MIN_N_STEPS = 1000
 GIF_LENGTH = 500
-N_STACK = 10
+N_STACK = 5
 FRAME_SKIP = 1
 RESIZE_SHAPE = 96
 SAVE_PATH = "./car_racing_results"
@@ -260,12 +260,12 @@ if __name__ == "__main__":
                 # features_extractor_class=ResNet18FeatureExtractor,
                 net_arch=dict(
                     pi=[
-                        32,
-                        32,
+                        128,
+                        128,
                     ],
                     vf=[
-                        32,
-                        32,
+                        128,
+                        128,
                     ],
                 ),
             ),
