@@ -477,6 +477,7 @@ class CarRacingFixedMap(CarRacing):
             domain_randomize=domain_randomize,
             continuous=continuous,
         )
+        self.on_grass_counter = 0
 
     def step(self, action):
         obs, reward, terminated, truncated, info = super().step(action)
@@ -485,6 +486,11 @@ class CarRacingFixedMap(CarRacing):
 
         on_grass = self._check_on_grass()
         if on_grass:
+            self.on_grass_counter += 1
+        else:
+            self.on_grass_counter = 0
+
+        if on_grass and self.on_grass_counter >= 5:
             terminated = True
 
         return obs, reward, terminated, truncated, info

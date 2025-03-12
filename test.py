@@ -9,7 +9,7 @@ environments = [
     ("MiniGrid-Dynamic-Obstacles-6x6-v0", seeds, "rgb_array"),
     ("MiniGrid-Dynamic-Obstacles-8x8-v0", seeds, "rgb_array"),
     ("MiniGrid-Dynamic-Obstacles-16x16-v0", seeds, "rgb_array"),
-    ("CarRacing-v3", seeds, "rgb_array"),
+    ("CarRacing-v2", seeds, "rgb_array"),
     ("BipedalWalker-v3", seeds, "rgb_array"),
 ]
 
