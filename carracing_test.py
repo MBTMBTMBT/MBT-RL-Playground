@@ -25,17 +25,18 @@ import custom_envs
 
 # Configuration
 NUM_SEEDS = 10
-N_ENVS = 16
+N_ENVS = 8
 TRAIN_STEPS = 2_500_000
 EVAL_INTERVAL = 2_500 * N_ENVS
 EVAL_EPISODES = 1
 NEAR_OPTIMAL_SCORE = 8.50
-MIN_N_STEPS = 1000
+MIN_N_STEPS = 2000
 GIF_LENGTH = 500
 N_STACK = 10
 FRAME_SKIP = 1
 RESIZE_SHAPE = 96
 SAVE_PATH = "./car_racing_results"
+ENT_COEF = 0.025
 
 os.makedirs(SAVE_PATH, exist_ok=True)
 
@@ -101,7 +102,7 @@ class FrameSkip(gym.Wrapper):
 # Environment wrapper pipeline
 def wrap_carracing(env, frame_skip=2, resize_shape=64):
     env = FrameSkip(env, skip=frame_skip)
-    # env = GrayScaleObservation(env, keep_dim=True)
+    env = GrayScaleObservation(env, keep_dim=True)
     env = ResizeObservation(env, shape=(resize_shape, resize_shape))
     return env
 
@@ -238,13 +239,14 @@ if __name__ == "__main__":
             train_env,
             verbose=1,
             seed=seed,
-            batch_size=128,
+            batch_size=64,
             n_steps=n_steps_value,
             learning_rate=1e-4,
             policy_kwargs=dict(
-                features_extractor_class=ResNet18FeatureExtractor,
-                net_arch=dict(pi=[128, 128, 128], vf=[128, 128, 128]),
-            )
+                # features_extractor_class=ResNet18FeatureExtractor,
+                net_arch=dict(pi=[32, 32,], vf=[32, 32,]),
+            ),
+            ent_coef=ENT_COEF,
         )
 
         callback_list = [
