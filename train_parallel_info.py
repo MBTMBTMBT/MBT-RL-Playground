@@ -350,13 +350,6 @@ def run_all_trainings_and_plot(task_names_and_num_experiments: Dict[str, Tuple[i
     run_id = 0
     for task_name, (runs, target_env_idx) in task_names_and_num_experiments.items():
         num_envs = get_envs_discretizers_and_configs(task_name, env_idx=0, configs_only=True)["num_envs"]
-        for _ in range(runs):
-            tasks.append({
-                "task_name": task_name,
-                "env_idx": target_env_idx,
-                "run_id": run_id,
-            })
-            run_id += 1
         for env_idx in range(num_envs):
             if env_idx == target_env_idx:
                 continue
@@ -367,6 +360,13 @@ def run_all_trainings_and_plot(task_names_and_num_experiments: Dict[str, Tuple[i
                     "run_id": run_id,
                 })
                 run_id += 1
+        for _ in range(runs):
+            tasks.append({
+                "task_name": task_name,
+                "env_idx": target_env_idx,
+                "run_id": run_id,
+            })
+            run_id += 1
 
     print(f"Total tasks: {run_id}.")
 
@@ -1207,18 +1207,18 @@ def run_all_cl_evals_and_plot(task_names_and_num_experiments: Dict[str, Tuple[in
 if __name__ == '__main__':
     from cl_training import run_all_2_stage_cl_training_and_plot
 
-    # run_all_trainings_and_plot(
-    #     task_names_and_num_experiments={"frozen_lake-4-times-4": 8, },
-    #     max_workers=24,
-    # )
-    # run_all_cl_evals_and_plot(
-    #     task_names_and_num_experiments={"frozen_lake-4-times-4": (8, 1), },
-    #     max_workers=24,
-    # )
-    # run_all_2_stage_cl_training_and_plot(
-    #     task_names_and_num_experiments={"frozen_lake-4-times-4": (8, 1), },
-    #     max_workers=24,
-    # )
+    run_all_trainings_and_plot(
+        task_names_and_num_experiments={"frozen_lake-4-times-4": (8, 1), },
+        max_workers=24,
+    )
+    run_all_cl_evals_and_plot(
+        task_names_and_num_experiments={"frozen_lake-4-times-4": (8, 1), },
+        max_workers=24,
+    )
+    run_all_2_stage_cl_training_and_plot(
+        task_names_and_num_experiments={"frozen_lake-4-times-4": (8, 1), },
+        max_workers=24,
+    )
 
     run_all_trainings_and_plot(
         task_names_and_num_experiments={"frozen_lake-custom": (8, 4), },
