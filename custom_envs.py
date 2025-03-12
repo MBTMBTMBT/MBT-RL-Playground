@@ -3,6 +3,7 @@ import math
 from typing import Optional
 import gymnasium as gym
 import pygame
+from gymnasium.envs.box2d.car_dynamics import Car
 from gymnasium.error import DependencyNotInstalled
 from numpy import cos, pi, sin
 from gymnasium import spaces
@@ -69,6 +70,7 @@ register(
         "domain_randomize": False,
         "continuous": False,
         "map_seed": 0,
+        "fixed_start": True,
     },
     max_episode_steps=1000,
 )
@@ -469,6 +471,7 @@ class CarRacingFixedMap(CarRacing):
         domain_randomize=False,
         continuous=True,
         map_seed=0,
+        fixed_start=True,
     ):
         self.map_seed = map_seed
         super().__init__(
@@ -479,6 +482,31 @@ class CarRacingFixedMap(CarRacing):
             continuous=continuous,
         )
         self.on_grass_counter = 0
+        self.fixed_start = fixed_start
+
+    def reset(self, *, seed=None, options=None):
+        obs, info = super().reset(seed=seed, options=options)
+
+        fixed_start = self.fixed_start
+
+        if not fixed_start:
+            # Randomize start position
+            start_idx = self.np_random.integers(0, len(self.track))
+        else:
+            # Always use first point
+            start_idx = 0
+
+        beta, x, y = self.track[start_idx][1:4]
+
+        if self.car is not None:
+            self.car.destroy()
+
+        self.car = Car(self.world, beta, x, y)
+
+        if self.render_mode == "human":
+            self.render()
+
+        return self.step(None)[0], info
 
     def step(self, action):
         obs, reward, terminated, truncated, info = super().step(action)
@@ -519,8 +547,6 @@ class CarRacingFixedMap(CarRacing):
                 return False
 
         return True  # All wheels off-road
-
-    import hashlib
 
     def _create_track(self):
         def derive_new_seed(base_seed, retry_count):

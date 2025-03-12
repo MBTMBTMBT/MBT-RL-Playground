@@ -25,12 +25,12 @@ import custom_envs
 
 # Configuration
 NUM_SEEDS = 10
-N_ENVS = 8
-TRAIN_STEPS = 2_500_000
+N_ENVS = 12
+TRAIN_STEPS = 1_500_000
 EVAL_INTERVAL = 2_500 * N_ENVS
 EVAL_EPISODES = 1
 NEAR_OPTIMAL_SCORE = 8.50
-MIN_N_STEPS = 2000
+MIN_N_STEPS = 1000
 GIF_LENGTH = 500
 N_STACK = 10
 FRAME_SKIP = 1
@@ -108,9 +108,15 @@ def wrap_carracing(env, frame_skip=2, resize_shape=64):
 
 
 # Environment factory
-def make_env(seed: int, render_mode="rgb_array",):
+def make_env(seed: int, render_mode="rgb_array", fixed_start=True,):
     def _init():
-        env = gym.make("CarRacingFixedMap-v2", continuous=True, render_mode=render_mode, map_seed=seed,)
+        env = gym.make(
+            "CarRacingFixedMap-v2",
+            continuous=True,
+            render_mode=render_mode,
+            map_seed=seed,
+            fixed_start=fixed_start,
+        )
         env = wrap_carracing(env, frame_skip=FRAME_SKIP, resize_shape=RESIZE_SHAPE)
         # env.reset(seed=seed)
         # env.action_space.seed(seed)
@@ -133,7 +139,7 @@ class EvalAndGifCallback(BaseCallback):
         self.last_eval_step = 0
 
         # Create evaluation environment
-        self.eval_env = DummyVecEnv([make_env(seed)])
+        self.eval_env = DummyVecEnv([make_env(seed, fixed_start=True)])
         self.eval_env = VecTransposeImage(self.eval_env)
         self.eval_env = VecFrameStack(self.eval_env, n_stack=N_STACK)
 
@@ -171,7 +177,7 @@ class EvalAndGifCallback(BaseCallback):
     def save_gif(self):
         frames = []
 
-        single_env = DummyVecEnv([make_env(self.seed)])
+        single_env = DummyVecEnv([make_env(self.seed, fixed_start=True)])
         single_env = VecTransposeImage(single_env)
         single_env = VecFrameStack(single_env, n_stack=N_STACK)
 
@@ -228,7 +234,7 @@ if __name__ == "__main__":
     for seed in seeds:
         print(f"\n===== Training Seed {seed} =====")
 
-        train_env = SubprocVecEnv([make_env(seed, render_mode="human") for _ in range(N_ENVS)])
+        train_env = SubprocVecEnv([make_env(seed, render_mode="human", fixed_start=False,) for _ in range(N_ENVS)])
         train_env = VecTransposeImage(train_env)
         train_env = VecFrameStack(train_env, n_stack=N_STACK)
 
