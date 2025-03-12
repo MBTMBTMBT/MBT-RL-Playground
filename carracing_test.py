@@ -25,7 +25,7 @@ import custom_envs
 
 # Configuration
 NUM_SEEDS = 10
-N_ENVS = 16
+N_ENVS = 12
 TRAIN_STEPS = 2_500_000
 EVAL_INTERVAL = 2_500 * N_ENVS
 EVAL_EPISODES = 1
