@@ -2,6 +2,7 @@ import hashlib
 import math
 from typing import Optional
 import gymnasium as gym
+import pygame
 from gymnasium.error import DependencyNotInstalled
 from numpy import cos, pi, sin
 from gymnasium import spaces
@@ -436,8 +437,8 @@ STATE_W = 96  # less than Atari 160x192
 STATE_H = 96
 VIDEO_W = 600
 VIDEO_H = 400
-WINDOW_W = 1000
-WINDOW_H = 800
+WINDOW_W = 600
+WINDOW_H = 400
 
 SCALE = 6.0  # Track scale
 TRACK_RAD = 900 / SCALE  # Track is heavily morphed circle with this radius
@@ -712,3 +713,63 @@ class CarRacingFixedMap(CarRacing):
 
         self.track = track
         return True
+
+    def _render(self, mode: str):
+        assert mode in self.metadata["render_modes"]
+
+        pygame.font.init()
+        if self.screen is None and mode == "human":
+            pygame.init()
+            pygame.display.init()
+            self.screen = pygame.display.set_mode((WINDOW_W, WINDOW_H))
+        if self.clock is None:
+            self.clock = pygame.time.Clock()
+
+        if "t" not in self.__dict__:
+            return  # reset() not called yet
+
+        self.surf = pygame.Surface((WINDOW_W, WINDOW_H))
+
+        assert self.car is not None
+        # computing transformations
+        angle = -self.car.hull.angle
+        # Animating first second zoom.
+        zoom = 0.1 * SCALE * max(1 - self.t, 0) + ZOOM * SCALE * min(self.t, 1)
+        scroll_x = -(self.car.hull.position[0]) * zoom
+        scroll_y = -(self.car.hull.position[1]) * zoom
+        trans = pygame.math.Vector2((scroll_x, scroll_y)).rotate_rad(angle)
+        trans = (WINDOW_W / 2 + trans[0], WINDOW_H / 4 + trans[1])
+
+        self._render_road(zoom, trans, angle)
+        self.car.draw(
+            self.surf,
+            zoom,
+            trans,
+            angle,
+            mode not in ["state_pixels_list", "state_pixels"],
+        )
+
+        self.surf = pygame.transform.flip(self.surf, False, True)
+
+        # showing stats
+        self._render_indicators(WINDOW_W, WINDOW_H)
+
+        font = pygame.font.Font(pygame.font.get_default_font(), 42)
+        text = font.render("%04i" % self.reward, True, (255, 255, 255), (0, 0, 0))
+        text_rect = text.get_rect()
+        text_rect.center = (60, WINDOW_H - WINDOW_H * 2.5 / 40.0)
+        self.surf.blit(text, text_rect)
+
+        if mode == "human":
+            pygame.event.pump()
+            self.clock.tick(self.metadata["render_fps"])
+            assert self.screen is not None
+            self.screen.fill(0)
+            self.screen.blit(self.surf, (0, 0))
+            pygame.display.flip()
+        elif mode == "rgb_array":
+            return self._create_image_array(self.surf, (VIDEO_W, VIDEO_H))
+        elif mode == "state_pixels":
+            return self._create_image_array(self.surf, (STATE_W, STATE_H))
+        else:
+            return self.isopen

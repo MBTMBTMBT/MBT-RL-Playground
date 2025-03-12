@@ -107,9 +107,9 @@ def wrap_carracing(env, frame_skip=2, resize_shape=64):
 
 
 # Environment factory
-def make_env(seed: int):
+def make_env(seed: int, render_mode="rgb_array",):
     def _init():
-        env = gym.make("CarRacingFixedMap-v2", continuous=True, render_mode="rgb_array", map_seed=seed,)
+        env = gym.make("CarRacingFixedMap-v2", continuous=True, render_mode=render_mode, map_seed=seed,)
         env = wrap_carracing(env, frame_skip=FRAME_SKIP, resize_shape=RESIZE_SHAPE)
         # env.reset(seed=seed)
         # env.action_space.seed(seed)
@@ -227,7 +227,7 @@ if __name__ == "__main__":
     for seed in seeds:
         print(f"\n===== Training Seed {seed} =====")
 
-        train_env = SubprocVecEnv([make_env(seed) for _ in range(N_ENVS)])
+        train_env = SubprocVecEnv([make_env(seed, render_mode="human") for _ in range(N_ENVS)])
         train_env = VecTransposeImage(train_env)
         train_env = VecFrameStack(train_env, n_stack=N_STACK)
 
