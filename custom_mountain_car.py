@@ -10,14 +10,14 @@ class CustomMountainCarEnv(MountainCarEnv):
     """
 
     def __init__(
-            self,
-            render_mode: Optional[str] = None,
-            goal_velocity=0,
-            custom_gravity=0.0025,
-            custom_force=0.001,
-            max_episode_steps=200,
-            goal_position=0.5,
-            reward_type='default',
+        self,
+        render_mode: Optional[str] = None,
+        goal_velocity=0,
+        custom_gravity=0.0025,
+        custom_force=0.001,
+        max_episode_steps=200,
+        goal_position=0.5,
+        reward_type="default",
     ):
         super().__init__(render_mode=render_mode, goal_velocity=goal_velocity)
         # Override gravity and max_episode_steps with custom values
@@ -50,19 +50,22 @@ class CustomMountainCarEnv(MountainCarEnv):
         )
 
         # Custom reward function based on reward_type
-        if self.reward_type == 'default':
+        if self.reward_type == "default":
             reward = -1.0 if not terminated else 0.0
-        elif self.reward_type == 'distance':
+        elif self.reward_type == "distance":
             # Reward based on the distance from the starting position (-0.5)
             reward = abs(position + 0.5) - (
-                1.0 if position <= self.min_position or position >= self.max_position else 0.0)
+                1.0
+                if position <= self.min_position or position >= self.max_position
+                else 0.0
+            )
             reward += -1.0 if not terminated else 0.0
-        elif self.reward_type == 'progress':
+        elif self.reward_type == "progress":
             # Reward based on progress towards the goal, incentivizing movement to the right and higher speed
             reward = (position - self.min_position) if position >= 0.0 else 0.0
             reward += velocity if velocity >= self.goal_velocity else 0.0
             reward += -1.0 if not terminated else 0.0
-        elif self.reward_type == 'sparse':
+        elif self.reward_type == "sparse":
             reward = -0.0 if not terminated else 1.0
         else:
             raise ValueError(f"Unknown reward_type: {self.reward_type}")
@@ -85,7 +88,13 @@ class CustomMountainCarEnv(MountainCarEnv):
 
 if __name__ == "__main__":
     # Example of how to create and use the custom environment
-    env = CustomMountainCarEnv(custom_gravity=0.003, max_episode_steps=300, goal_position=-0.25, reward_type='progress', render_mode="human")
+    env = CustomMountainCarEnv(
+        custom_gravity=0.003,
+        max_episode_steps=300,
+        goal_position=-0.25,
+        reward_type="progress",
+        render_mode="human",
+    )
     obs, _ = env.reset()
     done = False
 

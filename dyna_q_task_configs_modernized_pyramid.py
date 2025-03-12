@@ -11,46 +11,102 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
         test_env = gym.make("CartPole-v1", render_mode="rgb_array")
         state_discretizers = [
             Discretizer(
-                ranges=[(-2.4, 2.4), (-2, 2), (-0.25, 0.25), (-2, 2), ],
+                ranges=[
+                    (-2.4, 2.4),
+                    (-2, 2),
+                    (-0.25, 0.25),
+                    (-2, 2),
+                ],
                 num_buckets=[3, 7, 7, 7],
-                normal_params=[None, None, None, None, ],
+                normal_params=[
+                    None,
+                    None,
+                    None,
+                    None,
+                ],
             ),
             Discretizer(
-                ranges=[(-2.4, 2.4), (-2, 2), (-0.25, 0.25), (-2, 2), ],
+                ranges=[
+                    (-2.4, 2.4),
+                    (-2, 2),
+                    (-0.25, 0.25),
+                    (-2, 2),
+                ],
                 num_buckets=[9, 13, 13, 13],
-                normal_params=[None, None, None, None, ],
+                normal_params=[
+                    None,
+                    None,
+                    None,
+                    None,
+                ],
             ),
             Discretizer(
-                ranges=[(-2.4, 2.4), (-2, 2), (-0.25, 0.25), (-2, 2), ],
+                ranges=[
+                    (-2.4, 2.4),
+                    (-2, 2),
+                    (-0.25, 0.25),
+                    (-2, 2),
+                ],
                 num_buckets=[17, 25, 25, 25],
-                normal_params=[None, None, None, None, ],
+                normal_params=[
+                    None,
+                    None,
+                    None,
+                    None,
+                ],
             ),
             Discretizer(
-                ranges=[(-2.4, 2.4), (-2, 2), (-0.25, 0.25), (-2, 2), ],
+                ranges=[
+                    (-2.4, 2.4),
+                    (-2, 2),
+                    (-0.25, 0.25),
+                    (-2, 2),
+                ],
                 num_buckets=[25, 65, 65, 65],
-                normal_params=[None, None, None, None, ],
+                normal_params=[
+                    None,
+                    None,
+                    None,
+                    None,
+                ],
             ),
         ]
         action_discretizers = [
             Discretizer(
-                ranges=[(0, 1), ],
+                ranges=[
+                    (0, 1),
+                ],
                 num_buckets=[0],
-                normal_params=[None, ],
+                normal_params=[
+                    None,
+                ],
             ),
             Discretizer(
-                ranges=[(0, 1), ],
+                ranges=[
+                    (0, 1),
+                ],
                 num_buckets=[0],
-                normal_params=[None, ],
+                normal_params=[
+                    None,
+                ],
             ),
             Discretizer(
-                ranges=[(0, 1), ],
+                ranges=[
+                    (0, 1),
+                ],
                 num_buckets=[0],
-                normal_params=[None, ],
+                normal_params=[
+                    None,
+                ],
             ),
             Discretizer(
-                ranges=[(0, 1), ],
+                ranges=[
+                    (0, 1),
+                ],
                 num_buckets=[0],
-                normal_params=[None, ],
+                normal_params=[
+                    None,
+                ],
             ),
         ]
         configs = {
@@ -75,7 +131,6 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "save_per_num_steps": int(500e3),
             "save_mdp_graph": False,
             "print_training_info": False,
-
             int(10e3): {
                 "explore_policy_exploit_policy_ratio": (1.0, 0.0),
                 "train_exploit_policy": False,
@@ -129,22 +184,34 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             #     normal_params=[None, None],
             # ),
             Discretizer(
-                ranges=[(-1.2, 0.6), (-0.07, 0.07), ],
+                ranges=[
+                    (-1.2, 0.6),
+                    (-0.07, 0.07),
+                ],
                 num_buckets=[17, 9],
                 normal_params=[None, None],
             ),
             Discretizer(
-                ranges=[(-1.2, 0.6), (-0.07, 0.07), ],
+                ranges=[
+                    (-1.2, 0.6),
+                    (-0.07, 0.07),
+                ],
                 num_buckets=[33, 17],
                 normal_params=[None, None],
             ),
             Discretizer(
-                ranges=[(-1.2, 0.6), (-0.07, 0.07), ],
+                ranges=[
+                    (-1.2, 0.6),
+                    (-0.07, 0.07),
+                ],
                 num_buckets=[65, 25],
                 normal_params=[None, None],
             ),
             Discretizer(
-                ranges=[(-1.2, 0.6), (-0.07, 0.07), ],
+                ranges=[
+                    (-1.2, 0.6),
+                    (-0.07, 0.07),
+                ],
                 num_buckets=[129, 65],
                 normal_params=[None, None],
             ),
@@ -156,24 +223,40 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             #     normal_params=[None,],
             # ),
             Discretizer(
-                ranges=[(0, 2),],
+                ranges=[
+                    (0, 2),
+                ],
                 num_buckets=[0],
-                normal_params=[None,],
+                normal_params=[
+                    None,
+                ],
             ),
             Discretizer(
-                ranges=[(0, 2),],
+                ranges=[
+                    (0, 2),
+                ],
                 num_buckets=[0],
-                normal_params=[None,],
+                normal_params=[
+                    None,
+                ],
             ),
             Discretizer(
-                ranges=[(0, 2),],
+                ranges=[
+                    (0, 2),
+                ],
                 num_buckets=[0],
-                normal_params=[None,],
+                normal_params=[
+                    None,
+                ],
             ),
             Discretizer(
-                ranges=[(0, 2),],
+                ranges=[
+                    (0, 2),
+                ],
                 num_buckets=[0],
-                normal_params=[None,],
+                normal_params=[
+                    None,
+                ],
             ),
         ]
         configs = {
@@ -198,7 +281,6 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "save_per_num_steps": int(500e3),
             "save_mdp_graph": False,
             "print_training_info": False,
-
             int(750e3): {
                 "explore_policy_exploit_policy_ratio": (1.0, 0.0),
                 "train_exploit_policy": False,
@@ -255,31 +337,75 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
         state_discretizers = [
             Discretizer(
                 ranges=[
-                    (-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0),
-                    (-6.0, 6.0), (-12.0, 12.0),
+                    (-1.0, 1.0),
+                    (-1.0, 1.0),
+                    (-1.0, 1.0),
+                    (-1.0, 1.0),
+                    (-6.0, 6.0),
+                    (-12.0, 12.0),
                 ],
-                num_buckets=[9, 9, 9, 9, 9, 9, ],
-                normal_params=[None, None, None, None, None, None, ],
+                num_buckets=[
+                    9,
+                    9,
+                    9,
+                    9,
+                    9,
+                    9,
+                ],
+                normal_params=[
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                ],
             ),
             Discretizer(
                 ranges=[
-                    (-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0),
-                    (-6.0, 6.0), (-12.0, 12.0),
+                    (-1.0, 1.0),
+                    (-1.0, 1.0),
+                    (-1.0, 1.0),
+                    (-1.0, 1.0),
+                    (-6.0, 6.0),
+                    (-12.0, 12.0),
                 ],
-                num_buckets=[13, 13, 13, 13, 13, 13, ],
-                normal_params=[None, None, None, None, None, None, ],
+                num_buckets=[
+                    13,
+                    13,
+                    13,
+                    13,
+                    13,
+                    13,
+                ],
+                normal_params=[
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                ],
             ),
         ]
         action_discretizers = [
             Discretizer(
-                ranges=[(0, 2),],
+                ranges=[
+                    (0, 2),
+                ],
                 num_buckets=[0],
-                normal_params=[None,],
+                normal_params=[
+                    None,
+                ],
             ),
             Discretizer(
-                ranges=[(0, 2),],
+                ranges=[
+                    (0, 2),
+                ],
                 num_buckets=[0],
-                normal_params=[None,],
+                normal_params=[
+                    None,
+                ],
             ),
         ]
         configs = {
@@ -304,7 +430,6 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             "save_per_num_steps": int(500e3),
             "save_mdp_graph": False,
             "print_training_info": False,
-
             int(150e3): {
                 "explore_policy_exploit_policy_ratio": (1.0, 0.0),
                 "train_exploit_policy": False,
@@ -334,8 +459,14 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
         }
     elif name == "pendulum":
         save_path = "./experiments/DynaQ/pyramid-pendulum/pendulum"
-        env = gym.make("Pendulum-v1", render_mode="rgb_array", )
-        test_env = gym.make("Pendulum-v1", render_mode="rgb_array", )
+        env = gym.make(
+            "Pendulum-v1",
+            render_mode="rgb_array",
+        )
+        test_env = gym.make(
+            "Pendulum-v1",
+            render_mode="rgb_array",
+        )
         state_discretizers = [
             # Discretizer(
             #     ranges=[(-1.0, 1.0), (-1.0, 1.0), (-8.0, 8.0), ],
@@ -343,15 +474,23 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             #     normal_params=[None, None, None],
             # ),
             Discretizer(
-                ranges=[(-1.0, 1.0), (-1.0, 1.0), (-8.0, 8.0), ],
+                ranges=[
+                    (-1.0, 1.0),
+                    (-1.0, 1.0),
+                    (-8.0, 8.0),
+                ],
                 num_buckets=[15, 15, 25],
                 normal_params=[None, None, None],
             ),
             Discretizer(
-                ranges=[(-1.0, 1.0), (-1.0, 1.0), (-8.0, 8.0), ],
+                ranges=[
+                    (-1.0, 1.0),
+                    (-1.0, 1.0),
+                    (-8.0, 8.0),
+                ],
                 num_buckets=[25, 25, 33],
                 normal_params=[None, None, None],
-            )
+            ),
         ]
         action_discretizers = [
             # Discretizer(
@@ -360,14 +499,22 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             #     normal_params=[None, ],
             # ),
             Discretizer(
-                ranges=[(-2.0, 2.0), ],
+                ranges=[
+                    (-2.0, 2.0),
+                ],
                 num_buckets=[17],
-                normal_params=[None, ],
+                normal_params=[
+                    None,
+                ],
             ),
             Discretizer(
-                ranges=[(-2.0, 2.0), ],
+                ranges=[
+                    (-2.0, 2.0),
+                ],
                 num_buckets=[17],
-                normal_params=[None, ],
+                normal_params=[
+                    None,
+                ],
             ),
         ]
         configs = {
@@ -422,32 +569,112 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
 
     elif name == "lunarlander":
         save_path = "./experiments/DynaQ/pyramid-lunarlander/lunarlander"
-        env = gym.make("LunarLander-v3", render_mode="rgb_array", continuous=True, )
-        test_env = gym.make("LunarLander-v3", render_mode="rgb_array", continuous=True, )
+        env = gym.make(
+            "LunarLander-v3",
+            render_mode="rgb_array",
+            continuous=True,
+        )
+        test_env = gym.make(
+            "LunarLander-v3",
+            render_mode="rgb_array",
+            continuous=True,
+        )
         state_discretizers = [
             Discretizer(
                 ranges=[
-                    (-1.5, 1.5), (-1.5, 1.5), (-5.0, 5.0), (-5.0, 5.0),
-                    (-3.14, 3.14), (-5.0, 5.0), (0, 1), (0, 1),
+                    (-1.5, 1.5),
+                    (-1.5, 1.5),
+                    (-5.0, 5.0),
+                    (-5.0, 5.0),
+                    (-3.14, 3.14),
+                    (-5.0, 5.0),
+                    (0, 1),
+                    (0, 1),
                 ],
-                num_buckets=[9, 9, 7, 7, 9, 9, 0, 0, ],
-                normal_params=[None, None, None, None, None, None, None, None, ],
+                num_buckets=[
+                    9,
+                    9,
+                    7,
+                    7,
+                    9,
+                    9,
+                    0,
+                    0,
+                ],
+                normal_params=[
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                ],
             ),
             Discretizer(
                 ranges=[
-                    (-1.5, 1.5), (-1.5, 1.5), (-5.0, 5.0), (-5.0, 5.0),
-                    (-3.14, 3.14), (-5.0, 5.0), (0, 1), (0, 1),
+                    (-1.5, 1.5),
+                    (-1.5, 1.5),
+                    (-5.0, 5.0),
+                    (-5.0, 5.0),
+                    (-3.14, 3.14),
+                    (-5.0, 5.0),
+                    (0, 1),
+                    (0, 1),
                 ],
-                num_buckets=[9, 9, 9, 9, 13, 9, 0, 0, ],
-                normal_params=[None, None, None, None, None, None, None, None, ],
+                num_buckets=[
+                    9,
+                    9,
+                    9,
+                    9,
+                    13,
+                    9,
+                    0,
+                    0,
+                ],
+                normal_params=[
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                ],
             ),
             Discretizer(
                 ranges=[
-                    (-1.5, 1.5), (-1.5, 1.5), (-5.0, 5.0), (-5.0, 5.0),
-                    (-3.14, 3.14), (-5.0, 5.0), (0, 1), (0, 1),
+                    (-1.5, 1.5),
+                    (-1.5, 1.5),
+                    (-5.0, 5.0),
+                    (-5.0, 5.0),
+                    (-3.14, 3.14),
+                    (-5.0, 5.0),
+                    (0, 1),
+                    (0, 1),
                 ],
-                num_buckets=[13, 13, 13, 13, 17, 13, 0, 0, ],
-                normal_params=[None, None, None, None, None, None, None, None, ],
+                num_buckets=[
+                    13,
+                    13,
+                    13,
+                    13,
+                    17,
+                    13,
+                    0,
+                    0,
+                ],
+                normal_params=[
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                ],
             ),
         ]
         action_discretizers = [
@@ -465,7 +692,7 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
                 ranges=[(-1, 1), (-1, 1)],
                 num_buckets=[25, 25],
                 normal_params=[None, None],
-            )
+            ),
         ]
         configs = {
             "save_path": save_path,

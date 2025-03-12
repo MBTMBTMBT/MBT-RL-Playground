@@ -1,4 +1,4 @@
-if __name__ == '__main__':
+if __name__ == "__main__":
     import gymnasium as gym
     from dyna_q import Discretizer, TabularDynaQAgent, QCutTabularDynaQAgent
     from custom_mountain_car import CustomMountainCarEnv
@@ -7,7 +7,6 @@ if __name__ == '__main__':
     import random
     import numpy as np
     from parallel_training import generate_test_gif
-
 
     # env = CustomMountainCarEnv(custom_gravity=0.005, render_mode="rgb_array")
     # test_env = CustomMountainCarEnv(custom_gravity=0.005, render_mode="rgb_array")
@@ -214,20 +213,34 @@ if __name__ == '__main__':
     #
     # action_type = "float"
 
-    env = gym.make("Pendulum-v1", render_mode="rgb_array",)
-    test_env = gym.make("Pendulum-v1", render_mode="rgb_array",)
+    env = gym.make(
+        "Pendulum-v1",
+        render_mode="rgb_array",
+    )
+    test_env = gym.make(
+        "Pendulum-v1",
+        render_mode="rgb_array",
+    )
     save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_pendulum.csv"
 
     state_discretizer = Discretizer(
-        ranges=[(-1.0, 1.0), (-1.0, 1.0), (-8.0, 8.0), ],
+        ranges=[
+            (-1.0, 1.0),
+            (-1.0, 1.0),
+            (-8.0, 8.0),
+        ],
         num_buckets=[33, 33, 65],
         normal_params=[None, None, None],
     )
 
     action_discretizer = Discretizer(
-        ranges=[(-2.0, 2.0), ],
+        ranges=[
+            (-2.0, 2.0),
+        ],
         num_buckets=[17],
-        normal_params=[None, ],
+        normal_params=[
+            None,
+        ],
     )
 
     action_type = "float"
@@ -277,7 +290,9 @@ if __name__ == '__main__':
             total_reward = 0
             if isinstance(state, int) or isinstance(state, float):
                 state = [state]
-            encoded_state = agent.state_discretizer.encode_indices(list(agent.state_discretizer.discretize(state)[1]))
+            encoded_state = agent.state_discretizer.encode_indices(
+                list(agent.state_discretizer.discretize(state)[1])
+            )
             agent.transition_table_env.add_start_state(encoded_state)
             while not done:
                 if random.random() < env_epsilon:
@@ -293,13 +308,26 @@ if __name__ == '__main__':
                 next_state, reward, done, truncated, _ = env.step(action)
                 if isinstance(next_state, int) or isinstance(next_state, float):
                     next_state = [next_state]
-                agent.update_from_env(state, action_vec, reward, next_state, done, alpha, gamma, update_policy=False)
+                agent.update_from_env(
+                    state,
+                    action_vec,
+                    reward,
+                    next_state,
+                    done,
+                    alpha,
+                    gamma,
+                    update_policy=False,
+                )
                 state = next_state
                 total_reward += reward
                 current_steps += 1
                 pbar.update(1)
 
-                if current_steps % inner_training_per_num_steps == 0 and current_steps > 1 and len(agent.transition_table_env.reward_set_dict.keys()) > 1:
+                if (
+                    current_steps % inner_training_per_num_steps == 0
+                    and current_steps > 1
+                    and len(agent.transition_table_env.reward_set_dict.keys()) > 1
+                ):
                     agent.update_from_transition_table(
                         inner_training_steps,
                         agent_epsilon,
@@ -326,13 +354,23 @@ if __name__ == '__main__':
                         test_total_reward = 0
                         test_done = False
                         while not test_done:
-                            test_action = agent.choose_action(test_state, strategy="greedy")
+                            test_action = agent.choose_action(
+                                test_state, strategy="greedy"
+                            )
                             if action_type == "int":
                                 test_action = test_action.astype("int64")[0].item()
                             elif action_type == "float":
                                 test_action = test_action.astype("float32")
-                            test_next_state, test_reward, test_done, test_truncated, _ = test_env.step(test_action)
-                            if isinstance(test_next_state, int) or isinstance(test_next_state, float):
+                            (
+                                test_next_state,
+                                test_reward,
+                                test_done,
+                                test_truncated,
+                                _,
+                            ) = test_env.step(test_action)
+                            if isinstance(test_next_state, int) or isinstance(
+                                test_next_state, float
+                            ):
                                 test_next_state = [test_next_state]
                             if t == 0 and test_counter % 1 == 0:
                                 frames.append(test_env.render())
@@ -343,9 +381,11 @@ if __name__ == '__main__':
                         periodic_test_rewards.append(test_total_reward)
                     avg_test_reward = np.mean(periodic_test_rewards)
                     recent_avg = np.mean([r for _, r in training_rewards[-10:]])
-                    pbar.set_description(f"Epsilon: {agent_epsilon:.4f} | "
-                                         f"Recent Avg Reward: {recent_avg:.2f} | "
-                                         f"Avg Test Reward: {avg_test_reward:.2f}")
+                    pbar.set_description(
+                        f"Epsilon: {agent_epsilon:.4f} | "
+                        f"Recent Avg Reward: {recent_avg:.2f} | "
+                        f"Avg Test Reward: {avg_test_reward:.2f}"
+                    )
 
                     # Save GIF for the first test episode
                     save_file_gif = save_file.split(".csv")[0] + ".gif"
@@ -362,12 +402,13 @@ if __name__ == '__main__':
                 if done or truncated:
                     training_rewards.append((current_steps, total_reward))
                     recent_avg = np.mean([r for _, r in training_rewards[-10:]])
-                    pbar.set_description(f"Epsilon: {agent_epsilon:.4f} | "
-                                         f"Recent Avg Reward: {recent_avg:.2f} | "
-                                         f"Avg Test Reward: {avg_test_reward:.2f}")
+                    pbar.set_description(
+                        f"Epsilon: {agent_epsilon:.4f} | "
+                        f"Recent Avg Reward: {recent_avg:.2f} | "
+                        f"Avg Test Reward: {avg_test_reward:.2f}"
+                    )
                     break
 
     print(f"End of training. Avg Test Reward: {avg_test_reward:.2f}.")
     agent.save_agent(save_file)
     agent.load_agent(save_file)
-

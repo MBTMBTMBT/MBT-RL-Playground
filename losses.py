@@ -4,9 +4,20 @@ import torch.nn as nn
 
 # Enhanced loss with separate handling for L1 and L2 (MSE) losses with optional thresholding
 class FlexibleThresholdedLoss(nn.Module):
-    def __init__(self, use_mse_threshold=False, use_mae_threshold=True, mse_threshold=None, mae_threshold=None,
-                 reduction='mean', l1_weight=1.0, l2_weight=1.0, threshold_weight=1.0, non_threshold_weight=1.0,
-                 mse_clip_ratio=None, mae_clip_ratio=1e1):
+    def __init__(
+        self,
+        use_mse_threshold=False,
+        use_mae_threshold=True,
+        mse_threshold=None,
+        mae_threshold=None,
+        reduction="mean",
+        l1_weight=1.0,
+        l2_weight=1.0,
+        threshold_weight=1.0,
+        non_threshold_weight=1.0,
+        mse_clip_ratio=None,
+        mae_clip_ratio=1e1,
+    ):
         """
         use_mse_threshold: Whether to apply a threshold to L2 (MSE)-based loss.
         use_mae_threshold: Whether to apply a threshold to L1-based loss.
@@ -48,7 +59,9 @@ class FlexibleThresholdedLoss(nn.Module):
                 self.mse_threshold = mse_loss  # Set adaptive threshold based on MSE
 
             # Filter values based on threshold
-            mse_thresholded_diff = pixel_diff_squared[pixel_diff_squared >= self.mse_threshold]
+            mse_thresholded_diff = pixel_diff_squared[
+                pixel_diff_squared >= self.mse_threshold
+            ]
 
             # Calculate the thresholded loss and normalize if necessary
             if mse_thresholded_diff.numel() > 0:
@@ -57,7 +70,11 @@ class FlexibleThresholdedLoss(nn.Module):
                     clip_value = self.mse_clip_ratio * general_mean
                     # Normalize the loss if it exceeds the clip_value
                     if mse_thresholded_loss > clip_value:
-                        mse_thresholded_loss = clip_value * mse_thresholded_loss / mse_thresholded_loss.detach()
+                        mse_thresholded_loss = (
+                            clip_value
+                            * mse_thresholded_loss
+                            / mse_thresholded_loss.detach()
+                        )
             else:
                 mse_thresholded_loss = torch.tensor(0.0, device=pixel_diff.device)
         else:
@@ -80,7 +97,11 @@ class FlexibleThresholdedLoss(nn.Module):
                     clip_value = self.mae_clip_ratio * general_mean
                     # Normalize the loss if it exceeds the clip_value
                     if mae_thresholded_loss > clip_value:
-                        mae_thresholded_loss = clip_value * mae_thresholded_loss / mae_thresholded_loss.detach()
+                        mae_thresholded_loss = (
+                            clip_value
+                            * mae_thresholded_loss
+                            / mae_thresholded_loss.detach()
+                        )
             else:
                 mae_thresholded_loss = torch.tensor(0.0, device=pixel_diff.device)
         else:
@@ -89,24 +110,35 @@ class FlexibleThresholdedLoss(nn.Module):
 
         # Part 3: Non-thresholded loss (all differences are considered for both L1 and L2)
         non_thresholded_l1_loss = pixel_diff.mean()  # L1 part without threshold
-        non_thresholded_l2_loss = pixel_diff_squared.mean()  # L2 (MSE) part without threshold
+        non_thresholded_l2_loss = (
+            pixel_diff_squared.mean()
+        )  # L2 (MSE) part without threshold
 
         # Combine thresholded L1 and L2 losses
-        combined_thresholded_loss = self.l1_weight * mae_thresholded_loss + self.l2_weight * mse_thresholded_loss
+        combined_thresholded_loss = (
+            self.l1_weight * mae_thresholded_loss
+            + self.l2_weight * mse_thresholded_loss
+        )
 
         # Combine non-thresholded L1 and L2 losses
-        combined_non_thresholded_loss = self.l1_weight * non_thresholded_l1_loss + self.l2_weight * non_thresholded_l2_loss
+        combined_non_thresholded_loss = (
+            self.l1_weight * non_thresholded_l1_loss
+            + self.l2_weight * non_thresholded_l2_loss
+        )
 
         # Apply reduction (mean or sum) to each part
-        if self.reduction == 'mean':
+        if self.reduction == "mean":
             combined_thresholded_loss = combined_thresholded_loss.mean()
             combined_non_thresholded_loss = combined_non_thresholded_loss.mean()
-        elif self.reduction == 'sum':
+        elif self.reduction == "sum":
             combined_thresholded_loss = combined_thresholded_loss.sum()
             combined_non_thresholded_loss = combined_non_thresholded_loss.sum()
 
         # Combine thresholded and non-thresholded losses with respective weights
-        total_loss = self.threshold_weight * combined_thresholded_loss + self.non_threshold_weight * combined_non_thresholded_loss
+        total_loss = (
+            self.threshold_weight * combined_thresholded_loss
+            + self.non_threshold_weight * combined_non_thresholded_loss
+        )
 
         return total_loss
 
@@ -118,9 +150,17 @@ if __name__ == "__main__":
     target_img = torch.rand((1, 3, 256, 256))  # Target image
 
     # Instantiate the flexible thresholded loss with normalization
-    loss_fn = FlexibleThresholdedLoss(use_mse_threshold=True, use_mae_threshold=True, reduction='mean',
-                                      l1_weight=0.5, l2_weight=0.5, threshold_weight=0.7, non_threshold_weight=0.3,
-                                      mse_clip_ratio=2.0, mae_clip_ratio=1.5)
+    loss_fn = FlexibleThresholdedLoss(
+        use_mse_threshold=True,
+        use_mae_threshold=True,
+        reduction="mean",
+        l1_weight=0.5,
+        l2_weight=0.5,
+        threshold_weight=0.7,
+        non_threshold_weight=0.3,
+        mse_clip_ratio=2.0,
+        mae_clip_ratio=1.5,
+    )
 
     # Calculate the loss
     loss = loss_fn(gen_img, target_img)

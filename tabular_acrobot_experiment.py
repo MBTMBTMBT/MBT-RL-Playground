@@ -23,19 +23,18 @@ def align_training_rewards_with_steps(all_training_results, total_steps):
         steps, rewards = zip(*step_rewards)
         # Interpolate rewards to align with total_steps
         interpolated_rewards = np.interp(
-            np.linspace(1, total_steps, total_steps),
-            steps,
-            rewards
+            np.linspace(1, total_steps, total_steps), steps, rewards
         )
         aligned_rewards.append(interpolated_rewards)
-    return np.mean(aligned_rewards, axis=0), np.std(aligned_rewards, axis=0)  # Return mean and std
-
+    return np.mean(aligned_rewards, axis=0), np.std(
+        aligned_rewards, axis=0
+    )  # Return mean and std
 
 
 # Generate GIF for the final test episode
 def generate_test_gif(frames, gif_path):
     fig, ax = plt.subplots()
-    ax.axis('off')  # Turn off axis
+    ax.axis("off")  # Turn off axis
     img = ax.imshow(frames[0])
 
     def update(frame):
@@ -50,7 +49,18 @@ def generate_test_gif(frames, gif_path):
 
 # Single experiment runner
 def run_experiment(args):
-    total_steps, alpha, gamma, epsilon_start, epsilon_end, state_space, action_space, group_name, run_id, save_dir = args
+    (
+        total_steps,
+        alpha,
+        gamma,
+        epsilon_start,
+        epsilon_end,
+        state_space,
+        action_space,
+        group_name,
+        run_id,
+        save_dir,
+    ) = args
     epsilon_decay = (epsilon_start - epsilon_end) / total_steps
     step_rewards = []
     test_rewards = []
@@ -61,10 +71,12 @@ def run_experiment(args):
     agent = __QTableAgent(state_space, action_space)
 
     # Initialize CartPole environment
-    env = gym.make('Acrobot-v1')
+    env = gym.make("Acrobot-v1")
 
     # Training
-    with tqdm(total=total_steps, desc=f"[{group_name}] Run {run_id + 1}", leave=False) as pbar:
+    with tqdm(
+        total=total_steps, desc=f"[{group_name}] Run {run_id + 1}", leave=False
+    ) as pbar:
         while current_steps < total_steps:
             state, _ = env.reset()
             total_reward = 0
@@ -74,7 +86,9 @@ def run_experiment(args):
                 if np.random.random() < epsilon:
                     action = [np.random.choice([0, 1])]
                 else:
-                    probabilities = agent.get_action_probabilities(state, strategy="softmax")
+                    probabilities = agent.get_action_probabilities(
+                        state, strategy="softmax"
+                    )
                     action = [np.argmax(probabilities)]
 
                 next_state, reward, done, truncated, _ = env.step(action[0])
@@ -89,19 +103,25 @@ def run_experiment(args):
                 if done or truncated:
                     step_rewards.append((current_steps, total_reward))
                     recent_avg = np.mean([r for _, r in step_rewards[-10:]])
-                    pbar.set_description(f"[{group_name}] Run {run_id + 1} | "
-                                         f"Epsilon: {epsilon:.4f} | "
-                                         f"Recent Avg Reward: {recent_avg:.2f}")
+                    pbar.set_description(
+                        f"[{group_name}] Run {run_id + 1} | "
+                        f"Epsilon: {epsilon:.4f} | "
+                        f"Recent Avg Reward: {recent_avg:.2f}"
+                    )
                     break
 
     # Save Q-Table and training data
     q_table_path = os.path.join(save_dir, f"{group_name}_run_{run_id + 1}_q_table.csv")
     agent.save_q_table(q_table_path)
-    training_data_path = os.path.join(save_dir, f"{group_name}_run_{run_id + 1}_training_data.csv")
-    pd.DataFrame(step_rewards, columns=["Step", "Reward"]).to_csv(training_data_path, index=False)
+    training_data_path = os.path.join(
+        save_dir, f"{group_name}_run_{run_id + 1}_training_data.csv"
+    )
+    pd.DataFrame(step_rewards, columns=["Step", "Reward"]).to_csv(
+        training_data_path, index=False
+    )
 
     # Testing and GIF generation
-    env = gym.make('Acrobot-v1', render_mode="rgb_array")
+    env = gym.make("Acrobot-v1", render_mode="rgb_array")
     frames = []
     for episode in range(20):
         state, _ = env.reset()
@@ -134,12 +154,20 @@ def run_all_experiments(experiment_groups, save_dir, max_workers):
     tasks = []
     for group in experiment_groups:
         for run_id in range(group["runs"]):
-            tasks.append((
-                group["total_steps"], group["alpha"], group["gamma"],
-                group["epsilon_start"], group["epsilon_end"],
-                group["state_space"], group["action_space"],
-                group["group_name"], run_id, save_dir
-            ))
+            tasks.append(
+                (
+                    group["total_steps"],
+                    group["alpha"],
+                    group["gamma"],
+                    group["epsilon_start"],
+                    group["epsilon_end"],
+                    group["state_space"],
+                    group["action_space"],
+                    group["group_name"],
+                    run_id,
+                    save_dir,
+                )
+            )
 
     # Execute tasks in parallel
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
@@ -164,12 +192,16 @@ def run_all_experiments(experiment_groups, save_dir, max_workers):
         )
         avg_testing_rewards = np.mean(all_testing_results)
 
-        aggregated_results[group_name] = (avg_training_rewards, std_training_rewards, avg_testing_rewards)
+        aggregated_results[group_name] = (
+            avg_training_rewards,
+            std_training_rewards,
+            avg_testing_rewards,
+        )
 
     return aggregated_results
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # General experiment parameters
     experiment_name = "Acrobot_Experiments"
     save_dir = f"./experiments/{experiment_name}/"
@@ -180,14 +212,38 @@ if __name__ == '__main__':
         {
             "group_name": "16_bins",
             "state_space": [
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 16},  # Cosine of theta1
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 16},  # Sine of theta1
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 16},  # Cosine of theta2
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 16},  # Sine of theta2
-                {'type': 'continuous', 'range': (-6.0, 6.0), 'bins': 16},  # Angular velocity of link 1
-                {'type': 'continuous', 'range': (-12.0, 12.0), 'bins': 16}  # Angular velocity of link 2
+                {
+                    "type": "continuous",
+                    "range": (-1.0, 1.0),
+                    "bins": 16,
+                },  # Cosine of theta1
+                {
+                    "type": "continuous",
+                    "range": (-1.0, 1.0),
+                    "bins": 16,
+                },  # Sine of theta1
+                {
+                    "type": "continuous",
+                    "range": (-1.0, 1.0),
+                    "bins": 16,
+                },  # Cosine of theta2
+                {
+                    "type": "continuous",
+                    "range": (-1.0, 1.0),
+                    "bins": 16,
+                },  # Sine of theta2
+                {
+                    "type": "continuous",
+                    "range": (-6.0, 6.0),
+                    "bins": 16,
+                },  # Angular velocity of link 1
+                {
+                    "type": "continuous",
+                    "range": (-12.0, 12.0),
+                    "bins": 16,
+                },  # Angular velocity of link 2
             ],
-            "action_space": [{'type': 'discrete', 'bins': 3}],
+            "action_space": [{"type": "discrete", "bins": 3}],
             "alpha": 0.1,
             "gamma": 0.99,
             "epsilon_start": 0.25,
@@ -198,14 +254,38 @@ if __name__ == '__main__':
         {
             "group_name": "12_bins",
             "state_space": [
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 12},  # Cosine of theta1
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 12},  # Sine of theta1
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 12},  # Cosine of theta2
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 12},  # Sine of theta2
-                {'type': 'continuous', 'range': (-6.0, 6.0), 'bins': 12},  # Angular velocity of link 1
-                {'type': 'continuous', 'range': (-12.0, 12.0), 'bins': 12}  # Angular velocity of link 2
+                {
+                    "type": "continuous",
+                    "range": (-1.0, 1.0),
+                    "bins": 12,
+                },  # Cosine of theta1
+                {
+                    "type": "continuous",
+                    "range": (-1.0, 1.0),
+                    "bins": 12,
+                },  # Sine of theta1
+                {
+                    "type": "continuous",
+                    "range": (-1.0, 1.0),
+                    "bins": 12,
+                },  # Cosine of theta2
+                {
+                    "type": "continuous",
+                    "range": (-1.0, 1.0),
+                    "bins": 12,
+                },  # Sine of theta2
+                {
+                    "type": "continuous",
+                    "range": (-6.0, 6.0),
+                    "bins": 12,
+                },  # Angular velocity of link 1
+                {
+                    "type": "continuous",
+                    "range": (-12.0, 12.0),
+                    "bins": 12,
+                },  # Angular velocity of link 2
             ],
-            "action_space": [{'type': 'discrete', 'bins': 3}],
+            "action_space": [{"type": "discrete", "bins": 3}],
             "alpha": 0.1,
             "gamma": 0.99,
             "epsilon_start": 0.25,
@@ -216,14 +296,38 @@ if __name__ == '__main__':
         {
             "group_name": "8_bins",
             "state_space": [
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 8},  # Cosine of theta1
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 8},  # Sine of theta1
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 8},  # Cosine of theta2
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 8},  # Sine of theta2
-                {'type': 'continuous', 'range': (-6.0, 6.0), 'bins': 8},  # Angular velocity of link 1
-                {'type': 'continuous', 'range': (-12.0, 12.0), 'bins': 8}  # Angular velocity of link 2
+                {
+                    "type": "continuous",
+                    "range": (-1.0, 1.0),
+                    "bins": 8,
+                },  # Cosine of theta1
+                {
+                    "type": "continuous",
+                    "range": (-1.0, 1.0),
+                    "bins": 8,
+                },  # Sine of theta1
+                {
+                    "type": "continuous",
+                    "range": (-1.0, 1.0),
+                    "bins": 8,
+                },  # Cosine of theta2
+                {
+                    "type": "continuous",
+                    "range": (-1.0, 1.0),
+                    "bins": 8,
+                },  # Sine of theta2
+                {
+                    "type": "continuous",
+                    "range": (-6.0, 6.0),
+                    "bins": 8,
+                },  # Angular velocity of link 1
+                {
+                    "type": "continuous",
+                    "range": (-12.0, 12.0),
+                    "bins": 8,
+                },  # Angular velocity of link 2
             ],
-            "action_space": [{'type': 'discrete', 'bins': 3}],
+            "action_space": [{"type": "discrete", "bins": 3}],
             "alpha": 0.1,
             "gamma": 0.99,
             "epsilon_start": 0.25,
@@ -234,14 +338,38 @@ if __name__ == '__main__':
         {
             "group_name": "4_bins",
             "state_space": [
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 4},  # Cosine of theta1
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 4},  # Sine of theta1
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 4},  # Cosine of theta2
-                {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 4},  # Sine of theta2
-                {'type': 'continuous', 'range': (-6.0, 6.0), 'bins': 4},  # Angular velocity of link 1
-                {'type': 'continuous', 'range': (-12.0, 12.0), 'bins': 4}  # Angular velocity of link 2
+                {
+                    "type": "continuous",
+                    "range": (-1.0, 1.0),
+                    "bins": 4,
+                },  # Cosine of theta1
+                {
+                    "type": "continuous",
+                    "range": (-1.0, 1.0),
+                    "bins": 4,
+                },  # Sine of theta1
+                {
+                    "type": "continuous",
+                    "range": (-1.0, 1.0),
+                    "bins": 4,
+                },  # Cosine of theta2
+                {
+                    "type": "continuous",
+                    "range": (-1.0, 1.0),
+                    "bins": 4,
+                },  # Sine of theta2
+                {
+                    "type": "continuous",
+                    "range": (-6.0, 6.0),
+                    "bins": 4,
+                },  # Angular velocity of link 1
+                {
+                    "type": "continuous",
+                    "range": (-12.0, 12.0),
+                    "bins": 4,
+                },  # Angular velocity of link 2
             ],
-            "action_space": [{'type': 'discrete', 'bins': 3}],
+            "action_space": [{"type": "discrete", "bins": 3}],
             "alpha": 0.1,
             "gamma": 0.99,
             "epsilon_start": 0.25,
@@ -257,15 +385,26 @@ if __name__ == '__main__':
 
     plt.figure(figsize=(12, 8))
     linestyles = [
-        '-', '--', '-.', ':', (0, (1, 1)), (0, (5, 1)),
-        (0, (3, 1, 1, 1)), (0, (3, 5, 1, 5)), (0, (5, 10)),
-        (0, (1, 10)), (0, (5, 5, 1, 5)), (0, (2, 2, 1, 2))
+        "-",
+        "--",
+        "-.",
+        ":",
+        (0, (1, 1)),
+        (0, (5, 1)),
+        (0, (3, 1, 1, 1)),
+        (0, (3, 5, 1, 5)),
+        (0, (5, 10)),
+        (0, (1, 10)),
+        (0, (5, 5, 1, 5)),
+        (0, (2, 2, 1, 2)),
     ]
 
     # Target number of points for the plot
     target_points = 8192
 
-    for i, (group_name, (avg_rewards, std_rewards, avg_test_reward)) in enumerate(aggregated_results.items()):
+    for i, (group_name, (avg_rewards, std_rewards, avg_test_reward)) in enumerate(
+        aggregated_results.items()
+    ):
         total_steps = experiment_groups[i]["total_steps"]
         total_points = len(avg_rewards)
         downsample_rate = max(1, total_points // target_points)
@@ -277,23 +416,48 @@ if __name__ == '__main__':
         kernel_size = downsample_rate
         kernel = np.ones(kernel_size) / kernel_size
 
-        smoothed_rewards = np.convolve(avg_rewards_array, kernel, mode='valid')[::downsample_rate]
-        smoothed_std = np.convolve(std_rewards_array, kernel, mode='valid')[::downsample_rate]
+        smoothed_rewards = np.convolve(avg_rewards_array, kernel, mode="valid")[
+            ::downsample_rate
+        ]
+        smoothed_std = np.convolve(std_rewards_array, kernel, mode="valid")[
+            ::downsample_rate
+        ]
         steps = np.linspace(1, total_steps, len(smoothed_rewards))
 
         color = plt.cm.tab10(i % 10)
 
-        plt.plot(steps, smoothed_rewards, color=color, linestyle='-', alpha=0.8,
-                 label=f'{group_name} Smoothed Training Avg')
-        plt.fill_between(steps,
-                         smoothed_rewards - smoothed_std,
-                         smoothed_rewards + smoothed_std,
-                         color=color, alpha=0.25, label=f'{group_name} Training Std Dev')
-        plt.axhline(avg_test_reward, color="black", linestyle=linestyles[i % len(linestyles)],
-                    label=f'{group_name} Test Avg', alpha=0.9)
-        plt.text(total_steps * 0.98, avg_test_reward + 2,
-                 f'{avg_test_reward:.2f}', color="black", fontsize=10,
-                 horizontalalignment='right', verticalalignment='bottom')
+        plt.plot(
+            steps,
+            smoothed_rewards,
+            color=color,
+            linestyle="-",
+            alpha=0.8,
+            label=f"{group_name} Smoothed Training Avg",
+        )
+        plt.fill_between(
+            steps,
+            smoothed_rewards - smoothed_std,
+            smoothed_rewards + smoothed_std,
+            color=color,
+            alpha=0.25,
+            label=f"{group_name} Training Std Dev",
+        )
+        plt.axhline(
+            avg_test_reward,
+            color="black",
+            linestyle=linestyles[i % len(linestyles)],
+            label=f"{group_name} Test Avg",
+            alpha=0.9,
+        )
+        plt.text(
+            total_steps * 0.98,
+            avg_test_reward + 2,
+            f"{avg_test_reward:.2f}",
+            color="black",
+            fontsize=10,
+            horizontalalignment="right",
+            verticalalignment="bottom",
+        )
 
     plt.title("Training Results Across Experiment Groups")
     plt.xlabel("Steps")

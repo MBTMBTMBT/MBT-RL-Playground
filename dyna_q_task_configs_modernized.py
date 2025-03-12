@@ -10,24 +10,52 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
         env = gym.make("CartPole-v1", render_mode="rgb_array")
         test_env = gym.make("CartPole-v1", render_mode="rgb_array")
         state_discretizer_t = Discretizer(
-            ranges=[(-2.4, 2.4), (-2, 2), (-0.25, 0.25), (-2, 2),],
+            ranges=[
+                (-2.4, 2.4),
+                (-2, 2),
+                (-0.25, 0.25),
+                (-2, 2),
+            ],
             num_buckets=[5, 9, 9, 9],
-            normal_params=[None, None, None, None,],
+            normal_params=[
+                None,
+                None,
+                None,
+                None,
+            ],
         )
         action_discretizer_t = Discretizer(
-            ranges=[(0, 1),],
+            ranges=[
+                (0, 1),
+            ],
             num_buckets=[0],
-            normal_params=[None, ],
+            normal_params=[
+                None,
+            ],
         )
         state_discretizer_b = Discretizer(
-            ranges=[(-2.4, 2.4), (-2, 2), (-0.25, 0.25), (-2, 2), ],
+            ranges=[
+                (-2.4, 2.4),
+                (-2, 2),
+                (-0.25, 0.25),
+                (-2, 2),
+            ],
             num_buckets=[13, 17, 17, 17],
-            normal_params=[None, None, None, None, ],
+            normal_params=[
+                None,
+                None,
+                None,
+                None,
+            ],
         )
         action_discretizer_b = Discretizer(
-            ranges=[(0, 1), ],
+            ranges=[
+                (0, 1),
+            ],
             num_buckets=[0],
-            normal_params=[None, ],
+            normal_params=[
+                None,
+            ],
         )
         configs = {
             "use_deep_agent": False,
@@ -91,24 +119,38 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
         env = CustomMountainCarEnv(custom_gravity=0.005, render_mode="rgb_array")
         test_env = CustomMountainCarEnv(custom_gravity=0.005, render_mode="rgb_array")
         state_discretizer_t = Discretizer(
-            ranges=[(-1.2, 0.6), (-0.07, 0.07), ],
+            ranges=[
+                (-1.2, 0.6),
+                (-0.07, 0.07),
+            ],
             num_buckets=[33, 9],
             normal_params=[None, None],
         )
         action_discretizer_t = Discretizer(
-            ranges=[(0, 2),],
+            ranges=[
+                (0, 2),
+            ],
             num_buckets=[0],
-            normal_params=[None, ],
+            normal_params=[
+                None,
+            ],
         )
         state_discretizer_b = Discretizer(
-            ranges=[(-1.2, 0.6), (-0.07, 0.07), ],
+            ranges=[
+                (-1.2, 0.6),
+                (-0.07, 0.07),
+            ],
             num_buckets=[65, 25],
             normal_params=[None, None],
         )
         action_discretizer_b = Discretizer(
-            ranges=[(0, 2),],
+            ranges=[
+                (0, 2),
+            ],
             num_buckets=[0],
-            normal_params=[None, ],
+            normal_params=[
+                None,
+            ],
         )
         configs = {
             "use_deep_agent": False,
@@ -169,15 +211,47 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
 
     elif name == "lunarlander":
         save_path = "./experiments/DynaQ/lunarlander/lunarlander"
-        env = gym.make("LunarLander-v3", render_mode="rgb_array", continuous=True, )
-        test_env = gym.make("LunarLander-v3", render_mode="rgb_array", continuous=True, )
+        env = gym.make(
+            "LunarLander-v3",
+            render_mode="rgb_array",
+            continuous=True,
+        )
+        test_env = gym.make(
+            "LunarLander-v3",
+            render_mode="rgb_array",
+            continuous=True,
+        )
         state_discretizer_t = Discretizer(
             ranges=[
-                (-1.5, 1.5), (-1.5, 1.5), (-5.0, 5.0), (-5.0, 5.0),
-                (-3.14, 3.14), (-5.0, 5.0), (0, 1), (0, 1),
+                (-1.5, 1.5),
+                (-1.5, 1.5),
+                (-5.0, 5.0),
+                (-5.0, 5.0),
+                (-3.14, 3.14),
+                (-5.0, 5.0),
+                (0, 1),
+                (0, 1),
             ],
-            num_buckets=[9, 9, 17, 17, 13, 17, 0, 0,],
-            normal_params=[None, None, None, None, None, None, None, None,],
+            num_buckets=[
+                9,
+                9,
+                17,
+                17,
+                13,
+                17,
+                0,
+                0,
+            ],
+            normal_params=[
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+            ],
         )
         action_discretizer_t = Discretizer(
             ranges=[(-1, 1), (-1, 1)],
@@ -186,11 +260,35 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
         )
         state_discretizer_b = Discretizer(
             ranges=[
-                (-1.5, 1.5), (-1.5, 1.5), (-5.0, 5.0), (-5.0, 5.0),
-                (-3.14, 3.14), (-5.0, 5.0), (0, 1), (0, 1),
+                (-1.5, 1.5),
+                (-1.5, 1.5),
+                (-5.0, 5.0),
+                (-5.0, 5.0),
+                (-3.14, 3.14),
+                (-5.0, 5.0),
+                (0, 1),
+                (0, 1),
             ],
-            num_buckets=[17, 17, 49, 49, 25, 49, 0, 0,],
-            normal_params=[None, None, None, None, None, None, None, None, ],
+            num_buckets=[
+                17,
+                17,
+                49,
+                49,
+                25,
+                49,
+                0,
+                0,
+            ],
+            normal_params=[
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+            ],
         )
         action_discretizer_b = Discretizer(
             ranges=[(-1, 1), (-1, 1)],
@@ -261,29 +359,73 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
         test_env = gym.make("Acrobot-v1", render_mode="rgb_array")
         state_discretizer_t = Discretizer(
             ranges=[
-                (-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0),
-                (-6.0, 6.0), (-12.0, 12.0),
+                (-1.0, 1.0),
+                (-1.0, 1.0),
+                (-1.0, 1.0),
+                (-1.0, 1.0),
+                (-6.0, 6.0),
+                (-12.0, 12.0),
             ],
-            num_buckets=[9, 9, 9, 9, 9, 9,],
-            normal_params=[None, None, None, None, None, None,],
+            num_buckets=[
+                9,
+                9,
+                9,
+                9,
+                9,
+                9,
+            ],
+            normal_params=[
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+            ],
         )
         action_discretizer_t = Discretizer(
-            ranges=[(0, 2), ],
+            ranges=[
+                (0, 2),
+            ],
             num_buckets=[0],
-            normal_params=[None,],
+            normal_params=[
+                None,
+            ],
         )
         state_discretizer_b = Discretizer(
             ranges=[
-                (-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0),
-                (-6.0, 6.0), (-12.0, 12.0),
+                (-1.0, 1.0),
+                (-1.0, 1.0),
+                (-1.0, 1.0),
+                (-1.0, 1.0),
+                (-6.0, 6.0),
+                (-12.0, 12.0),
             ],
-            num_buckets=[17, 17, 17, 17, 17, 17, ],
-            normal_params=[None, None, None, None, None, None, ],
+            num_buckets=[
+                17,
+                17,
+                17,
+                17,
+                17,
+                17,
+            ],
+            normal_params=[
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+            ],
         )
         action_discretizer_b = Discretizer(
-            ranges=[(0, 2), ],
+            ranges=[
+                (0, 2),
+            ],
             num_buckets=[0],
-            normal_params=[None, ],
+            normal_params=[
+                None,
+            ],
         )
         configs = {
             "use_deep_agent": False,
@@ -342,29 +484,51 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
             },
         }
 
-    elif name =="pendulum":
+    elif name == "pendulum":
         save_path = "./experiments/DynaQ/pendulum/pendulum"
-        env = gym.make("Pendulum-v1", render_mode="rgb_array",)
-        test_env = gym.make("Pendulum-v1", render_mode="rgb_array",)
+        env = gym.make(
+            "Pendulum-v1",
+            render_mode="rgb_array",
+        )
+        test_env = gym.make(
+            "Pendulum-v1",
+            render_mode="rgb_array",
+        )
         state_discretizer_t = Discretizer(
-            ranges=[(-1.0, 1.0), (-1.0, 1.0), (-8.0, 8.0), ],
+            ranges=[
+                (-1.0, 1.0),
+                (-1.0, 1.0),
+                (-8.0, 8.0),
+            ],
             num_buckets=[9, 9, 25],
             normal_params=[None, None, None],
         )
         action_discretizer_t = Discretizer(
-            ranges=[(-2.0, 2.0),],
+            ranges=[
+                (-2.0, 2.0),
+            ],
             num_buckets=[9],
-            normal_params=[None,],
+            normal_params=[
+                None,
+            ],
         )
         state_discretizer_b = Discretizer(
-            ranges=[(-1.0, 1.0), (-1.0, 1.0), (-8.0, 8.0), ],
+            ranges=[
+                (-1.0, 1.0),
+                (-1.0, 1.0),
+                (-8.0, 8.0),
+            ],
             num_buckets=[17, 17, 33],
             normal_params=[None, None, None],
         )
         action_discretizer_b = Discretizer(
-            ranges=[(-2.0, 2.0), ],
+            ranges=[
+                (-2.0, 2.0),
+            ],
             num_buckets=[17],
-            normal_params=[None, ],
+            normal_params=[
+                None,
+            ],
         )
         configs = {
             "use_deep_agent": False,
@@ -425,27 +589,45 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
 
     elif name == "texi":
         save_path = "./experiments/DynaQ/texi/texi"
-        env = gym.make("Taxi-v3", render_mode="rgb_array", )
-        test_env = gym.make("Taxi-v3", render_mode="rgb_array", )
+        env = gym.make(
+            "Taxi-v3",
+            render_mode="rgb_array",
+        )
+        test_env = gym.make(
+            "Taxi-v3",
+            render_mode="rgb_array",
+        )
         state_discretizer_t = Discretizer(
             ranges=[(0, 499)],
             num_buckets=[0],
-            normal_params=[None,],
+            normal_params=[
+                None,
+            ],
         )
         action_discretizer_t = Discretizer(
-            ranges=[(0, 5),],
+            ranges=[
+                (0, 5),
+            ],
             num_buckets=[0],
-            normal_params=[None, ],
+            normal_params=[
+                None,
+            ],
         )
         state_discretizer_b = Discretizer(
             ranges=[(0, 499)],
             num_buckets=[0],
-            normal_params=[None, ],
+            normal_params=[
+                None,
+            ],
         )
         action_discretizer_b = Discretizer(
-            ranges=[(0, 5), ],
+            ranges=[
+                (0, 5),
+            ],
             num_buckets=[0],
-            normal_params=[None, ],
+            normal_params=[
+                None,
+            ],
         )
         configs = {
             "use_deep_agent": False,
@@ -509,4 +691,12 @@ def get_envs_discretizers_and_configs(name: str, configs_only=False):
 
     if configs_only:
         return configs
-    return env, test_env, state_discretizer_t, action_discretizer_t, state_discretizer_b, action_discretizer_b, configs
+    return (
+        env,
+        test_env,
+        state_discretizer_t,
+        action_discretizer_t,
+        state_discretizer_b,
+        action_discretizer_b,
+        configs,
+    )

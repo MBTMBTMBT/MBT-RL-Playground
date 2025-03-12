@@ -30,7 +30,7 @@ def encode_state(env):
         "grid": grid_list,
         "agent_pos": agent_pos,
         "agent_dir": agent_dir,
-        "carrying": carrying
+        "carrying": carrying,
     }
     return json.dumps(state, sort_keys=True)  # Ensure stable JSON ordering
 
@@ -96,7 +96,9 @@ def explore_environment(env_name, seed=0):
             if next_state_str not in explored_states and not done and not truncated:
                 if next_state_str not in new_states:
                     new_states.add(next_state_str)
-                    unvisited_actions += 1  # Count how many actions lead to unknown states
+                    unvisited_actions += (
+                        1  # Count how many actions lead to unknown states
+                    )
 
             decode_state(env, prev_state_str)  # Restore the original state
 
@@ -111,7 +113,9 @@ def explore_environment(env_name, seed=0):
 
 
 # Value Iteration for MDP Solving
-def value_iteration(transition_table, rewards, gamma=0.95, theta=1e-5, max_iterations=10000000):
+def value_iteration(
+    transition_table, rewards, gamma=0.95, theta=1e-5, max_iterations=10000000
+):
     """Solve the MDP using Value Iteration algorithm."""
     states = list(transition_table.keys())
     V = {s: 0 for s in states}  # Initialize values to zero
@@ -142,7 +146,10 @@ def value_iteration(transition_table, rewards, gamma=0.95, theta=1e-5, max_itera
         if s not in transition_table or not transition_table[s]:
             continue  # Skip terminal states
 
-        best_action = max(transition_table[s], key=lambda a: rewards[s][a] + gamma * V.get(transition_table[s][a], 0))
+        best_action = max(
+            transition_table[s],
+            key=lambda a: rewards[s][a] + gamma * V.get(transition_table[s][a], 0),
+        )
         policy[s] = best_action
 
     return policy
@@ -173,12 +180,22 @@ def execute_policy(env_name, policy, seed=0, output_gif="optimal_policy.gif"):
 
 
 # Solve MiniGrid-DoorKey-5x5-v0
-transition_table_door, rewards_door = explore_environment("MiniGrid-DoorKey-5x5-v0", seed=0)
+transition_table_door, rewards_door = explore_environment(
+    "MiniGrid-DoorKey-5x5-v0", seed=0
+)
 policy_door = value_iteration(transition_table_door, rewards_door)
-execute_policy("MiniGrid-DoorKey-5x5-v0", policy_door, seed=0, output_gif="doorkey_solution.gif")
+execute_policy(
+    "MiniGrid-DoorKey-5x5-v0", policy_door, seed=0, output_gif="doorkey_solution.gif"
+)
 
 # Solve MiniGrid-Dynamic-Obstacles-5x5-v0
-transition_table_obstacles, rewards_obstacles = explore_environment("MiniGrid-Dynamic-Obstacles-5x5-v0", seed=0)
+transition_table_obstacles, rewards_obstacles = explore_environment(
+    "MiniGrid-Dynamic-Obstacles-5x5-v0", seed=0
+)
 policy_obstacles = value_iteration(transition_table_obstacles, rewards_obstacles)
-execute_policy("MiniGrid-Dynamic-Obstacles-5x5-v0", policy_obstacles, seed=0,
-               output_gif="dynamic_obstacles_solution.gif")
+execute_policy(
+    "MiniGrid-Dynamic-Obstacles-5x5-v0",
+    policy_obstacles,
+    seed=0,
+    output_gif="dynamic_obstacles_solution.gif",
+)

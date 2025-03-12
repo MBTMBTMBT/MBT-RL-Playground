@@ -10,7 +10,6 @@ from models import ResidualBlock
 
 
 class BaseVAE(nn.Module):
-
     def __init__(self) -> None:
         super(BaseVAE, self).__init__()
 
@@ -36,7 +35,13 @@ class BaseVAE(nn.Module):
 
 
 class VAE(nn.Module):
-    def __init__(self, in_channels: int, latent_dim: int, hidden_dims: list = None, input_size=(60, 80),):  # ema_factor=0.01,):
+    def __init__(
+        self,
+        in_channels: int,
+        latent_dim: int,
+        hidden_dims: list = None,
+        input_size=(60, 80),
+    ):  # ema_factor=0.01,):
         super(VAE, self).__init__()
 
         self.latent_dim = latent_dim
@@ -48,7 +53,9 @@ class VAE(nn.Module):
 
         # Dynamically compute flattened dimension
         with torch.no_grad():
-            dummy_input = torch.zeros(1, in_channels, self.input_height, self.input_width)
+            dummy_input = torch.zeros(
+                1, in_channels, self.input_height, self.input_width
+            )
             encoder_output = self.encoder(dummy_input)
             self.encoder_output_channels = encoder_output.shape[1]
             self.encoder_output_height = encoder_output.shape[2]
@@ -65,7 +72,7 @@ class VAE(nn.Module):
         # Final layer to match exact dimensions
         self.final_layer = nn.Sequential(
             nn.Conv2d(self.hidden_dims[0], in_channels, kernel_size=3, padding=1),
-            nn.Tanh()
+            nn.Tanh(),
         )
 
         # Apply Kaiming initialization
@@ -75,7 +82,7 @@ class VAE(nn.Module):
         self.pixel_loss = FlexibleThresholdedLoss(
             use_mse_threshold=True,
             use_mae_threshold=True,
-            reduction='mean',
+            reduction="mean",
             l1_weight=1.0,
             l2_weight=1.0,
             threshold_weight=1.0,
@@ -94,9 +101,11 @@ class VAE(nn.Module):
             downsample = nn.Sequential(
                 nn.Conv2d(in_channels, h_dim, kernel_size=1, stride=2, bias=False),
                 nn.InstanceNorm2d(h_dim, affine=True),
-                nn.LeakyReLU()
+                nn.LeakyReLU(),
             )
-            layers.append(ResidualBlock(in_channels, h_dim, stride=2, downsample=downsample))
+            layers.append(
+                ResidualBlock(in_channels, h_dim, stride=2, downsample=downsample)
+            )
             in_channels = h_dim
         return nn.Sequential(*layers)
 
@@ -106,9 +115,16 @@ class VAE(nn.Module):
         for i in range(len(hidden_dims) - 1):
             layers.append(
                 nn.Sequential(
-                    nn.ConvTranspose2d(hidden_dims[i], hidden_dims[i + 1], kernel_size=3, stride=2, padding=1, output_padding=1),
+                    nn.ConvTranspose2d(
+                        hidden_dims[i],
+                        hidden_dims[i + 1],
+                        kernel_size=3,
+                        stride=2,
+                        padding=1,
+                        output_padding=1,
+                    ),
                     nn.InstanceNorm2d(hidden_dims[i + 1], affine=True),
-                    nn.LeakyReLU()
+                    nn.LeakyReLU(),
                 )
             )
             layers.append(ResidualBlock(hidden_dims[i + 1], hidden_dims[i + 1]))
@@ -124,11 +140,21 @@ class VAE(nn.Module):
     def decode(self, z):
         x = self.decoder_input(z)
         batch_size = z.size(0)
-        x = x.view(batch_size, self.encoder_output_channels, self.encoder_output_height, self.encoder_output_width)
+        x = x.view(
+            batch_size,
+            self.encoder_output_channels,
+            self.encoder_output_height,
+            self.encoder_output_width,
+        )
         x = self.decoder(x)
 
         # Final adjustment layer to match input dimensions
-        x = nn.functional.interpolate(x, size=(self.input_height, self.input_width), mode="bilinear", align_corners=False)
+        x = nn.functional.interpolate(
+            x,
+            size=(self.input_height, self.input_width),
+            mode="bilinear",
+            align_corners=False,
+        )
         x = self.final_layer(x)
         return x
 
@@ -144,18 +170,26 @@ class VAE(nn.Module):
         assert decoded.shape == x.shape, f"Mismatch: {decoded.shape} vs {x.shape}"
         return decoded, x, mu, log_var
 
-    def loss_function(self, recons, input, mu, log_var, kld_weight=1.0, kld_threshold=1.0):
+    def loss_function(
+        self, recons, input, mu, log_var, kld_weight=1.0, kld_threshold=1.0
+    ):
         # Use your custom pixel-wise loss
         recons_loss = self.pixel_loss(recons, input)
         # self.recon_loss_ema = (1.0 - self.ema_factor) * self.recon_loss_ema + self.ema_factor * recons_loss.item()
-        kld_loss = -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp(), dim=1).mean()
+        kld_loss = (
+            -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp(), dim=1).mean()
+        )
         # self.kl_loss_ema = (1.0 - self.ema_factor) * self.kl_loss_ema + self.ema_factor * kld_loss.item()
         # _kld_weight = kld_weight
         # kld_weight = self.recon_loss_ema / (self.kl_loss_ema + 1e-10) * _kld_weight
         # if kld_weight > _kld_weight:
         #     kld_weight = _kld_weight
         return {
-            'loss': recons_loss + kld_weight * kld_loss if kld_loss.item() >= kld_threshold else recons_loss,
-            'Reconstruction_Loss': recons_loss,
-            'KLD': kld_loss
+            "loss": (
+                recons_loss + kld_weight * kld_loss
+                if kld_loss.item() >= kld_threshold
+                else recons_loss
+            ),
+            "Reconstruction_Loss": recons_loss,
+            "KLD": kld_loss,
         }

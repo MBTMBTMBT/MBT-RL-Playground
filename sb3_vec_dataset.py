@@ -29,13 +29,15 @@ class GymDataset(Dataset):
                 - 'done': Tensor or bool, whether the episode ended.
         """
         for sample in samples:
-            self.data.append({
-                'obs': torch.tensor(sample['obs'], dtype=torch.float32),
-                'action': torch.tensor(sample['action'], dtype=torch.int64),
-                'next_obs': torch.tensor(sample['next_obs'], dtype=torch.float32),
-                'reward': torch.tensor(sample['reward'], dtype=torch.float32),
-                'done': torch.tensor(sample['done'], dtype=torch.bool)
-            })
+            self.data.append(
+                {
+                    "obs": torch.tensor(sample["obs"], dtype=torch.float32),
+                    "action": torch.tensor(sample["action"], dtype=torch.int64),
+                    "next_obs": torch.tensor(sample["next_obs"], dtype=torch.float32),
+                    "reward": torch.tensor(sample["reward"], dtype=torch.float32),
+                    "done": torch.tensor(sample["done"], dtype=torch.bool),
+                }
+            )
             self.current_size += 1
             if self.current_size >= self.data_size:
                 self.full = True
@@ -67,7 +69,13 @@ class GymDataset(Dataset):
             A tuple containing (obs, action, next_obs, reward, done).
         """
         item = self.data[idx]
-        return item['obs'], item['action'], item['next_obs'], item['reward'], item['done']
+        return (
+            item["obs"],
+            item["action"],
+            item["next_obs"],
+            item["reward"],
+            item["done"],
+        )
 
 
 if __name__ == "__main__":
@@ -101,18 +109,22 @@ if __name__ == "__main__":
             # Prepare data
             repeat = 0
             if movement_augmentation > 0:
-                repeat = 0 if np.allclose(
-                    obs, final_next_obs, rtol=1e-5, atol=1e-8
-                ) else movement_augmentation
+                repeat = (
+                    0
+                    if np.allclose(obs, final_next_obs, rtol=1e-5, atol=1e-8)
+                    else movement_augmentation
+                )
 
             for _ in range(1 + repeat):
-                samples.append({
-                    'obs': obs,
-                    'action': action,
-                    'next_obs': final_next_obs,
-                    'reward': reward,
-                    'done': done
-                })
+                samples.append(
+                    {
+                        "obs": obs,
+                        "action": action,
+                        "next_obs": final_next_obs,
+                        "reward": reward,
+                        "done": done,
+                    }
+                )
             augmented += repeat
 
             # Add the batch of samples to the dataset

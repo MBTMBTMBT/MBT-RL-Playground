@@ -31,23 +31,28 @@ class GymDataset(Dataset):
 
         # Add a progress bar for the sampling process
         with tqdm(total=self.num_samples, desc="Collecting Samples") as pbar:
-            while len(samples) < self.num_samples:  # Continue until we collect the required number of samples
+            while (
+                len(samples) < self.num_samples
+            ):  # Continue until we collect the required number of samples
                 action = self.env.action_space.sample()
                 next_obs, reward, terminated, truncated, info = self.env.step(action)
 
                 # Preprocess rendered frame
                 current_frame = self._preprocess_frame(self.env.render())
-                next_frame = self._preprocess_frame(self.env.render()) if not (
-                            terminated or truncated) else current_frame
+                next_frame = (
+                    self._preprocess_frame(self.env.render())
+                    if not (terminated or truncated)
+                    else current_frame
+                )
 
                 # Collect sample without stacking frames
                 action_encoded = self._encode_action(action)
                 sample = {
-                    'state': current_frame,  # Single frame as state
-                    'next_state': next_frame,  # Single frame as next state
-                    'action': action_encoded,
-                    'reward': reward,
-                    'terminal': terminated
+                    "state": current_frame,  # Single frame as state
+                    "next_state": next_frame,  # Single frame as next state
+                    "action": action_encoded,
+                    "reward": reward,
+                    "terminal": terminated,
                 }
                 samples.append(sample)
                 pbar.update(1)  # Update the progress bar
@@ -61,7 +66,7 @@ class GymDataset(Dataset):
         """Resizes and converts frame to grayscale if required."""
         frame = Image.fromarray(frame)
         if not self.is_color:
-            frame = frame.convert('L')  # Grayscale
+            frame = frame.convert("L")  # Grayscale
         frame = frame.resize((self.frame_width, self.frame_height))
         frame = np.array(frame)
         if self.is_color:
@@ -86,11 +91,17 @@ class GymDataset(Dataset):
         actual_idx = idx % len(self.data)  # Map to original dataset indices
         sample = self.data[actual_idx]
         return {
-            'state': torch.tensor(sample['state'], dtype=torch.float32).permute(2, 0, 1),  # Convert to [C, H, W]
-            'next_state': torch.tensor(sample['next_state'], dtype=torch.float32).permute(2, 0, 1),  # Convert to [C, H, W]
-            'action': torch.tensor(sample['action'], dtype=torch.float32),
-            'reward': torch.tensor(sample['reward'], dtype=torch.float32),
-            'terminal': torch.tensor(sample['terminal'], dtype=torch.bool)
+            "state": torch.tensor(sample["state"], dtype=torch.float32).permute(
+                2, 0, 1
+            ),  # Convert to [C, H, W]
+            "next_state": torch.tensor(
+                sample["next_state"], dtype=torch.float32
+            ).permute(
+                2, 0, 1
+            ),  # Convert to [C, H, W]
+            "action": torch.tensor(sample["action"], dtype=torch.float32),
+            "reward": torch.tensor(sample["reward"], dtype=torch.float32),
+            "terminal": torch.tensor(sample["terminal"], dtype=torch.bool),
         }
 
 
@@ -112,9 +123,15 @@ class ReplayBuffer:
 
         # Initialize buffer
         self.buffer = {
-            "state": np.zeros((buffer_size, *frame_size, 3 if is_color else 1), dtype=np.float32),
-            "next_state": np.zeros((buffer_size, *frame_size, 3 if is_color else 1), dtype=np.float32),
-            "action": np.zeros((buffer_size, self.env.action_space.n), dtype=np.float32),
+            "state": np.zeros(
+                (buffer_size, *frame_size, 3 if is_color else 1), dtype=np.float32
+            ),
+            "next_state": np.zeros(
+                (buffer_size, *frame_size, 3 if is_color else 1), dtype=np.float32
+            ),
+            "action": np.zeros(
+                (buffer_size, self.env.action_space.n), dtype=np.float32
+            ),
             "reward": np.zeros(buffer_size, dtype=np.float32),
             "terminal": np.zeros(buffer_size, dtype=np.bool_),
         }
@@ -166,7 +183,11 @@ class ReplayBuffer:
 
                 # Preprocess rendered frame
                 current_frame = self._preprocess_frame(self.env.render())
-                next_frame = self._preprocess_frame(self.env.render()) if not (terminated or truncated) else current_frame
+                next_frame = (
+                    self._preprocess_frame(self.env.render())
+                    if not (terminated or truncated)
+                    else current_frame
+                )
 
                 # Collect and add sample
                 action_encoded = self._encode_action(action)
@@ -175,7 +196,7 @@ class ReplayBuffer:
                     next_state=next_frame,
                     action=action_encoded,
                     reward=reward,
-                    terminal=terminated
+                    terminal=terminated,
                 )
                 pbar.update(1)
                 count += 1
@@ -187,7 +208,7 @@ class ReplayBuffer:
         """Resizes and converts frame to grayscale if required."""
         frame = Image.fromarray(frame)
         if not self.is_color:
-            frame = frame.convert('L')  # Grayscale
+            frame = frame.convert("L")  # Grayscale
         frame = frame.resize((self.frame_width, self.frame_height))
         frame = np.array(frame)
         if self.is_color:
@@ -230,7 +251,14 @@ class ReplayBuffer1D:
         self.current_index = 0
         self.size = 0
 
-    def add(self, state: np.ndarray, next_state: np.ndarray, action: np.ndarray, reward: float, terminal: bool):
+    def add(
+        self,
+        state: np.ndarray,
+        next_state: np.ndarray,
+        action: np.ndarray,
+        reward: float,
+        terminal: bool,
+    ):
         """Add a transition to the buffer."""
         idx = self.current_index % self.buffer_size
         self.buffer["state"][idx] = state
@@ -293,7 +321,7 @@ class ReplayBuffer1D:
                     next_state=next_obs,
                     action=action_vector,
                     reward=reward,
-                    terminal=terminated
+                    terminal=terminated,
                 )
                 state = next_obs
                 pbar.update(1)
@@ -323,13 +351,22 @@ class ReplayBuffer1D:
         return action_vector
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Example usage
     from gymnasium import make
+
     env = make("CartPole-v1")
-    dataset = GymDataset(env=env, num_samples=1000, frame_size=(64, 128), is_color=True, num_frames=3)
+    dataset = GymDataset(
+        env=env, num_samples=1000, frame_size=(64, 128), is_color=True, num_frames=3
+    )
     data_loader = torch.utils.data.DataLoader(dataset, batch_size=32, shuffle=True)
 
     for batch in data_loader:
-        print(batch['state'].shape, batch['next_state'].shape, batch['action'].shape, batch['reward'].shape, batch['terminal'].shape)
+        print(
+            batch["state"].shape,
+            batch["next_state"].shape,
+            batch["action"].shape,
+            batch["reward"].shape,
+            batch["terminal"].shape,
+        )
         break

@@ -1,4 +1,4 @@
-if __name__ == '__main__':
+if __name__ == "__main__":
     import numpy as np
     import gymnasium as gym
     from matplotlib import pyplot as plt
@@ -13,43 +13,43 @@ if __name__ == '__main__':
 
     # Define CartPole state and action spaces
     state_space = [
-        {'type': 'continuous', 'range': (-2.4, 2.4), 'bins': 16},  # Cart position
-        {'type': 'continuous', 'range': (-2, 2), 'bins': 16},  # Cart velocity
-        {'type': 'continuous', 'range': (-0.25, 0.25), 'bins': 16},  # Pole angle
-        {'type': 'continuous', 'range': (-2, 2), 'bins': 16}  # Pole angular velocity
+        {"type": "continuous", "range": (-2.4, 2.4), "bins": 16},  # Cart position
+        {"type": "continuous", "range": (-2, 2), "bins": 16},  # Cart velocity
+        {"type": "continuous", "range": (-0.25, 0.25), "bins": 16},  # Pole angle
+        {"type": "continuous", "range": (-2, 2), "bins": 16},  # Pole angular velocity
     ]
 
     action_space = [
-        {'type': 'discrete', 'bins': 2}  # Two discrete actions: left (0), right (1)
+        {"type": "discrete", "bins": 2}  # Two discrete actions: left (0), right (1)
     ]
 
     # Create QTableAgent instance
     agent = __QTableAgent(state_space, action_space)
 
     # Initialize CartPole environment
-    env = gym.make('CartPole-v1')
+    env = gym.make("CartPole-v1")
 
     # Training parameters
-    total_steps = int(50e6)       # Total steps
-    alpha = 0.025                # Learning rate
-    gamma = 0.99                # Discount factor
-    epsilon_start = 0.25        # Starting exploration rate
-    epsilon_end = 0.001         # Minimum exploration rate
+    total_steps = int(50e6)  # Total steps
+    alpha = 0.025  # Learning rate
+    gamma = 0.99  # Discount factor
+    epsilon_start = 0.25  # Starting exploration rate
+    epsilon_end = 0.001  # Minimum exploration rate
     epsilon_decay = (epsilon_start - epsilon_end) / total_steps  # Linear decay rate
-    epsilon = epsilon_start     # Initial exploration rate
+    epsilon = epsilon_start  # Initial exploration rate
 
     # Metrics
-    train_rewards = []           # Store rewards for each episode
-    step_rewards = []            # Store rewards with step as x-axis
-    current_steps = 0            # Track total steps so far
-    episode_steps = 0            # Steps in the current episode
+    train_rewards = []  # Store rewards for each episode
+    step_rewards = []  # Store rewards with step as x-axis
+    current_steps = 0  # Track total steps so far
+    episode_steps = 0  # Steps in the current episode
 
     # Define the custom state range
     custom_state_range = {
         "position": (-3.0, 3.0),  # Cart position
         "velocity": (-2.5, 2.5),  # Cart velocity
         "angle": (-0.3, 0.3),  # Pole angle
-        "angular_velocity": (-2.5, 2.5)  # Pole angular velocity
+        "angular_velocity": (-2.5, 2.5),  # Pole angular velocity
     }
 
     # Training loop with progress bar
@@ -73,7 +73,9 @@ if __name__ == '__main__':
                 if np.random.random() < epsilon:
                     action = [np.random.choice([0, 1])]  # Random action
                 else:
-                    probabilities = agent.get_action_probabilities(state, strategy="greedy")
+                    probabilities = agent.get_action_probabilities(
+                        state, strategy="greedy"
+                    )
                     action = [np.argmax(probabilities)]  # Exploit the best action
 
                 # Perform action in the environment
@@ -115,7 +117,7 @@ if __name__ == '__main__':
     agent = __QTableAgent.load_q_table(os.path.join(save_dir, "q_table_agent.csv"))
 
     # Initialize CartPole environment for testing
-    env = gym.make('CartPole-v1', render_mode="rgb_array")
+    env = gym.make("CartPole-v1", render_mode="rgb_array")
 
     # Save test episode as a video
     state, _ = env.reset()
@@ -134,7 +136,7 @@ if __name__ == '__main__':
 
     # Save the frames as a video using matplotlib.animation
     fig, ax = plt.subplots()
-    ax.axis('off')  # Turn off axes for a cleaner output
+    ax.axis("off")  # Turn off axes for a cleaner output
     img = ax.imshow(frames[0])  # Display the first frame
 
     def update(frame):
@@ -164,14 +166,16 @@ if __name__ == '__main__':
     # Plot training and testing results
     steps, rewards = zip(*step_rewards)
     plt.figure(figsize=(10, 6))
-    plt.plot(steps, rewards, label='Training Rewards')
-    plt.axhline(np.mean(test_rewards), color='r', linestyle='--', label='Mean Test Reward')
+    plt.plot(steps, rewards, label="Training Rewards")
+    plt.axhline(
+        np.mean(test_rewards), color="r", linestyle="--", label="Mean Test Reward"
+    )
     plt.title("CartPole Training and Testing Results")
     plt.xlabel("Steps")
     plt.ylabel("Total Reward")
     plt.legend()
     plt.grid()
     save_path = os.path.join(save_dir, "cartpole_training_results.png")
-    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    plt.savefig(save_path, dpi=300, bbox_inches="tight")
     # plt.show()
     print(f"Training and testing results saved to {save_path}")

@@ -1,4 +1,4 @@
-if __name__ == '__main__':
+if __name__ == "__main__":
     import numpy as np
     import gymnasium as gym
     from matplotlib import pyplot as plt
@@ -15,32 +15,34 @@ if __name__ == '__main__':
 
     # Define Ant state and action spaces
     state_space = [
-        {'type': 'continuous', 'range': (-5.0, 5.0), 'bins': 3} for _ in range(27)  # 27 state dimensions
+        {"type": "continuous", "range": (-5.0, 5.0), "bins": 3}
+        for _ in range(27)  # 27 state dimensions
     ]
     action_space = [
-        {'type': 'continuous', 'range': (-1.0, 1.0), 'bins': 3} for _ in range(8)  # 8 action dimensions
+        {"type": "continuous", "range": (-1.0, 1.0), "bins": 3}
+        for _ in range(8)  # 8 action dimensions
     ]
 
     # Create QTableAgent instance
     agent = __QTableAgent(state_space, action_space, action_combination=True)
 
     # Initialize Ant environment
-    env = gym.make('Ant-v5')
+    env = gym.make("Ant-v5")
 
     # Training parameters
-    total_steps = int(10e6)       # Total steps
-    alpha = 0.1                 # Learning rate
-    gamma = 0.99                # Discount factor
-    epsilon_start = 0.3         # Starting exploration rate
-    epsilon_end = 0.01          # Minimum exploration rate
+    total_steps = int(10e6)  # Total steps
+    alpha = 0.1  # Learning rate
+    gamma = 0.99  # Discount factor
+    epsilon_start = 0.3  # Starting exploration rate
+    epsilon_end = 0.01  # Minimum exploration rate
     epsilon_decay = (epsilon_start - epsilon_end) / total_steps  # Linear decay rate
-    epsilon = epsilon_start     # Initial exploration rate
+    epsilon = epsilon_start  # Initial exploration rate
 
     # Metrics
-    train_rewards = []           # Store rewards for each episode
-    episode_rewards = []         # Store recent episode rewards for progress bar updates
-    current_steps = 0            # Track total steps so far
-    episode_steps = 0            # Steps in the current episode
+    train_rewards = []  # Store rewards for each episode
+    episode_rewards = []  # Store recent episode rewards for progress bar updates
+    current_steps = 0  # Track total steps so far
+    episode_steps = 0  # Steps in the current episode
 
     # Define custom state and action range for initialization
     custom_state_range = {
@@ -69,10 +71,12 @@ if __name__ == '__main__':
                 if np.random.random() < epsilon:
                     action = np.random.uniform(
                         low=[v[0] for v in custom_action_range.values()],
-                        high=[v[1] for v in custom_action_range.values()]
+                        high=[v[1] for v in custom_action_range.values()],
                     )  # Random continuous action
                 else:
-                    probabilities = agent.get_action_probabilities(state, strategy="greedy")
+                    probabilities = agent.get_action_probabilities(
+                        state, strategy="greedy"
+                    )
                     action = np.array(probabilities)
 
                 # Perform action in the environment
@@ -115,7 +119,7 @@ if __name__ == '__main__':
     agent = __QTableAgent.load_q_table(os.path.join(save_dir, "q_table_agent.csv"))
 
     # Initialize Ant environment for testing and rendering
-    env = gym.make('Ant-v4', render_mode="rgb_array")
+    env = gym.make("Ant-v4", render_mode="rgb_array")
 
     # Select one episode to save as a video
     state, _ = env.reset()
@@ -137,7 +141,7 @@ if __name__ == '__main__':
 
     # Save the frames as a video using matplotlib.animation
     fig, ax = plt.subplots()
-    ax.axis('off')  # Turn off axes for a cleaner output
+    ax.axis("off")  # Turn off axes for a cleaner output
     img = ax.imshow(frames[0])  # Display the first frame
 
     def update(frame):
@@ -169,13 +173,17 @@ if __name__ == '__main__':
 
     # Plot training and testing results
     plt.figure(figsize=(10, 6))
-    plt.plot(train_rewards, label='Training Rewards')
-    plt.axhline(np.mean(test_rewards), color='r', linestyle='--', label='Mean Test Reward')
+    plt.plot(train_rewards, label="Training Rewards")
+    plt.axhline(
+        np.mean(test_rewards), color="r", linestyle="--", label="Mean Test Reward"
+    )
     plt.title("Ant Training and Testing Results")
     plt.xlabel("Episodes")
     plt.ylabel("Total Reward")
     plt.legend()
     plt.grid()
     save_path = os.path.join(save_dir, "ant_training_results.png")
-    plt.savefig(save_path, dpi=300, bbox_inches='tight')  # Save the figure to the specified path
+    plt.savefig(
+        save_path, dpi=300, bbox_inches="tight"
+    )  # Save the figure to the specified path
     print(f"Plot saved to {save_path}")

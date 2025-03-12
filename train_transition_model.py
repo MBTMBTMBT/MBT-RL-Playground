@@ -10,10 +10,25 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from gym_datasets import ReplayBuffer, ReplayBuffer1D
-from models import RSSM, MultiHeadPredictor, WorldModel, Encoder, Decoder, SimpleTransitionModel
+from models import (
+    RSSM,
+    MultiHeadPredictor,
+    WorldModel,
+    Encoder,
+    Decoder,
+    SimpleTransitionModel,
+)
 
 
-def generate_visualization_gif(env, normalization_vec, transition_model, test_batch, epoch, save_dir, resize_shape=(80, 60)):
+def generate_visualization_gif(
+    env,
+    normalization_vec,
+    transition_model,
+    test_batch,
+    epoch,
+    save_dir,
+    resize_shape=(80, 60),
+):
     """
     Generate a GIF visualizing the prediction results of a transition model.
 
@@ -27,9 +42,15 @@ def generate_visualization_gif(env, normalization_vec, transition_model, test_ba
     """
     with torch.no_grad():
         # Extract test batch data
-        true_obs = torch.tensor(test_batch["state"], dtype=torch.float32, device=transition_model.device)
-        true_actions = torch.tensor(test_batch["action"], dtype=torch.float32, device=transition_model.device)
-        normalization_vec = torch.tensor(normalization_vec, dtype=torch.float32, device=transition_model.device)
+        true_obs = torch.tensor(
+            test_batch["state"], dtype=torch.float32, device=transition_model.device
+        )
+        true_actions = torch.tensor(
+            test_batch["action"], dtype=torch.float32, device=transition_model.device
+        )
+        normalization_vec = torch.tensor(
+            normalization_vec, dtype=torch.float32, device=transition_model.device
+        )
         true_obs = true_obs / normalization_vec
 
         batch_size, seq_len, vec_dims = true_obs.size()
@@ -45,10 +66,14 @@ def generate_visualization_gif(env, normalization_vec, transition_model, test_ba
 
             # Set the environment state and render the predicted frame
             for i in range(batch_size):
-                env.unwrapped.state = state[i].cpu().numpy()  # Set the environment's internal state
+                env.unwrapped.state = (
+                    state[i].cpu().numpy()
+                )  # Set the environment's internal state
                 frame = env.render()  # Render the current environment frame
                 if resize_shape:
-                    frame = np.array(Image.fromarray(frame).resize(resize_shape))  # Resize frame
+                    frame = np.array(
+                        Image.fromarray(frame).resize(resize_shape)
+                    )  # Resize frame
                 if t == 0:
                     recon_obs.append([frame])  # Initialize list for each batch element
                 else:
@@ -62,24 +87,36 @@ def generate_visualization_gif(env, normalization_vec, transition_model, test_ba
             env.unwrapped.state = true_obs[i, 0].cpu().numpy()
             frame = env.render()
             if resize_shape:
-                frame = np.array(Image.fromarray(frame).resize(resize_shape))  # Resize frame
+                frame = np.array(
+                    Image.fromarray(frame).resize(resize_shape)
+                )  # Resize frame
             true_frames.append([frame])  # Render initial state
 
             for t in range(1, seq_len):
                 env.unwrapped.state = true_obs[i, t].cpu().numpy()
                 frame = env.render()
                 if resize_shape:
-                    frame = np.array(Image.fromarray(frame).resize(resize_shape))  # Resize frame
+                    frame = np.array(
+                        Image.fromarray(frame).resize(resize_shape)
+                    )  # Resize frame
                 true_frames[i].append(frame)
 
         # Combine true, predicted, and difference images
         combined_frames = []
         for t in range(seq_len):
-            actual_row = np.concatenate([true_frames[i][t] for i in range(batch_size)], axis=1)
-            predicted_row = np.concatenate([recon_obs[i][t] for i in range(batch_size)], axis=1)
-            diff_row = abs(actual_row.astype(np.float32) - predicted_row.astype(np.float32)).astype(np.uint8)
+            actual_row = np.concatenate(
+                [true_frames[i][t] for i in range(batch_size)], axis=1
+            )
+            predicted_row = np.concatenate(
+                [recon_obs[i][t] for i in range(batch_size)], axis=1
+            )
+            diff_row = abs(
+                actual_row.astype(np.float32) - predicted_row.astype(np.float32)
+            ).astype(np.uint8)
 
-            combined_frame = np.concatenate((actual_row, predicted_row, diff_row), axis=0)
+            combined_frame = np.concatenate(
+                (actual_row, predicted_row, diff_row), axis=0
+            )
             combined_frames.append(combined_frame)
 
         # Save the GIF
@@ -116,7 +153,7 @@ def add_gif_to_tensorboard(writer, gif_path, tag, global_step):
     writer.add_video(tag, frames, global_step=global_step, fps=1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     batch_size = 32
     test_batch_size = 8
     buffer_size = 16384
@@ -125,7 +162,13 @@ if __name__ == '__main__':
     traj_len_end = 64
     obs_dim = 3
     lr = 1e-4
-    normalization_vec = np.array([1.01, 1.01, 8.01,]).reshape(1, 1, -1)
+    normalization_vec = np.array(
+        [
+            1.01,
+            1.01,
+            8.01,
+        ]
+    ).reshape(1, 1, -1)
     reward_scale_down = 1e2
     num_epochs = 62
     log_dir = "./experiments/trans/logs"
@@ -136,7 +179,10 @@ if __name__ == '__main__':
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    env = gym.make("Pendulum-v1", render_mode="rgb_array",)
+    env = gym.make(
+        "Pendulum-v1",
+        render_mode="rgb_array",
+    )
     action_space = env.action_space
     if isinstance(action_space, gym.spaces.Discrete):
         action_dim = action_space.n
@@ -155,7 +201,11 @@ if __name__ == '__main__':
     transition_model = SimpleTransitionModel(
         obs_dim=obs_dim,
         action_dim=action_dim,
-        network_layers=[512, 512, 512,],
+        network_layers=[
+            512,
+            512,
+            512,
+        ],
         dropout=0.0,
         lr=lr,
         device=device,
@@ -173,16 +223,23 @@ if __name__ == '__main__':
         total_termination_loss = 0
 
         progress_bar = tqdm(
-            range((buffer_size // batch_size) * data_repeat_times),  #  * int(traj_len_end // traj_len)
+            range(
+                (buffer_size // batch_size) * data_repeat_times
+            ),  #  * int(traj_len_end // traj_len)
             desc=f"Epoch {epoch + 1}/{num_epochs}, traj_len={int(traj_len)}",
         )
 
         for step in progress_bar:
-            batch = dataset.sample(batch_size=batch_size, traj_len=int(traj_len),)
+            batch = dataset.sample(
+                batch_size=batch_size,
+                traj_len=int(traj_len),
+            )
             batch["state"] = batch["state"] / normalization_vec
             batch["next_state"] = batch["next_state"] / normalization_vec
             batch["reward"] = batch["reward"] / reward_scale_down
-            losses = transition_model.train_batch(batch,)  # * rnn_latent_dim)
+            losses = transition_model.train_batch(
+                batch,
+            )  # * rnn_latent_dim)
 
             # Update total losses
             total_loss += losses["total_loss"]
@@ -193,18 +250,25 @@ if __name__ == '__main__':
             # Write batch losses to TensorBoard
             previous_steps = epoch * (buffer_size // batch_size) * data_repeat_times
             writer.add_scalar("Loss/Total", losses["total_loss"], previous_steps + step)
-            writer.add_scalar("Loss/Reconstruction", losses["recon_loss"], previous_steps + step)
-            writer.add_scalar("Loss/Reward", losses["reward_loss"], previous_steps + step)
-            writer.add_scalar("Loss/Termination", losses["termination_loss"],
-                              previous_steps + step)
+            writer.add_scalar(
+                "Loss/Reconstruction", losses["recon_loss"], previous_steps + step
+            )
+            writer.add_scalar(
+                "Loss/Reward", losses["reward_loss"], previous_steps + step
+            )
+            writer.add_scalar(
+                "Loss/Termination", losses["termination_loss"], previous_steps + step
+            )
 
             # Update progress bar with detailed losses
-            progress_bar.set_postfix({
-                "Total": f"{losses['total_loss']:.4f}",
-                "Recon": f"{losses['recon_loss']:.4f}",
-                "Reward": f"{losses['reward_loss']:.4f}",
-                "Termination": f"{losses['termination_loss']:.4f}",
-            })
+            progress_bar.set_postfix(
+                {
+                    "Total": f"{losses['total_loss']:.4f}",
+                    "Recon": f"{losses['recon_loss']:.4f}",
+                    "Reward": f"{losses['reward_loss']:.4f}",
+                    "Termination": f"{losses['termination_loss']:.4f}",
+                }
+            )
 
             # step_count += 1
 
@@ -229,11 +293,19 @@ if __name__ == '__main__':
         print(f"    Avg Termination Loss: {avg_termination_loss:.4f}")
 
         # Generate test batch and save visualization GIF
-        test_batch = dataset.sample(batch_size=test_batch_size, traj_len=int(traj_len),)
-        gif_path = generate_visualization_gif(env, normalization_vec, transition_model, test_batch, epoch, save_dir)
+        test_batch = dataset.sample(
+            batch_size=test_batch_size,
+            traj_len=int(traj_len),
+        )
+        gif_path = generate_visualization_gif(
+            env, normalization_vec, transition_model, test_batch, epoch, save_dir
+        )
 
         # Add GIF as a video to TensorBoard
         add_gif_to_tensorboard(writer, gif_path, "Visualization/GIF", epoch)
 
         # Save model parameters
-        torch.save(transition_model.state_dict(), f"{save_dir}/world_model_epoch_{epoch + 1}.pth")
+        torch.save(
+            transition_model.state_dict(),
+            f"{save_dir}/world_model_epoch_{epoch + 1}.pth",
+        )

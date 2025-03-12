@@ -9,7 +9,7 @@ environments = [
     ("MiniGrid-Dynamic-Obstacles-6x6-v0", seeds, "rgb_array"),
     ("MiniGrid-Dynamic-Obstacles-8x8-v0", seeds, "rgb_array"),
     ("MiniGrid-Dynamic-Obstacles-16x16-v0", seeds, "rgb_array"),
-    ("CarRacing-v3", seeds, "rgb_array"),
+    ("CarRacing-v2", seeds, "rgb_array"),
     ("BipedalWalker-v3", seeds, "rgb_array"),
 ]
 
@@ -42,4 +42,4 @@ for row, (env_name, seeds, render_mode) in enumerate(environments):
 
 plt.tight_layout(rect=[0, 0.03, 1, 0.95])  # Adjust layout to leave space for the title
 plt.savefig("environments_with_different_seeds.png")  # Save to a file
-plt.show()
+plt.close()

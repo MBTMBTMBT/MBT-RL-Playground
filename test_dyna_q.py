@@ -1,4 +1,4 @@
-if __name__ == '__main__':
+if __name__ == "__main__":
     import gymnasium as gym
     from dyna_q import Discretizer, TabularDynaQAgent
     from custom_mountain_car import CustomMountainCarEnv
@@ -8,21 +8,27 @@ if __name__ == '__main__':
     import numpy as np
     from parallel_training import generate_test_gif
 
-
     env = CustomMountainCarEnv(custom_gravity=0.0025, render_mode="rgb_array")
     test_env = CustomMountainCarEnv(custom_gravity=0.0025, render_mode="rgb_array")
     save_file = "./experiments/DynaQ_Experiments/dyna_q_agent_mountain_car.csv"
 
     state_discretizer = Discretizer(
-        ranges = [(-1.2, 0.6), (-0.07, 0.07),],
+        ranges=[
+            (-1.2, 0.6),
+            (-0.07, 0.07),
+        ],
         num_buckets=[64, 32],
         normal_params=[None, None],
     )
 
     action_discretizer = Discretizer(
-        ranges=[(0, 2),],
+        ranges=[
+            (0, 2),
+        ],
         num_buckets=[0],
-        normal_params=[None,],
+        normal_params=[
+            None,
+        ],
     )
 
     action_type = "int"
@@ -122,7 +128,10 @@ if __name__ == '__main__':
     test_runs = 10
     max_steps = 250
 
-    agent = TabularDynaQAgent(state_discretizer, action_discretizer,)
+    agent = TabularDynaQAgent(
+        state_discretizer,
+        action_discretizer,
+    )
     agent.transition_table_env.max_steps = max_steps
 
     with tqdm(total=total_steps, leave=False) as pbar:
@@ -138,7 +147,9 @@ if __name__ == '__main__':
             state, _ = env.reset()
             done = False
             total_reward = 0
-            encoded_state = agent.state_discretizer.encode_indices(list(agent.state_discretizer.discretize(state)[1]))
+            encoded_state = agent.state_discretizer.encode_indices(
+                list(agent.state_discretizer.discretize(state)[1])
+            )
             agent.transition_table_env.add_start_state(encoded_state)
             paused = False
             while not done:
@@ -158,7 +169,9 @@ if __name__ == '__main__':
                 elif action_type == "float":
                     action = action_vec.astype("float32")
                 next_state, reward, done, truncated, _ = env.step(action)
-                agent.update_from_env(state, action_vec, reward, next_state, done, alpha, gamma)
+                agent.update_from_env(
+                    state, action_vec, reward, next_state, done, alpha, gamma
+                )
                 state = next_state
                 total_reward += reward
                 current_steps += 1
@@ -178,7 +191,10 @@ if __name__ == '__main__':
                 #     paused = True
                 #
 
-                if current_steps % inner_training_per_num_steps == 0 and current_steps > 1:
+                if (
+                    current_steps % inner_training_per_num_steps == 0
+                    and current_steps > 1
+                ):
                     agent.update_from_transition_table(
                         inner_training_steps,
                         agent_epsilon,
@@ -198,12 +214,20 @@ if __name__ == '__main__':
                         test_total_reward = 0
                         test_done = False
                         while not test_done:
-                            test_action = agent.choose_action(test_state, strategy="greedy")
+                            test_action = agent.choose_action(
+                                test_state, strategy="greedy"
+                            )
                             if action_type == "int":
                                 test_action = test_action.astype("int64")[0].item()
                             elif action_type == "float":
                                 test_action = test_action.astype("float32")
-                            test_next_state, test_reward, test_done, test_truncated, _ = test_env.step(test_action)
+                            (
+                                test_next_state,
+                                test_reward,
+                                test_done,
+                                test_truncated,
+                                _,
+                            ) = test_env.step(test_action)
                             if t == 0 and test_counter % 5 == 0:
                                 frames.append(test_env.render())
                             test_state = test_next_state
@@ -213,9 +237,11 @@ if __name__ == '__main__':
                         periodic_test_rewards.append(test_total_reward)
                     avg_test_reward = np.mean(periodic_test_rewards)
                     recent_avg = np.mean([r for _, r in training_rewards[-10:]])
-                    pbar.set_description(f"Epsilon: {agent_epsilon:.4f} | "
-                                         f"Recent Avg Reward: {recent_avg:.2f} | "
-                                         f"Avg Test Reward: {avg_test_reward:.2f}")
+                    pbar.set_description(
+                        f"Epsilon: {agent_epsilon:.4f} | "
+                        f"Recent Avg Reward: {recent_avg:.2f} | "
+                        f"Avg Test Reward: {avg_test_reward:.2f}"
+                    )
 
                     # Save GIF for the first test episode
                     save_file_gif = save_file.split(".csv")[0] + ".gif"
@@ -230,9 +256,11 @@ if __name__ == '__main__':
                 if done or truncated:
                     training_rewards.append((current_steps, total_reward))
                     recent_avg = np.mean([r for _, r in training_rewards[-10:]])
-                    pbar.set_description(f"Epsilon: {agent_epsilon:.4f} | "
-                                         f"Recent Avg Reward: {recent_avg:.2f} | "
-                                         f"Avg Test Reward: {avg_test_reward:.2f}")
+                    pbar.set_description(
+                        f"Epsilon: {agent_epsilon:.4f} | "
+                        f"Recent Avg Reward: {recent_avg:.2f} | "
+                        f"Avg Test Reward: {avg_test_reward:.2f}"
+                    )
                     break
 
                 if paused:
@@ -242,4 +270,3 @@ if __name__ == '__main__':
     print(f"End of training. Avg Test Reward: {avg_test_reward:.2f}.")
     agent.save_agent(save_file)
     agent.load_agent(save_file)
-

@@ -1,6 +1,6 @@
 from custom_mountain_car import CustomMountainCarEnv
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import numpy as np
     import gymnasium as gym
     from matplotlib import pyplot as plt
@@ -15,12 +15,15 @@ if __name__ == '__main__':
 
     # Define MountainCar state and action spaces
     state_space = [
-        {'type': 'continuous', 'range': (-1.2, 0.6), 'bins': 12},  # Position
-        {'type': 'continuous', 'range': (-0.07, 0.07), 'bins': 8}  # Velocity
+        {"type": "continuous", "range": (-1.2, 0.6), "bins": 12},  # Position
+        {"type": "continuous", "range": (-0.07, 0.07), "bins": 8},  # Velocity
     ]
 
     action_space = [
-        {'type': 'discrete', 'bins': 3}  # Three discrete actions: push left, no push, push right
+        {
+            "type": "discrete",
+            "bins": 3,
+        }  # Three discrete actions: push left, no push, push right
     ]
 
     # Create QTableAgent instance
@@ -28,21 +31,23 @@ if __name__ == '__main__':
 
     # Initialize MountainCar environment
     # env = gym.make('MountainCar-v0')
-    env = CustomMountainCarEnv(custom_gravity=0.0025, max_episode_steps=200, reward_type='progress')
+    env = CustomMountainCarEnv(
+        custom_gravity=0.0025, max_episode_steps=200, reward_type="progress"
+    )
 
     # Training parameters
-    total_steps = int(10e6)       # Total steps
-    alpha = 0.25                 # Learning rate
-    gamma = 0.99                # Discount factor
-    epsilon_start = 0.25        # Starting exploration rate
-    epsilon_end = 0.0          # Minimum exploration rate
+    total_steps = int(10e6)  # Total steps
+    alpha = 0.25  # Learning rate
+    gamma = 0.99  # Discount factor
+    epsilon_start = 0.25  # Starting exploration rate
+    epsilon_end = 0.0  # Minimum exploration rate
     epsilon_decay = (epsilon_start - epsilon_end) / total_steps  # Linear decay rate
-    epsilon = epsilon_start     # Initial exploration rate
+    epsilon = epsilon_start  # Initial exploration rate
 
     # Metrics
-    train_rewards = []           # Store rewards for each episode
-    step_rewards = []            # Store rewards with step as x-axis
-    current_steps = 0            # Track total steps so far
+    train_rewards = []  # Store rewards for each episode
+    step_rewards = []  # Store rewards with step as x-axis
+    current_steps = 0  # Track total steps so far
 
     # Define custom initialization ranges for each state variable
     # custom_state_range = {
@@ -69,7 +74,9 @@ if __name__ == '__main__':
                 if np.random.random() < epsilon:
                     action = [np.random.choice([0, 1, 2])]  # Random action
                 else:
-                    probabilities = agent.get_action_probabilities(state, strategy="softmax")
+                    probabilities = agent.get_action_probabilities(
+                        state, strategy="softmax"
+                    )
                     action = [np.argmax(probabilities)]  # Exploit the best action
 
                 # Perform action in the environment
@@ -110,7 +117,7 @@ if __name__ == '__main__':
     agent = __QTableAgent.load_q_table(os.path.join(save_dir, "q_table_agent.csv"))
 
     # Initialize MountainCar environment for testing
-    env = gym.make('MountainCar-v0', render_mode="rgb_array")
+    env = gym.make("MountainCar-v0", render_mode="rgb_array")
 
     # Save test episode as a video
     state, _ = env.reset()
@@ -129,7 +136,7 @@ if __name__ == '__main__':
 
     # Save the frames as a video using matplotlib.animation
     fig, ax = plt.subplots()
-    ax.axis('off')  # Turn off axes for a cleaner output
+    ax.axis("off")  # Turn off axes for a cleaner output
     img = ax.imshow(frames[0])  # Display the first frame
 
     def update(frame):
@@ -159,13 +166,15 @@ if __name__ == '__main__':
     # Plot training and testing results
     steps, rewards = zip(*step_rewards)
     plt.figure(figsize=(10, 6))
-    plt.plot(steps, rewards, label='Training Rewards')
-    plt.axhline(np.mean(test_rewards), color='r', linestyle='--', label='Mean Test Reward')
+    plt.plot(steps, rewards, label="Training Rewards")
+    plt.axhline(
+        np.mean(test_rewards), color="r", linestyle="--", label="Mean Test Reward"
+    )
     plt.title("MountainCar Training and Testing Results")
     plt.xlabel("Steps")
     plt.ylabel("Total Reward")
     plt.legend()
     plt.grid()
     save_path = os.path.join(save_dir, "mountaincar_training_results.png")
-    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    plt.savefig(save_path, dpi=300, bbox_inches="tight")
     print(f"Training and testing results saved to {save_path}")

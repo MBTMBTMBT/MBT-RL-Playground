@@ -1,4 +1,6 @@
-def set_up(config: dict,):
+def set_up(
+    config: dict,
+):
     pass
 
 
@@ -7,10 +9,16 @@ configs = {
         "env_type": "frozen_lake",
         "save_path": "./experiments/cl/frozen_lake-custom/frozen_lake-custom",
         "env_names": [
-            "target", "env-0", "env-1", "env-2", "env-3", "env-4",
+            "target",
+            "env-0",
+            "env-1",
+            "env-2",
+            "env-3",
+            "env-4",
         ],
         "slipperiness": [
-            0.66, 0.99,
+            0.66,
+            0.99,
         ],
         "descs": {
             "target": [
@@ -73,6 +81,6 @@ configs = {
                 "FFHFFFFF",
                 "FFFFHFFF",
             ],
-        }
+        },
     }
 }

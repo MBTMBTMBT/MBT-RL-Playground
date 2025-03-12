@@ -7,7 +7,9 @@ import torch.optim as optim
 
 
 # Adjust input to one-hot and change data distribution
-input_data = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])  # One-hot encoding
+input_data = np.array(
+    [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+)  # One-hot encoding
 output_data = np.array([[-1, -1], [-1, 1], [1, -1], [1, 1]])
 
 # Collect data pairs as a list of tuples
@@ -17,13 +19,21 @@ for i in range(len(input_data)):
     for _ in range(2000):  # Increase samples to balance the dataset
         input_sample = input_data[i]
         if i == 0:  # For the first input [1, 0, 0, 0]
-            output_sample = output_data[np.random.choice(4, p=[0.5, 0.5/3, 0.5/3, 0.5/3])]
+            output_sample = output_data[
+                np.random.choice(4, p=[0.5, 0.5 / 3, 0.5 / 3, 0.5 / 3])
+            ]
         elif i == 1:  # For the second input [0, 1, 0, 0]
-            output_sample = output_data[np.random.choice(4, p=[0.5/3, 0.5, 0.5/3, 0.5/3])]
+            output_sample = output_data[
+                np.random.choice(4, p=[0.5 / 3, 0.5, 0.5 / 3, 0.5 / 3])
+            ]
         elif i == 2:  # For the third input [0, 0, 1, 0]
-            output_sample = output_data[np.random.choice(4, p=[0.5/3, 0.5/3, 0.5, 0.5/3])]
+            output_sample = output_data[
+                np.random.choice(4, p=[0.5 / 3, 0.5 / 3, 0.5, 0.5 / 3])
+            ]
         elif i == 3:  # For the fourth input [0, 0, 0, 1]
-            output_sample = output_data[np.random.choice(4, p=[0.5/3, 0.5/3, 0.5/3, 0.5])]
+            output_sample = output_data[
+                np.random.choice(4, p=[0.5 / 3, 0.5 / 3, 0.5 / 3, 0.5])
+            ]
         data_pairs.append((input_sample, output_sample))
 
 # Convert data pairs to NumPy arrays
@@ -87,15 +97,23 @@ for t in range(T):
         mc_samples[:, t, :] = model(X_test).numpy()
 
 # Plot separate figures for each input and a combined figure
-colors = ['red', 'blue', 'green', 'purple']
-input_labels = ["Input [1, 0, 0, 0]", "Input [0, 1, 0, 0]", "Input [0, 0, 1, 0]", "Input [0, 0, 0, 1]"]
+colors = ["red", "blue", "green", "purple"]
+input_labels = [
+    "Input [1, 0, 0, 0]",
+    "Input [0, 1, 0, 0]",
+    "Input [0, 0, 1, 0]",
+    "Input [0, 0, 0, 1]",
+]
 
 # Separate plots for each input
 for i, input_point in enumerate(input_data):
     plt.figure(figsize=(8, 6))
     plt.scatter(
-        mc_samples[i, :, 0], mc_samples[i, :, 1],
-        color=colors[i], alpha=0.3, label=input_labels[i]
+        mc_samples[i, :, 0],
+        mc_samples[i, :, 1],
+        color=colors[i],
+        alpha=0.3,
+        label=input_labels[i],
     )
     plt.title(f"MC Dropout Sampling Results - {input_labels[i]}")
     plt.xlabel("Output Dimension 1")
@@ -108,8 +126,11 @@ for i, input_point in enumerate(input_data):
 plt.figure(figsize=(10, 8))
 for i, input_point in enumerate(input_data):
     plt.scatter(
-        mc_samples[i, :, 0], mc_samples[i, :, 1],
-        color=colors[i], alpha=0.3, label=input_labels[i]
+        mc_samples[i, :, 0],
+        mc_samples[i, :, 1],
+        color=colors[i],
+        alpha=0.3,
+        label=input_labels[i],
     )
 plt.title("MC Dropout Sampling Results - All Inputs Combined")
 plt.xlabel("Output Dimension 1")
