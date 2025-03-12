@@ -3,7 +3,7 @@ from multiprocessing import freeze_support
 import gymnasium as gym
 import torch
 from gymnasium.wrappers import GrayScaleObservation, ResizeObservation
-from stable_baselines3 import PPO
+from stable_baselines3 import PPO, SAC
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from stable_baselines3.common.vec_env import (
     SubprocVecEnv,
@@ -26,7 +26,7 @@ import custom_envs
 # Configuration
 NUM_SEEDS = 10
 N_ENVS = 12
-TRAIN_STEPS = 1_500_000
+TRAIN_STEPS = 1_000_000
 EVAL_INTERVAL = 2_500 * N_ENVS
 EVAL_EPISODES = 1
 NEAR_OPTIMAL_SCORE = 8.50
@@ -248,28 +248,49 @@ if __name__ == "__main__":
 
         n_steps_value = max(2000 // N_ENVS, MIN_N_STEPS)
 
-        model = PPO(
+        # model = PPO(
+        #     "CnnPolicy",
+        #     train_env,
+        #     verbose=1,
+        #     seed=seed,
+        #     batch_size=64,
+        #     n_steps=n_steps_value,
+        #     learning_rate=1e-4,
+        #     policy_kwargs=dict(
+        #         # features_extractor_class=ResNet18FeatureExtractor,
+        #         net_arch=dict(
+        #             pi=[
+        #                 32,
+        #                 32,
+        #             ],
+        #             vf=[
+        #                 32,
+        #                 32,
+        #             ],
+        #         ),
+        #     ),
+        #     ent_coef=ENT_COEF,
+        # )
+
+        model = SAC(
             "CnnPolicy",
             train_env,
             verbose=1,
             seed=seed,
-            batch_size=64,
-            n_steps=n_steps_value,
-            learning_rate=1e-4,
+            batch_size=256,
+            learning_rate=5e-4,
+            buffer_size=800_000,
+            train_freq=8,
+            gradient_steps=10,
+            learning_starts=1_000,
+            tau=0.02,
+            use_sde=True,
+            use_sde_at_warmup=True,
+            ent_coef="auto",
             policy_kwargs=dict(
+                net_arch=[256, 256],
                 # features_extractor_class=ResNet18FeatureExtractor,
-                net_arch=dict(
-                    pi=[
-                        32,
-                        32,
-                    ],
-                    vf=[
-                        32,
-                        32,
-                    ],
-                ),
             ),
-            ent_coef=ENT_COEF,
         )
 
         callback_list = [
