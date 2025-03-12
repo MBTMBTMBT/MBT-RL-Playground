@@ -457,7 +457,7 @@ GRASS_DIM = PLAYFIELD / 20.0
 MAX_SHAPE_DIM = (
     max(GRASS_DIM, TRACK_WIDTH, TRACK_DETAIL_STEP) * math.sqrt(2) * ZOOM * SCALE
 )
-NO_FREEZE = 5000
+NO_FREEZE = 16384
 
 
 class CarRacingFixedMap(CarRacing):
