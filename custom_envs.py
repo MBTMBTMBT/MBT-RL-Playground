@@ -836,30 +836,25 @@ class CarRacingFixedMap(CarRacing):
             return self.isopen
 
     def get_track_image(self, figsize=(10, 10), return_rgb=True):
-        """
-        Generate a top-down track image as a numpy array with grass and road.
+        playfield = 2000 / SCALE
+        grass_dim = playfield / 20.0
 
-        Args:
-            figsize (tuple): Matplotlib figure size.
-            return_rgb (bool): If True, returns an RGB array. If False, returns BGR.
-
-        Returns:
-            np.ndarray: The rendered track image as a numpy array (H, W, 3).
-        """
-        playfield = 2000 / SCALE  # world size from the environment
-        grass_dim = playfield / 20.0  # same as GRASS_DIM in environment
-
-        # Create a matplotlib figure and axis
         fig, ax = plt.subplots(figsize=figsize)
-        ax.set_facecolor(np.array(self.bg_color) / 255.0)
 
-        # Set bounds
+        # Background color
+        bg_color = np.array(self.bg_color) / 255.0
+        ax.set_facecolor(bg_color)
+
         ax.set_xlim(-playfield, playfield)
         ax.set_ylim(-playfield, playfield)
 
-        # --- Draw grass patches ---
-        grass_color_norm = np.array(self.grass_color) / 255.0
-        step = 2
+        # Grass color: almost same as bg_color +20 trick
+        grass_color = np.copy(bg_color)
+        idx = np.random.randint(3)
+        grass_color[idx] += 20 / 255.0
+
+        # Grass patches: fine-grained patches, smaller steps
+        step = 1
         for x in range(-20, 20, step):
             for y in range(-20, 20, step):
                 rect_x = grass_dim * x
@@ -868,12 +863,13 @@ class CarRacingFixedMap(CarRacing):
                     (rect_x, rect_y),
                     grass_dim,
                     grass_dim,
-                    facecolor=grass_color_norm,
-                    edgecolor='none'
+                    facecolor=grass_color,
+                    edgecolor='none',
+                    antialiased=True
                 )
                 ax.add_patch(rect)
 
-        # --- Draw road tiles ---
+        # Draw road polygons (unchanged)
         for poly, color in self.road_poly:
             poly_array = np.array(poly)
             color_norm = np.array(color) / 255.0
@@ -881,18 +877,17 @@ class CarRacingFixedMap(CarRacing):
                 poly_array,
                 closed=True,
                 facecolor=color_norm,
-                edgecolor='none'
+                edgecolor='none',
+                antialiased=True
             )
             ax.add_patch(patch)
 
         ax.set_aspect('equal')
         ax.axis('off')
 
-        # Draw the figure on a canvas and convert to numpy array
         canvas = FigureCanvasAgg(fig)
         canvas.draw()
 
-        # Extract numpy array from canvas
         width, height = fig.get_size_inches() * fig.get_dpi()
         img = np.frombuffer(canvas.tostring_rgb(), dtype='uint8').reshape(int(height), int(width), 3)
 
@@ -901,4 +896,4 @@ class CarRacingFixedMap(CarRacing):
         if return_rgb:
             return img
         else:
-            return img[:, :, ::-1]  # Convert to BGR if needed
+            return img[:, :, ::-1]
