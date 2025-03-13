@@ -164,7 +164,7 @@ class EvalAndGifCallback(BaseCallback):
                 print(
                     f"[Seed {self.seed}] Near-optimal reached at step {self.num_timesteps}. Stopping training."
                 )
-                return False
+                # return False
         return True
 
     def _on_training_start(self):
@@ -249,7 +249,7 @@ if __name__ == "__main__":
             verbose=1,
             batch_size=64,
             learning_rate=1e-4,
-            buffer_size=100_000,
+            buffer_size=200_000,
             train_freq=8,
             gradient_steps=8,
             learning_starts=10_000,
