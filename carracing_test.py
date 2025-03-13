@@ -207,7 +207,13 @@ class ProgressBarCallback(BaseCallback):
         self._last_num_timesteps = 0
 
     def _on_training_start(self):
-        self.pbar = tqdm(total=self.total_timesteps, desc="Training Progress")
+        self.pbar = tqdm(
+            total=self.total_timesteps,
+            desc="Training Progress",
+            mininterval=1,
+            maxinterval=25,
+            smoothing=0.9,
+        )
         self._last_num_timesteps = 0
 
     def _on_step(self):
