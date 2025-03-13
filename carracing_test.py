@@ -25,7 +25,7 @@ import custom_envs
 
 # Configuration
 NUM_SEEDS = 10
-N_ENVS = 24
+N_ENVS = 32
 TRAIN_STEPS = 2_500_000
 EVAL_INTERVAL = 2_500 * N_ENVS
 EVAL_EPISODES = 1
@@ -277,7 +277,7 @@ if __name__ == "__main__":
             verbose=1,
             batch_size=256,
             learning_rate=5e-4,
-            buffer_size=800_000,
+            buffer_size=500_000,
             train_freq=8,
             gradient_steps=5,
             learning_starts=1_000,
