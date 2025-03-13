@@ -34,7 +34,7 @@ NEAR_OPTIMAL_SCORE = 9.00
 GIF_LENGTH = 500
 N_STACK = 5
 FRAME_SKIP = 1
-RESIZE_SHAPE = 96
+RESIZE_SHAPE = 64
 SAVE_PATH = "./car_racing_results"
 
 os.makedirs(SAVE_PATH, exist_ok=True)
