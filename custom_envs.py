@@ -841,19 +841,24 @@ class CarRacingFixedMap(CarRacing):
 
         fig, ax = plt.subplots(figsize=figsize)
 
+        # Remove padding and axis
+        ax.set_axis_off()
+        fig.subplots_adjust(left=0, right=1, bottom=0, top=1)
+        ax.set_position([0, 0, 1, 1])
+
         # Background color
         bg_color = np.array(self.bg_color) / 255.0
         ax.set_facecolor(bg_color)
 
+        # Limits
         ax.set_xlim(-playfield, playfield)
         ax.set_ylim(-playfield, playfield)
 
-        # Grass color: almost same as bg_color +20 trick
+        # Grass patches
         grass_color = np.copy(bg_color)
         idx = np.random.randint(3)
         grass_color[idx] += 20 / 255.0
 
-        # Grass patches: fine-grained patches, smaller steps
         step = 1
         for x in range(-20, 20, step):
             for y in range(-20, 20, step):
@@ -869,7 +874,7 @@ class CarRacingFixedMap(CarRacing):
                 )
                 ax.add_patch(rect)
 
-        # Draw road polygons (unchanged)
+        # Road tiles
         for poly, color in self.road_poly:
             poly_array = np.array(poly)
             color_norm = np.array(color) / 255.0
@@ -883,8 +888,8 @@ class CarRacingFixedMap(CarRacing):
             ax.add_patch(patch)
 
         ax.set_aspect('equal')
-        ax.axis('off')
 
+        # Render as numpy
         canvas = FigureCanvasAgg(fig)
         canvas.draw()
 
