@@ -25,18 +25,16 @@ import custom_envs
 
 # Configuration
 NUM_SEEDS = 10
-N_ENVS = 12
-TRAIN_STEPS = 2_500_000
+N_ENVS = 24
+TRAIN_STEPS = 5_000_000
 EVAL_INTERVAL = 2_500 * N_ENVS
 EVAL_EPISODES = 1
-NEAR_OPTIMAL_SCORE = 8.50
-MIN_N_STEPS = 1000
+NEAR_OPTIMAL_SCORE = 9.00
 GIF_LENGTH = 500
 N_STACK = 5
 FRAME_SKIP = 1
 RESIZE_SHAPE = 64
 SAVE_PATH = "./car_racing_results"
-ENT_COEF = 0.025
 
 os.makedirs(SAVE_PATH, exist_ok=True)
 
@@ -245,49 +243,23 @@ if __name__ == "__main__":
         )
         train_env = VecTransposeImage(train_env)
         train_env = VecFrameStack(train_env, n_stack=N_STACK)
-
-        n_steps_value = max(2000 // N_ENVS, MIN_N_STEPS)
-
-        # model = PPO(
-        #     "CnnPolicy",
-        #     train_env,
-        #     verbose=1,
-        #     batch_size=64,
-        #     n_steps=n_steps_value,
-        #     learning_rate=1e-4,
-        #     policy_kwargs=dict(
-        #         # features_extractor_class=ResNet18FeatureExtractor,
-        #         net_arch=dict(
-        #             pi=[
-        #                 32,
-        #                 32,
-        #             ],
-        #             vf=[
-        #                 32,
-        #                 32,
-        #             ],
-        #         ),
-        #     ),
-        #     ent_coef=ENT_COEF,
-        # )
-
         model = SAC(
             "CnnPolicy",
             train_env,
             verbose=1,
-            batch_size=256,
-            learning_rate=5e-4,
-            buffer_size=400_000,
+            batch_size=64,
+            learning_rate=1e-4,
+            buffer_size=100_000,
             train_freq=8,
-            gradient_steps=5,
-            learning_starts=1_000,
-            tau=0.02,
-            use_sde=True,
-            use_sde_at_warmup=True,
+            gradient_steps=8,
+            learning_starts=10_000,
+            tau=0.005,
+            use_sde=False,
+            use_sde_at_warmup=False,
             ent_coef="auto",
             policy_kwargs=dict(
                 net_arch=[256, 256],
-                # features_extractor_class=ResNet18FeatureExtractor,
+                features_extractor_class=ResNet18FeatureExtractor,
             ),
         )
 
