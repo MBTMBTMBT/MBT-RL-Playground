@@ -2,6 +2,7 @@ import random
 from multiprocessing import freeze_support
 import gymnasium as gym
 import torch
+from PIL import Image
 from gymnasium.wrappers import GrayScaleObservation, ResizeObservation
 from stable_baselines3 import PPO, SAC
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
@@ -191,7 +192,14 @@ class EvalAndGifCallback(BaseCallback):
         single_env.close()
 
         gif_path = os.path.join(SAVE_PATH, f"car_racing_seed_{self.seed}.gif")
-        imageio.mimsave(gif_path, frames, duration=20, loop=0)
+
+        new_frames = []
+        for frame in frames:
+            img = Image.fromarray(frame)
+            resized_img = img.resize((img.width // 2, img.height // 2))
+            new_frames.append(resized_img)
+
+        imageio.mimsave(gif_path, frames, duration=20, loop=0,)
 
 
 # Progress bar callback
