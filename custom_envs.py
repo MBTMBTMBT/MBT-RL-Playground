@@ -74,6 +74,8 @@ register(
         "continuous": False,
         "map_seed": 0,
         "fixed_start": True,
+        "backwards_tolerance": 3,
+        "grass_tolerance": 5,
     },
     max_episode_steps=1000,
 )
@@ -475,8 +477,13 @@ class CarRacingFixedMap(CarRacing):
         continuous=True,
         map_seed=0,
         fixed_start=True,
+        backwards_tolerance=5,  # defaults to 5
+        grass_tolerance=3,      # new param: defaults to 5
     ):
         self.map_seed = map_seed
+        self.fixed_start = fixed_start
+        self.backwards_tolerance = backwards_tolerance
+        self.grass_tolerance = grass_tolerance
         super().__init__(
             render_mode=render_mode,
             verbose=verbose,
@@ -484,8 +491,11 @@ class CarRacingFixedMap(CarRacing):
             domain_randomize=domain_randomize,
             continuous=continuous,
         )
+
+        # Trackers for additional termination logic
         self.on_grass_counter = 0
-        self.fixed_start = fixed_start
+        self._last_progress_idx = None
+        self._backwards_counter = 0
 
     def reset(self, *, seed=None, options=None):
         obs, info = super().reset(seed=seed, options=options)
@@ -493,10 +503,10 @@ class CarRacingFixedMap(CarRacing):
         fixed_start = self.fixed_start
 
         if not fixed_start:
-            # Randomize start position
+            # Randomize start position on the track
             start_idx = self.np_random.integers(0, len(self.track))
         else:
-            # Always use first point
+            # Always start from the first point
             start_idx = 0
 
         beta, x, y = self.track[start_idx][1:4]
@@ -506,6 +516,13 @@ class CarRacingFixedMap(CarRacing):
 
         self.car = Car(self.world, beta, x, y)
 
+        # Initialize progress tracking for backward detection
+        self._last_progress_idx = self._get_progress_index()
+        self._backwards_counter = 0
+
+        # Initialize grass counter
+        self.on_grass_counter = 0
+
         if self.render_mode == "human":
             self.render()
 
@@ -514,18 +531,78 @@ class CarRacingFixedMap(CarRacing):
     def step(self, action):
         obs, reward, terminated, truncated, info = super().step(action)
 
-        reward /= 1e2
+        reward /= 1e2  # reward scaling if needed
 
+        # === Grass detection ===
         on_grass = self._check_on_grass()
         if on_grass:
             self.on_grass_counter += 1
         else:
             self.on_grass_counter = 0
 
-        if on_grass and self.on_grass_counter >= 5:
+        if on_grass and self.on_grass_counter >= self.grass_tolerance:
             terminated = True
+            info["on_grass_terminated"] = True
+        else:
+            info["on_grass_terminated"] = False
+
+        # === Backward detection ===
+        is_backwards = self._check_if_running_backwards()
+
+        if is_backwards:
+            self._backwards_counter += 1
+        else:
+            self._backwards_counter = 0
+
+        if self._backwards_counter >= self.backwards_tolerance:
+            terminated = True
+            info["running_backwards"] = True
+        else:
+            info["running_backwards"] = False
 
         return obs, reward, terminated, truncated, info
+
+    # === Helper functions ===
+    def _get_progress_index(self):
+        """
+        Returns the index of the closest track segment to the car.
+        """
+        car_pos = self.car.hull.position
+        min_dist = float("inf")
+        closest_idx = 0
+
+        for i, (_, _, x, y) in enumerate(self.track):
+            dist = np.sqrt((car_pos[0] - x) ** 2 + (car_pos[1] - y) ** 2)
+            if dist < min_dist:
+                min_dist = dist
+                closest_idx = i
+
+        return closest_idx
+
+    def _check_if_running_backwards(self):
+        """
+        Returns True if the car is going backwards on the track.
+        """
+        current_idx = self._get_progress_index()
+
+        # First step initialization
+        if self._last_progress_idx is None:
+            self._last_progress_idx = current_idx
+            return False
+
+        # Compute delta progress (forward: positive, backward: negative)
+        delta = current_idx - self._last_progress_idx
+
+        # Handle track looping
+        if delta > len(self.track) / 2:
+            delta -= len(self.track)
+        elif delta < -len(self.track) / 2:
+            delta += len(self.track)
+
+        self._last_progress_idx = current_idx
+
+        # Negative delta means moving backward
+        return delta < -1  # You can adjust threshold if needed
 
     def _check_on_grass(self):
         """
@@ -536,7 +613,7 @@ class CarRacingFixedMap(CarRacing):
 
         if not self.road or len(self.road) == 0:
             print("[DEBUG] No road tiles available!")
-            return True  # No tiles, assume on grass
+            return True  # Assume on grass if road isn't there
 
         def point_on_road(pos):
             for tile in self.road:
@@ -544,12 +621,12 @@ class CarRacingFixedMap(CarRacing):
                     return True
             return False
 
-        # If any wheel is on the road, we are NOT on grass
+        # If any wheel is on the road, then not fully on grass
         for wheel_pos in wheels:
             if point_on_road(wheel_pos):
                 return False
 
-        return True  # All wheels off-road
+        return True  # All wheels are off-road
 
     def _create_track(self):
         def derive_new_seed(base_seed, retry_count):
