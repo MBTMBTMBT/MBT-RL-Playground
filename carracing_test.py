@@ -28,9 +28,9 @@ import custom_envs
 # Configuration
 NUM_SEEDS = 10
 N_ENVS = 24
-TRAIN_STEPS = 2_500_000
-EVAL_INTERVAL = 2_500 * N_ENVS
-EVAL_EPISODES = 1
+TRAIN_STEPS = 1_500_000
+EVAL_INTERVAL = 5_000 * N_ENVS
+EVAL_EPISODES = 120
 NEAR_OPTIMAL_SCORE = 9.00
 GIF_LENGTH = 500
 N_STACK = 5
@@ -137,8 +137,13 @@ class EvalAndGifCallback(BaseCallback):
         self.records = []
         self.last_eval_step = 0
 
-        # Create evaluation environment
-        self.eval_env = DummyVecEnv([make_env(seed, fixed_start=True)])
+        self.eval_episodes = EVAL_EPISODES
+        self.n_eval_envs = N_ENVS
+
+        self.eval_env = SubprocVecEnv([
+            make_env(seed, fixed_start=False)
+            for _ in range(self.n_eval_envs)
+        ])
         self.eval_env = VecTransposeImage(self.eval_env)
         self.eval_env = VecFrameStack(self.eval_env, n_stack=N_STACK)
 
@@ -146,27 +151,32 @@ class EvalAndGifCallback(BaseCallback):
         if self.num_timesteps - self.last_eval_step >= self.eval_interval:
             self.last_eval_step = self.num_timesteps
 
-            mean_reward, _ = evaluate_policy(
+            mean_reward, std_reward = evaluate_policy(
                 self.model,
                 self.eval_env,
-                n_eval_episodes=EVAL_EPISODES,
+                n_eval_episodes=self.eval_episodes,
                 deterministic=True,
+                render=False,
+                warn=False,
             )
-            self.records.append((self.num_timesteps, mean_reward))
+            self.records.append((self.num_timesteps, mean_reward, std_reward))
 
             if self.verbose:
                 print(
-                    f"[Seed {self.seed}] Step: {self.num_timesteps}, Mean Reward: {mean_reward}"
+                    f"[Seed {self.seed}] Step: {self.num_timesteps}, Mean Reward: {mean_reward:.2f} ± {std_reward:.2f}"
                 )
 
-            self.save_gif()
+            if mean_reward > self.best_score:
+                self.best_score = mean_reward
+                self.save_gif()
 
             if mean_reward >= self.optimal_score and self.step_reached_optimal is None:
                 self.step_reached_optimal = self.num_timesteps
                 print(
                     f"[Seed {self.seed}] Near-optimal reached at step {self.num_timesteps}. Stopping training."
                 )
-                # return False
+                return False
+
         return True
 
     def _on_training_start(self):
