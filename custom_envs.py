@@ -5,6 +5,9 @@ import gymnasium as gym
 import pygame
 from gymnasium.envs.box2d.car_dynamics import Car
 from gymnasium.error import DependencyNotInstalled
+from matplotlib import pyplot as plt
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+from matplotlib.patches import Polygon
 from numpy import cos, pi, sin
 from gymnasium import spaces
 import numpy as np
@@ -831,3 +834,50 @@ class CarRacingFixedMap(CarRacing):
             return self._create_image_array(self.surf, (STATE_W, STATE_H))
         else:
             return self.isopen
+
+    def get_track_image(self, figsize=(10, 10), return_rgb=True):
+        """
+        Generate a top-down track image as a numpy array.
+
+        Args:
+            figsize (tuple): Matplotlib figure size.
+            dpi (int): Dots per inch (resolution).
+            return_rgb (bool): If True, returns an RGB array. If False, returns BGR.
+
+        Returns:
+            np.ndarray: The rendered track image as a numpy array (H, W, 3).
+        """
+        playfield = 2000 / self.SCALE  # field size from the environment
+
+        # Create a matplotlib figure and axis
+        fig, ax = plt.subplots(figsize=figsize)
+        ax.set_facecolor(np.array(self.bg_color) / 255.0)
+
+        # Set bounds
+        ax.set_xlim(-playfield, playfield)
+        ax.set_ylim(-playfield, playfield)
+
+        # Draw all polygons in road_poly
+        for poly, color in self.road_poly:
+            poly_array = np.array(poly)
+            color_norm = np.array(color) / 255.0
+            patch = Polygon(poly_array, closed=True, facecolor=color_norm, edgecolor='none')
+            ax.add_patch(patch)
+
+        ax.set_aspect('equal')
+        ax.axis('off')
+
+        # Draw the figure on a canvas and convert to numpy array
+        canvas = FigureCanvasAgg(fig)
+        canvas.draw()
+
+        # Extract numpy array from canvas
+        width, height = fig.get_size_inches() * fig.get_dpi()
+        img = np.frombuffer(canvas.tostring_rgb(), dtype='uint8').reshape(int(height), int(width), 3)
+
+        plt.close(fig)
+
+        if return_rgb:
+            return img
+        else:
+            return img[:, :, ::-1]  # Convert to BGR if needed

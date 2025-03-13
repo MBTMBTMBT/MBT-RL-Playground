@@ -3,6 +3,7 @@ from multiprocessing import freeze_support
 import gymnasium as gym
 import torch
 from gymnasium.wrappers import GrayScaleObservation, ResizeObservation
+from matplotlib import pyplot as plt
 from stable_baselines3 import PPO, SAC
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from stable_baselines3.common.vec_env import (
@@ -230,6 +231,12 @@ if __name__ == "__main__":
 
     for seed in seeds:
         print(f"\n===== Training Seed {seed} =====")
+
+        env = gym.make("CarRacingFixedMap-v2", continuous=True, map_seed=seed, render_mode=None)
+        env.reset()
+        track_img = env.unwrapped.get_track_image(figsize=(10, 10),)
+        map_path = os.path.join(SAVE_PATH, f"car_racing_map_seed_{seed}.png")
+        plt.imsave(map_path, track_img)
 
         train_env = SubprocVecEnv(
             [
