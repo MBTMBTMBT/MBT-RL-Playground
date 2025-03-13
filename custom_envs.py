@@ -847,7 +847,7 @@ class CarRacingFixedMap(CarRacing):
         Returns:
             np.ndarray: The rendered track image as a numpy array (H, W, 3).
         """
-        playfield = 2000 / self.SCALE  # field size from the environment
+        playfield = 2000 / SCALE  # field size from the environment
 
         # Create a matplotlib figure and axis
         fig, ax = plt.subplots(figsize=figsize)
