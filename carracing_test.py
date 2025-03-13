@@ -289,7 +289,7 @@ if __name__ == "__main__":
             "CnnPolicy",
             train_env,
             verbose=1,
-            batch_size=128,
+            batch_size=256,
             learning_rate=1e-4,
             buffer_size=200_000,
             train_freq=N_ENVS,
