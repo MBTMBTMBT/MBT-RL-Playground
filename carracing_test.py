@@ -1,6 +1,8 @@
+import gc
 import random
 from multiprocessing import freeze_support
 import gymnasium as gym
+import psutil
 import torch
 from PIL import Image
 from gymnasium.wrappers import GrayScaleObservation, ResizeObservation
@@ -245,7 +247,6 @@ class ProgressBarCallback(BaseCallback):
         self.pbar.close()
 
 
-# Main training loop
 if __name__ == "__main__":
     freeze_support()
 
@@ -256,24 +257,34 @@ if __name__ == "__main__":
     for seed in seeds:
         print(f"\n===== Training Seed {seed} =====")
 
-        env = gym.make("CarRacingFixedMap-v2", continuous=True, map_seed=seed, render_mode=None)
+        # Generate track image and save
+        env = gym.make(
+            "CarRacingFixedMap-v2",
+            continuous=True,
+            map_seed=seed,
+            render_mode=None
+        )
         env.reset()
-        track_img = env.unwrapped.get_track_image(figsize=(10, 10),)
+        track_img = env.unwrapped.get_track_image(figsize=(10, 10))
         map_path = os.path.join(SAVE_PATH, f"car_racing_map_seed_{seed}.png")
         plt.imsave(map_path, track_img)
+        env.close()
+        del env
+        gc.collect()
 
-        train_env = SubprocVecEnv(
-            [
-                make_env(
-                    seed,
-                    render_mode="rgb_array",
-                    fixed_start=False,
-                )
-                for _ in range(N_ENVS)
-            ]
-        )
+        # Create training environment
+        train_env = SubprocVecEnv([
+            make_env(
+                seed,
+                render_mode="rgb_array",
+                fixed_start=False,
+            )
+            for _ in range(N_ENVS)
+        ])
         train_env = VecTransposeImage(train_env)
         train_env = VecFrameStack(train_env, n_stack=N_STACK)
+
+        # Create SAC model
         model = SAC(
             "CnnPolicy",
             train_env,
@@ -294,6 +305,7 @@ if __name__ == "__main__":
             ),
         )
 
+        # Define callbacks
         callback_list = [
             EvalAndGifCallback(
                 seed=seed,
@@ -304,13 +316,16 @@ if __name__ == "__main__":
             ProgressBarCallback(total_timesteps=TRAIN_STEPS, verbose=1),
         ]
 
+        # Train the model
         model.learn(total_timesteps=TRAIN_STEPS, callback=callback_list)
 
-        model_path = os.path.join(SAVE_PATH, f"ppo_carracing_seed_{seed}.zip")
+        # Save model and logs
+        model_path = os.path.join(SAVE_PATH, f"sac_carracing_seed_{seed}.zip")
         model.save(model_path)
 
         df_records = pd.DataFrame(
-            callback_list[0].records, columns=["Steps", "MeanReward", "StdReward"]
+            callback_list[0].records,
+            columns=["Steps", "MeanReward", "StdReward"]
         )
         df_records_path = os.path.join(SAVE_PATH, f"training_log_seed_{seed}.csv")
         df_records.to_csv(df_records_path, index=False)
@@ -320,14 +335,23 @@ if __name__ == "__main__":
             if callback_list[0].step_reached_optimal
             else TRAIN_STEPS
         )
-        final_results.append(
-            {
-                "Seed": seed,
-                "OptimalStep": optimal_step,
-                "BestScore": callback_list[0].best_score,
-            }
-        )
+        final_results.append({
+            "Seed": seed,
+            "OptimalStep": optimal_step,
+            "BestScore": callback_list[0].best_score,
+        })
 
+        # Clean resources
+        print(f"\n===== Cleaning up after seed {seed} =====")
+        train_env.close()
+        del train_env
+        del model
+        torch.cuda.empty_cache()
+        gc.collect()
+
+        print(f"Memory usage after seed {seed}: {psutil.virtual_memory().percent}%")
+
+    # Save summary results
     df_final_results = pd.DataFrame(final_results)
     df_final_results.to_csv(os.path.join(SAVE_PATH, "summary_results.csv"), index=False)
 

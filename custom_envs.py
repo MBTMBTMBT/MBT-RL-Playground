@@ -75,7 +75,7 @@ register(
         "map_seed": 0,
         "fixed_start": True,
         "backwards_tolerance": 3,
-        "grass_tolerance": 5,
+        "grass_tolerance": 10,
     },
     max_episode_steps=1000,
 )
