@@ -277,7 +277,7 @@ if __name__ == "__main__":
             verbose=1,
             batch_size=256,
             learning_rate=5e-4,
-            buffer_size=500_000,
+            buffer_size=400_000,
             train_freq=8,
             gradient_steps=5,
             learning_starts=1_000,
