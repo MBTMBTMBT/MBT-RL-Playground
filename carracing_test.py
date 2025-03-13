@@ -197,9 +197,9 @@ class EvalAndGifCallback(BaseCallback):
         for frame in frames:
             img = Image.fromarray(frame)
             resized_img = img.resize((img.width // 2, img.height // 2))
-            new_frames.append(resized_img)
+            new_frames.append(np.array(resized_img))
 
-        imageio.mimsave(gif_path, frames, duration=20, loop=0,)
+        imageio.mimsave(gif_path, new_frames, duration=20, loop=0,)
 
 
 # Progress bar callback
