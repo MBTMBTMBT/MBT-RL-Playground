@@ -656,8 +656,7 @@ class CarRacingFixedMap(CarRacing):
                     success = False
                     break
                 pass_through_start = (
-                    track[i][0] > self.start_alpha
-                    and track[i - 1][0] <= self.start_alpha
+                        track[i][0] > self.start_alpha >= track[i - 1][0]
                 )
                 if pass_through_start and i2 == -1:
                     i2 = i

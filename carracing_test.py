@@ -25,7 +25,7 @@ import custom_envs
 
 # Configuration
 NUM_SEEDS = 10
-N_ENVS = 32
+N_ENVS = 12
 TRAIN_STEPS = 2_500_000
 EVAL_INTERVAL = 2_500 * N_ENVS
 EVAL_EPISODES = 1
@@ -237,7 +237,7 @@ if __name__ == "__main__":
             [
                 make_env(
                     seed,
-                    render_mode="rgb_array",
+                    render_mode="human",
                     fixed_start=False,
                 )
                 for _ in range(N_ENVS)
