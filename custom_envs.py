@@ -7,7 +7,7 @@ from gymnasium.envs.box2d.car_dynamics import Car
 from gymnasium.error import DependencyNotInstalled
 from matplotlib import pyplot as plt
 from matplotlib.backends.backend_agg import FigureCanvasAgg
-from matplotlib.patches import Polygon
+from matplotlib.patches import Polygon, Rectangle
 from numpy import cos, pi, sin
 from gymnasium import spaces
 import numpy as np
@@ -837,17 +837,17 @@ class CarRacingFixedMap(CarRacing):
 
     def get_track_image(self, figsize=(10, 10), return_rgb=True):
         """
-        Generate a top-down track image as a numpy array.
+        Generate a top-down track image as a numpy array with grass and road.
 
         Args:
             figsize (tuple): Matplotlib figure size.
-            dpi (int): Dots per inch (resolution).
             return_rgb (bool): If True, returns an RGB array. If False, returns BGR.
 
         Returns:
             np.ndarray: The rendered track image as a numpy array (H, W, 3).
         """
-        playfield = 2000 / SCALE  # field size from the environment
+        playfield = 2000 / SCALE  # world size from the environment
+        grass_dim = playfield / 20.0  # same as GRASS_DIM in environment
 
         # Create a matplotlib figure and axis
         fig, ax = plt.subplots(figsize=figsize)
@@ -857,11 +857,32 @@ class CarRacingFixedMap(CarRacing):
         ax.set_xlim(-playfield, playfield)
         ax.set_ylim(-playfield, playfield)
 
-        # Draw all polygons in road_poly
+        # --- Draw grass patches ---
+        grass_color_norm = np.array(self.grass_color) / 255.0
+        step = 2
+        for x in range(-20, 20, step):
+            for y in range(-20, 20, step):
+                rect_x = grass_dim * x
+                rect_y = grass_dim * y
+                rect = Rectangle(
+                    (rect_x, rect_y),
+                    grass_dim,
+                    grass_dim,
+                    facecolor=grass_color_norm,
+                    edgecolor='none'
+                )
+                ax.add_patch(rect)
+
+        # --- Draw road tiles ---
         for poly, color in self.road_poly:
             poly_array = np.array(poly)
             color_norm = np.array(color) / 255.0
-            patch = Polygon(poly_array, closed=True, facecolor=color_norm, edgecolor='none')
+            patch = Polygon(
+                poly_array,
+                closed=True,
+                facecolor=color_norm,
+                edgecolor='none'
+            )
             ax.add_patch(patch)
 
         ax.set_aspect('equal')
