@@ -310,7 +310,7 @@ if __name__ == "__main__":
         model.save(model_path)
 
         df_records = pd.DataFrame(
-            callback_list[0].records, columns=["Steps", "MeanReward"]
+            callback_list[0].records, columns=["Steps", "MeanReward", "StdReward"]
         )
         df_records_path = os.path.join(SAVE_PATH, f"training_log_seed_{seed}.csv")
         df_records.to_csv(df_records_path, index=False)
