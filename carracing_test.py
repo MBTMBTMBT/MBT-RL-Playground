@@ -2,6 +2,7 @@ import random
 from multiprocessing import freeze_support
 import gymnasium as gym
 import torch
+from PIL import Image
 from gymnasium.wrappers import GrayScaleObservation, ResizeObservation
 from matplotlib import pyplot as plt
 from stable_baselines3 import PPO, SAC
@@ -34,7 +35,7 @@ NEAR_OPTIMAL_SCORE = 9.00
 GIF_LENGTH = 500
 N_STACK = 5
 FRAME_SKIP = 1
-RESIZE_SHAPE = 96
+RESIZE_SHAPE = 64
 SAVE_PATH = "./car_racing_results"
 
 os.makedirs(SAVE_PATH, exist_ok=True)
@@ -165,7 +166,7 @@ class EvalAndGifCallback(BaseCallback):
                 print(
                     f"[Seed {self.seed}] Near-optimal reached at step {self.num_timesteps}. Stopping training."
                 )
-                return False
+                # return False
         return True
 
     def _on_training_start(self):
@@ -192,7 +193,14 @@ class EvalAndGifCallback(BaseCallback):
         single_env.close()
 
         gif_path = os.path.join(SAVE_PATH, f"car_racing_seed_{self.seed}.gif")
-        imageio.mimsave(gif_path, frames, duration=20, loop=0)
+
+        new_frames = []
+        for frame in frames:
+            img = Image.fromarray(frame)
+            resized_img = img.resize((img.width // 2, img.height // 2))
+            new_frames.append(np.array(resized_img))
+
+        imageio.mimsave(gif_path, new_frames, duration=20, loop=0,)
 
 
 # Progress bar callback
@@ -208,7 +216,13 @@ class ProgressBarCallback(BaseCallback):
         self._last_num_timesteps = 0
 
     def _on_training_start(self):
-        self.pbar = tqdm(total=self.total_timesteps, desc="Training Progress")
+        self.pbar = tqdm(
+            total=self.total_timesteps,
+            desc="Training Progress",
+            mininterval=1,
+            maxinterval=25,
+            smoothing=0.9,
+        )
         self._last_num_timesteps = 0
 
     def _on_step(self):
@@ -256,9 +270,9 @@ if __name__ == "__main__":
             verbose=1,
             batch_size=64,
             learning_rate=1e-4,
-            buffer_size=100_000,
-            train_freq=8,
-            gradient_steps=8,
+            buffer_size=200_000,
+            train_freq=N_ENVS,
+            gradient_steps=N_ENVS,
             learning_starts=10_000,
             tau=0.005,
             use_sde=False,
