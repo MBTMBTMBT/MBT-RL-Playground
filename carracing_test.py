@@ -235,7 +235,7 @@ if __name__ == "__main__":
             [
                 make_env(
                     seed,
-                    render_mode="human",
+                    render_mode="rgb_array",
                     fixed_start=False,
                 )
                 for _ in range(N_ENVS)
@@ -259,7 +259,7 @@ if __name__ == "__main__":
             ent_coef="auto",
             policy_kwargs=dict(
                 net_arch=[256, 256],
-                features_extractor_class=ResNet18FeatureExtractor,
+                # features_extractor_class=ResNet18FeatureExtractor,
             ),
         )
 
