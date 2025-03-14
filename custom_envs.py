@@ -16,6 +16,7 @@ from gymnasium.envs.classic_control.mountain_car import MountainCarEnv
 from gymnasium.envs.classic_control.acrobot import AcrobotEnv
 from gymnasium.envs.box2d.car_racing import CarRacing
 from gymnasium.envs.registration import register
+from gymnasium.envs.box2d.lunar_lander import LunarLander, INITIAL_RANDOM
 
 
 # Register the custom environments
@@ -78,6 +79,24 @@ register(
         "grass_tolerance": 15,
     },
     max_episode_steps=1000,
+)
+
+
+register(
+    id="CustomLunarLander-v3",
+    entry_point="custom_envs:CustomLunarLander",
+    kwargs={
+        "render_mode": None,
+        "continuous": False,
+        "gravity": -10.0,
+        "enable_wind": False,
+        "wind_power": 15.0,
+        "turbulence_power": 1.5,
+        "number_of_initial_states": 256,
+        "use_deterministic_initial_states": True,
+        "custom_seed": None,
+    },
+    max_episode_steps=500,
 )
 
 
@@ -979,3 +998,172 @@ class CarRacingFixedMap(CarRacing):
             return img
         else:
             return img[:, :, ::-1]
+
+
+class CustomLunarLander(LunarLander):
+    """
+    A custom LunarLander environment that allows:
+    1) Custom gravity value.
+    2) Fixed number of possible initial linear/angular velocities (e.g. 256),
+       which can be used either in a deterministic cyclic order or picked
+       randomly each reset, depending on the parameter use_deterministic_initial_states.
+
+    Usage Example:
+    -------------
+    env = CustomLunarLander(
+        render_mode="human",
+        continuous=False,
+        gravity=-10.0,
+        enable_wind=False,
+        wind_power=15.0,
+        turbulence_power=1.5,
+        number_of_initial_states=256,
+        use_deterministic_initial_states=True
+    )
+
+    Notes:
+    ------
+    - This environment retains the original step() logic from LunarLander.
+    - The main difference is how we generate and assign the initial velocities
+      (linear and angular) in reset().
+    - The gravity is now directly set to the user-defined value via super().__init__.
+    """
+
+    def __init__(
+        self,
+        render_mode=None,
+        continuous=False,
+        gravity=-10.0,
+        enable_wind=False,
+        wind_power=15.0,
+        turbulence_power=1.5,
+        number_of_initial_states=256,
+        use_deterministic_initial_states=True,
+        custom_seed=None,
+    ):
+        """
+        Initialize the custom LunarLander environment.
+
+        Parameters
+        ----------
+        render_mode : str or None
+            Same meaning as in the original LunarLander (e.g., "human", "rgb_array").
+        continuous : bool
+            Whether to use the continuous action space version (same as the parent class).
+        gravity : float
+            Gravity to use in the simulation (must be between -12.0 and 0.0 in the original constraints).
+        enable_wind : bool
+            Whether to enable wind effects (same usage as parent class).
+        wind_power : float
+            Maximum magnitude of linear wind (same usage as parent class).
+        turbulence_power : float
+            Maximum magnitude of rotational wind (same usage as parent class).
+        number_of_initial_states : int
+            How many distinct initial velocity/angle-velocity combinations we store.
+        use_deterministic_initial_states : bool
+            - True: We cycle through the stored states in a fixed order (determined by seed).
+            - False: We pick a random one from the stored states for each reset.
+        custom_seed : int or None
+            Seed used to generate the set of initial states (and the deterministic order).
+            If None, behavior follows default random seeding.
+        """
+        super().__init__(
+            render_mode=render_mode,
+            continuous=continuous,
+            gravity=gravity,  # user-defined gravity
+            enable_wind=enable_wind,
+            wind_power=wind_power,
+            turbulence_power=turbulence_power,
+        )
+
+        self.number_of_initial_states = number_of_initial_states
+        self.use_deterministic_initial_states = use_deterministic_initial_states
+        self.custom_seed = custom_seed
+
+        # We will store the possible initial (vx, vy, omega) in this list.
+        self._initial_states = []
+
+        # We use the internal RNG from the parent or create a new one if needed.
+        # If you need a specific random generator approach, you can do so here.
+        if self.custom_seed is not None:
+            # Force a separate RNG if you want full control
+            self._rng = np.random.default_rng(self.custom_seed)
+        else:
+            # Fall back to parent's self.np_random
+            self._rng = self.np_random
+
+        # Generate all initial states
+        self._generate_initial_states()
+
+        # If deterministic, shuffle them once in a stable manner and cycle.
+        # If not deterministic, we will pick randomly each reset.
+        if self.use_deterministic_initial_states:
+            # Shuffle them in a reproducible way using self._rng
+            self._rng.shuffle(self._initial_states)
+            self._current_idx = 0
+
+    def _generate_initial_states(self):
+        """
+        Generate a fixed set of (vx, vy, omega) states
+        with uniformly distributed directions and magnitudes,
+        within a reasonable range to avoid lander 'flying away'.
+        """
+        self._initial_states = []
+
+        max_speed = 5.0  # Reasonable maximum linear speed (units per second)
+        min_speed = 0.0  # Optional: can set > 0 if you want to avoid zero speed
+
+        max_angular_speed = 2.0  # Reasonable maximum angular velocity (radians per second)
+
+        for _ in range(self.number_of_initial_states):
+            # Sample speed magnitude uniformly
+            speed = self._rng.uniform(min_speed, max_speed)
+
+            # Sample direction uniformly on [0, 2pi)
+            theta = self._rng.uniform(0, 2 * np.pi)
+
+            # Convert polar coordinates to vx, vy
+            vx = speed * np.cos(theta)
+            vy = speed * np.sin(theta)
+
+            # Sample angular velocity uniformly
+            omega = self._rng.uniform(-max_angular_speed, max_angular_speed)
+
+            self._initial_states.append((vx, vy, omega))
+
+    def reset(self, *, seed=None, options=None):
+        """
+        Resets the environment:
+        1) Calls the original parent's reset logic, which sets up terrain, lander body, etc.
+           We skip the parent's random velocity assignment logic by temporarily disabling it.
+        2) We then manually set the lander's linearVelocity and angularVelocity using
+           one of the fixed initial states (either deterministic cycling or random).
+        """
+        # We want to keep parent's terrain and body creation, but not parent's random velocity.
+        # So we do the following: temporarily modify INITIAL_RANDOM = 0, so that the parent's
+        # applyForce random velocity is effectively null. Then restore it after calling super().
+        global INITIAL_RANDOM
+        original_val = INITIAL_RANDOM
+        INITIAL_RANDOM = 0.0  # Force no random impulse from the parent's reset
+
+        # Call parent's reset
+        obs, info = super().reset(seed=seed, options=options)
+
+        # Restore original value
+        INITIAL_RANDOM = original_val
+
+        # Now manually set the velocity & angular velocity from our stored states
+        if self.use_deterministic_initial_states:
+            vx, vy, omega = self._initial_states[self._current_idx]
+            self._current_idx = (self._current_idx + 1) % len(self._initial_states)
+        else:
+            # completely random pick from the stored states
+            idx = self._rng.integers(0, len(self._initial_states))
+            vx, vy, omega = self._initial_states[idx]
+
+        # Must ensure self.lander exists (it should after super().reset)
+        if self.lander is not None:
+            self.lander.linearVelocity = (vx, vy)
+            self.lander.angularVelocity = omega
+
+        return obs, info

@@ -8,7 +8,6 @@ from PIL import Image
 from gymnasium.wrappers import GrayScaleObservation, ResizeObservation
 from matplotlib import pyplot as plt
 from stable_baselines3 import PPO, SAC
-from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from stable_baselines3.common.vec_env import (
     SubprocVecEnv,
     DummyVecEnv,
@@ -22,8 +21,6 @@ import pandas as pd
 import imageio
 import os
 
-from torch import nn
-from torchvision import models
 from tqdm import tqdm
 import custom_envs
 
@@ -41,33 +38,6 @@ RESIZE_SHAPE = 64
 SAVE_PATH = "./car_racing_results"
 
 os.makedirs(SAVE_PATH, exist_ok=True)
-
-
-class ResNet18FeatureExtractor(BaseFeaturesExtractor):
-    def __init__(self, observation_space, features_dim=512):
-        super().__init__(observation_space, features_dim)
-
-        # Load torchvision resnet18, pretrained=False for simplicity
-        resnet = models.resnet18(pretrained=False)
-
-        # Modify first conv layer to match CarRacing input shape (default is 3 channels)
-        n_input_channels = observation_space.shape[0]
-        resnet.conv1 = nn.Conv2d(
-            n_input_channels, 64, kernel_size=7, stride=2, padding=3, bias=False
-        )
-
-        # Remove the classifier head (fc layer)
-        self.resnet = nn.Sequential(*list(resnet.children())[:-1])
-
-        # Final feature dimension from resnet18
-        self._features_dim = resnet.fc.in_features
-
-    def forward(self, observations):
-        # Normalize observation to [0, 1]
-        x = observations / 255.0
-        x = self.resnet(x)
-        # Flatten output
-        return torch.flatten(x, 1)
 
 
 # Custom FrameSkip wrapper
