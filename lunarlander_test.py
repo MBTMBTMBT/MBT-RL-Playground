@@ -21,10 +21,10 @@ import custom_envs
 
 
 # --------------- Configuration ---------------
-NUM_GRAVITY_SETTINGS = 17  # number of different gravity values
-N_REPEAT = 8               # number of repeated runs per gravity setting
-N_ENVS = 20                # number of parallel environments
-TRAIN_STEPS = 750_000      # total timesteps per training run
+NUM_GRAVITY_SETTINGS = 17
+N_REPEAT = 8
+N_ENVS = 20
+TRAIN_STEPS = 750_000
 EVAL_INTERVAL = 1_250 * N_ENVS
 EVAL_EPISODES = 256
 NEAR_OPTIMAL_SCORE = 250
@@ -36,9 +36,6 @@ os.makedirs(SAVE_PATH, exist_ok=True)
 
 # --------------- Environment Factory ---------------
 def make_lander_env(gravity, render_mode=None, deterministic_init=False, seed=None):
-    """
-    Factory function for CustomLunarLander-v3 environment.
-    """
     def _init():
         env = gym.make(
             "CustomLunarLander-v3",
@@ -56,13 +53,10 @@ def make_lander_env(gravity, render_mode=None, deterministic_init=False, seed=No
 
 # --------------- GIF and Evaluation Callback ---------------
 class EvalAndGifCallback(BaseCallback):
-    """
-    Evaluation callback that runs periodically during training.
-    Saves evaluation records and GIFs when improved.
-    """
-    def __init__(self, gravity, eval_interval, optimal_score, verbose=1):
+    def __init__(self, gravity, repeat, eval_interval, optimal_score, verbose=1):
         super().__init__(verbose)
         self.gravity = gravity
+        self.repeat = repeat
         self.eval_interval = eval_interval
         self.optimal_score = optimal_score
 
@@ -85,9 +79,6 @@ class EvalAndGifCallback(BaseCallback):
         ])
 
     def _on_step(self) -> bool:
-        """
-        Evaluate the agent and save records if performance improves.
-        """
         if self.num_timesteps - self.last_eval_step >= self.eval_interval:
             self.last_eval_step = self.num_timesteps
 
@@ -103,7 +94,7 @@ class EvalAndGifCallback(BaseCallback):
             self.records.append((self.num_timesteps, mean_reward, std_reward))
 
             if self.verbose:
-                print(f"[EvalCallback] Gravity {self.gravity:.1f} | Steps {self.num_timesteps} | "
+                print(f"[EvalCallback] Gravity {self.gravity:.1f} | Repeat {self.repeat} | Steps {self.num_timesteps} | "
                       f"Mean Reward: {mean_reward:.2f} ± {std_reward:.2f}")
 
             if mean_reward > self.best_mean_reward:
@@ -121,14 +112,11 @@ class EvalAndGifCallback(BaseCallback):
 
     def _on_training_end(self):
         df = pd.DataFrame(self.records, columns=["Timesteps", "MeanReward", "StdReward"])
-        eval_log_path = os.path.join(SAVE_PATH, f"eval_log_gravity_{self.gravity:.1f}.csv")
-        df.to_csv(eval_log_path, index=False)
+        repeat_log_path = os.path.join(SAVE_PATH, f"eval_log_gravity_{self.gravity:.1f}_repeat_{self.repeat}.csv")
+        df.to_csv(repeat_log_path, index=False)
         self.eval_env.close()
 
     def save_gif(self):
-        """
-        Record an evaluation episode as GIF if best reward is improved.
-        """
         frames = []
         single_env = DummyVecEnv([
             make_lander_env(
@@ -143,7 +131,6 @@ class EvalAndGifCallback(BaseCallback):
         for _ in range(GIF_LENGTH):
             action, _ = self.model.predict(obs, deterministic=True)
             obs, rewards, dones, infos = single_env.step(action)
-
             frame = single_env.render(mode="rgb_array")
             frames.append(frame)
 
@@ -152,7 +139,7 @@ class EvalAndGifCallback(BaseCallback):
 
         single_env.close()
 
-        gif_path = os.path.join(SAVE_PATH, f"lander_gravity_{self.gravity:.1f}.gif")
+        gif_path = os.path.join(SAVE_PATH, f"lander_gravity_{self.gravity:.1f}_repeat_{self.repeat}.gif")
 
         new_frames = []
         for frame in frames:
@@ -165,9 +152,6 @@ class EvalAndGifCallback(BaseCallback):
 
 # --------------- Progress Bar Callback ---------------
 class ProgressBarCallback(BaseCallback):
-    """
-    Progress bar using tqdm for visualization of training progress.
-    """
     def __init__(self, total_timesteps, verbose=1):
         super().__init__(verbose)
         self.total_timesteps = total_timesteps
@@ -196,12 +180,8 @@ class ProgressBarCallback(BaseCallback):
 
 # --------------- Plotting Utilities ---------------
 def plot_results(gravity_results, save_dir):
-    """
-    Plot performance curves for each gravity and save the figures.
-    """
     plt.figure(figsize=(12, 8))
 
-    # Plot curves for each gravity
     for gravity, results in gravity_results.items():
         steps = results['Timesteps']
         means = results['MeanReward']
@@ -210,9 +190,24 @@ def plot_results(gravity_results, save_dir):
         plt.plot(steps, means, label=f"Gravity {gravity:.1f}")
         plt.fill_between(steps, np.array(means) - np.array(stds), np.array(means) + np.array(stds), alpha=0.2)
 
+        # Save individual gravity plot
+        plt_single = plt.figure(figsize=(10, 6))
+        plt_single_ax = plt_single.add_subplot(111)
+        plt_single_ax.plot(steps, means, label=f"Gravity {gravity:.1f}")
+        plt_single_ax.fill_between(steps, means - stds, means + stds, alpha=0.2)
+        plt_single_ax.set_xlabel("Timesteps")
+        plt_single_ax.set_ylabel("Mean Reward")
+        plt_single_ax.set_title(f"Reward Curve for Gravity {gravity:.1f}")
+        plt_single_ax.legend()
+        plt_single_ax.grid()
+
+        plot_single_path = os.path.join(save_dir, f"reward_curve_gravity_{gravity:.1f}.png")
+        plt_single.savefig(plot_single_path)
+        plt.close(plt_single)
+
     plt.xlabel("Timesteps")
     plt.ylabel("Mean Reward")
-    plt.title("Evaluation Reward over Timesteps (per Gravity)")
+    plt.title("Evaluation Reward over Timesteps (All Gravities)")
     plt.legend()
     plt.grid()
 
@@ -226,25 +221,23 @@ if __name__ == "__main__":
     gravities = np.linspace(-5.0, -11.9999, NUM_GRAVITY_SETTINGS)
     random.shuffle(gravities)
 
-    summary_results = []  # List of dicts for all runs
-    gravity_results = {}  # Dict for storing reward curves
+    summary_results = []
+    gravity_results = {}
 
     for gravity in gravities:
         print(f"\n===== Gravity = {gravity:.1f} =====")
 
-        repeat_results = []  # Results for N_REPEAT runs under same gravity
-        reward_curves = []   # Store reward curves for plotting
+        repeat_results = []
+        reward_curves = []
 
         for repeat in range(N_REPEAT):
             print(f"\n--- Repeat {repeat + 1}/{N_REPEAT} for Gravity = {gravity:.1f} ---")
 
-            # Create parallel training environments
             train_env = SubprocVecEnv([
                 make_lander_env(gravity=gravity, render_mode=None, deterministic_init=False)
                 for _ in range(N_ENVS)
             ])
 
-            # SAC Model definition
             model = SAC(
                 "MlpPolicy",
                 train_env,
@@ -260,26 +253,23 @@ if __name__ == "__main__":
                 policy_kwargs=dict(net_arch=[256, 256]),
             )
 
-            # Callbacks
             eval_callback = EvalAndGifCallback(
                 gravity=gravity,
+                repeat=repeat + 1,
                 eval_interval=EVAL_INTERVAL,
                 optimal_score=NEAR_OPTIMAL_SCORE,
                 verbose=1
             )
             progress_callback = ProgressBarCallback(total_timesteps=TRAIN_STEPS)
 
-            # Train the model
             model.learn(
                 total_timesteps=TRAIN_STEPS,
                 callback=[eval_callback, progress_callback]
             )
 
-            # Save final model
             model_path = os.path.join(SAVE_PATH, f"sac_lander_gravity_{gravity:.1f}_repeat_{repeat + 1}.zip")
             model.save(model_path)
 
-            # Append repeat results
             repeat_results.append({
                 "Gravity": gravity,
                 "Repeat": repeat + 1,
@@ -287,18 +277,15 @@ if __name__ == "__main__":
                 "BestScore": eval_callback.best_mean_reward
             })
 
-            # Append reward curve data for this repeat
             df_repeat = pd.DataFrame(eval_callback.records, columns=["Timesteps", "MeanReward", "StdReward"])
             reward_curves.append(df_repeat)
 
-            # Cleanup
             print(f"\n--- Cleanup after Repeat {repeat + 1} for Gravity {gravity:.1f} ---")
             train_env.close()
             del model
             gc.collect()
             torch.cuda.empty_cache()
 
-        # Aggregate stats (mean/std across repeats)
         best_scores = [res["BestScore"] for res in repeat_results]
         optimal_steps = [res["OptimalStep"] for res in repeat_results]
 
@@ -310,7 +297,6 @@ if __name__ == "__main__":
             "OptimalStepStd": np.std(optimal_steps),
         })
 
-        # Save the reward curves for plotting
         mean_rewards = np.mean([df["MeanReward"] for df in reward_curves], axis=0)
         std_rewards = np.std([df["MeanReward"] for df in reward_curves], axis=0)
         timesteps = reward_curves[0]["Timesteps"]
@@ -321,7 +307,16 @@ if __name__ == "__main__":
             "StdReward": std_rewards
         }
 
-    # Save summary results
+        # Save per-gravity mean/std CSV
+        df_gravity = pd.DataFrame({
+            "Timesteps": timesteps,
+            "MeanReward": mean_rewards,
+            "StdReward": std_rewards
+        })
+        gravity_csv_path = os.path.join(SAVE_PATH, f"mean_std_gravity_{gravity:.1f}.csv")
+        df_gravity.to_csv(gravity_csv_path, index=False)
+
+    # Save overall summary CSV (mean/std across gravities)
     df_summary = pd.DataFrame(summary_results)
     df_summary_path = os.path.join(SAVE_PATH, "summary_results_mean_std.csv")
     df_summary.to_csv(df_summary_path, index=False)
@@ -329,5 +324,5 @@ if __name__ == "__main__":
     print("\n===== All Training Completed =====")
     print(df_summary)
 
-    # Plot all reward curves
+    # Plot all reward curves + per-gravity plots
     plot_results(gravity_results, SAVE_PATH)
