@@ -2,13 +2,13 @@ import gc
 import os
 import random
 
+import cv2
 import gymnasium as gym
 import numpy as np
 import pandas as pd
 import torch
 
 import imageio
-from PIL import Image
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
@@ -180,16 +180,15 @@ class EvalAndGifCallback(BaseCallback):
         # Resize frames if needed
         new_frames = []
         for frame in frames:
-            img = Image.fromarray(frame)
-            resized_img = img.resize((img.width // 2, img.height // 2))
-            new_frames.append(np.array(resized_img))
+            resized = cv2.resize(frame, (frame.shape[1] // 2, frame.shape[0] // 2), interpolation=cv2.INTER_AREA)
+            new_frames.append(resized)
 
         gif_path = os.path.join(
             SAVE_PATH,
             f"lander_gravity_{self.gravity:.1f}_repeat_{self.repeat}_all_initial_states.gif",
         )
 
-        imageio.mimsave(gif_path, new_frames, duration=5, loop=0)
+        imageio.mimsave(gif_path, new_frames, duration=10, loop=0)
 
         print(f"[GIF Saved] {gif_path}")
 
