@@ -92,6 +92,7 @@ register(
         "enable_wind": False,
         "wind_power": 15.0,
         "turbulence_power": 1.5,
+        "lander_density": 5.0,
         "number_of_initial_states": 256,
         "use_deterministic_initial_states": True,
         "custom_seed": None,
@@ -1037,6 +1038,7 @@ class CustomLunarLander(LunarLander):
         enable_wind=False,
         wind_power=15.0,
         turbulence_power=1.5,
+        lander_density=5.0,
         number_of_initial_states=256,
         use_deterministic_initial_states=True,
         custom_seed=None,
@@ -1076,6 +1078,7 @@ class CustomLunarLander(LunarLander):
             turbulence_power=turbulence_power,
         )
 
+        self.lander_density = lander_density
         self.number_of_initial_states = number_of_initial_states
         self.use_deterministic_initial_states = use_deterministic_initial_states
         self.custom_seed = custom_seed
@@ -1150,6 +1153,10 @@ class CustomLunarLander(LunarLander):
 
         # Call parent's reset
         obs, info = super().reset(seed=seed, options=options)
+
+        for fixture in self.lander.fixtures:
+            fixture.density = self.lander_density
+        self.lander.ResetMassData()
 
         # Restore original value
         INITIAL_RANDOM = original_val

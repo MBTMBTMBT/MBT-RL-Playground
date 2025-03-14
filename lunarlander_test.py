@@ -20,23 +20,23 @@ import custom_envs
 
 
 # --------------- Configuration ---------------
-NUM_GRAVITY_SETTINGS = 17
+NUM_DENSITY_SETTINGS = 4  # number of different lander densities
 N_REPEAT = 8
 N_ENVS = 20
-TRAIN_STEPS = 750_000
+TRAIN_STEPS = 1_500_000
 EVAL_INTERVAL = 1_250 * N_ENVS
-EVAL_EPISODES = 256
-NUM_INIT_STATES = 256
+NUM_INIT_STATES = 128
+EVAL_EPISODES = NUM_INIT_STATES * 2
 NEAR_OPTIMAL_SCORE = 275
 
 GIF_LENGTH = 500
-SAVE_PATH = "./lunar_lander_results"
+SAVE_PATH = "./lunar_lander_density_results"
 os.makedirs(SAVE_PATH, exist_ok=True)
 
 
 # --------------- Environment Factory ---------------
 def make_lander_env(
-    gravity,
+    lander_density,
     render_mode=None,
     deterministic_init=False,
     seed=None,
@@ -47,7 +47,8 @@ def make_lander_env(
             "CustomLunarLander-v3",
             continuous=True,
             render_mode=render_mode,
-            gravity=gravity,
+            gravity=-10.0,  # fixed gravity
+            lander_density=lander_density,
             use_deterministic_initial_states=deterministic_init,
             custom_seed=seed if deterministic_init else None,
             number_of_initial_states=number_of_initial_states,
@@ -60,9 +61,9 @@ def make_lander_env(
 
 # --------------- GIF and Evaluation Callback ---------------
 class EvalAndGifCallback(BaseCallback):
-    def __init__(self, gravity, repeat, eval_interval, optimal_score, verbose=1):
+    def __init__(self, lander_density, repeat, eval_interval, optimal_score, verbose=1):
         super().__init__(verbose)
-        self.gravity = gravity
+        self.lander_density = lander_density
         self.repeat = repeat
         self.eval_interval = eval_interval
         self.optimal_score = optimal_score
@@ -71,7 +72,6 @@ class EvalAndGifCallback(BaseCallback):
         self.step_reached_optimal = None
         self.records = []
         self.last_eval_step = 0
-        self._gif_counter = 10
 
         self.eval_episodes = EVAL_EPISODES
         self.n_eval_envs = N_ENVS
@@ -79,7 +79,7 @@ class EvalAndGifCallback(BaseCallback):
         self.eval_env = SubprocVecEnv(
             [
                 make_lander_env(
-                    gravity=self.gravity,
+                    lander_density=self.lander_density,
                     render_mode=None,
                     deterministic_init=True,
                     seed=i,
@@ -105,16 +105,14 @@ class EvalAndGifCallback(BaseCallback):
 
             if self.verbose:
                 print(
-                    f"[EvalCallback] Gravity {self.gravity:.1f} | Repeat {self.repeat} | Steps {self.num_timesteps} | "
-                    f"Mean Reward: {mean_reward:.2f} ± {std_reward:.2f}"
+                    f"[EvalCallback] Lander Density {self.lander_density:.1f} | Repeat {self.repeat} | "
+                    f"Steps {self.num_timesteps} | Mean Reward: {mean_reward:.2f} ± {std_reward:.2f}"
                 )
 
             if mean_reward > self.best_mean_reward:
                 self.best_mean_reward = mean_reward
-                self._gif_counter -= 1
-                if self._gif_counter < 0:
+                if TRAIN_STEPS - EVAL_INTERVAL * 2 < self.num_timesteps:
                     self.save_gif()
-                    self._gif_counter = 0
 
             if mean_reward >= self.optimal_score and self.step_reached_optimal is None:
                 self.step_reached_optimal = self.num_timesteps
@@ -130,26 +128,23 @@ class EvalAndGifCallback(BaseCallback):
             self.records, columns=["Timesteps", "MeanReward", "StdReward"]
         )
         repeat_log_path = os.path.join(
-            SAVE_PATH, f"eval_log_gravity_{self.gravity:.1f}_repeat_{self.repeat}.csv"
+            SAVE_PATH,
+            f"eval_log_density_{self.lander_density:.1f}_repeat_{self.repeat}.csv",
         )
         df.to_csv(repeat_log_path, index=False)
         self.eval_env.close()
 
     def save_gif(self):
-        """
-        Generate a GIF showing episodes for all possible initial states in deterministic order.
-        """
         frames = []
         initial_state_count = 16
 
-        # Create a single deterministic env (same seed=0 to fix initial state order)
         single_env = DummyVecEnv(
             [
                 make_lander_env(
-                    gravity=self.gravity,
+                    lander_density=self.lander_density,
                     render_mode="rgb_array",
                     deterministic_init=True,
-                    seed=0,  # Fix seed to ensure deterministic order
+                    seed=0,
                     number_of_initial_states=16,
                 )
             ]
@@ -157,8 +152,6 @@ class EvalAndGifCallback(BaseCallback):
 
         for idx in range(initial_state_count):
             obs = single_env.reset()
-
-            # Collect frames for a full episode (until termination)
             episode_frames = []
             while True:
                 action, _ = self.model.predict(obs, deterministic=True)
@@ -170,30 +163,29 @@ class EvalAndGifCallback(BaseCallback):
                 if dones[0]:
                     break
 
-            # Optional: Add separator frames between episodes
-            separator_frame = np.zeros_like(
-                episode_frames[0]
-            )  # Black frame as separator
-            for _ in range(5):  # 5 frames of separator
+            separator_frame = np.zeros_like(episode_frames[0])
+            for _ in range(5):
                 frames.append(separator_frame)
 
             frames.extend(episode_frames)
 
         single_env.close()
 
-        # Resize frames if needed
         new_frames = []
         for frame in frames:
-            resized = cv2.resize(frame, (frame.shape[1] // 2, frame.shape[0] // 2), interpolation=cv2.INTER_AREA)
+            resized = cv2.resize(
+                frame,
+                (frame.shape[1] // 2, frame.shape[0] // 2),
+                interpolation=cv2.INTER_AREA,
+            )
             new_frames.append(resized)
 
         gif_path = os.path.join(
             SAVE_PATH,
-            f"lander_gravity_{self.gravity:.1f}_repeat_{self.repeat}_all_initial_states.gif",
+            f"lander_density_{self.lander_density:.1f}_repeat_{self.repeat}_all_initial_states.gif",
         )
 
         imageio.mimsave(gif_path, new_frames, duration=10, loop=0)
-
         print(f"[GIF Saved] {gif_path}")
 
 
@@ -226,15 +218,15 @@ class ProgressBarCallback(BaseCallback):
 
 
 # --------------- Plotting Utilities ---------------
-def plot_results(gravity_results, save_dir):
+def plot_results(density_results, save_dir):
     plt.figure(figsize=(12, 8))
 
-    for gravity, results in gravity_results.items():
+    for density, results in density_results.items():
         steps = results["Timesteps"]
         means = results["MeanReward"]
         stds = results["StdReward"]
 
-        plt.plot(steps, means, label=f"Gravity {gravity:.1f}")
+        plt.plot(steps, means, label=f"Lander Density {density:.1f}")
         plt.fill_between(
             steps,
             np.array(means) - np.array(stds),
@@ -242,93 +234,80 @@ def plot_results(gravity_results, save_dir):
             alpha=0.2,
         )
 
-        # Save individual gravity plot
         plt_single = plt.figure(figsize=(10, 6))
         plt_single_ax = plt_single.add_subplot(111)
-        plt_single_ax.plot(steps, means, label=f"Gravity {gravity:.1f}")
+        plt_single_ax.plot(steps, means, label=f"Lander Density {density:.1f}")
         plt_single_ax.fill_between(steps, means - stds, means + stds, alpha=0.2)
         plt_single_ax.set_xlabel("Timesteps")
         plt_single_ax.set_ylabel("Mean Reward")
-        plt_single_ax.set_title(f"Reward Curve for Gravity {gravity:.1f}")
+        plt_single_ax.set_title(f"Reward Curve for Lander Density {density:.1f}")
         plt_single_ax.legend()
         plt_single_ax.grid()
 
         plot_single_path = os.path.join(
-            save_dir, f"reward_curve_gravity_{gravity:.1f}.png"
+            save_dir, f"reward_curve_density_{density:.1f}.png"
         )
         plt_single.savefig(plot_single_path)
         plt.close(plt_single)
 
     plt.xlabel("Timesteps")
     plt.ylabel("Mean Reward")
-    plt.title("Evaluation Reward over Timesteps (All Gravities)")
+    plt.title("Evaluation Reward over Timesteps (All Lander Densities)")
     plt.legend()
     plt.grid()
 
-    plot_path = os.path.join(save_dir, "reward_curves_all_gravities.png")
+    plot_path = os.path.join(save_dir, "reward_curves_all_densities.png")
     plt.savefig(plot_path)
     plt.close()
 
 
 def plot_optimal_step_bar_chart(summary_results, save_dir):
-    """
-    Plot a bar chart showing the average optimal steps per gravity.
-
-    summary_results: List of dicts
-        Each dict contains:
-        {
-            'Gravity': float,
-            'OptimalStepMean': float,
-            'OptimalStepStd': float
-        }
-    """
     df = pd.DataFrame(summary_results)
 
-    gravities = df["Gravity"]
+    densities = df["LanderDensity"]
     means = df["OptimalStepMean"]
     stds = df["OptimalStepStd"]
 
     plt.figure(figsize=(12, 6))
 
-    # Draw bar chart
-    plt.bar(gravities, means, yerr=stds, align="center", alpha=0.7, capsize=5)
-
-    plt.xlabel("Gravity")
+    plt.bar(densities, means, yerr=stds, align="center", alpha=0.7, capsize=5)
+    plt.xlabel("Lander Density")
     plt.ylabel("Average Steps to Reach Near-Optimal Score")
-    plt.title("Average Optimal Step vs Gravity")
-    plt.xticks(gravities, rotation=45)
+    plt.title("Average Optimal Step vs Lander Density")
+    plt.xticks(densities, rotation=45)
     plt.grid(True, axis="y")
 
     plot_path = os.path.join(save_dir, "optimal_step_bar_chart.png")
     plt.savefig(plot_path)
     plt.close()
-
     print(f"[Plot Saved] {plot_path}")
 
 
 # --------------- Main Training Loop ---------------
 if __name__ == "__main__":
-    gravities = np.linspace(-5.0, -11.9999, NUM_GRAVITY_SETTINGS)
-    random.shuffle(gravities)
+    lander_densities = np.linspace(3.0, 9.0, NUM_DENSITY_SETTINGS)
+    random.shuffle(lander_densities)
 
     summary_results = []
-    gravity_results = {}
+    density_results = {}
 
-    for gravity in gravities:
-        print(f"\n===== Gravity = {gravity:.1f} =====")
+    for lander_density in lander_densities:
+        print(f"\n===== Lander Density = {lander_density:.1f} =====")
 
         repeat_results = []
         reward_curves = []
 
         for repeat in range(N_REPEAT):
             print(
-                f"\n--- Repeat {repeat + 1}/{N_REPEAT} for Gravity = {gravity:.1f} ---"
+                f"\n--- Repeat {repeat + 1}/{N_REPEAT} for Lander Density = {lander_density:.1f} ---"
             )
 
             train_env = SubprocVecEnv(
                 [
                     make_lander_env(
-                        gravity=gravity, render_mode=None, deterministic_init=False
+                        lander_density=lander_density,
+                        render_mode=None,
+                        deterministic_init=False,
                     )
                     for _ in range(N_ENVS)
                 ]
@@ -350,7 +329,7 @@ if __name__ == "__main__":
             )
 
             eval_callback = EvalAndGifCallback(
-                gravity=gravity,
+                lander_density=lander_density,
                 repeat=repeat + 1,
                 eval_interval=EVAL_INTERVAL,
                 optimal_score=NEAR_OPTIMAL_SCORE,
@@ -363,13 +342,14 @@ if __name__ == "__main__":
             )
 
             model_path = os.path.join(
-                SAVE_PATH, f"sac_lander_gravity_{gravity:.1f}_repeat_{repeat + 1}.zip"
+                SAVE_PATH,
+                f"sac_lander_density_{lander_density:.1f}_repeat_{repeat + 1}.zip",
             )
             model.save(model_path)
 
             repeat_results.append(
                 {
-                    "Gravity": gravity,
+                    "LanderDensity": lander_density,
                     "Repeat": repeat + 1,
                     "OptimalStep": eval_callback.step_reached_optimal or TRAIN_STEPS,
                     "BestScore": eval_callback.best_mean_reward,
@@ -382,7 +362,7 @@ if __name__ == "__main__":
             reward_curves.append(df_repeat)
 
             print(
-                f"\n--- Cleanup after Repeat {repeat + 1} for Gravity {gravity:.1f} ---"
+                f"\n--- Cleanup after Repeat {repeat + 1} for Lander Density {lander_density:.1f} ---"
             )
             train_env.close()
             del model
@@ -394,7 +374,7 @@ if __name__ == "__main__":
 
         summary_results.append(
             {
-                "Gravity": gravity,
+                "LanderDensity": lander_density,
                 "BestScoreMean": np.mean(best_scores),
                 "BestScoreStd": np.std(best_scores),
                 "OptimalStepMean": np.mean(optimal_steps),
@@ -406,26 +386,24 @@ if __name__ == "__main__":
         std_rewards = np.std([df["MeanReward"] for df in reward_curves], axis=0)
         timesteps = reward_curves[0]["Timesteps"]
 
-        gravity_results[gravity] = {
+        density_results[lander_density] = {
             "Timesteps": timesteps,
             "MeanReward": mean_rewards,
             "StdReward": std_rewards,
         }
 
-        # Save per-gravity mean/std CSV
-        df_gravity = pd.DataFrame(
+        df_density = pd.DataFrame(
             {
                 "Timesteps": timesteps,
                 "MeanReward": mean_rewards,
                 "StdReward": std_rewards,
             }
         )
-        gravity_csv_path = os.path.join(
-            SAVE_PATH, f"mean_std_gravity_{gravity:.1f}.csv"
+        density_csv_path = os.path.join(
+            SAVE_PATH, f"mean_std_density_{lander_density:.1f}.csv"
         )
-        df_gravity.to_csv(gravity_csv_path, index=False)
+        df_density.to_csv(density_csv_path, index=False)
 
-    # Save overall summary CSV (mean/std across gravities)
     df_summary = pd.DataFrame(summary_results)
     df_summary_path = os.path.join(SAVE_PATH, "summary_results_mean_std.csv")
     df_summary.to_csv(df_summary_path, index=False)
@@ -433,8 +411,5 @@ if __name__ == "__main__":
     print("\n===== All Training Completed =====")
     print(df_summary)
 
-    # Plot all reward curves + per-gravity plots
-    plot_results(gravity_results, SAVE_PATH)
-
-    # Plot optimal step bar chart
+    plot_results(density_results, SAVE_PATH)
     plot_optimal_step_bar_chart(summary_results, SAVE_PATH)
