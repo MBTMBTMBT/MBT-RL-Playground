@@ -136,7 +136,7 @@ class EvalAndGifCallback(BaseCallback):
         Generate a GIF showing episodes for all possible initial states in deterministic order.
         """
         frames = []
-        initial_state_count = NUM_INIT_STATES
+        initial_state_count = 16
 
         # Create a single deterministic env (same seed=0 to fix initial state order)
         single_env = DummyVecEnv(
