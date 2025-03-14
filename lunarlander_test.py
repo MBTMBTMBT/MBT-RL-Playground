@@ -25,9 +25,9 @@ NUM_GRAVITY_SETTINGS = 17  # number of different gravity values
 N_REPEAT = 8               # number of repeated runs per gravity setting
 N_ENVS = 20                # number of parallel environments
 TRAIN_STEPS = 750_000      # total timesteps per training run
-EVAL_INTERVAL = 5_000 * N_ENVS
+EVAL_INTERVAL = 1_250 * N_ENVS
 EVAL_EPISODES = 256
-NEAR_OPTIMAL_SCORE = 200
+NEAR_OPTIMAL_SCORE = 250
 
 GIF_LENGTH = 500
 SAVE_PATH = "./lunar_lander_results"
