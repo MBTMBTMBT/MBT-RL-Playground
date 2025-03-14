@@ -1,6 +1,6 @@
 import gc
 import os
-import random
+# import random
 
 import cv2
 import gymnasium as gym
@@ -286,7 +286,7 @@ def plot_optimal_step_bar_chart(summary_results, save_dir):
 # --------------- Main Training Loop ---------------
 if __name__ == "__main__":
     lander_densities = np.linspace(3.0, 9.0, NUM_DENSITY_SETTINGS)
-    random.shuffle(lander_densities)
+    # random.shuffle(lander_densities)
 
     summary_results = []
     density_results = {}
