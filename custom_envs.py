@@ -1113,7 +1113,9 @@ class CustomLunarLander(LunarLander):
         max_speed = 5.0  # Reasonable maximum linear speed (units per second)
         min_speed = 0.0  # Optional: can set > 0 if you want to avoid zero speed
 
-        max_angular_speed = 2.0  # Reasonable maximum angular velocity (radians per second)
+        max_angular_speed = (
+            2.0  # Reasonable maximum angular velocity (radians per second)
+        )
 
         for _ in range(self.number_of_initial_states):
             # Sample speed magnitude uniformly
