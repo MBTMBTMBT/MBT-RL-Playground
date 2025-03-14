@@ -25,8 +25,8 @@ N_REPEAT = 8
 N_ENVS = 20
 TRAIN_STEPS = 750_000
 EVAL_INTERVAL = 1_250 * N_ENVS
-EVAL_EPISODES = 64
-NUM_INIT_STAETS = 64
+EVAL_EPISODES = 256
+NUM_INIT_STATES = 256
 NEAR_OPTIMAL_SCORE = 275
 
 GIF_LENGTH = 500
@@ -35,7 +35,13 @@ os.makedirs(SAVE_PATH, exist_ok=True)
 
 
 # --------------- Environment Factory ---------------
-def make_lander_env(gravity, render_mode=None, deterministic_init=False, seed=None):
+def make_lander_env(
+    gravity,
+    render_mode=None,
+    deterministic_init=False,
+    seed=None,
+    number_of_initial_states=NUM_INIT_STATES,
+):
     def _init():
         env = gym.make(
             "CustomLunarLander-v3",
@@ -44,7 +50,7 @@ def make_lander_env(gravity, render_mode=None, deterministic_init=False, seed=No
             gravity=gravity,
             use_deterministic_initial_states=deterministic_init,
             custom_seed=seed if deterministic_init else None,
-            number_of_initial_states=NUM_INIT_STAETS,
+            number_of_initial_states=number_of_initial_states,
         )
         env = gym.wrappers.RecordEpisodeStatistics(env)
         return env
@@ -130,7 +136,7 @@ class EvalAndGifCallback(BaseCallback):
         Generate a GIF showing episodes for all possible initial states in deterministic order.
         """
         frames = []
-        initial_state_count = NUM_INIT_STAETS
+        initial_state_count = NUM_INIT_STATES
 
         # Create a single deterministic env (same seed=0 to fix initial state order)
         single_env = DummyVecEnv(
@@ -140,6 +146,7 @@ class EvalAndGifCallback(BaseCallback):
                     render_mode="rgb_array",
                     deterministic_init=True,
                     seed=0,  # Fix seed to ensure deterministic order
+                    number_of_initial_states=16,
                 )
             ]
         )
