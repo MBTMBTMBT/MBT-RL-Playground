@@ -478,7 +478,7 @@ class CarRacingFixedMap(CarRacing):
         map_seed=0,
         fixed_start=True,
         backwards_tolerance=5,  # defaults to 5
-        grass_tolerance=3,      # new param: defaults to 5
+        grass_tolerance=3,  # new param: defaults to 5
     ):
         self.map_seed = map_seed
         self.fixed_start = fixed_start
@@ -735,9 +735,7 @@ class CarRacingFixedMap(CarRacing):
                 if i == 0:
                     success = False
                     break
-                pass_through_start = (
-                        track[i][0] > self.start_alpha >= track[i - 1][0]
-                )
+                pass_through_start = track[i][0] > self.start_alpha >= track[i - 1][0]
                 if pass_through_start and i2 == -1:
                     i2 = i
                 elif pass_through_start and i1 == -1:
@@ -946,8 +944,8 @@ class CarRacingFixedMap(CarRacing):
                     grass_dim,
                     grass_dim,
                     facecolor=grass_color,
-                    edgecolor='none',
-                    antialiased=True
+                    edgecolor="none",
+                    antialiased=True,
                 )
                 ax.add_patch(rect)
 
@@ -959,19 +957,21 @@ class CarRacingFixedMap(CarRacing):
                 poly_array,
                 closed=True,
                 facecolor=color_norm,
-                edgecolor='none',
-                antialiased=True
+                edgecolor="none",
+                antialiased=True,
             )
             ax.add_patch(patch)
 
-        ax.set_aspect('equal')
+        ax.set_aspect("equal")
 
         # Render as numpy
         canvas = FigureCanvasAgg(fig)
         canvas.draw()
 
         width, height = fig.get_size_inches() * fig.get_dpi()
-        img = np.frombuffer(canvas.tostring_rgb(), dtype='uint8').reshape(int(height), int(width), 3)
+        img = np.frombuffer(canvas.tostring_rgb(), dtype="uint8").reshape(
+            int(height), int(width), 3
+        )
 
         plt.close(fig)
 

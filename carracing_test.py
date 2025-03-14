@@ -142,10 +142,9 @@ class EvalAndGifCallback(BaseCallback):
         self.eval_episodes = EVAL_EPISODES
         self.n_eval_envs = N_ENVS
 
-        self.eval_env = SubprocVecEnv([
-            make_env(seed, fixed_start=False)
-            for _ in range(self.n_eval_envs)
-        ])
+        self.eval_env = SubprocVecEnv(
+            [make_env(seed, fixed_start=False) for _ in range(self.n_eval_envs)]
+        )
         self.eval_env = VecTransposeImage(self.eval_env)
         self.eval_env = VecFrameStack(self.eval_env, n_stack=N_STACK)
 
@@ -212,7 +211,12 @@ class EvalAndGifCallback(BaseCallback):
             resized_img = img.resize((img.width // 2, img.height // 2))
             new_frames.append(np.array(resized_img))
 
-        imageio.mimsave(gif_path, new_frames, duration=20, loop=0,)
+        imageio.mimsave(
+            gif_path,
+            new_frames,
+            duration=20,
+            loop=0,
+        )
 
 
 # Progress bar callback
@@ -259,10 +263,7 @@ if __name__ == "__main__":
 
         # Generate track image and save
         env = gym.make(
-            "CarRacingFixedMap-v2",
-            continuous=True,
-            map_seed=seed,
-            render_mode=None
+            "CarRacingFixedMap-v2", continuous=True, map_seed=seed, render_mode=None
         )
         env.reset()
         track_img = env.unwrapped.get_track_image(figsize=(10, 10))
@@ -273,14 +274,16 @@ if __name__ == "__main__":
         gc.collect()
 
         # Create training environment
-        train_env = SubprocVecEnv([
-            make_env(
-                seed,
-                render_mode="rgb_array",
-                fixed_start=False,
-            )
-            for _ in range(N_ENVS)
-        ])
+        train_env = SubprocVecEnv(
+            [
+                make_env(
+                    seed,
+                    render_mode="rgb_array",
+                    fixed_start=False,
+                )
+                for _ in range(N_ENVS)
+            ]
+        )
         train_env = VecTransposeImage(train_env)
         train_env = VecFrameStack(train_env, n_stack=N_STACK)
 
@@ -324,8 +327,7 @@ if __name__ == "__main__":
         model.save(model_path)
 
         df_records = pd.DataFrame(
-            callback_list[0].records,
-            columns=["Steps", "MeanReward", "StdReward"]
+            callback_list[0].records, columns=["Steps", "MeanReward", "StdReward"]
         )
         df_records_path = os.path.join(SAVE_PATH, f"training_log_seed_{seed}.csv")
         df_records.to_csv(df_records_path, index=False)
@@ -335,11 +337,13 @@ if __name__ == "__main__":
             if callback_list[0].step_reached_optimal
             else TRAIN_STEPS
         )
-        final_results.append({
-            "Seed": seed,
-            "OptimalStep": optimal_step,
-            "BestScore": callback_list[0].best_score,
-        })
+        final_results.append(
+            {
+                "Seed": seed,
+                "OptimalStep": optimal_step,
+                "BestScore": callback_list[0].best_score,
+            }
+        )
 
         # Clean resources
         print(f"\n===== Cleaning up after seed {seed} =====")
