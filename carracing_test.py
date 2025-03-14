@@ -29,7 +29,7 @@ import custom_envs
 
 # Configuration
 NUM_SEEDS = 10
-N_ENVS = 24
+N_ENVS = 8
 TRAIN_STEPS = 2_500_000
 EVAL_INTERVAL = 2_500 * N_ENVS
 EVAL_EPISODES = 120
@@ -289,12 +289,12 @@ if __name__ == "__main__":
             "CnnPolicy",
             train_env,
             verbose=1,
-            batch_size=256,
-            learning_rate=1e-4,
+            batch_size=64,
+            learning_rate=2e-4,
             buffer_size=200_000,
             train_freq=N_ENVS,
-            gradient_steps=N_ENVS * 8,
-            learning_starts=50_000,
+            gradient_steps=N_ENVS * 2,
+            learning_starts=200_000,
             tau=0.005,
             use_sde=False,
             use_sde_at_warmup=False,
