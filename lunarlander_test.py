@@ -71,6 +71,7 @@ class EvalAndGifCallback(BaseCallback):
         self.step_reached_optimal = None
         self.records = []
         self.last_eval_step = 0
+        self._gif_counter = 10
 
         self.eval_episodes = EVAL_EPISODES
         self.n_eval_envs = N_ENVS
@@ -110,7 +111,10 @@ class EvalAndGifCallback(BaseCallback):
 
             if mean_reward > self.best_mean_reward:
                 self.best_mean_reward = mean_reward
-                self.save_gif()
+                self._gif_counter -= 1
+                if self._gif_counter < 0:
+                    self.save_gif()
+                    self._gif_counter = 0
 
             if mean_reward >= self.optimal_score and self.step_reached_optimal is None:
                 self.step_reached_optimal = self.num_timesteps
