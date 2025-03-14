@@ -189,7 +189,7 @@ class EvalAndGifCallback(BaseCallback):
             f"lander_gravity_{self.gravity:.1f}_repeat_{self.repeat}_all_initial_states.gif",
         )
 
-        imageio.mimsave(gif_path, new_frames, duration=20, loop=0)
+        imageio.mimsave(gif_path, new_frames, duration=5, loop=0)
 
         print(f"[GIF Saved] {gif_path}")
 
