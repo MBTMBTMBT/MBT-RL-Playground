@@ -20,14 +20,14 @@ import custom_envs
 
 
 # --------------- Configuration ---------------
-NUM_DENSITY_SETTINGS = 4  # number of different lander densities
+NUM_DENSITY_SETTINGS = 3  # number of different lander densities
 N_REPEAT = 8
 N_ENVS = 20
-TRAIN_STEPS = 1_500_000
-EVAL_INTERVAL = 1_250 * N_ENVS
+TRAIN_STEPS = 1_200_000
+EVAL_INTERVAL = 1_200 * N_ENVS
 NUM_INIT_STATES = 128
 EVAL_EPISODES = NUM_INIT_STATES * 2
-NEAR_OPTIMAL_SCORE = 275
+NEAR_OPTIMAL_SCORE = 250
 
 GIF_LENGTH = 500
 SAVE_PATH = "./lunar_lander_density_results"
@@ -285,7 +285,7 @@ def plot_optimal_step_bar_chart(summary_results, save_dir):
 
 # --------------- Main Training Loop ---------------
 if __name__ == "__main__":
-    lander_densities = np.linspace(3.0, 9.0, NUM_DENSITY_SETTINGS)
+    lander_densities = np.linspace(3.0, 7.0, NUM_DENSITY_SETTINGS)
     # random.shuffle(lander_densities)
 
     summary_results = []
