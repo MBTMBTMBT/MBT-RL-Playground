@@ -7,6 +7,7 @@ import pandas as pd
 import scipy
 from gymnasium import spaces
 import gymnasium as gym
+import tqdm
 
 
 class Discretizer:

@@ -111,8 +111,9 @@ class EvalAndGifCallback(BaseCallback):
 
             if mean_reward > self.best_mean_reward:
                 self.best_mean_reward = mean_reward
-                if TRAIN_STEPS - EVAL_INTERVAL * 2 < self.num_timesteps:
-                    self.save_gif()
+
+            if TRAIN_STEPS - EVAL_INTERVAL * 2 < self.num_timesteps:
+                self.save_gif()
 
             if mean_reward >= self.optimal_score and self.step_reached_optimal is None:
                 self.step_reached_optimal = self.num_timesteps
