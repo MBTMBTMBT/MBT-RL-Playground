@@ -1,10 +1,10 @@
 import hashlib
 import math
-from typing import Optional
+from typing import Optional, Union
 import gymnasium as gym
 import pygame
 from gymnasium.envs.box2d.car_dynamics import Car
-from gymnasium.error import DependencyNotInstalled
+from gymnasium.error import DependencyNotInstalled, InvalidAction
 from matplotlib import pyplot as plt
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.patches import Polygon, Rectangle
@@ -599,14 +599,59 @@ class CarRacingFixedMap(CarRacing):
 
         return obs, info
 
-    def step(self, action):
-        # Call parent step() to advance physics and get default outputs
-        obs, reward, terminated, truncated, info = super().step(action)
+    def step(self, action: Union[np.ndarray, int]):
+        assert self.car is not None, "Car not initialized."
 
-        # Reward scaling (optional)
-        reward /= 1e2
+        # === Process action ===
+        if action is not None:
+            if self.continuous:
+                self.car.steer(-action[0])
+                self.car.gas(action[1])
+                self.car.brake(action[2])
+            else:
+                if not self.action_space.contains(action):
+                    raise InvalidAction(
+                        f"Invalid action `{action}`. Expected: {self.action_space}"
+                    )
+                self.car.steer(-0.6 * (action == 1) + 0.6 * (action == 2))
+                self.car.gas(0.2 * (action == 3))
+                self.car.brake(0.8 * (action == 4))
 
-        # === Grass detection ===
+        # === Step physics ===
+        self.car.step(1.0 / FPS)
+        self.world.Step(1.0 / FPS, 6 * 30, 2 * 30)
+        self.t += 1.0 / FPS
+
+        # === Observation ===
+        if self.vector_obs:
+            obs = self.get_vector_observation()
+        else:
+            obs = self._render("state_pixels")
+
+        # === Compute reward ===
+        step_reward = 0
+        terminated = False
+        truncated = False
+
+        if action is not None:  # skip on first reset() call
+            self.reward -= 0.1
+            self.car.fuel_spent = 0.0  # reset fuel counter (not penalizing)
+
+            # Reward difference (delta reward)
+            step_reward = self.reward - self.prev_reward
+            self.prev_reward = self.reward
+
+            # Episode truncation (finished lap)
+            if self.tile_visited_count == len(self.track) or self.new_lap:
+                truncated = True
+
+            # Check if car is out of bounds
+            x, y = self.car.hull.position
+            if abs(x) > PLAYFIELD or abs(y) > PLAYFIELD:
+                terminated = True
+                step_reward = -100
+
+        # === Custom termination: backwards and grass ===
         on_grass = self._check_on_grass()
         if on_grass:
             self.on_grass_counter += 1
@@ -615,11 +660,7 @@ class CarRacingFixedMap(CarRacing):
 
         if on_grass and self.on_grass_counter >= self.grass_tolerance:
             terminated = True
-            info["on_grass_terminated"] = True
-        else:
-            info["on_grass_terminated"] = False
 
-        # === Backward detection ===
         is_backwards = self._check_if_running_backwards()
         if is_backwards:
             self._backwards_counter += 1
@@ -628,15 +669,13 @@ class CarRacingFixedMap(CarRacing):
 
         if self._backwards_counter >= self.backwards_tolerance:
             terminated = True
-            info["running_backwards"] = True
-        else:
-            info["running_backwards"] = False
 
-        # Return vector observation if enabled
-        if self.vector_obs:
-            obs = self.get_vector_observation()
+        # === Render if human ===
+        if self.render_mode == "human":
+            self.render()
 
-        return obs, reward, terminated, truncated, info
+        # === Return obs ===
+        return obs, step_reward / 1e2, terminated, truncated, {}
 
     def get_vector_observation(self):
         """
