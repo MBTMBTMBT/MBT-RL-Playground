@@ -20,7 +20,7 @@ import custom_envs
 
 
 # --------------- Configuration ---------------
-NUM_DENSITY_SETTINGS = 3  # number of different lander densities
+NUM_DENSITY_SETTINGS = 5  # number of different lander densities
 N_REPEAT = 8
 N_ENVS = 20
 TRAIN_STEPS = 1_200_000
