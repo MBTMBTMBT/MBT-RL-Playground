@@ -76,7 +76,9 @@ register(
         "fixed_start": True,
         "backwards_tolerance": 3,
         "grass_tolerance": 15,
-        "vector_obs": False
+        "number_of_initial_states": 32,
+        "init_seed": None,
+        "vector_obs": False,
     },
     max_episode_steps=1000,
 )
@@ -94,7 +96,7 @@ register(
         "lander_density": 5.0,
         "number_of_initial_states": 256,
         "use_deterministic_initial_states": True,
-        "custom_seed": None,
+        "init_seed": None,
     },
     max_episode_steps=500,
 )
@@ -497,29 +499,46 @@ class CarRacingFixedMap(CarRacing):
         continuous=True,
         map_seed=0,
         fixed_start=True,
-        backwards_tolerance=3,
-        grass_tolerance=15,
-        vector_obs=False
+        backwards_tolerance=5,
+        grass_tolerance=3,
+        number_of_initial_states=32,
+        init_seed=None,
+        vector_obs=False,
     ):
         self.map_seed = map_seed
         self.fixed_start = fixed_start
         self.backwards_tolerance = backwards_tolerance
         self.grass_tolerance = grass_tolerance
+        self.vector_obs = vector_obs
+        self.init_seed = init_seed
+        self.number_of_initial_states = max(1, number_of_initial_states)
+
         super().__init__(
             render_mode=render_mode,
             verbose=verbose,
             lap_complete_percent=lap_complete_percent,
             domain_randomize=domain_randomize,
-            continuous=continuous,
+            continuous=continuous
         )
 
-        # Trackers for additional termination logic
+        # Track additional counters
         self.on_grass_counter = 0
         self._last_progress_idx = None
         self._backwards_counter = 0
 
+        # Init for deterministic start indices if needed
+        self._initial_start_indices = None
+        self._initial_idx_pointer = 0  # To track where we are in the cycle
+
+        # Prepare deterministic initial states if not using fixed_start
+        if not self.fixed_start and self.init_seed is not None:
+            rng = np.random.default_rng(self.init_seed)
+            self._initial_start_indices = rng.permutation(self.number_of_initial_states)
+        elif not self.fixed_start:
+            # No init_seed -> shuffle each time later
+            self._initial_start_indices = None
+
         # Replace observation_space if vector-based observation is enabled
-        self.vector_obs = vector_obs
         if self.vector_obs:
             obs_dim = 6 + len(ANCHORS) * 4  # Base 6 + 4 values per anchor point
             self.observation_space = gym.spaces.Box(
@@ -530,24 +549,43 @@ class CarRacingFixedMap(CarRacing):
             )
 
     def reset(self, *, seed=None, options=None):
-        # Call parent reset() to regenerate track and car
         obs, info = super().reset(seed=seed, options=options)
 
-        # Choose whether to randomize start position
-        if not self.fixed_start:
-            start_idx = self.np_random.integers(0, len(self.track))
-        else:
+        # Calculate starting index
+        if self.fixed_start:
             start_idx = 0
+        else:
+            # Calculate candidate indices spaced across the track
+            spacing = len(self.track) // self.number_of_initial_states
+            base_indices = [i * spacing for i in range(self.number_of_initial_states)]
 
-        # Get the starting track point (beta, x, y)
+            if self.init_seed is None:
+                # No seed -> shuffle on every reset
+                rng = self.np_random
+                shuffled_indices = rng.permutation(base_indices)
+                start_idx = shuffled_indices[0]
+            else:
+                # Deterministic shuffle during __init__, cycle through them
+                if self._initial_start_indices is None:
+                    raise ValueError("Initial start indices not prepared.")
+
+                index_in_list = self._initial_start_indices[self._initial_idx_pointer]
+                start_idx = base_indices[index_in_list]
+
+                # Move pointer and wrap around
+                self._initial_idx_pointer = (self._initial_idx_pointer + 1) % self.number_of_initial_states
+
+        # Get starting pose
         beta, x, y = self.track[start_idx][1:4]
 
-        # Destroy and respawn the car at the chosen starting point
+        # Destroy existing car if necessary
         if self.car is not None:
             self.car.destroy()
+
+        # Respawn car
         self.car = Car(self.world, beta, x, y)
 
-        # Initialize backward and grass counters
+        # Reset state trackers
         self._last_progress_idx = self._get_progress_index()
         self._backwards_counter = 0
         self.on_grass_counter = 0
@@ -555,7 +593,7 @@ class CarRacingFixedMap(CarRacing):
         if self.render_mode == "human":
             self.render()
 
-        # Return observation: image or vector
+        # Return vector observation if required
         if self.vector_obs:
             obs = self.get_vector_observation()
 
@@ -1144,7 +1182,7 @@ class CustomLunarLander(LunarLander):
         lander_density=5.0,
         number_of_initial_states=256,
         use_deterministic_initial_states=True,
-        custom_seed=None,
+        init_seed=None,
     ):
         """
         Initialize the custom LunarLander environment.
@@ -1168,7 +1206,7 @@ class CustomLunarLander(LunarLander):
         use_deterministic_initial_states : bool
             - True: We cycle through the stored states in a fixed order (determined by seed).
             - False: We pick a random one from the stored states for each reset.
-        custom_seed : int or None
+        init_seed : int or None
             Seed used to generate the set of initial states (and the deterministic order).
             If None, behavior follows default random seeding.
         """
@@ -1184,16 +1222,16 @@ class CustomLunarLander(LunarLander):
         self.lander_density = lander_density
         self.number_of_initial_states = number_of_initial_states
         self.use_deterministic_initial_states = use_deterministic_initial_states
-        self.custom_seed = custom_seed
+        self.init_seed = init_seed
 
         # We will store the possible initial (vx, vy, omega) in this list.
         self._initial_states = []
 
         # We use the internal RNG from the parent or create a new one if needed.
         # If you need a specific random generator approach, you can do so here.
-        if self.custom_seed is not None:
+        if self.init_seed is not None:
             # Force a separate RNG if you want full control
-            self._rng = np.random.default_rng(self.custom_seed)
+            self._rng = np.random.default_rng(self.init_seed)
         else:
             # Fall back to parent's self.np_random
             self._rng = self.np_random
