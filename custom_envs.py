@@ -64,7 +64,6 @@ register(
     max_episode_steps=250,
 )
 
-
 register(
     id="CarRacingFixedMap-v2",
     entry_point="custom_envs:CarRacingFixedMap",
@@ -77,10 +76,10 @@ register(
         "fixed_start": True,
         "backwards_tolerance": 3,
         "grass_tolerance": 15,
+        "vector_obs": False
     },
     max_episode_steps=1000,
 )
-
 
 register(
     id="CustomLunarLander-v3",
@@ -485,6 +484,7 @@ MAX_SHAPE_DIM = (
     max(GRASS_DIM, TRACK_WIDTH, TRACK_DETAIL_STEP) * math.sqrt(2) * ZOOM * SCALE
 )
 NO_FREEZE = 16384
+ANCHORS = [5, 10, 15, 20, 25, 30,]
 
 
 class CarRacingFixedMap(CarRacing):
@@ -497,8 +497,9 @@ class CarRacingFixedMap(CarRacing):
         continuous=True,
         map_seed=0,
         fixed_start=True,
-        backwards_tolerance=5,  # defaults to 5
-        grass_tolerance=3,  # new param: defaults to 5
+        backwards_tolerance=3,
+        grass_tolerance=15,
+        vector_obs=False
     ):
         self.map_seed = map_seed
         self.fixed_start = fixed_start
@@ -517,41 +518,55 @@ class CarRacingFixedMap(CarRacing):
         self._last_progress_idx = None
         self._backwards_counter = 0
 
+        # Replace observation_space if vector-based observation is enabled
+        self.vector_obs = vector_obs
+        if self.vector_obs:
+            obs_dim = 6 + len(ANCHORS) * 4  # Base 6 + 4 values per anchor point
+            self.observation_space = gym.spaces.Box(
+                low=-np.inf,
+                high=np.inf,
+                shape=(obs_dim,),
+                dtype=np.float32
+            )
+
     def reset(self, *, seed=None, options=None):
+        # Call parent reset() to regenerate track and car
         obs, info = super().reset(seed=seed, options=options)
 
-        fixed_start = self.fixed_start
-
-        if not fixed_start:
-            # Randomize start position on the track
+        # Choose whether to randomize start position
+        if not self.fixed_start:
             start_idx = self.np_random.integers(0, len(self.track))
         else:
-            # Always start from the first point
             start_idx = 0
 
+        # Get the starting track point (beta, x, y)
         beta, x, y = self.track[start_idx][1:4]
 
+        # Destroy and respawn the car at the chosen starting point
         if self.car is not None:
             self.car.destroy()
-
         self.car = Car(self.world, beta, x, y)
 
-        # Initialize progress tracking for backward detection
+        # Initialize backward and grass counters
         self._last_progress_idx = self._get_progress_index()
         self._backwards_counter = 0
-
-        # Initialize grass counter
         self.on_grass_counter = 0
 
         if self.render_mode == "human":
             self.render()
 
-        return self.step(None)[0], info
+        # Return observation: image or vector
+        if self.vector_obs:
+            obs = self.get_vector_observation()
+
+        return obs, info
 
     def step(self, action):
+        # Call parent step() to advance physics and get default outputs
         obs, reward, terminated, truncated, info = super().step(action)
 
-        reward /= 1e2  # reward scaling if needed
+        # Reward scaling (optional)
+        reward /= 1e2
 
         # === Grass detection ===
         on_grass = self._check_on_grass()
@@ -568,7 +583,6 @@ class CarRacingFixedMap(CarRacing):
 
         # === Backward detection ===
         is_backwards = self._check_if_running_backwards()
-
         if is_backwards:
             self._backwards_counter += 1
         else:
@@ -580,7 +594,96 @@ class CarRacingFixedMap(CarRacing):
         else:
             info["running_backwards"] = False
 
+        # Return vector observation if enabled
+        if self.vector_obs:
+            obs = self.get_vector_observation()
+
         return obs, reward, terminated, truncated, info
+
+    def get_vector_observation(self):
+        """
+        Returns a vector-based observation of the current state.
+        Includes relative position, speed, heading, border distances, and anchor points.
+        """
+        assert self.car is not None
+
+        # Get car state
+        car_pos = self.car.hull.position
+        car_angle = self.car.hull.angle
+        car_speed = self.car.hull.linearVelocity
+        car_angular_vel = self.car.hull.angularVelocity
+
+        # Track progress point
+        progress_idx = self._get_progress_index()
+        track_point = self.track[progress_idx]
+        track_x, track_y = track_point[2:4]
+        track_beta = track_point[1]
+
+        # Compute relative position in track-aligned coordinate frame
+        dx = car_pos[0] - track_x
+        dy = car_pos[1] - track_y
+        cos_b = np.cos(track_beta)
+        sin_b = np.sin(track_beta)
+
+        local_x = dx * cos_b + dy * sin_b
+        local_y = -dx * sin_b + dy * cos_b
+
+        # Velocity projected into track-aligned frame
+        v_x = car_speed[0] * cos_b + car_speed[1] * sin_b
+        v_y = -car_speed[0] * sin_b + car_speed[1] * cos_b
+
+        # Heading error relative to track tangent
+        heading_error = car_angle - track_beta
+        heading_error = np.arctan2(np.sin(heading_error), np.cos(heading_error))
+
+        # Left and right border distances at current position
+        distance_left, distance_right = self._get_border_distances(progress_idx, car_pos)
+
+        # Anchors: relative coordinates, border distances for multiple points ahead
+        anchors = []
+        for anchor_step in ANCHORS:
+            idx = (progress_idx + anchor_step) % len(self.track)
+            anchor_x, anchor_y = self.track[idx][2:4]
+            dx_a = anchor_x - car_pos[0]
+            dy_a = anchor_y - car_pos[1]
+
+            # Project anchor into track-aligned frame
+            local_anchor_x = dx_a * cos_b + dy_a * sin_b
+            local_anchor_y = -dx_a * sin_b + dy_a * cos_b
+
+            # Get border distances at anchor point
+            left_b, right_b = self._get_border_distances(idx, self.track[idx][2:4])
+
+            anchors.extend([local_anchor_x, local_anchor_y, left_b, right_b])
+
+        # Concatenate all features into one observation vector
+        obs = np.array([
+            heading_error, v_x, v_y, local_y, distance_left, distance_right, *anchors
+        ], dtype=np.float32)
+
+        return obs
+
+    def _get_border_distances(self, progress_idx, pos):
+        """
+        Calculate distances from current position to left and right track borders
+        at a given track point.
+        """
+        track_point = self.track[progress_idx]
+        beta = track_point[1]
+        center_x, center_y = track_point[2:4]
+
+        # Compute left and right border positions
+        left_x = center_x - TRACK_WIDTH * np.cos(beta)
+        left_y = center_y - TRACK_WIDTH * np.sin(beta)
+
+        right_x = center_x + TRACK_WIDTH * np.cos(beta)
+        right_y = center_y + TRACK_WIDTH * np.sin(beta)
+
+        # Euclidean distances to each border
+        dist_left = np.sqrt((pos[0] - left_x) ** 2 + (pos[1] - left_y) ** 2)
+        dist_right = np.sqrt((pos[0] - right_x) ** 2 + (pos[1] - right_y) ** 2)
+
+        return dist_left, dist_right
 
     # === Helper functions ===
     def _get_progress_index(self):
