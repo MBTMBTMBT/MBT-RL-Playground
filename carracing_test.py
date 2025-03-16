@@ -22,7 +22,7 @@ import custom_envs
 NUM_SEEDS = 15  # Number of different map seeds
 N_REPEAT = 8
 N_ENVS = 16
-TRAIN_STEPS = 2_000_000
+TRAIN_STEPS = 1_500_000
 EVAL_INTERVAL = 2_500 * N_ENVS
 NUM_INIT_STATES = 64
 EVAL_EPISODES = NUM_INIT_STATES
@@ -308,7 +308,7 @@ if __name__ == "__main__":
                 train_env,
                 verbose=0,
                 learning_rate=2e-4,
-                buffer_size=2_000_000,
+                buffer_size=1_500_000,
                 learning_starts=5_000,
                 batch_size=256,
                 tau=0.005,
