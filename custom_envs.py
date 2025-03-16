@@ -462,6 +462,21 @@ class CustomAcrobotEnv(AcrobotEnv):
             )
 
 
+def _clip_value(x, min_val, max_val):
+    """Simple clamp to [min_val, max_val]."""
+    return min(max(x, min_val), max_val)
+
+
+def _normalize_value(x, scale):
+    """
+    Basic approach: x / scale
+    If you want further clamp, do e.g. clamp to [-1, 1].
+    """
+    val = x / scale
+    # Optionally clamp to [-1, 1].
+    return _clip_value(val, -1.0, 1.0)
+
+
 STATE_W = 96  # less than Atari 160x192
 STATE_H = 96
 VIDEO_W = 600
@@ -487,7 +502,7 @@ MAX_SHAPE_DIM = (
     max(GRASS_DIM, TRACK_WIDTH, TRACK_DETAIL_STEP) * math.sqrt(2) * ZOOM * SCALE
 )
 NO_FREEZE = 16384
-ANCHORS = [5, 10, 15, 20, 25, 30,]
+ANCHORS = [3, 6, 9, 12, 18, 24, 30]
 
 
 class CarRacingFixedMap(CarRacing):
@@ -684,84 +699,96 @@ class CarRacingFixedMap(CarRacing):
 
     def get_vector_observation(self):
         """
-        Return vector-based observation:
-          - heading error (car to track tangent)
-          - car angular velocity (yaw rate)
-          - speed along track (v_x), side speed (v_y)
-          - lateral position (local_y)
-          - anchor points relative position and heading difference
+        Returns a local-based vector observation with minimal global info.
+        Includes:
+        - heading_error / pi => [-1..1]
+        - car_angular_vel / 10 => roughly [-1..1] (assuming we won't exceed ~10 rad/s)
+        - v_x, v_y => scaled by ~15
+        - local_y => scaled by track_width => local_y / 7 ~ [-1..1] if track_width ~ 6.666..
+        - distance_left, distance_right => scaled by track_width
+        - anchor local_x, local_y => scale by some large factor, e.g. 50 or 100
+        - anchor_heading_error => / pi => [-1..1]
         """
         assert self.car is not None
 
-        # Car's current physical state
-        car_pos = self.car.hull.position  # (x, y)
-        car_angle = self.car.hull.angle  # heading (rad)
-        car_speed = self.car.hull.linearVelocity  # (vx, vy)
-        car_angular_vel = self.car.hull.angularVelocity  # angular velocity (yaw rate)
+        # Car current state
+        car_pos = self.car.hull.position
+        car_angle = self.car.hull.angle
+        car_speed = self.car.hull.linearVelocity
+        car_angular_vel = self.car.hull.angularVelocity
 
-        # Closest point on track (progress index)
+        # Track progress
         progress_idx = self._get_progress_index()
         track_point = self.track[progress_idx]
         track_x, track_y = track_point[2:4]
-        track_beta = track_point[1]  # track heading (rad)
+        track_beta = track_point[1]  # track heading
 
-        # Relative position (car - track point)
+        # Local coordinate frame
         dx = car_pos[0] - track_x
         dy = car_pos[1] - track_y
-
-        # Rotation matrix from global to track-aligned frame
         cos_b = np.cos(track_beta)
         sin_b = np.sin(track_beta)
 
-        # Car position in track frame
-        local_x = dx * cos_b + dy * sin_b  # along track (rarely useful if progress_idx is closest)
-        local_y = -dx * sin_b + dy * cos_b  # lateral offset (left/right)
+        # local_x might be near 0 if progress_idx is the nearest tile
+        local_x = dx * cos_b + dy * sin_b
+        local_y = -dx * sin_b + dy * cos_b
 
-        # Speed in track frame
         v_x = car_speed[0] * cos_b + car_speed[1] * sin_b
         v_y = -car_speed[0] * sin_b + car_speed[1] * cos_b
 
-        # Heading error relative to track tangent
-        heading_error = car_angle - track_beta
-        heading_error = np.arctan2(np.sin(heading_error), np.cos(heading_error))  # wrap to [-pi, pi]
+        # heading_error => [-pi..pi] => normalized to [-1..1]
+        raw_heading_error = car_angle - track_beta
+        raw_heading_error = np.arctan2(np.sin(raw_heading_error), np.cos(raw_heading_error))
+        heading_error = _normalize_value(raw_heading_error, np.pi)
 
-        # Optional: distances to track left/right edges (could omit if track width fixed)
+        # angular velocity => rough scale 10
+        norm_angular_vel = _normalize_value(car_angular_vel, 10.0)
+
+        # speed => rough scale 15
+        norm_vx = _normalize_value(v_x, 15.0)
+        norm_vy = _normalize_value(v_y, 15.0)
+
+        # local_y => scale ~ track_width ~ 6.666.. => let's do 7
+        norm_local_y = _normalize_value(local_y, 7.0)
+
+        # distance_left, distance_right => also ~ track_width
         distance_left, distance_right = self._get_border_distances(progress_idx, car_pos)
+        norm_left = _normalize_value(distance_left, 7.0)  # clamp [-1, ~2] if off track => negative
+        norm_right = _normalize_value(distance_right, 7.0)
 
-        # Anchor points: lookahead relative position & heading difference
+        # Anchors
         anchors = []
         for anchor_step in ANCHORS:
             idx = (progress_idx + anchor_step) % len(self.track)
             anchor_x, anchor_y = self.track[idx][2:4]
             anchor_beta = self.track[idx][1]
 
-            # Position of anchor in current track-aligned frame
             dx_a = anchor_x - car_pos[0]
             dy_a = anchor_y - car_pos[1]
-
             local_anchor_x = dx_a * cos_b + dy_a * sin_b
             local_anchor_y = -dx_a * sin_b + dy_a * cos_b
 
-            # Heading difference between anchor point and current track heading
-            anchor_heading_error = anchor_beta - track_beta
-            anchor_heading_error = np.arctan2(np.sin(anchor_heading_error), np.cos(anchor_heading_error))
+            # Anchor heading diff
+            raw_anchor_diff = anchor_beta - track_beta
+            raw_anchor_diff = np.arctan2(np.sin(raw_anchor_diff), np.cos(raw_anchor_diff))
+            anchor_heading_error = _normalize_value(raw_anchor_diff, np.pi)
+
+            norm_ax = _normalize_value(local_anchor_x, 50.0)
+            norm_ay = _normalize_value(local_anchor_y, 50.0)
 
             anchors.extend([
-                local_anchor_x,
-                local_anchor_y,
-                anchor_heading_error
+                norm_ax,
+                norm_ay,
+                anchor_heading_error,
             ])
 
-        # Build final observation vector
         obs = np.array([
-            heading_error,
-            car_angular_vel,
-            v_x,
-            v_y,
-            local_y,
-            distance_left, distance_right,
-            *anchors
-        ], dtype=np.float32)
+                           heading_error,  # 1
+                           norm_angular_vel,  # 2
+                           norm_vx, norm_vy,  # 3-4
+                           norm_local_y,  # 5
+                           norm_left, norm_right  # 6-7
+                       ] + anchors, dtype=np.float32)
 
         return obs
 
