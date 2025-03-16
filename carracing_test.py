@@ -133,13 +133,15 @@ class EvalAndGifCallback(BaseCallback):
 
     def save_gif(self):
         frames = []
-        initial_state_count = 16
+        initial_state_count = 4
 
         single_env = DummyVecEnv([
             make_carracing_env(
                 map_seed=self.map_seed,
-                render_mode=None,
-                deterministic_init=True,
+                render_mode="rgb_array",
+                deterministic_init=False,
+                number_of_initial_states=initial_state_count,
+                init_seed=0,
             )
         ])
 
@@ -178,7 +180,7 @@ class EvalAndGifCallback(BaseCallback):
             f"carracing_mapseed_{self.map_seed}_repeat_{self.repeat}_all_initial_states.gif",
         )
 
-        imageio.mimsave(gif_path, new_frames, duration=10, loop=0)
+        imageio.mimsave(gif_path, new_frames, duration=20, loop=0)
         print(f"[GIF Saved] {gif_path}")
 
 # --------------- Progress Bar Callback ---------------

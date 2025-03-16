@@ -463,8 +463,8 @@ class CustomAcrobotEnv(AcrobotEnv):
 
 STATE_W = 96  # less than Atari 160x192
 STATE_H = 96
-VIDEO_W = 1600
-VIDEO_H = 1200
+VIDEO_W = 600
+VIDEO_H = 400
 WINDOW_W = 1000
 WINDOW_H = 800
 
