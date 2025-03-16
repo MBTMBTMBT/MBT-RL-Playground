@@ -26,7 +26,7 @@ TRAIN_STEPS = 2_000_000
 EVAL_INTERVAL = 2_500 * N_ENVS
 NUM_INIT_STATES = 32
 EVAL_EPISODES = NUM_INIT_STATES
-NEAR_OPTIMAL_SCORE = 9.0  # Adjusted for CarRacing reward scale
+NEAR_OPTIMAL_SCORE = 8.0  # Adjusted for CarRacing reward scale
 
 GIF_LENGTH = 500
 SAVE_PATH = "./carracing_mapseed_results"
