@@ -22,11 +22,11 @@ import custom_envs
 NUM_SEEDS = 15  # Number of different map seeds
 N_REPEAT = 8
 N_ENVS = 16
-TRAIN_STEPS = 1_500_000
-EVAL_INTERVAL = 2_500 * N_ENVS
+TRAIN_STEPS = 1_000_000
+EVAL_INTERVAL = 1_250 * N_ENVS
 NUM_INIT_STATES = 64
 EVAL_EPISODES = NUM_INIT_STATES
-NEAR_OPTIMAL_SCORE = 8.0  # Adjusted for CarRacing reward scale
+NEAR_OPTIMAL_SCORE = 8.5  # Adjusted for CarRacing reward scale
 
 SAVE_PATH = "./carracing_mapseed_results"
 os.makedirs(SAVE_PATH, exist_ok=True)
