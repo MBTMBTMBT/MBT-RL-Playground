@@ -19,11 +19,11 @@ import custom_envs
 
 
 # --------------- Configuration ---------------
-NUM_SEEDS = 5  # Number of different map seeds
+NUM_SEEDS = 15  # Number of different map seeds
 N_REPEAT = 8
 N_ENVS = 16
-TRAIN_STEPS = 1_200_000
-EVAL_INTERVAL = 2_400 * N_ENVS
+TRAIN_STEPS = 2_000_000
+EVAL_INTERVAL = 2_500 * N_ENVS
 NUM_INIT_STATES = 32
 EVAL_EPISODES = NUM_INIT_STATES
 NEAR_OPTIMAL_SCORE = 9.0  # Adjusted for CarRacing reward scale
