@@ -24,11 +24,10 @@ N_REPEAT = 8
 N_ENVS = 16
 TRAIN_STEPS = 2_000_000
 EVAL_INTERVAL = 2_500 * N_ENVS
-NUM_INIT_STATES = 32
+NUM_INIT_STATES = 64
 EVAL_EPISODES = NUM_INIT_STATES
 NEAR_OPTIMAL_SCORE = 8.0  # Adjusted for CarRacing reward scale
 
-GIF_LENGTH = 500
 SAVE_PATH = "./carracing_mapseed_results"
 os.makedirs(SAVE_PATH, exist_ok=True)
 
@@ -309,7 +308,7 @@ if __name__ == "__main__":
                 train_env,
                 verbose=0,
                 learning_rate=2e-4,
-                buffer_size=75_000,
+                buffer_size=2_000_000,
                 learning_starts=5_000,
                 batch_size=256,
                 tau=0.005,
