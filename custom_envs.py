@@ -502,7 +502,7 @@ MAX_SHAPE_DIM = (
     max(GRASS_DIM, TRACK_WIDTH, TRACK_DETAIL_STEP) * math.sqrt(2) * ZOOM * SCALE
 )
 NO_FREEZE = 16384
-ANCHORS = [1, 2, 3, 5, 7, 9, 12, 18, 24, 30]
+ANCHORS = [1, 3, 6, 10, 15, 21, 28, 36, 45,]
 
 
 class CarRacingFixedMap(CarRacing):
