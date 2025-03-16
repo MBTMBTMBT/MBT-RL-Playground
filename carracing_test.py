@@ -307,10 +307,10 @@ if __name__ == "__main__":
                 "MlpPolicy",  # Vector observation, so MlpPolicy
                 train_env,
                 verbose=0,
-                learning_rate=2e-4,
+                learning_rate=1e-4,
                 buffer_size=1_500_000,
                 learning_starts=5_000,
-                batch_size=256,
+                batch_size=512,
                 tau=0.005,
                 train_freq=N_ENVS,
                 gradient_steps=N_ENVS * 8,
