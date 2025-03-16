@@ -299,7 +299,7 @@ if __name__ == "__main__":
                     map_seed=map_seed,
                     render_mode=None,
                     deterministic_init=False,
-                    number_of_initial_states=NUM_INIT_STATES * 16,
+                    number_of_initial_states=NUM_INIT_STATES,
                     init_seed=None,
                 ) for _ in range(N_ENVS)
             ])

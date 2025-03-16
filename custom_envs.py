@@ -1,5 +1,6 @@
 import hashlib
 import math
+import random
 from typing import Optional, Union
 import gymnasium as gym
 import pygame
@@ -509,9 +510,9 @@ class CarRacingFixedMap(CarRacing):
         self.fixed_start = fixed_start
         self.backwards_tolerance = backwards_tolerance
         self.grass_tolerance = grass_tolerance
-        self.vector_obs = vector_obs
-        self.init_seed = init_seed
         self.number_of_initial_states = max(1, number_of_initial_states)
+        self.init_seed = init_seed
+        self.vector_obs = vector_obs
 
         super().__init__(
             render_mode=render_mode,
@@ -521,79 +522,83 @@ class CarRacingFixedMap(CarRacing):
             continuous=continuous
         )
 
-        # Track additional counters
+        # Extra trackers
         self.on_grass_counter = 0
         self._last_progress_idx = None
         self._backwards_counter = 0
 
-        # Init for deterministic start indices if needed
+        # We store a deterministic permutation if fixed_start=False and init_seed is not None
         self._initial_start_indices = None
-        self._initial_idx_pointer = 0  # To track where we are in the cycle
+        self._initial_idx_pointer = 0
 
-        # Prepare deterministic initial states if not using fixed_start
         if not self.fixed_start and self.init_seed is not None:
+            # Create a RNG with init_seed
             rng = np.random.default_rng(self.init_seed)
+            # We'll shuffle the range [0..(number_of_initial_states-1)]
             self._initial_start_indices = rng.permutation(self.number_of_initial_states)
         elif not self.fixed_start:
-            # No init_seed -> shuffle each time later
+            # If init_seed=None, each reset we randomize
             self._initial_start_indices = None
 
-        # Replace observation_space if vector-based observation is enabled
+        # If vector obs, override observation_space
         if self.vector_obs:
-            obs_dim = 6 + len(ANCHORS) * 4  # Base 6 + 4 values per anchor point
+            # Example dimension: 7 + len(ANCHORS)*3
+            # (heading_error, car_angular_vel, v_x, v_y, local_y, distance_left, distance_right) = 7
+            # plus anchor info
+            obs_dim = 7 + len(ANCHORS) * 3
             self.observation_space = gym.spaces.Box(
-                low=-np.inf,
-                high=np.inf,
+                low=-np.inf, high=np.inf,
                 shape=(obs_dim,),
                 dtype=np.float32
             )
 
     def reset(self, *, seed=None, options=None):
+        """
+        Overriding reset:
+        1) Calls parent reset() logic to do track creation, domain randomize, etc.
+        2) Then chooses start_idx based on fixed_start / init_seed.
+        3) Respawns car at that start_idx.
+        4) If vector_obs, returns vector. Otherwise, returns state_pixels.
+        """
+        # Step 1: Do parent's reset (which calls _create_track(), etc.)
         obs, info = super().reset(seed=seed, options=options)
 
-        # Calculate starting index
+        # Step 2: Decide car start_idx
         if self.fixed_start:
+            # Always index 0
             start_idx = 0
         else:
-            # Calculate candidate indices spaced across the track
-            spacing = len(self.track) // self.number_of_initial_states
+            spacing = max(1, len(self.track) // self.number_of_initial_states)
             base_indices = [i * spacing for i in range(self.number_of_initial_states)]
 
             if self.init_seed is None:
-                # No seed -> shuffle on every reset
-                rng = self.np_random
-                shuffled_indices = rng.permutation(base_indices)
-                start_idx = shuffled_indices[0]
+                # fully random each reset
+                idx = random.randint(0, self.number_of_initial_states - 1)
+                start_idx = base_indices[idx]
             else:
-                # Deterministic shuffle during __init__, cycle through them
+                # deterministic shuffle, cycle
                 if self._initial_start_indices is None:
-                    raise ValueError("Initial start indices not prepared.")
-
+                    raise ValueError("No _initial_start_indices, but init_seed is set.")
                 index_in_list = self._initial_start_indices[self._initial_idx_pointer]
                 start_idx = base_indices[index_in_list]
-
-                # Move pointer and wrap around
                 self._initial_idx_pointer = (self._initial_idx_pointer + 1) % self.number_of_initial_states
 
-        # Get starting pose
+        # Step 3: Respawn car at chosen index
         beta, x, y = self.track[start_idx][1:4]
-
-        # Destroy existing car if necessary
         if self.car is not None:
             self.car.destroy()
-
-        # Respawn car
         self.car = Car(self.world, beta, x, y)
 
-        # Reset state trackers
+        # Step 4: Reset custom trackers
         self._last_progress_idx = self._get_progress_index()
         self._backwards_counter = 0
         self.on_grass_counter = 0
 
+        # If render_mode=human, do a render
         if self.render_mode == "human":
             self.render()
 
-        # Return vector observation if required
+        # Overwrite obs if vector_obs
         if self.vector_obs:
             obs = self.get_vector_observation()
 
@@ -679,63 +684,83 @@ class CarRacingFixedMap(CarRacing):
 
     def get_vector_observation(self):
         """
-        Returns a vector-based observation of the current state.
-        Includes relative position, speed, heading, border distances, and anchor points.
+        Return vector-based observation:
+          - heading error (car to track tangent)
+          - car angular velocity (yaw rate)
+          - speed along track (v_x), side speed (v_y)
+          - lateral position (local_y)
+          - anchor points relative position and heading difference
         """
         assert self.car is not None
 
-        # Get car state
-        car_pos = self.car.hull.position
-        car_angle = self.car.hull.angle
-        car_speed = self.car.hull.linearVelocity
-        car_angular_vel = self.car.hull.angularVelocity
+        # Car's current physical state
+        car_pos = self.car.hull.position  # (x, y)
+        car_angle = self.car.hull.angle  # heading (rad)
+        car_speed = self.car.hull.linearVelocity  # (vx, vy)
+        car_angular_vel = self.car.hull.angularVelocity  # angular velocity (yaw rate)
 
-        # Track progress point
+        # Closest point on track (progress index)
         progress_idx = self._get_progress_index()
         track_point = self.track[progress_idx]
         track_x, track_y = track_point[2:4]
-        track_beta = track_point[1]
+        track_beta = track_point[1]  # track heading (rad)
 
-        # Compute relative position in track-aligned coordinate frame
+        # Relative position (car - track point)
         dx = car_pos[0] - track_x
         dy = car_pos[1] - track_y
+
+        # Rotation matrix from global to track-aligned frame
         cos_b = np.cos(track_beta)
         sin_b = np.sin(track_beta)
 
-        local_x = dx * cos_b + dy * sin_b
-        local_y = -dx * sin_b + dy * cos_b
+        # Car position in track frame
+        local_x = dx * cos_b + dy * sin_b  # along track (rarely useful if progress_idx is closest)
+        local_y = -dx * sin_b + dy * cos_b  # lateral offset (left/right)
 
-        # Velocity projected into track-aligned frame
+        # Speed in track frame
         v_x = car_speed[0] * cos_b + car_speed[1] * sin_b
         v_y = -car_speed[0] * sin_b + car_speed[1] * cos_b
 
         # Heading error relative to track tangent
         heading_error = car_angle - track_beta
-        heading_error = np.arctan2(np.sin(heading_error), np.cos(heading_error))
+        heading_error = np.arctan2(np.sin(heading_error), np.cos(heading_error))  # wrap to [-pi, pi]
 
-        # Left and right border distances at current position
+        # Optional: distances to track left/right edges (could omit if track width fixed)
         distance_left, distance_right = self._get_border_distances(progress_idx, car_pos)
 
-        # Anchors: relative coordinates, border distances for multiple points ahead
+        # Anchor points: lookahead relative position & heading difference
         anchors = []
         for anchor_step in ANCHORS:
             idx = (progress_idx + anchor_step) % len(self.track)
             anchor_x, anchor_y = self.track[idx][2:4]
+            anchor_beta = self.track[idx][1]
+
+            # Position of anchor in current track-aligned frame
             dx_a = anchor_x - car_pos[0]
             dy_a = anchor_y - car_pos[1]
 
-            # Project anchor into track-aligned frame
             local_anchor_x = dx_a * cos_b + dy_a * sin_b
             local_anchor_y = -dx_a * sin_b + dy_a * cos_b
 
-            # Get border distances at anchor point
-            left_b, right_b = self._get_border_distances(idx, self.track[idx][2:4])
+            # Heading difference between anchor point and current track heading
+            anchor_heading_error = anchor_beta - track_beta
+            anchor_heading_error = np.arctan2(np.sin(anchor_heading_error), np.cos(anchor_heading_error))
 
-            anchors.extend([local_anchor_x, local_anchor_y, left_b, right_b])
+            anchors.extend([
+                local_anchor_x,
+                local_anchor_y,
+                anchor_heading_error
+            ])
 
-        # Concatenate all features into one observation vector
+        # Build final observation vector
         obs = np.array([
-            heading_error, v_x, v_y, local_y, distance_left, distance_right, *anchors
+            heading_error,
+            car_angular_vel,
+            v_x,
+            v_y,
+            local_y,
+            distance_left, distance_right,
+            *anchors
         ], dtype=np.float32)
 
         return obs
