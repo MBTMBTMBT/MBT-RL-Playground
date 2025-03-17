@@ -138,21 +138,20 @@ class EvalAndGifCallback(BaseCallback):
 
     def save_gif(self):
         frames = []
-        initial_state_count = 4
-
-        single_env = DummyVecEnv(
-            [
-                make_carracing_env(
-                    map_seed=self.map_seed,
-                    render_mode="rgb_array",
-                    deterministic_init=False,
-                    number_of_initial_states=initial_state_count,
-                    init_seed=0,
-                )
-            ]
-        )
+        initial_state_count = 8
 
         for idx in range(initial_state_count):
+            single_env = DummyVecEnv(
+                [
+                    make_carracing_env(
+                        map_seed=self.map_seed,
+                        render_mode="rgb_array",
+                        deterministic_init=False,
+                        number_of_initial_states=initial_state_count,
+                        init_seed=idx,
+                    )
+                ]
+            )
             obs = single_env.reset()
             episode_frames = []
             while True:
@@ -338,10 +337,10 @@ if __name__ == "__main__":
                 "MlpPolicy",  # Vector observation, so MlpPolicy
                 train_env,
                 verbose=0,
-                learning_rate=2e-4,
+                learning_rate=1e-4,
                 buffer_size=1_500_000,
                 learning_starts=5_000,
-                batch_size=512,
+                batch_size=64,
                 tau=0.005,
                 train_freq=N_ENVS,
                 gradient_steps=N_ENVS * 8,
