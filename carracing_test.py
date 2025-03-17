@@ -20,7 +20,7 @@ import custom_envs
 
 # --------------- Configuration ---------------
 NUM_SEEDS = 8  # Number of different map seeds
-N_REPEAT = 5
+N_REPEAT = 3
 N_ENVS = 16
 TRAIN_STEPS = 1_500_000
 EVAL_INTERVAL = 2_500 * N_ENVS
