@@ -1,6 +1,6 @@
 from collections import defaultdict
 from itertools import product
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Union
 from abc import ABC, abstractmethod
 
 import numpy as np
@@ -9,6 +9,197 @@ import scipy
 from gymnasium import spaces
 import gymnasium as gym
 import tqdm
+from gymnasium.core import Env
+from stable_baselines3.common.vec_env import VecEnv, DummyVecEnv
+
+
+def check_for_correct_spaces(env: Union[Env, "VecEnv"], observation_space: spaces.Space, action_space: spaces.Space) -> None:
+    if observation_space != env.observation_space:
+        raise ValueError(f"Observation spaces do not match: {observation_space} != {env.observation_space}")
+    if action_space != env.action_space:
+        raise ValueError(f"Action spaces do not match: {action_space} != {env.action_space}")
+
+
+def generate_discretizer_params_from_space(
+        space: spaces.Space,
+        default_num_buckets_per_dim: int = 15
+) -> Tuple[List[Tuple[float, float]], List[int]]:
+    """
+    Automatically generate `ranges` and `num_buckets` from a Gym space.
+
+    :param space: Gymnasium space (Box, Discrete, MultiDiscrete)
+    :param default_num_buckets_per_dim: Default number of buckets for Box spaces.
+    :return: (ranges, num_buckets) lists for initializing the Discretizer.
+    """
+    ranges = []
+    num_buckets = []
+
+    # Handle Box space
+    if isinstance(space, spaces.Box):
+        low = space.low
+        high = space.high
+
+        # Sanity check on box shape
+        assert low.shape == high.shape, "Box low and high must be the same shape."
+
+        for i in range(low.size):
+            l = low.flat[i]
+            h = high.flat[i]
+
+            # Check for infinite bounds
+            if np.isinf(l) or np.isinf(h):
+                raise ValueError(
+                    f"Dimension {i} in Box space has infinite bounds: "
+                    f"low={l}, high={h}. You must specify finite limits."
+                )
+
+            # Define the range
+            ranges.append((float(l), float(h)))
+
+            # Default number of buckets for continuous Box spaces
+            num_buckets.append(default_num_buckets_per_dim)
+
+    # Handle Discrete space
+    elif isinstance(space, spaces.Discrete):
+        # Range is [0, n-1]
+        ranges.append((0, space.n - 1))
+
+        # Use 0 to indicate integer discretization within range (as per your Discretizer)
+        num_buckets.append(0)
+
+    # Handle MultiDiscrete space
+    elif isinstance(space, spaces.MultiDiscrete):
+        for i, n in enumerate(space.nvec):
+            ranges.append((0, n - 1))
+            num_buckets.append(0)
+
+    # Handle MultiBinary space
+    elif isinstance(space, spaces.MultiBinary):
+        for i in range(space.n):
+            ranges.append((0, 1))
+            num_buckets.append(0)
+
+    else:
+        raise NotImplementedError(f"Space type {type(space)} is not supported for discretization.")
+
+    return ranges, num_buckets
+
+def merge_params(
+        user_values: Optional[List], auto_values: List
+) -> List:
+    """
+    Merge user-specified parameters with auto-generated ones.
+    If user provides a partial list, missing entries will be filled from auto_values.
+
+    :param user_values: Partial or full user-provided list, or None.
+    :param auto_values: Auto-generated list (default values).
+    :return: Merged list with priority given to user_values.
+    """
+    if user_values is None:
+        return auto_values
+
+    merged = []
+    for i in range(len(auto_values)):
+        # Use user value if it exists, otherwise fallback to auto value
+        if i < len(user_values) and user_values[i] is not None:
+            merged.append(user_values[i])
+        else:
+            merged.append(auto_values[i])
+
+    return merged
+
+
+class Agent(ABC):
+    """
+    Abstract base Agent class for tabular methods, similar to Stable-Baselines3 structure.
+    Handles both single Gym environments and VecEnvs.
+    """
+
+    def __init__(self, env: Union[Env, VecEnv]):
+        """
+        Initialize the Agent.
+        :param env: A single environment or a vectorized environment.
+        """
+        # Automatically wrap a single environment into a DummyVecEnv
+        if not isinstance(env, VecEnv):
+            env = DummyVecEnv([lambda: env])
+
+        self.env: VecEnv = env
+        self.observation_space: spaces.Space = self.env.observation_space
+        self.action_space: spaces.Space = self.env.action_space
+
+    def get_env(self) -> Optional[VecEnv]:
+        """
+        Return the current environment.
+        :return: The current VecEnv environment.
+        """
+        return self.env
+
+    def set_env(self, env: Union[Env, VecEnv]) -> None:
+        """
+        Set a new environment for the agent. Re-check spaces.
+        :param env: A new environment (single or VecEnv).
+        """
+        # Auto-wrap if it's not a VecEnv
+        if not isinstance(env, VecEnv):
+            env = DummyVecEnv([lambda: env])
+
+        # Validate that the new env spaces match the old ones
+        check_for_correct_spaces(env, self.observation_space, self.action_space)
+
+        # Set the new env
+        self.env = env
+
+    @abstractmethod
+    def learn(
+            self,
+            total_timesteps: int,
+            callback: Optional[callable] = None,
+            reset_num_timesteps: bool = True,
+            progress_bar: bool = False,
+    ) -> "Agent":
+        """
+        Abstract learn method. Must be implemented by subclasses.
+        :param total_timesteps: Number of timesteps for training.
+        :param callback: Optional callback function during training.
+        :param reset_num_timesteps: whether or not to reset the current timestep number (used in logging)
+        :param progress_bar: Display a progress bar using tqdm and rich.
+        :return: Returns self.
+        """
+        pass
+
+    @abstractmethod
+    def predict(self, observation, deterministic: bool = True):
+        """
+        Predict an action given an observation.
+        :param observation: Observation from the environment.
+        :param deterministic: Whether to return deterministic actions.
+        :return: Action(s) to take.
+        """
+        pass
+
+    @abstractmethod
+    def load(self, path: str, print_system_info: bool = False):
+        """
+        IMPORTANT: This method is not a class method but an instance method, This is different from sb3!
+        That means you always need an initialised agent object before calling this method!!!
+        Args:
+            path: the path to load the model from.
+            print_system_info: Whether to print system info from the saved model
+            and the current system info (useful to debug loading issues)
+        Returns: None
+        """
+        pass
+
+    @abstractmethod
+    def save(self, path: str):
+        """
+        Save the model to the given path.
+        Args:
+            path: path to save the model to.
+        Returns: None
+        """
+        pass
 
 
 class Discretizer:
@@ -388,23 +579,89 @@ class Discretizer:
         return noisy_vector
 
 
-class TabularQAgent:
+class TabularQAgent(Agent):
     def __init__(
-        self,
-        env: gym.Env,
-        state_discretizer: Discretizer,
-        action_discretizer: Discretizer,
-        n_steps: int = 2048,
-        lr: float = 0.1,
-        gamma: float = 0.99,
-        print_info: bool = True,
+            self,
+            env: gym.Env,
+            *,
+            state_discretizer: Union[Discretizer, None] = None,
+            action_discretizer: Union[Discretizer, None] = None,
+            state_ranges: Union[List[Tuple[float, float]], None] = None,
+            num_state_buckets: Union[List[int], None] = None,
+            state_normal_params: List[Optional[Tuple[float, float]]] = None,
+            action_ranges: Union[List[Tuple[float, float]], None] = None,
+            num_action_buckets: Union[List[int], None] = None,
+            action_normal_params: List[Optional[Tuple[float, float]]] = None,
+            learning_rate: float = 0.1,
+            gamma: float = 0.99,
+            print_info: bool = True,
     ):
-        self.state_discretizer = state_discretizer
-        self.action_discretizer = action_discretizer
-        self.lr = lr
+        super().__init__(env)
+
+        # If discretizers are already provided, use them directly
+        if state_discretizer is not None:
+            self.state_discretizer = state_discretizer
+        else:
+            auto_state_ranges, auto_num_state_buckets = generate_discretizer_params_from_space(
+                self.observation_space
+            )
+
+            final_state_ranges = [
+                user if user is not None else auto
+                for user, auto in zip(state_ranges or auto_state_ranges, auto_state_ranges)
+            ]
+
+            final_num_state_buckets = [
+                user if user is not None else auto
+                for user, auto in zip(num_state_buckets or auto_num_state_buckets, auto_num_state_buckets)
+            ]
+
+            final_state_normal_params = [
+                param if param is not None else None
+                for param in (state_normal_params or [None] * len(final_state_ranges))
+            ]
+
+            self.state_discretizer = Discretizer(
+                ranges=final_state_ranges,
+                num_buckets=final_num_state_buckets,
+                normal_params=final_state_normal_params
+            )
+
+        if action_discretizer is not None:
+            self.action_discretizer = action_discretizer
+        else:
+            auto_action_ranges, auto_num_action_buckets = generate_discretizer_params_from_space(
+                self.action_space
+            )
+
+            final_action_ranges = [
+                user if user is not None else auto
+                for user, auto in zip(action_ranges or auto_action_ranges, auto_action_ranges)
+            ]
+
+            final_action_num_buckets = [
+                user if user is not None else auto
+                for user, auto in zip(num_action_buckets or auto_num_action_buckets, auto_num_action_buckets)
+            ]
+
+            final_action_normal_params = [
+                param if param is not None else None
+                for param in (action_normal_params or [None] * len(final_action_ranges))
+            ]
+
+            self.action_discretizer = Discretizer(
+                ranges=final_action_ranges,
+                num_buckets=final_action_num_buckets,
+                normal_params=final_action_normal_params
+            )
+
+        # Other hyperparameters
+        self.learning_rate = learning_rate
+        self.gamma = gamma
+        self.print_info = print_info
+        self.learning_rate = learning_rate
         self.gamma = gamma
         self.env = env
-        self.n_steps = n_steps
         self.q_table = defaultdict(
             lambda: 0.0
         )  # Flattened Q-Table with state-action tuple keys
@@ -421,9 +678,6 @@ class TabularQAgent:
         )
         if print_info:
             self.print_q_table_info()
-
-    def set_env(self, env: gym.Env):
-        self.env = env
 
     def reset_q_table(self) -> None:
         self.q_table = defaultdict(
@@ -443,11 +697,10 @@ class TabularQAgent:
         """
         new_agent = TabularQAgent(
             self.env,
-            self.state_discretizer,
-            self.action_discretizer,
-            lr=self.lr,
+            state_discretizer=self.state_discretizer,
+            action_discretizer=self.action_discretizer,
+            learning_rate=self.learning_rate,
             gamma=self.gamma,
-            n_steps=self.n_steps,
             print_info=False,
         )
         new_agent.q_table = self.q_table.copy()
@@ -679,10 +932,7 @@ class TabularQAgent:
 
         for timestep in range(total_timesteps):
             if reset_num_timesteps:
-                if episode_step_count >= self.n_steps:
-                    episode_step_count = 0
-                    num_episodes += 1
-                    state, info = self.env.reset()
+                pass
             action = self.choose_action(state, temperature=temperature)
             next_state, reward, terminated, truncated, info = self.env.step(action)
             self.update(
@@ -691,7 +941,7 @@ class TabularQAgent:
                 reward,
                 next_state,
                 terminated,
-                alpha=self.lr,
+                alpha=self.learning_rate,
                 gamma=self.gamma,
             )
             state = next_state

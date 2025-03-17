@@ -18,7 +18,7 @@ from old_stuff.custom_mountain_car import CustomMountainCarEnv
 from old_stuff.custom_cartpole import CustomCartPoleEnv
 from old_stuff.discretizer import Discretizer
 from old_stuff.dqn_agent import DQNAgent
-from q_table_agent import Qtableagent
+from old_stuff.q_table_agent import Qtableagent
 from utils import (
     compute_action_probabilities,
     merge_q_table_with_counts,

@@ -591,7 +591,7 @@ class TabularQAgent:
 #             num_actions: int,
 #             hidden_size=None,
 #             memory_size: int = 16384,
-#             lr: float = 1e-4,
+#             learning_rate: float = 1e-4,
 #     ):
 #         super(DQN, self).__init__()
 #         self.eval_net, self.target_net = Net(input_dims, num_actions, hidden_size), Net(input_dims, num_actions, hidden_size)
@@ -602,7 +602,7 @@ class TabularQAgent:
 #         # why the NUM_STATE*2 +2
 #         # When we store the memory, we put the state, action, reward and next_state in the memory
 #         # here reward and action is a number, state is a ndarray
-#         self.optimizer = torch.optim.Adam(self.eval_net.parameters(), lr=lr)
+#         self.optimizer = torch.optim.Adam(self.eval_net.parameters(), learning_rate=learning_rate)
 #         self.loss_func = nn.MSELoss()
 #
 #     def choose_action(self, state):
