@@ -22,8 +22,8 @@ import custom_envs
 NUM_SEEDS = 15  # Number of different map seeds
 N_REPEAT = 8
 N_ENVS = 16
-TRAIN_STEPS = 1_000_000
-EVAL_INTERVAL = 1_250 * N_ENVS
+TRAIN_STEPS = 1_500_000
+EVAL_INTERVAL = 2_500 * N_ENVS
 NUM_INIT_STATES = 64
 EVAL_EPISODES = NUM_INIT_STATES
 NEAR_OPTIMAL_SCORE = 8.5  # Adjusted for CarRacing reward scale
@@ -349,13 +349,13 @@ if __name__ == "__main__":
                 "MlpPolicy",  # Vector observation, so MlpPolicy
                 train_env,
                 verbose=0,
-                learning_rate=1e-4,
-                buffer_size=1_500_000,
+                learning_rate=2e-4,
+                buffer_size=2_500_000,
                 learning_starts=int(EVAL_INTERVAL * 2.5),
                 batch_size=512,
                 tau=0.005,
                 train_freq=N_ENVS,
-                gradient_steps=N_ENVS * 16,
+                gradient_steps=N_ENVS * 8,
                 ent_coef="auto",
                 policy_kwargs=dict(net_arch=[256, 256]),
             )
