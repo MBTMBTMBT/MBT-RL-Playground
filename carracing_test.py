@@ -48,7 +48,7 @@ def make_carracing_env(
             map_seed=map_seed,
             fixed_start=deterministic_init,
             backwards_tolerance=5,
-            grass_tolerance=15,
+            grass_tolerance=25,
             number_of_initial_states=number_of_initial_states,
             init_seed=init_seed,
             vector_obs=True,
