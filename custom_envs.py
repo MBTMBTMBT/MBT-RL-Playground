@@ -502,7 +502,17 @@ MAX_SHAPE_DIM = (
     max(GRASS_DIM, TRACK_WIDTH, TRACK_DETAIL_STEP) * math.sqrt(2) * ZOOM * SCALE
 )
 NO_FREEZE = 16384
-ANCHORS = [1, 3, 6, 10, 15, 21, 28, 36, 45,]
+ANCHORS = [
+    1,
+    3,
+    6,
+    10,
+    15,
+    21,
+    28,
+    36,
+    45,
+]
 
 
 class CarRacingFixedMap(CarRacing):
@@ -534,7 +544,7 @@ class CarRacingFixedMap(CarRacing):
             verbose=verbose,
             lap_complete_percent=lap_complete_percent,
             domain_randomize=domain_randomize,
-            continuous=continuous
+            continuous=continuous,
         )
 
         # Extra trackers
@@ -562,9 +572,7 @@ class CarRacingFixedMap(CarRacing):
             # plus anchor info
             obs_dim = 7 + len(ANCHORS) * 3
             self.observation_space = gym.spaces.Box(
-                low=-np.inf, high=np.inf,
-                shape=(obs_dim,),
-                dtype=np.float32
+                low=-np.inf, high=np.inf, shape=(obs_dim,), dtype=np.float32
             )
 
     def reset(self, *, seed=None, options=None):
@@ -596,7 +604,9 @@ class CarRacingFixedMap(CarRacing):
                     raise ValueError("No _initial_start_indices, but init_seed is set.")
                 index_in_list = self._initial_start_indices[self._initial_idx_pointer]
                 start_idx = base_indices[index_in_list]
-                self._initial_idx_pointer = (self._initial_idx_pointer + 1) % self.number_of_initial_states
+                self._initial_idx_pointer = (
+                    self._initial_idx_pointer + 1
+                ) % self.number_of_initial_states
 
         # Step 3: Respawn car at chosen index
         beta, x, y = self.track[start_idx][1:4]
@@ -725,7 +735,9 @@ class CarRacingFixedMap(CarRacing):
         car_pos = self.car.hull.position  # (x, y) world coordinates
         car_angle = self.car.hull.angle  # heading angle (radians)
         car_speed = self.car.hull.linearVelocity  # (vx, vy) world frame linear velocity
-        car_angular_vel = self.car.hull.angularVelocity  # angular velocity (radians/sec)
+        car_angular_vel = (
+            self.car.hull.angularVelocity
+        )  # angular velocity (radians/sec)
 
         # === Get the current progress point on the track ===
         progress_idx = self._get_progress_index()
@@ -770,7 +782,9 @@ class CarRacingFixedMap(CarRacing):
         norm_local_y = _normalize_value(local_y, 7.0)
 
         # === Distance to left and right track borders at the car's position, normalized ===
-        distance_left, distance_right = self._get_border_distances(progress_idx, car_pos)
+        distance_left, distance_right = self._get_border_distances(
+            progress_idx, car_pos
+        )
         norm_left = _normalize_value(distance_left, 7.0)
         norm_right = _normalize_value(distance_right, 7.0)
 
@@ -809,12 +823,14 @@ class CarRacingFixedMap(CarRacing):
             [
                 heading_error,  # 1
                 norm_angular_vel,  # 2
-                norm_vx, norm_vy,  # 3-4
+                norm_vx,
+                norm_vy,  # 3-4
                 norm_local_y,  # 5
-                norm_left, norm_right  # 6-7
+                norm_left,
+                norm_right,  # 6-7
             ]
             + anchors,  # Anchor point features
-            dtype=np.float32
+            dtype=np.float32,
         )
 
         return obs

@@ -55,6 +55,7 @@ def make_carracing_env(
         )
         env = gym.wrappers.RecordEpisodeStatistics(env)
         return env
+
     return _init
 
 
@@ -75,15 +76,18 @@ class EvalAndGifCallback(BaseCallback):
         self.eval_episodes = EVAL_EPISODES
         self.n_eval_envs = N_ENVS
 
-        self.eval_env = SubprocVecEnv([
-            make_carracing_env(
-                map_seed=self.map_seed,
-                render_mode=None,
-                deterministic_init=False,
-                number_of_initial_states=NUM_INIT_STATES,
-                init_seed=i,
-            ) for i in range(self.n_eval_envs)
-        ])
+        self.eval_env = SubprocVecEnv(
+            [
+                make_carracing_env(
+                    map_seed=self.map_seed,
+                    render_mode=None,
+                    deterministic_init=False,
+                    number_of_initial_states=NUM_INIT_STATES,
+                    init_seed=i,
+                )
+                for i in range(self.n_eval_envs)
+            ]
+        )
 
     def _on_step(self) -> bool:
         if self.num_timesteps - self.last_eval_step >= self.eval_interval:
@@ -122,7 +126,9 @@ class EvalAndGifCallback(BaseCallback):
         self.step_reached_optimal = None
 
     def _on_training_end(self):
-        df = pd.DataFrame(self.records, columns=["Timesteps", "MeanReward", "StdReward"])
+        df = pd.DataFrame(
+            self.records, columns=["Timesteps", "MeanReward", "StdReward"]
+        )
         repeat_log_path = os.path.join(
             SAVE_PATH,
             f"eval_log_mapseed_{self.map_seed}_repeat_{self.repeat}.csv",
@@ -134,15 +140,17 @@ class EvalAndGifCallback(BaseCallback):
         frames = []
         initial_state_count = 4
 
-        single_env = DummyVecEnv([
-            make_carracing_env(
-                map_seed=self.map_seed,
-                render_mode="rgb_array",
-                deterministic_init=False,
-                number_of_initial_states=initial_state_count,
-                init_seed=0,
-            )
-        ])
+        single_env = DummyVecEnv(
+            [
+                make_carracing_env(
+                    map_seed=self.map_seed,
+                    render_mode="rgb_array",
+                    deterministic_init=False,
+                    number_of_initial_states=initial_state_count,
+                    init_seed=0,
+                )
+            ]
+        )
 
         for idx in range(initial_state_count):
             obs = single_env.reset()
@@ -181,6 +189,7 @@ class EvalAndGifCallback(BaseCallback):
 
         imageio.mimsave(gif_path, new_frames, duration=20, loop=0)
         print(f"[GIF Saved] {gif_path}")
+
 
 # --------------- Progress Bar Callback ---------------
 class ProgressBarCallback(BaseCallback):
@@ -224,7 +233,7 @@ def plot_results(seed_results, save_dir):
             steps,
             np.array(means) - np.array(stds),
             np.array(means) + np.array(stds),
-            alpha=0.2
+            alpha=0.2,
         )
 
         # Plot individual per-map_seed reward curves
@@ -238,7 +247,9 @@ def plot_results(seed_results, save_dir):
         ax.legend()
         ax.grid()
 
-        single_plot_path = os.path.join(save_dir, f"reward_curve_mapseed_{map_seed}.png")
+        single_plot_path = os.path.join(
+            save_dir, f"reward_curve_mapseed_{map_seed}.png"
+        )
         plt_single.savefig(single_plot_path)
         plt.close(plt_single)
 
@@ -287,21 +298,44 @@ if __name__ == "__main__":
     for map_seed in map_seeds:
         print(f"\n===== CarRacing Map Seed = {map_seed} =====")
 
+        env = gym.make(
+            "CarRacingFixedMap-v2",
+            continuous=True,
+            render_mode=None,
+            map_seed=map_seed,
+            fixed_start=True,
+            backwards_tolerance=5,
+            grass_tolerance=15,
+            number_of_initial_states=16,
+            init_seed=None,
+            vector_obs=True,
+        )
+
+        env.reset()
+        track_img = env.unwrapped.get_track_image(
+            figsize=(10, 10),
+        )
+        map_path = os.path.join(SAVE_PATH, f"car_racing_map_seed_{map_seed}.png")
+        plt.imsave(map_path, track_img)
+
         repeat_results = []
         reward_curves = []
 
         for repeat in range(N_REPEAT):
             print(f"\n--- Repeat {repeat + 1}/{N_REPEAT} for Map Seed = {map_seed} ---")
 
-            train_env = SubprocVecEnv([
-                make_carracing_env(
-                    map_seed=map_seed,
-                    render_mode=None,
-                    deterministic_init=False,
-                    number_of_initial_states=NUM_INIT_STATES,
-                    init_seed=None,
-                ) for _ in range(N_ENVS)
-            ])
+            train_env = SubprocVecEnv(
+                [
+                    make_carracing_env(
+                        map_seed=map_seed,
+                        render_mode=None,
+                        deterministic_init=False,
+                        number_of_initial_states=NUM_INIT_STATES,
+                        init_seed=None,
+                    )
+                    for _ in range(N_ENVS)
+                ]
+            )
 
             model = SAC(
                 "MlpPolicy",  # Vector observation, so MlpPolicy
@@ -328,30 +362,31 @@ if __name__ == "__main__":
             progress_callback = ProgressBarCallback(total_timesteps=TRAIN_STEPS)
 
             model.learn(
-                total_timesteps=TRAIN_STEPS,
-                callback=[eval_callback, progress_callback]
+                total_timesteps=TRAIN_STEPS, callback=[eval_callback, progress_callback]
             )
 
             model_path = os.path.join(
-                SAVE_PATH,
-                f"sac_carracing_mapseed_{map_seed}_repeat_{repeat + 1}.zip"
+                SAVE_PATH, f"sac_carracing_mapseed_{map_seed}_repeat_{repeat + 1}.zip"
             )
             model.save(model_path)
 
-            repeat_results.append({
-                "MapSeed": map_seed,
-                "Repeat": repeat + 1,
-                "OptimalStep": eval_callback.step_reached_optimal or TRAIN_STEPS,
-                "BestScore": eval_callback.best_mean_reward,
-            })
+            repeat_results.append(
+                {
+                    "MapSeed": map_seed,
+                    "Repeat": repeat + 1,
+                    "OptimalStep": eval_callback.step_reached_optimal or TRAIN_STEPS,
+                    "BestScore": eval_callback.best_mean_reward,
+                }
+            )
 
             df_repeat = pd.DataFrame(
-                eval_callback.records,
-                columns=["Timesteps", "MeanReward", "StdReward"]
+                eval_callback.records, columns=["Timesteps", "MeanReward", "StdReward"]
             )
             reward_curves.append(df_repeat)
 
-            print(f"\n--- Cleanup after Repeat {repeat + 1} for Map Seed {map_seed} ---")
+            print(
+                f"\n--- Cleanup after Repeat {repeat + 1} for Map Seed {map_seed} ---"
+            )
             train_env.close()
             del model
             gc.collect()
@@ -360,13 +395,15 @@ if __name__ == "__main__":
         best_scores = [res["BestScore"] for res in repeat_results]
         optimal_steps = [res["OptimalStep"] for res in repeat_results]
 
-        summary_results.append({
-            "MapSeed": map_seed,
-            "BestScoreMean": np.mean(best_scores),
-            "BestScoreStd": np.std(best_scores),
-            "OptimalStepMean": np.mean(optimal_steps),
-            "OptimalStepStd": np.std(optimal_steps),
-        })
+        summary_results.append(
+            {
+                "MapSeed": map_seed,
+                "BestScoreMean": np.mean(best_scores),
+                "BestScoreStd": np.std(best_scores),
+                "OptimalStepMean": np.mean(optimal_steps),
+                "OptimalStepStd": np.std(optimal_steps),
+            }
+        )
 
         mean_rewards = np.mean([df["MeanReward"] for df in reward_curves], axis=0)
         std_rewards = np.std([df["MeanReward"] for df in reward_curves], axis=0)
@@ -378,11 +415,13 @@ if __name__ == "__main__":
             "StdReward": std_rewards,
         }
 
-        df_seed = pd.DataFrame({
-            "Timesteps": timesteps,
-            "MeanReward": mean_rewards,
-            "StdReward": std_rewards,
-        })
+        df_seed = pd.DataFrame(
+            {
+                "Timesteps": timesteps,
+                "MeanReward": mean_rewards,
+                "StdReward": std_rewards,
+            }
+        )
         seed_csv_path = os.path.join(SAVE_PATH, f"mean_std_mapseed_{map_seed}.csv")
         df_seed.to_csv(seed_csv_path, index=False)
 
