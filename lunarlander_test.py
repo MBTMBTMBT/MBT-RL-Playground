@@ -122,9 +122,10 @@ class EvalAndGifCallback(BaseCallback):
                 print(f"[Best Model] Saving new best model at step {self.num_timesteps} "
                       f"with mean reward {mean_reward:.2f}")
                 self.model.save(self.best_model_path)
-
-            if TRAIN_STEPS - EVAL_INTERVAL * 2 < self.num_timesteps:
                 self.save_gif()
+
+            # if TRAIN_STEPS - EVAL_INTERVAL * 2 < self.num_timesteps:
+            #     self.save_gif()
 
             if mean_reward >= self.optimal_score and self.step_reached_optimal is None:
                 self.step_reached_optimal = self.num_timesteps
