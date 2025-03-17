@@ -310,13 +310,14 @@ if __name__ == "__main__":
             init_seed=None,
             vector_obs=True,
         )
-
         env.reset()
         track_img = env.unwrapped.get_track_image(
             figsize=(10, 10),
         )
         map_path = os.path.join(SAVE_PATH, f"car_racing_map_seed_{map_seed}.png")
         plt.imsave(map_path, track_img)
+        env.close()
+        gc.collect()
 
         repeat_results = []
         reward_curves = []
