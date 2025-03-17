@@ -1,6 +1,7 @@
 from collections import defaultdict
 from itertools import product
 from typing import List, Tuple, Optional
+from abc import ABC, abstractmethod
 
 import numpy as np
 import pandas as pd

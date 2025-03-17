@@ -5,17 +5,11 @@ import numpy as np
 import torch
 import gymnasium as gym
 from PIL import Image
-from gymnasium import make
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from gym_datasets import ReplayBuffer, ReplayBuffer1D
+from old_stuff.gym_datasets import ReplayBuffer1D
 from models import (
-    RSSM,
-    MultiHeadPredictor,
-    WorldModel,
-    Encoder,
-    Decoder,
     SimpleTransitionModel,
 )
 

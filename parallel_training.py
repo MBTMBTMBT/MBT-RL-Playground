@@ -14,10 +14,10 @@ from concurrent.futures import ProcessPoolExecutor
 import os
 import pandas as pd
 
-from custom_mountain_car import CustomMountainCarEnv
-from custom_cartpole import CustomCartPoleEnv
-from discretizer import Discretizer
-from dqn_agent import DQNAgent
+from old_stuff.custom_mountain_car import CustomMountainCarEnv
+from old_stuff.custom_cartpole import CustomCartPoleEnv
+from old_stuff.discretizer import Discretizer
+from old_stuff.dqn_agent import DQNAgent
 from q_table_agent import Qtableagent
 from utils import (
     compute_action_probabilities,

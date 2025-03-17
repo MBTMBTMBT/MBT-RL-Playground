@@ -1,8 +1,6 @@
 if __name__ == "__main__":
-    import gymnasium as gym
-    from dyna_q import Discretizer, TabularDynaQAgent
-    from custom_mountain_car import CustomMountainCarEnv
-    from custom_cartpole import CustomCartPoleEnv
+    from old_stuff.dyna_q import Discretizer, TabularDynaQAgent
+    from old_stuff.custom_mountain_car import CustomMountainCarEnv
     from tqdm import tqdm
     import random
     import numpy as np

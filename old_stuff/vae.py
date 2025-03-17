@@ -5,7 +5,7 @@ import torch
 from torch import nn, Tensor
 from torch.nn import functional as F
 
-from losses import FlexibleThresholdedLoss
+from old_stuff.losses import FlexibleThresholdedLoss
 from models import ResidualBlock
 
 

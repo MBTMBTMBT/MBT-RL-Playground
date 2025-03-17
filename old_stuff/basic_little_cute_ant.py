@@ -80,7 +80,7 @@ env = gym.make("Ant-v5", render_mode="rgb_array")  # Ensure render_mode is set
 vec_env = DummyVecEnv([lambda: env])  # Vectorized environment
 
 # Set up logging directories for model and TensorBoard
-log_dir = "./experiments/anttt/logs"
+log_dir = "../experiments/anttt/logs"
 tensorboard_log = "./experiments/anttt/tensorboard"
 os.makedirs(log_dir, exist_ok=True)
 os.makedirs(tensorboard_log, exist_ok=True)

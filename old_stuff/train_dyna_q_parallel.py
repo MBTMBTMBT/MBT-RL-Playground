@@ -1,15 +1,14 @@
 import os
 import random
-from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor
-from typing import List, Dict
+from typing import Dict
 
 import numpy as np
 from tqdm import tqdm
 import plotly.graph_objs as go
 
-from dyna_q import QCutTabularDynaQAgent
-from dyna_q_task_configs import get_envs_discretizers_and_configs
+from old_stuff.dyna_q import QCutTabularDynaQAgent
+from old_stuff.dyna_q_task_configs import get_envs_discretizers_and_configs
 from parallel_training import generate_test_gif
 
 

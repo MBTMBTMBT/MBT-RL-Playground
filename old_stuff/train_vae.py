@@ -8,7 +8,7 @@ import os
 
 # import torchvision.datasets as datasets
 
-from gym_datasets import GymDataset
+from old_stuff.gym_datasets import GymDataset
 from gymnasium import make
 from vae import VAE
 
@@ -182,8 +182,8 @@ if __name__ == "__main__":
         epochs=20,
         device=device,
         lr=1e-4,
-        log_dir="./experiments/vae/logs",
-        save_dir="./experiments/vae/checkpoints",
+        log_dir="../experiments/vae/logs",
+        save_dir="../experiments/vae/checkpoints",
         is_color=True,
         beta_start=1.0,
         beta_end=1.0,

@@ -8,7 +8,7 @@ from gymnasium import make
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from gym_datasets import ReplayBuffer
+from old_stuff.gym_datasets import ReplayBuffer
 from models import RSSM, MultiHeadPredictor, WorldModel, Encoder, Decoder
 
 
@@ -172,8 +172,8 @@ if __name__ == "__main__":
     ]
     lr = 1e-4
     num_epochs = 25
-    log_dir = "./experiments/worldmodel/logs"
-    save_dir = "./experiments/worldmodel/checkpoints"
+    log_dir = "../experiments/worldmodel/logs"
+    save_dir = "../experiments/worldmodel/checkpoints"
     os.makedirs(log_dir, exist_ok=True)
     os.makedirs(save_dir, exist_ok=True)
     writer = SummaryWriter(log_dir)

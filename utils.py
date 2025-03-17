@@ -3,7 +3,7 @@ from typing import Union, Optional, List
 import numpy as np
 import pandas as pd
 
-from dqn_agent import DQNAgent
+from old_stuff.dqn_agent import DQNAgent
 
 
 def merge_q_table_with_counts(

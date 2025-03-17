@@ -13,7 +13,7 @@ vae = VAE(
     hidden_dims=[256, 512, 1024],
 )
 vae.load_state_dict(
-    torch.load("./experiments/vae/checkpoints/vae_epoch_3.pth", map_location="cpu")
+    torch.load("../experiments/vae/checkpoints/vae_epoch_3.pth", map_location="cpu")
 )
 
 # Dynamically set latent_dim

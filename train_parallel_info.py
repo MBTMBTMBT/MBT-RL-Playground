@@ -2,7 +2,7 @@ import gc
 import json
 import os
 from multiprocessing import Pool
-from typing import List, Dict, Tuple
+from typing import Dict, Tuple
 
 import numpy as np
 import torch
@@ -1605,7 +1605,7 @@ def run_all_cl_evals_and_plot(
 
 
 if __name__ == "__main__":
-    from cl_training import run_all_2_stage_cl_training_and_plot
+    from old_stuff.cl_training import run_all_2_stage_cl_training_and_plot
 
     # run_all_trainings_and_plot(
     #     task_names_and_num_experiments={"frozen_lake-4-times-4": 8, },

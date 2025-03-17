@@ -204,7 +204,7 @@ if __name__ == "__main__":
         compute_average_kl_divergence_between_dfs,
         compute_mutual_information,
     )
-    from discretizer import Discretizer
+    from old_stuff.discretizer import Discretizer
     from wrappers import DiscretizerWrapper
 
     # Define ranges and number of buckets for each dimension based on CartPole state space
