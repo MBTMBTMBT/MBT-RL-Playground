@@ -89,6 +89,12 @@ class EvalAndGifCallback(BaseCallback):
             ]
         )
 
+        # Save path for best model
+        self.best_model_path = os.path.join(
+            SAVE_PATH,
+            f"sac_lander_density_{self.lander_density:.1f}_repeat_{self.repeat}_best.zip"
+        )
+
     def _on_step(self) -> bool:
         if self.num_timesteps - self.last_eval_step >= self.eval_interval:
             self.last_eval_step = self.num_timesteps
@@ -112,6 +118,10 @@ class EvalAndGifCallback(BaseCallback):
 
             if mean_reward > self.best_mean_reward:
                 self.best_mean_reward = mean_reward
+                # Save current best model
+                print(f"[Best Model] Saving new best model at step {self.num_timesteps} "
+                      f"with mean reward {mean_reward:.2f}")
+                self.model.save(self.best_model_path)
 
             if TRAIN_STEPS - EVAL_INTERVAL * 2 < self.num_timesteps:
                 self.save_gif()
@@ -342,12 +352,6 @@ if __name__ == "__main__":
             model.learn(
                 total_timesteps=TRAIN_STEPS, callback=[eval_callback, progress_callback]
             )
-
-            model_path = os.path.join(
-                SAVE_PATH,
-                f"sac_lander_density_{lander_density:.1f}_repeat_{repeat + 1}.zip",
-            )
-            model.save(model_path)
 
             repeat_results.append(
                 {
