@@ -165,10 +165,6 @@ class EvalAndGifCallback(BaseCallback):
                 if dones[0]:
                     break
 
-            separator_frame = np.zeros_like(episode_frames[0])
-            for _ in range(5):
-                frames.append(separator_frame)
-
             frames.extend(episode_frames)
 
         single_env.close()
