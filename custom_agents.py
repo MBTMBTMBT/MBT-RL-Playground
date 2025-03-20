@@ -5,7 +5,7 @@ import zipfile
 from collections import defaultdict
 from dataclasses import dataclass
 from itertools import product
-from typing import List, Tuple, Optional, Union
+from typing import List, Tuple, Optional, Union, Callable
 from abc import ABC, abstractmethod
 
 import numpy as np
@@ -115,6 +115,91 @@ def merge_params(
     return merged
 
 
+class BaseCallback:
+    """
+    Base class for callbacks (compatible with SB3 style).
+    """
+
+    def __init__(self, verbose=0):
+        self.agent = None
+        self.verbose = verbose
+        self.training_env = None
+        self.locals = None
+        self.globals = None
+        self.n_calls = 0
+        self.n_episodes = 0
+
+    def init_callback(self, agent):
+        """
+        Initialize callback before training starts.
+        """
+        self.agent = agent
+
+    def on_training_start(self):
+        """
+        Called before the training loop.
+        """
+        return True
+
+    def on_step(self):
+        """
+        Called at each environment step.
+        """
+        self.n_calls += 1
+        return True
+
+    def on_rollout_end(self):
+        """
+        Called when an episode ends (rollout finished).
+        """
+        self.n_episodes += 1
+        return True
+
+    def on_training_end(self):
+        """
+        Called after the training loop.
+        """
+        return True
+
+
+class CallbackList(BaseCallback):
+    """
+    Combine multiple callbacks into one list callback.
+    """
+
+    def __init__(self, callbacks):
+        super().__init__()
+        self.callbacks = callbacks
+
+    def init_callback(self, agent):
+        for callback in self.callbacks:
+            callback.init_callback(agent)
+
+    def on_training_start(self):
+        return all(callback.on_training_start() for callback in self.callbacks)
+
+    def on_step(self):
+        return all(callback.on_step() for callback in self.callbacks)
+
+    def on_rollout_end(self):
+        return all(callback.on_rollout_end() for callback in self.callbacks)
+
+    def on_training_end(self):
+        return all(callback.on_training_end() for callback in self.callbacks)
+
+
+class FunctionCallback(BaseCallback):
+    """
+    Wrap a callable into a BaseCallback.
+    """
+    def __init__(self, func):
+        super().__init__()
+        self.func = func
+
+    def on_step(self):
+        return self.func(self.agent)
+
+
 class Agent(ABC):
     """
     Abstract base Agent class for tabular methods, similar to Stable-Baselines3 structure.
@@ -160,7 +245,7 @@ class Agent(ABC):
     def learn(
             self,
             total_timesteps: int,
-            callback: Optional[callable] = None,
+            callback: Union[None, Callable, list["BaseCallback"], "BaseCallback"] = None,
             reset_num_timesteps: bool = True,
             progress_bar: bool = False,
     ) -> "Agent":
@@ -749,7 +834,7 @@ class ReplayBuffer:
 class TabularQAgent(Agent):
     def __init__(
             self,
-            env: gym.Env,
+            env: Union[Env, VecEnv, None],
             *,
             state_discretizer: Union[Discretizer, None] = None,
             action_discretizer: Union[Discretizer, None] = None,
@@ -1239,13 +1324,24 @@ class TabularQAgent(Agent):
     def learn(
             self,
             total_timesteps: int,
+            callback: Union[None, Callable, list, BaseCallback] = None,
             reset_num_timesteps: bool = True,
             progress_bar: bool = False
     ):
         """
         Double Q-Learning loop with Replay Buffer (PER), IS correction, and VDBE temperature.
+        Supports SB3-like callback system.
+        Fully Offline version (no online updates).
         """
+        # --- Prepare callback ---
+        callback = self._init_callback(callback)
 
+        # --- Callback training start ---
+        if not callback.on_training_start():
+            print("Training aborted by callback.")
+            return self
+
+        # --- Initialize env ---
         state, info = self.env.reset()
         episode_step_count = 0
         num_episodes = 0
@@ -1253,7 +1349,7 @@ class TabularQAgent(Agent):
         num_terminated = 0
         sum_episode_rewards = 0
 
-        pbar = tqdm.tqdm(total=total_timesteps, desc="Inner Training", unit="step") if progress_bar else None
+        pbar = tqdm.tqdm(total=total_timesteps, desc="Training", unit="step") if progress_bar else None
 
         batch_size = self.batch_size
         batch_update_interval = self.batch_update_interval
@@ -1264,10 +1360,11 @@ class TabularQAgent(Agent):
                 [*self.state_discretizer.discretize(state)[1]]
             )
 
-            # --- Select action with current_temperature (VDBE) ---
-            action_probs = self.get_action_probabilities(state,)
+            # --- Select action with current temperature ---
+            action_probs = self.get_action_probabilities(state)
             action_encoded = np.random.choice(self.all_actions_encoded, p=action_probs)
 
+            # --- Convert to env action ---
             action = np.array(
                 self.action_discretizer.indices_to_midpoints(
                     self.action_discretizer.decode_indices(action_encoded)
@@ -1283,17 +1380,7 @@ class TabularQAgent(Agent):
                 [*self.state_discretizer.discretize(next_state)[1]]
             )
 
-            # --- Online update (IS weight=1.0 for online update) ---
-            td_error = self.update(
-                state_encoded=state_encoded,
-                action_encoded=action_encoded,
-                reward=reward,
-                next_state_encoded=next_state_encoded,
-                done=terminated,
-                is_weight=1.0  # Online step no correction
-            )
-
-            # --- Store in replay buffer with priority ---
+            # --- Store transition in replay buffer (NO online update anymore!) ---
             transition = Transition(
                 state=state_encoded,
                 action=action_encoded,
@@ -1301,20 +1388,14 @@ class TabularQAgent(Agent):
                 next_state=next_state_encoded,
                 done=terminated
             )
-            self.replay_buffer.add(transition, td_error)
-
-            # --- VDBE temperature update ---
-            # VDBE-based temperature update for the current state
-            self.state_temperature_table[state_encoded] = (
-                    self.T_max * np.exp(-td_error / self.temperature_sensitivity)
-            )
+            # You can skip td_error here since PER will update after batch updates
+            self.replay_buffer.add(transition)
 
             # --- Periodic batch update from replay buffer ---
             if timestep % batch_update_interval == 0 and len(self.replay_buffer.buffer) >= batch_size:
-                # Sample batch
                 transitions, indices, weights = self.replay_buffer.sample(
                     batch_size=batch_size,
-                    beta=self.importance_sampling_correction  # Fixed beta
+                    beta=self.importance_sampling_correction
                 )
 
                 batch_td_errors = []
@@ -1329,23 +1410,39 @@ class TabularQAgent(Agent):
                     )
                     batch_td_errors.append(td_error_batch)
 
-                # Update priorities after batch updates
+                    # --- VDBE temperature update for each sampled state ---
+                    self.state_temperature_table[trans.state] = (
+                            self.T_max * np.exp(-td_error_batch / self.temperature_sensitivity)
+                    )
+
+                # --- Update priorities after batch updates ---
                 self.replay_buffer.update_priorities(indices, batch_td_errors)
 
             # --- Move to next state ---
             state = next_state
 
-            # --- Episode control and statistics ---
+            # --- Episode control ---
             episode_step_count += 1
             sum_episode_rewards += reward
+
             if terminated or truncated:
                 episode_step_count = 0
                 num_episodes += 1
-                num_terminated += 1 if terminated else 0
-                num_truncated += 1 if truncated else 0
+                num_terminated += int(terminated)
+                num_truncated += int(truncated)
                 state, info = self.env.reset()
 
-            # --- Progress bar update ---
+                # --- Callback on episode end ---
+                if not callback.on_rollout_end():
+                    print("Training aborted by callback (on_rollout_end).")
+                    break
+
+            # --- Callback on step ---
+            if not callback.on_step():
+                print("Training aborted by callback (on_step).")
+                break
+
+            # --- Progress bar ---
             if progress_bar:
                 pbar.set_postfix({
                     "Episodes": num_episodes,
@@ -1353,15 +1450,49 @@ class TabularQAgent(Agent):
                     "Truncated": num_truncated,
                     "Reward (last)": reward,
                     "Avg Episode Reward": (
-                        sum_episode_rewards / num_episodes
-                        if num_episodes > 0
-                        else 0.0
+                        sum_episode_rewards / num_episodes if num_episodes > 0 else 0.0
                     ),
                 })
                 pbar.update(1)
 
+        # --- End of training ---
         if progress_bar:
             pbar.close()
+
+        callback.on_training_end()
+
+        return self
+
+    def _init_callback(self, callback):
+        """
+        Prepare the callback object.
+
+        :param callback: None, BaseCallback, list, or callable.
+        :return: CallbackList/BaseCallback
+        """
+        # --- If it's a list ---
+        if isinstance(callback, list):
+            callback_list = []
+            for cb in callback:
+                if isinstance(cb, BaseCallback):
+                    callback_list.append(cb)
+                elif callable(cb):
+                    callback_list.append(FunctionCallback(cb))
+                else:
+                    raise ValueError("Unsupported callback type in list!")
+            callback = CallbackList(callback_list)
+
+        # --- Single callable ---
+        elif callable(callback):
+            callback = FunctionCallback(callback)
+
+        # --- Single BaseCallback ---
+        elif callback is None:
+            callback = CallbackList([])
+
+        # --- Init callback with agent reference ---
+        callback.init_callback(self)
+        return callback
 
 
 class _TabularQAgent(Agent):
