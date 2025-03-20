@@ -684,82 +684,66 @@ class Transition:
     next_state: int    # Encoded next state index
     done: bool
 
-
 class ReplayBuffer:
     """
-    Replay Buffer with Prioritized Experience Replay (PER) support.
-    Stores tabular state-action transitions, with priorities driven by TD error.
+    Simple Replay Buffer (no Prioritized Experience Replay).
+    Stores tabular state-action transitions.
     """
-    def __init__(self, capacity: int = 10000, alpha: float = 0.6):
+    def __init__(self, capacity: int = 10000,):
         """
         :param capacity: Maximum number of transitions stored in the buffer.
-        :param alpha: Degree of prioritization (0 = uniform, 1 = full prioritization).
         """
         self.capacity = capacity
         self.buffer: List[Transition] = []
-        self.priorities: List[float] = []
-        self.alpha = alpha
         self.pos = 0
+        self.size = 0  # Track current number of valid transitions
 
     def add(self, transition: Transition, td_error: Optional[float] = None):
         """
-        Add a transition with TD-error-based priority to the buffer.
-        :param transition: The Transition to store.
-        :param td_error: The TD error used to compute priority (optional).
-        """
-        if td_error is not None:
-            priority = abs(td_error) + 1e-5  # Small epsilon to avoid zero priority
-        else:
-            priority = max(self.priorities, default=1.0)
+        Add a transition to the buffer (no priority, no td_error needed).
 
-        if len(self.buffer) < self.capacity:
+        :param transition: The Transition to store.
+        :param td_error: Ignored in uniform buffer (only for compatibility).
+        """
+        if self.size < self.capacity:
             self.buffer.append(transition)
-            self.priorities.append(priority)
+            self.size += 1
         else:
             self.buffer[self.pos] = transition
-            self.priorities[self.pos] = priority
             self.pos = (self.pos + 1) % self.capacity
 
-    def sample(self, batch_size: int = 32, beta: float = 1.0) -> Tuple[List[Transition], List[int], np.ndarray]:
+    def sample(self, batch_size: int = 32,) -> Tuple[List[Transition], List[int], np.ndarray]:
         """
-        Sample a batch of transitions according to priorities.
+        Uniformly sample a batch of transitions.
+
         :param batch_size: Number of transitions to sample.
-        :param beta: Importance-sampling weight adjustment.
         :return: Tuple (samples, indices, IS weights)
         """
-        if len(self.buffer) == 0:
+        if self.size == 0:
             return [], [], np.array([])
 
-        priorities = np.array(self.priorities)
-        scaled_priorities = priorities ** self.alpha
-        probs = scaled_priorities / scaled_priorities.sum()
-
-        indices = np.random.choice(len(self.buffer), batch_size, p=probs)
+        # Uniform random sampling
+        indices = np.random.choice(self.size, batch_size, replace=False)
         samples = [self.buffer[i] for i in indices]
 
-        # Importance-sampling weights to compensate bias
-        total = len(self.buffer)
-        weights = (total * probs[indices]) ** (-beta)
-        weights /= weights.max()  # Normalize to 1
+        # Importance sampling weights = 1.0 everywhere (no PER)
+        weights = np.ones_like(indices, dtype=np.float32)
 
-        return samples, indices, weights
+        return samples, indices.tolist(), weights
 
     def update_priorities(self, indices: List[int], td_errors: List[float]):
         """
-        Update the priorities of sampled transitions after TD-error recalculation.
-        :param indices: List of indices for which priorities are updated.
-        :param td_errors: New TD-errors corresponding to sampled transitions.
+        No-op for uniform buffer (kept for compatibility).
         """
-        for idx, td_error in zip(indices, td_errors):
-            self.priorities[idx] = abs(td_error) + 1e-5
+        pass
 
     def clone(self):
         """
         Create a shallow copy of the replay buffer.
         """
-        new_buffer = ReplayBuffer(capacity=self.capacity, alpha=self.alpha)
+        new_buffer = ReplayBuffer(capacity=self.capacity,)
         new_buffer.buffer = self.buffer.copy()
-        new_buffer.priorities = self.priorities.copy()
+        new_buffer.size = self.size
         new_buffer.pos = self.pos
         return new_buffer
 
@@ -768,9 +752,12 @@ class ReplayBuffer:
         Save ReplayBuffer content to the specified directory.
         :param directory: Directory path where files will be saved.
         """
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+
         # --- Save transitions ---
         transition_data = []
-        for t in self.buffer:
+        for t in self.buffer[:self.size]:
             transition_data.append({
                 "state": t.state,
                 "action": t.action,
@@ -782,15 +769,11 @@ class ReplayBuffer:
         df_transitions = pd.DataFrame(transition_data)
         df_transitions.to_csv(os.path.join(directory, "replay_buffer.csv"), index=False)
 
-        # --- Save priorities ---
-        df_priorities = pd.DataFrame({"priority": self.priorities})
-        df_priorities.to_csv(os.path.join(directory, "replay_priorities.csv"), index=False)
-
-        # --- Save buffer meta (pos, capacity, alpha) ---
+        # --- Save buffer meta ---
         meta = {
             "pos": self.pos,
             "capacity": self.capacity,
-            "alpha": self.alpha
+            "size": self.size
         }
         with open(os.path.join(directory, "replay_buffer_meta.json"), "w") as f:
             json.dump(meta, f, indent=4)
@@ -808,8 +791,9 @@ class ReplayBuffer:
         with open(os.path.join(directory, "replay_buffer_meta.json"), "r") as f:
             meta = json.load(f)
 
-        buffer = cls(capacity=meta["capacity"], alpha=meta["alpha"])
+        buffer = cls(capacity=meta["capacity"],)
         buffer.pos = meta["pos"]
+        buffer.size = meta["size"]
 
         # --- Load transitions ---
         df_transitions = pd.read_csv(os.path.join(directory, "replay_buffer.csv"))
@@ -823,10 +807,6 @@ class ReplayBuffer:
                 done=bool(row["done"])
             )
             buffer.buffer.append(transition)
-
-        # --- Load priorities ---
-        df_priorities = pd.read_csv(os.path.join(directory, "replay_priorities.csv"))
-        buffer.priorities = df_priorities["priority"].tolist()
 
         print(f"ReplayBuffer successfully loaded from: {directory}")
         return buffer
@@ -848,8 +828,6 @@ class TabularQAgent(Agent):
             learning_rate: float = 0.1,
             gamma: float = 0.99,
             buffer_size: int = 100_000,
-            priority_exponent: float = 0.6,
-            importance_sampling_correction = 1.0,
             max_temperature: float = 1.0,
             temperature_sensitivity = 0.1,
             batch_size = 32,
@@ -926,9 +904,7 @@ class TabularQAgent(Agent):
         # Replay Buffer with PER
         self.replay_buffer = ReplayBuffer(
             capacity=buffer_size,
-            alpha=priority_exponent,
         )
-        self.importance_sampling_correction = importance_sampling_correction
 
         # VDBE temperature control
         self.T_max = max_temperature
@@ -988,8 +964,6 @@ class TabularQAgent(Agent):
                 learning_rate=params["learning_rate"],
                 gamma=params["gamma"],
                 buffer_size=params["buffer_size"],
-                priority_exponent=params["priority_exponent"],
-                importance_sampling_correction=params["importance_sampling_correction"],
                 max_temperature=params["max_temperature"],
                 temperature_sensitivity=params["temperature_sensitivity"],
                 batch_size=params["batch_size"],
@@ -1059,8 +1033,6 @@ class TabularQAgent(Agent):
                 "learning_rate": self.learning_rate,
                 "gamma": self.gamma,
                 "buffer_size": self.replay_buffer.capacity,
-                "priority_exponent": self.replay_buffer.alpha,
-                "importance_sampling_correction": self.importance_sampling_correction,
                 "max_temperature": self.T_max,
                 "temperature_sensitivity": self.temperature_sensitivity,
                 "batch_size": self.batch_size,
@@ -1112,8 +1084,6 @@ class TabularQAgent(Agent):
             learning_rate=self.learning_rate,
             gamma=self.gamma,
             buffer_size=self.replay_buffer.capacity,
-            priority_exponent=self.replay_buffer.alpha,
-            importance_sampling_correction=self.importance_sampling_correction,
             max_temperature=self.T_max,
             temperature_sensitivity=self.temperature_sensitivity,
             batch_size=self.batch_size,
@@ -1179,8 +1149,6 @@ class TabularQAgent(Agent):
         # --- Replay Buffer info ---
         print(f"[Replay Buffer]")
         print(f"  Current size: {len(self.replay_buffer.buffer)} / {self.replay_buffer.capacity}")
-        print(f"  Priority exponent (α): {self.replay_buffer.alpha}")
-        print(f"  Importance sampling correction (β): {self.importance_sampling_correction}")
 
         print("=" * 40)
 
@@ -1369,7 +1337,6 @@ class TabularQAgent(Agent):
         state = self.env.reset()
         episode_step_count = 0
         num_episodes = 0
-        num_truncated = 0
         num_terminated = 0
         sum_episode_rewards = 0
 
@@ -1461,7 +1428,6 @@ class TabularQAgent(Agent):
             if self.num_timesteps % batch_update_interval == 0 and len(self.replay_buffer.buffer) >= batch_size:
                 transitions, indices, weights = self.replay_buffer.sample(
                     batch_size=batch_size,
-                    beta=self.importance_sampling_correction
                 )
 
                 batch_td_errors = []
@@ -1490,31 +1456,54 @@ class TabularQAgent(Agent):
             episode_step_count += 1
             sum_episode_rewards += reward if not is_batched else np.mean(reward)
 
-            if not is_batched and (terminated or truncated):
-                episode_step_count = 0
-                num_episodes += 1
-                num_terminated += int(terminated)
-                num_truncated += int(truncated)
-                state = self.env.reset()
+            # Check if we are using batched environments
+            is_batched = isinstance(terminated, (list, np.ndarray))
 
-                if not callback.on_rollout_end():
-                    print("Training aborted by callback (on_rollout_end).")
-                    break
+            if is_batched:
+                # --- VecEnv case ---
+                # 1. Count number of terminations in this batch
+                terminations_in_batch = np.sum(terminated)
 
+                if terminations_in_batch > 0:
+                    # 2. Update statistics for terminated episodes
+                    num_episodes += terminations_in_batch
+                    num_terminated += terminations_in_batch
+
+                    # 3. Reset those specific environments that are done
+                    # Note: Some vec_envs automatically reset; if not, you can use:
+                    # state = self.env.reset_done() (not all support this)
+
+                    # 4. Call on_rollout_end() callback once per batch where termination occurred
+                    if not callback.on_rollout_end():
+                        print("Training aborted by callback (on_rollout_end).")
+                        break
+            else:
+                # --- Single env case ---
+                if terminated:
+                    episode_step_count = 0
+                    num_episodes += 1
+                    num_terminated += int(terminated)
+
+                    state = self.env.reset()
+
+                    if not callback.on_rollout_end():
+                        print("Training aborted by callback (on_rollout_end).")
+                        break
+
+            # --- Callback on every step ---
             if not callback.on_step():
                 print("Training aborted by callback (on_step).")
                 break
 
+            # --- Progress bar update ---
             if progress_bar:
-                pbar.set_postfix({
-                    "Episodes": num_episodes,
-                    "Terminated": num_terminated,
-                    "Truncated": num_truncated,
-                    "Reward (last)": reward if not is_batched else np.mean(reward),
-                    "Avg Episode Reward": (
-                        sum_episode_rewards / num_episodes if num_episodes > 0 else 0.0
-                    ),
-                })
+                # pbar.set_postfix({
+                #     "Episodes": num_episodes,
+                #     "Terminated": num_terminated,
+                #     "Avg Episode Reward": (
+                #         sum_episode_rewards / num_episodes if num_episodes > 0 else 0.0
+                #     ),
+                # })
                 pbar.update(1)
 
             self.num_timesteps += 1
@@ -1680,10 +1669,10 @@ if __name__ == "__main__":
 
 
     # ---- Hyperparameters ---- #
-    TOTAL_TIMESTEPS = 100_000
-    EVAL_INTERVAL = 2_000
-    EVAL_EPISODES = 10
     N_ENVS = 8
+    TOTAL_TIMESTEPS = 100_000
+    EVAL_INTERVAL = 50 * N_ENVS
+    EVAL_EPISODES = 10
     MAP_SIZE = 8
     SAVE_PATH = "./tabular_q_agent_frozenlake/"
     BEST_MODEL_FILE = os.path.join(SAVE_PATH, "best_model.zip")
@@ -1707,8 +1696,6 @@ if __name__ == "__main__":
         learning_rate=0.1,
         gamma=0.99,
         buffer_size=100_000,
-        priority_exponent=0.6,
-        importance_sampling_correction=1.0,
         max_temperature=1.0,
         temperature_sensitivity=0.1,
         batch_size=32,
