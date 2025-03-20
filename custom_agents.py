@@ -1,3 +1,7 @@
+import json
+import os
+import tempfile
+import zipfile
 from collections import defaultdict
 from dataclasses import dataclass
 from itertools import product
@@ -11,6 +15,7 @@ from gymnasium import spaces
 import gymnasium as gym
 import tqdm
 from gymnasium.core import Env
+from stable_baselines3.common.type_aliases import GymEnv
 from stable_baselines3.common.vec_env import VecEnv, DummyVecEnv
 
 
@@ -116,16 +121,16 @@ class Agent(ABC):
     Handles both single Gym environments and VecEnvs.
     """
 
-    def __init__(self, env: Union[Env, VecEnv]):
+    def __init__(self, env: Union[Env, VecEnv, None]):
         """
         Initialize the Agent.
         :param env: A single environment or a vectorized environment.
         """
         # Automatically wrap a single environment into a DummyVecEnv
-        if not isinstance(env, VecEnv):
+        if env and not isinstance(env, VecEnv):
             env = DummyVecEnv([lambda: env])
 
-        self.env: VecEnv = env
+        self.env: Optional[VecEnv] = env
         self.observation_space: spaces.Space = self.env.observation_space
         self.action_space: spaces.Space = self.env.action_space
 
@@ -179,16 +184,16 @@ class Agent(ABC):
         """
         pass
 
+    @classmethod
     @abstractmethod
-    def load(self, path: str, print_system_info: bool = False):
+    def load(cls, path: str, env: Optional[GymEnv] = None, print_system_info: bool = False,):
         """
-        IMPORTANT: This method is not a class method but an instance method, This is different from sb3!
-        That means you always need an initialised agent object before calling this method!!!
-        Args:
-            path: the path to load the model from.
-            print_system_info: Whether to print system info from the saved model
-            and the current system info (useful to debug loading issues)
-        Returns: None
+        Abstract class method to load an agent from a file.
+
+        :param path: Path to the saved agent.
+        :param env: Optional environment to load the agent. If None, it will try to load the agent without it.
+        :param print_system_info: Whether to print system info when loading.
+        :return: An instance of the Agent.
         """
         pass
 
@@ -660,6 +665,86 @@ class ReplayBuffer:
         for idx, td_error in zip(indices, td_errors):
             self.priorities[idx] = abs(td_error) + 1e-5
 
+    def clone(self):
+        """
+        Create a shallow copy of the replay buffer.
+        """
+        new_buffer = ReplayBuffer(capacity=self.capacity, alpha=self.alpha)
+        new_buffer.buffer = self.buffer.copy()
+        new_buffer.priorities = self.priorities.copy()
+        new_buffer.pos = self.pos
+        return new_buffer
+
+    def save(self, directory: str):
+        """
+        Save ReplayBuffer content to the specified directory.
+
+        :param directory: Directory path where files will be saved.
+        """
+        # --- Save transitions ---
+        transition_data = []
+        for t in self.buffer:
+            transition_data.append({
+                "state": t.state,
+                "action": t.action,
+                "reward": t.reward,
+                "next_state": t.next_state,
+                "done": t.done
+            })
+
+        df_transitions = pd.DataFrame(transition_data)
+        df_transitions.to_csv(os.path.join(directory, "replay_buffer.csv"), index=False)
+
+        # --- Save priorities ---
+        df_priorities = pd.DataFrame({"priority": self.priorities})
+        df_priorities.to_csv(os.path.join(directory, "replay_priorities.csv"), index=False)
+
+        # --- Save buffer meta (pos, capacity, alpha) ---
+        meta = {
+            "pos": self.pos,
+            "capacity": self.capacity,
+            "alpha": self.alpha
+        }
+        with open(os.path.join(directory, "replay_buffer_meta.json"), "w") as f:
+            json.dump(meta, f, indent=4)
+
+        print(f"ReplayBuffer successfully saved to: {directory}")
+
+    @classmethod
+    def load(cls, directory: str) -> "ReplayBuffer":
+        """
+        Load ReplayBuffer from files in the specified directory.
+
+        :param directory: Directory path where files are located.
+        :return: Loaded ReplayBuffer instance.
+        """
+        # --- Load meta ---
+        with open(os.path.join(directory, "replay_buffer_meta.json"), "r") as f:
+            meta = json.load(f)
+
+        buffer = cls(capacity=meta["capacity"], alpha=meta["alpha"])
+        buffer.pos = meta["pos"]
+
+        # --- Load transitions ---
+        df_transitions = pd.read_csv(os.path.join(directory, "replay_buffer.csv"))
+        buffer.buffer = []
+        for _, row in df_transitions.iterrows():
+            transition = Transition(
+                state=int(row["state"]),
+                action=int(row["action"]),
+                reward=row["reward"],
+                next_state=int(row["next_state"]),
+                done=bool(row["done"])
+            )
+            buffer.buffer.append(transition)
+
+        # --- Load priorities ---
+        df_priorities = pd.read_csv(os.path.join(directory, "replay_priorities.csv"))
+        buffer.priorities = df_priorities["priority"].tolist()
+
+        print(f"ReplayBuffer successfully loaded from: {directory}")
+        return buffer
+
 
 class TabularQAgent(Agent):
     def __init__(
@@ -774,8 +859,247 @@ class TabularQAgent(Agent):
                 for indices in self.action_discretizer.list_all_possible_combinations()[1]
             ]
         )
+
+        self.print_info = print_info
         if print_info:
             self.print_q_table_info()
+
+    @classmethod
+    def load(cls, path: str, env: Optional[GymEnv] = None, print_system_info: bool = True) -> "TabularQAgent":
+        """
+        Load an agent from a zip file.
+
+        :param path: Path to the saved zip file (including filename.zip)
+        :param env: The environment instance (required)
+        :param print_system_info: Whether to print Q-table info after loading
+        :return: Loaded TabularQAgent instance
+        """
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # --- Unzip files ---
+            with zipfile.ZipFile(path, "r") as zipf:
+                zipf.extractall(temp_dir)
+
+            # --- Load parameters ---
+            with open(os.path.join(temp_dir, "parameters.json"), "r") as f:
+                params = json.load(f)
+
+            # --- Rebuild discretizers ---
+            state_discretizer = Discretizer(
+                ranges=params["state_discretizer"]["ranges"],
+                num_buckets=params["state_discretizer"]["num_buckets"],
+                normal_params=params["state_discretizer"]["normal_params"]
+            )
+            action_discretizer = Discretizer(
+                ranges=params["action_discretizer"]["ranges"],
+                num_buckets=params["action_discretizer"]["num_buckets"],
+                normal_params=params["action_discretizer"]["normal_params"]
+            )
+
+            # --- Initialize agent ---
+            agent = cls(
+                env=env,
+                state_discretizer=state_discretizer,
+                action_discretizer=action_discretizer,
+                learning_rate=params["learning_rate"],
+                gamma=params["gamma"],
+                buffer_size=params["buffer_size"],
+                priority_exponent=params["priority_exponent"],
+                importance_sampling_correction=params["importance_sampling_correction"],
+                max_temperature=params["max_temperature"],
+                temperature_sensitivity=params["temperature_sensitivity"],
+                batch_size=params["batch_size"],
+                batch_update_interval=params["batch_update_interval"],
+                print_info=False
+            )
+
+            # --- Load Q-Table 1 ---
+            df_q1 = pd.read_csv(os.path.join(temp_dir, "q_table_1.csv"))
+            for _, row in df_q1.iterrows():
+                agent.q_table_1[(int(row["state"]), int(row["action"]))] = row["q_value"]
+
+            # --- Load Q-Table 2 ---
+            df_q2 = pd.read_csv(os.path.join(temp_dir, "q_table_2.csv"))
+            for _, row in df_q2.iterrows():
+                agent.q_table_2[(int(row["state"]), int(row["action"]))] = row["q_value"]
+
+            # --- Load visit table ---
+            df_visit = pd.read_csv(os.path.join(temp_dir, "visit_table.csv"))
+            for _, row in df_visit.iterrows():
+                agent.visit_table[(int(row["state"]), int(row["action"]))] = int(row["visit_count"])
+
+            # --- Load state temperature table ---
+            df_temp = pd.read_csv(os.path.join(temp_dir, "state_temperature_table.csv"))
+            for _, row in df_temp.iterrows():
+                agent.state_temperature_table[int(row["state"])] = row["temperature"]
+
+            # --- Load ReplayBuffer ---
+            replay_dir = os.path.join(temp_dir, "replay_buffer")
+            agent.replay_buffer = ReplayBuffer.load(replay_dir)
+
+            print(f"Agent successfully loaded from: {path}")
+
+            if print_system_info:
+                agent.print_q_table_info()
+
+            return agent
+
+    def save(self, path: str):
+        """
+        Save the agent state to a zip file.
+
+        :param path: Path to save the zip file (including filename.zip)
+        """
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # --- Save Q-Table 1 ---
+            q1_data = [{"state": s, "action": a, "q_value": v}
+                       for (s, a), v in self.q_table_1.items()]
+            pd.DataFrame(q1_data).to_csv(os.path.join(temp_dir, "q_table_1.csv"), index=False)
+
+            # --- Save Q-Table 2 ---
+            q2_data = [{"state": s, "action": a, "q_value": v}
+                       for (s, a), v in self.q_table_2.items()]
+            pd.DataFrame(q2_data).to_csv(os.path.join(temp_dir, "q_table_2.csv"), index=False)
+
+            # --- Save visit table ---
+            visit_data = [{"state": s, "action": a, "visit_count": count}
+                          for (s, a), count in self.visit_table.items()]
+            pd.DataFrame(visit_data).to_csv(os.path.join(temp_dir, "visit_table.csv"), index=False)
+
+            # --- Save state temperature table ---
+            temp_data = [{"state": s, "temperature": t}
+                         for s, t in self.state_temperature_table.items()]
+            pd.DataFrame(temp_data).to_csv(os.path.join(temp_dir, "state_temperature_table.csv"), index=False)
+
+            # --- Save hyperparameters & settings ---
+            params = {
+                "learning_rate": self.learning_rate,
+                "gamma": self.gamma,
+                "buffer_size": self.replay_buffer.capacity,
+                "priority_exponent": self.replay_buffer.alpha,
+                "importance_sampling_correction": self.importance_sampling_correction,
+                "max_temperature": self.T_max,
+                "temperature_sensitivity": self.temperature_sensitivity,
+                "batch_size": self.batch_size,
+                "batch_update_interval": self.batch_update_interval,
+                # Discretizers
+                "state_discretizer": {
+                    "ranges": self.state_discretizer.ranges,
+                    "num_buckets": self.state_discretizer.num_buckets,
+                    "normal_params": self.state_discretizer.normal_params
+                },
+                "action_discretizer": {
+                    "ranges": self.action_discretizer.ranges,
+                    "num_buckets": self.action_discretizer.num_buckets,
+                    "normal_params": self.action_discretizer.normal_params
+                },
+            }
+            with open(os.path.join(temp_dir, "parameters.json"), "w") as f:
+                json.dump(params, f, indent=4)
+
+            # --- Save ReplayBuffer ---
+            replay_dir = os.path.join(temp_dir, "replay_buffer")
+            os.makedirs(replay_dir, exist_ok=True)
+            self.replay_buffer.save(replay_dir)
+
+            # --- Zip everything ---
+            with zipfile.ZipFile(path, "w") as zipf:
+                for root, _, files in os.walk(temp_dir):
+                    for file in files:
+                        full_path = os.path.join(root, file)
+                        arcname = os.path.relpath(full_path, temp_dir)
+                        zipf.write(full_path, arcname=arcname)
+
+            print(f"Agent successfully saved to: {path}")
+
+    def clone(self) -> "TabularQAgent":
+        """
+        Create a deep copy of the Tabular Q-Learning agent, including:
+        - Q-tables
+        - Visit table
+        - State temperature table
+        - Replay buffer (optional: shallow copy)
+
+        :return: A new TabularQAgent instance with copied internal states.
+        """
+        # Create a new agent instance with the same hyperparameters
+        new_agent = TabularQAgent(
+            env=self.env,
+            state_discretizer=self.state_discretizer,
+            action_discretizer=self.action_discretizer,
+            learning_rate=self.learning_rate,
+            gamma=self.gamma,
+            buffer_size=self.replay_buffer.capacity,
+            priority_exponent=self.replay_buffer.alpha,
+            importance_sampling_correction=self.importance_sampling_correction,
+            max_temperature=self.T_max,
+            temperature_sensitivity=self.temperature_sensitivity,
+            batch_size=self.batch_size,
+            batch_update_interval=self.batch_update_interval,
+            print_info=False
+        )
+
+        # Deep copy all tables
+        new_agent.q_table_1 = self.q_table_1.copy()
+        new_agent.q_table_2 = self.q_table_2.copy()
+        new_agent.visit_table = self.visit_table.copy()
+        new_agent.state_temperature_table = self.state_temperature_table.copy()
+
+        # Shallow copy of replay buffer (optional)
+        new_agent.replay_buffer = self.replay_buffer.clone()
+
+        if self.print_info:
+            new_agent.print_q_table_info()
+
+        return new_agent
+
+    def print_q_table_info(self) -> None:
+        """
+        Print detailed information about the Q-tables, visit table, and state temperature table.
+        """
+        print("=" * 40)
+        print("Tabular Q-Learning Agent Info")
+        print("=" * 40)
+
+        # --- State & Action discretizer info ---
+        print("[State Discretizer]")
+        self.state_discretizer.print_buckets()
+        print("[Action Discretizer]")
+        self.action_discretizer.print_buckets()
+
+        total_state_combinations = self.state_discretizer.count_possible_combinations()
+        total_action_combinations = self.action_discretizer.count_possible_combinations()
+        total_state_action_combinations = total_state_combinations * total_action_combinations
+
+        # --- Q-Tables ---
+        q_table_1_size = len(self.q_table_1)
+        q_table_2_size = len(self.q_table_2)
+        print(f"[Q-Table 1] {q_table_1_size} state-action pairs.")
+        print(f"[Q-Table 2] {q_table_2_size} state-action pairs.")
+        print(f"Total State-Action Combinations: {total_state_action_combinations}")
+        print(f"Q-Table 1 Coverage: {q_table_1_size / total_state_action_combinations * 100:.2f}%")
+        print(f"Q-Table 2 Coverage: {q_table_2_size / total_state_action_combinations * 100:.2f}%")
+
+        # --- Visit table ---
+        visit_table_size = len(self.visit_table)
+        print(f"[Visit Table] {visit_table_size} entries (state-action pairs tracked).")
+
+        # --- State temperature table ---
+        temp_values = list(self.state_temperature_table.values())
+        if temp_values:
+            print(f"[State Temperature Table]")
+            print(f"  Number of states with temperature: {len(temp_values)}")
+            print(f"  Temperature (min / mean / max): {min(temp_values):.4f} / "
+                  f"{sum(temp_values) / len(temp_values):.4f} / {max(temp_values):.4f}")
+        else:
+            print(f"[State Temperature Table] No entries found.")
+
+        # --- Replay Buffer info ---
+        print(f"[Replay Buffer]")
+        print(f"  Current size: {len(self.replay_buffer.buffer)} / {self.replay_buffer.capacity}")
+        print(f"  Priority exponent (α): {self.replay_buffer.alpha}")
+        print(f"  Importance sampling correction (β): {self.importance_sampling_correction}")
+
+        print("=" * 40)
 
     def reset_q_table(self) -> None:
         self.q_table = defaultdict(
@@ -786,115 +1110,6 @@ class TabularQAgent(Agent):
         self.visit_table = defaultdict(
             lambda: 0
         )  # Uses the same keys of the Q-Table to do visit count.
-
-    def clone(self) -> "TabularQAgent":
-        """
-        Create a deep copy of the Q-Table agent.
-
-        :return: A new QTableAgent instance with the same Q-Table.
-        """
-        new_agent = TabularQAgent(
-            self.env,
-            state_discretizer=self.state_discretizer,
-            action_discretizer=self.action_discretizer,
-            learning_rate=self.learning_rate,
-            gamma=self.gamma,
-            print_info=False,
-        )
-        new_agent.q_table = self.q_table.copy()
-        new_agent.visit_table = self.visit_table.copy()
-        new_agent.print_q_table_info()
-        return new_agent
-
-    def print_q_table_info(self) -> None:
-        """
-        Print information about the Q-Table size and its structure.
-        """
-        print("Q-Table Information:")
-        print(f"State Discretizer:")
-        self.state_discretizer.print_buckets()
-        print(f"Action Discretizer:")
-        self.action_discretizer.print_buckets()
-        total_combinations = (
-            self.state_discretizer.count_possible_combinations()
-            * self.action_discretizer.count_possible_combinations()
-        )
-        print(
-            f"Q-Table Size: {len(self.q_table)} state-action pairs / total combinations: {total_combinations}."
-        )
-        print(
-            f"State-Action usage: {len(self.q_table) / total_combinations * 100:.2f}%."
-        )
-
-    def save_q_table(self, file_path: str = None) -> pd.DataFrame:
-        """
-        Save the Q-Table to a CSV file and/or return as a DataFrame.
-        IMPORTANT: This method is not a class method but an instance method, This is different from sb3!
-        :param file_path: Path to save the file.
-        :return: DataFrame representation of the Q-Table.
-        """
-        # list all possible actions (but not states, cause states are just too many)
-        checked_states = set()
-        data = []
-        for (encoded_state, encoded_action), q_value in tuple(self.q_table.items()):
-            if encoded_state in checked_states:
-                continue
-            row = {f"state": encoded_state}
-            row.update(
-                {
-                    f"action_{a}_q_value": self.q_table[(encoded_state, a)]
-                    for a in self.all_actions_encoded
-                }
-            )
-            row.update(
-                {
-                    f"action_{a}_visit_count": self.visit_table[(encoded_state, a)]
-                    for a in self.all_actions_encoded
-                }
-            )
-            row.update(
-                {
-                    "total_visit_count": sum(
-                        [
-                            self.visit_table[(encoded_state, a)]
-                            for a in self.all_actions_encoded
-                        ]
-                    )
-                }
-            )
-            data.append(row)
-            checked_states.add(encoded_state)
-        df = pd.DataFrame(data)
-        if file_path:
-            df.to_csv(file_path, index=False)
-            print(f"Q-Table saved to {file_path}.")
-        return df
-
-    def load_q_table(self, file_path: str = None, df: pd.DataFrame = None):
-        """
-        Load a Q-Table from a CSV file or a DataFrame.
-
-        :param file_path: Path to the saved file.
-        :param df: DataFrame representation of the Q-Table.
-        :return: An instance of QTableAgent.
-        """
-        if file_path:
-            df = pd.read_csv(file_path)
-        elif df is None:
-            raise ValueError("Either file_path or df must be provided.")
-
-        if len(self.q_table) > 0 or len(self.visit_table) > 0:
-            print(
-                "Warning: Loading a Q-Table that already has data. Part of them might be overwritten."
-            )
-
-        for _, row in df.iterrows():
-            encoded_state = int(row["state"])
-            for a in self.all_actions_encoded:
-                self.q_table[(encoded_state, a)] = row[f"action_{a}_q_value"]
-                self.visit_table[(encoded_state, a)] = row[f"action_{a}_visit_count"]
-        print(f"Q-Table loaded from {f'{file_path}' if file_path else 'DataFrame'}.")
-        self.print_q_table_info()
 
     def get_action_probabilities(self, state: np.ndarray) -> np.ndarray:
         """
