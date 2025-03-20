@@ -15,6 +15,7 @@ from gymnasium import spaces
 import gymnasium as gym
 import tqdm
 from gymnasium.core import Env
+from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.type_aliases import GymEnv
 from stable_baselines3.common.vec_env import VecEnv, DummyVecEnv
 
@@ -90,6 +91,7 @@ def generate_discretizer_params_from_space(
 
     return ranges, num_buckets
 
+
 def merge_params(
         user_values: Optional[List], auto_values: List
 ) -> List:
@@ -126,14 +128,16 @@ class BaseCallback:
         self.training_env = None
         self.locals = None
         self.globals = None
+        self.num_timesteps = 0
         self.n_calls = 0
         self.n_episodes = 0
+        self.model = None
 
-    def init_callback(self, agent):
+    def init_callback(self, model):
         """
         Initialize callback before training starts.
         """
-        self.agent = agent
+        self.model = model
 
     def on_training_start(self):
         """
@@ -146,6 +150,7 @@ class BaseCallback:
         Called at each environment step.
         """
         self.n_calls += 1
+        self.num_timesteps = self.model.num_timesteps
         return True
 
     def on_rollout_end(self):
@@ -218,6 +223,7 @@ class Agent(ABC):
         self.env: Optional[VecEnv] = env
         self.observation_space: spaces.Space = self.env.observation_space
         self.action_space: spaces.Space = self.env.action_space
+        self.num_timesteps = 0
 
     def get_env(self) -> Optional[VecEnv]:
         """
@@ -698,7 +704,6 @@ class ReplayBuffer:
     def add(self, transition: Transition, td_error: Optional[float] = None):
         """
         Add a transition with TD-error-based priority to the buffer.
-
         :param transition: The Transition to store.
         :param td_error: The TD error used to compute priority (optional).
         """
@@ -718,7 +723,6 @@ class ReplayBuffer:
     def sample(self, batch_size: int = 32, beta: float = 1.0) -> Tuple[List[Transition], List[int], np.ndarray]:
         """
         Sample a batch of transitions according to priorities.
-
         :param batch_size: Number of transitions to sample.
         :param beta: Importance-sampling weight adjustment.
         :return: Tuple (samples, indices, IS weights)
@@ -743,7 +747,6 @@ class ReplayBuffer:
     def update_priorities(self, indices: List[int], td_errors: List[float]):
         """
         Update the priorities of sampled transitions after TD-error recalculation.
-
         :param indices: List of indices for which priorities are updated.
         :param td_errors: New TD-errors corresponding to sampled transitions.
         """
@@ -763,7 +766,6 @@ class ReplayBuffer:
     def save(self, directory: str):
         """
         Save ReplayBuffer content to the specified directory.
-
         :param directory: Directory path where files will be saved.
         """
         # --- Save transitions ---
@@ -799,7 +801,6 @@ class ReplayBuffer:
     def load(cls, directory: str) -> "ReplayBuffer":
         """
         Load ReplayBuffer from files in the specified directory.
-
         :param directory: Directory path where files are located.
         :return: Loaded ReplayBuffer instance.
         """
@@ -953,7 +954,6 @@ class TabularQAgent(Agent):
     def load(cls, path: str, env: Optional[GymEnv] = None, print_system_info: bool = True) -> "TabularQAgent":
         """
         Load an agent from a zip file.
-
         :param path: Path to the saved zip file (including filename.zip)
         :param env: The environment instance (required)
         :param print_system_info: Whether to print Q-table info after loading
@@ -1031,7 +1031,6 @@ class TabularQAgent(Agent):
     def save(self, path: str):
         """
         Save the agent state to a zip file.
-
         :param path: Path to save the zip file (including filename.zip)
         """
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -1103,7 +1102,6 @@ class TabularQAgent(Agent):
         - Visit table
         - State temperature table
         - Replay buffer (optional: shallow copy)
-
         :return: A new TabularQAgent instance with copied internal states.
         """
         # Create a new agent instance with the same hyperparameters
@@ -1187,9 +1185,12 @@ class TabularQAgent(Agent):
         print("=" * 40)
 
     def reset_q_table(self) -> None:
-        self.q_table = defaultdict(
+        self.q_table_1 = defaultdict(
             lambda: 0.0
-        )  # Flattened Q-Table with state-action tuple keys
+        )
+        self.q_table_2 = defaultdict(
+            lambda: 0.0
+        )
 
     def reset_visit_table(self) -> None:
         self.visit_table = defaultdict(
@@ -1199,7 +1200,6 @@ class TabularQAgent(Agent):
     def get_action_probabilities(self, state: np.ndarray) -> np.ndarray:
         """
         Calculate action probabilities for a given state using state-specific temperature.
-
         :param state: The current observation (raw state array).
         :return: An array of action probabilities.
         """
@@ -1236,7 +1236,6 @@ class TabularQAgent(Agent):
         """
         Select an action for a given state using state-specific temperature (softmax).
         If greedy is True, always select the highest probability action.
-
         :param state: The current observation (raw state array).
         :param greedy: Whether to use greedy action selection.
         :return: Action formatted for the environment (decoded if necessary).
@@ -1280,7 +1279,6 @@ class TabularQAgent(Agent):
     ) -> float:
         """
         Double Q-Learning update rule with IS weight.
-
         :param state_encoded: Encoded current state index.
         :param action_encoded: Encoded action index.
         :param reward: Immediate reward.
@@ -1333,6 +1331,9 @@ class TabularQAgent(Agent):
         Supports SB3-like callback system.
         Fully Offline version (no online updates).
         """
+        if reset_num_timesteps:
+            self.num_timesteps = 0
+
         # --- Prepare callback ---
         callback = self._init_callback(callback)
 
@@ -1392,7 +1393,7 @@ class TabularQAgent(Agent):
             self.replay_buffer.add(transition)
 
             # --- Periodic batch update from replay buffer ---
-            if timestep % batch_update_interval == 0 and len(self.replay_buffer.buffer) >= batch_size:
+            if self.num_timesteps % batch_update_interval == 0 and len(self.replay_buffer.buffer) >= batch_size:
                 transitions, indices, weights = self.replay_buffer.sample(
                     batch_size=batch_size,
                     beta=self.importance_sampling_correction
@@ -1455,6 +1456,8 @@ class TabularQAgent(Agent):
                 })
                 pbar.update(1)
 
+            self.num_timesteps += 1
+
         # --- End of training ---
         if progress_bar:
             pbar.close()
@@ -1466,7 +1469,6 @@ class TabularQAgent(Agent):
     def _init_callback(self, callback):
         """
         Prepare the callback object.
-
         :param callback: None, BaseCallback, list, or callable.
         :return: CallbackList/BaseCallback
         """
@@ -1495,396 +1497,213 @@ class TabularQAgent(Agent):
         return callback
 
 
-class _TabularQAgent(Agent):
+class EvalCallback(BaseCallback):
+    """
+    General evaluation callback for any tabular/actor-critic algorithm.
+    Supports evaluation, best model saving, logging, and plotting.
+    """
+
     def __init__(
-            self,
-            env: gym.Env,
-            *,
-            state_discretizer: Union[Discretizer, None] = None,
-            action_discretizer: Union[Discretizer, None] = None,
-            state_ranges: Union[List[Tuple[float, float]], None] = None,
-            num_state_buckets: Union[List[int], None] = None,
-            state_normal_params: List[Optional[Tuple[float, float]]] = None,
-            action_ranges: Union[List[Tuple[float, float]], None] = None,
-            num_action_buckets: Union[List[int], None] = None,
-            action_normal_params: List[Optional[Tuple[float, float]]] = None,
-            learning_rate: float = 0.1,
-            gamma: float = 0.99,
-            print_info: bool = True,
-    ):
-        super().__init__(env)
-
-        # If discretizers are already provided, use them directly
-        if state_discretizer is not None:
-            self.state_discretizer = state_discretizer
-        else:
-            auto_state_ranges, auto_num_state_buckets = generate_discretizer_params_from_space(
-                self.observation_space
-            )
-
-            final_state_ranges = [
-                user if user is not None else auto
-                for user, auto in zip(state_ranges or auto_state_ranges, auto_state_ranges)
-            ]
-
-            final_num_state_buckets = [
-                user if user is not None else auto
-                for user, auto in zip(num_state_buckets or auto_num_state_buckets, auto_num_state_buckets)
-            ]
-
-            final_state_normal_params = [
-                param if param is not None else None
-                for param in (state_normal_params or [None] * len(final_state_ranges))
-            ]
-
-            self.state_discretizer = Discretizer(
-                ranges=final_state_ranges,
-                num_buckets=final_num_state_buckets,
-                normal_params=final_state_normal_params
-            )
-
-        if action_discretizer is not None:
-            self.action_discretizer = action_discretizer
-        else:
-            auto_action_ranges, auto_num_action_buckets = generate_discretizer_params_from_space(
-                self.action_space
-            )
-
-            final_action_ranges = [
-                user if user is not None else auto
-                for user, auto in zip(action_ranges or auto_action_ranges, auto_action_ranges)
-            ]
-
-            final_action_num_buckets = [
-                user if user is not None else auto
-                for user, auto in zip(num_action_buckets or auto_num_action_buckets, auto_num_action_buckets)
-            ]
-
-            final_action_normal_params = [
-                param if param is not None else None
-                for param in (action_normal_params or [None] * len(final_action_ranges))
-            ]
-
-            self.action_discretizer = Discretizer(
-                ranges=final_action_ranges,
-                num_buckets=final_action_num_buckets,
-                normal_params=final_action_normal_params
-            )
-
-        # Other hyperparameters
-        self.learning_rate = learning_rate
-        self.gamma = gamma
-        self.print_info = print_info
-        self.learning_rate = learning_rate
-        self.gamma = gamma
-        self.env = env
-        self.q_table = defaultdict(
-            lambda: 0.0
-        )  # Flattened Q-Table with state-action tuple keys
-        self.visit_table = defaultdict(
-            lambda: 0
-        )  # Uses the same keys of the Q-Table to do visit count.
-        self.all_actions_encoded = sorted(
-            [
-                self.action_discretizer.encode_indices([*indices])
-                for indices in self.action_discretizer.list_all_possible_combinations()[
-                    1
-                ]
-            ]
-        )
-        if print_info:
-            self.print_q_table_info()
-
-    def reset_q_table(self) -> None:
-        self.q_table = defaultdict(
-            lambda: 0.0
-        )  # Flattened Q-Table with state-action tuple keys
-
-    def reset_visit_table(self) -> None:
-        self.visit_table = defaultdict(
-            lambda: 0
-        )  # Uses the same keys of the Q-Table to do visit count.
-
-    def clone(self) -> "TabularQAgent":
-        """
-        Create a deep copy of the Q-Table agent.
-
-        :return: A new QTableAgent instance with the same Q-Table.
-        """
-        new_agent = TabularQAgent(
-            self.env,
-            state_discretizer=self.state_discretizer,
-            action_discretizer=self.action_discretizer,
-            learning_rate=self.learning_rate,
-            gamma=self.gamma,
-            print_info=False,
-        )
-        new_agent.q_table = self.q_table.copy()
-        new_agent.visit_table = self.visit_table.copy()
-        new_agent.print_q_table_info()
-        return new_agent
-
-    def print_q_table_info(self) -> None:
-        """
-        Print information about the Q-Table size and its structure.
-        """
-        print("Q-Table Information:")
-        print(f"State Discretizer:")
-        self.state_discretizer.print_buckets()
-        print(f"Action Discretizer:")
-        self.action_discretizer.print_buckets()
-        total_combinations = (
-            self.state_discretizer.count_possible_combinations()
-            * self.action_discretizer.count_possible_combinations()
-        )
-        print(
-            f"Q-Table Size: {len(self.q_table)} state-action pairs / total combinations: {total_combinations}."
-        )
-        print(
-            f"State-Action usage: {len(self.q_table) / total_combinations * 100:.2f}%."
-        )
-
-    def save_q_table(self, file_path: str = None) -> pd.DataFrame:
-        """
-        Save the Q-Table to a CSV file and/or return as a DataFrame.
-        IMPORTANT: This method is not a class method but an instance method, This is different from sb3!
-        :param file_path: Path to save the file.
-        :return: DataFrame representation of the Q-Table.
-        """
-        # list all possible actions (but not states, cause states are just too many)
-        checked_states = set()
-        data = []
-        for (encoded_state, encoded_action), q_value in tuple(self.q_table.items()):
-            if encoded_state in checked_states:
-                continue
-            row = {f"state": encoded_state}
-            row.update(
-                {
-                    f"action_{a}_q_value": self.q_table[(encoded_state, a)]
-                    for a in self.all_actions_encoded
-                }
-            )
-            row.update(
-                {
-                    f"action_{a}_visit_count": self.visit_table[(encoded_state, a)]
-                    for a in self.all_actions_encoded
-                }
-            )
-            row.update(
-                {
-                    "total_visit_count": sum(
-                        [
-                            self.visit_table[(encoded_state, a)]
-                            for a in self.all_actions_encoded
-                        ]
-                    )
-                }
-            )
-            data.append(row)
-            checked_states.add(encoded_state)
-        df = pd.DataFrame(data)
-        if file_path:
-            df.to_csv(file_path, index=False)
-            print(f"Q-Table saved to {file_path}.")
-        return df
-
-    def load_q_table(self, file_path: str = None, df: pd.DataFrame = None):
-        """
-        Load a Q-Table from a CSV file or a DataFrame.
-
-        :param file_path: Path to the saved file.
-        :param df: DataFrame representation of the Q-Table.
-        :return: An instance of QTableAgent.
-        """
-        if file_path:
-            df = pd.read_csv(file_path)
-        elif df is None:
-            raise ValueError("Either file_path or df must be provided.")
-
-        if len(self.q_table) > 0 or len(self.visit_table) > 0:
-            print(
-                "Warning: Loading a Q-Table that already has data. Part of them might be overwritten."
-            )
-
-        for _, row in df.iterrows():
-            encoded_state = int(row["state"])
-            for a in self.all_actions_encoded:
-                self.q_table[(encoded_state, a)] = row[f"action_{a}_q_value"]
-                self.visit_table[(encoded_state, a)] = row[f"action_{a}_visit_count"]
-        print(f"Q-Table loaded from {f'{file_path}' if file_path else 'DataFrame'}.")
-        self.print_q_table_info()
-
-    def get_action_probabilities(
-        self, state: np.ndarray, temperature: float = None
-    ) -> np.ndarray:
-        """
-        Calculate action probabilities based on the specified strategy.
-
-        :param state: The current state.
-        :param temperature: Temperature parameter for softmax. If None, uses ||Q||_2.
-        :return: An array of action probabilities.
-        """
-        encoded_state = self.state_discretizer.encode_indices(
-            [*self.state_discretizer.discretize(state)[1]]
-        )
-
-        # Retrieve Q-values for all actions
-        q_values = np.array(
-            [self.q_table[(encoded_state, a)] for a in self.all_actions_encoded]
-        )
-        visitation = sum(
-            [self.visit_table[(encoded_state, a)] for a in self.all_actions_encoded]
-        )
-
-        if np.all(q_values == 0):  # Handle all-zero Q-values
-            probabilities = np.ones_like(q_values, dtype=float) / len(q_values)
-        else:
-            # Compute ||Q||_2 if temperature is None
-            temp = (
-                np.linalg.norm(q_values, ord=2) if temperature is None else temperature
-            )
-            temp = max(temp, 1e-6)  # Avoid division by zero
-
-            # Subtract the maximum value for numerical stability
-            q_values_stable = q_values - np.max(q_values)
-            exp_values = np.exp(q_values_stable / temp)
-            probabilities = exp_values / (
-                np.sum(exp_values) + 1e-10
-            )  # Add small value to prevent division by zero
-
-        if visitation == 0:
-            probabilities = np.ones_like(q_values, dtype=float) / len(q_values)
-
-        return probabilities
-
-    def choose_action(
-        self, state: np.ndarray, temperature: float = None, greedy: bool = False
-    ) -> np.ndarray:
-        action_probabilities = self.get_action_probabilities(state, temperature)
-        if greedy:
-            action_encoded = np.argmax(action_probabilities)
-        else:
-            action_encoded = np.random.choice(
-                self.all_actions_encoded, p=action_probabilities
-            )
-        action = np.array(
-            self.action_discretizer.indices_to_midpoints(
-                self.action_discretizer.decode_indices(action_encoded)
-            )
-        )
-        if isinstance(self.env.action_space, spaces.Discrete):
-            action = action.squeeze().item()
-        return action
-
-    def update(
         self,
-        state: np.ndarray,
-        action: np.ndarray,
-        reward: float,
-        next_state: np.ndarray,
-        done: bool,
-        alpha: float = 0.1,
-        gamma: float = 0.99,
-    ) -> None:
-        """
-        Update the Q-Table using the Q-learning update rule.
-
-        :param state: The current state.
-        :param action: The action taken (multi-dimensional).
-        :param reward: The received reward.
-        :param next_state: The next state.
-        :param done: Whether the episode is finished.
-        :param alpha: Learning rate.
-        :param gamma: Discount factor.
-        """
-        state_encoded = self.state_discretizer.encode_indices(
-            [*self.state_discretizer.discretize(state)[1]]
-        )
-        next_state_encoded = self.state_discretizer.encode_indices(
-            [*self.state_discretizer.discretize(next_state)[1]]
-        )
-        action_encoded = self.action_discretizer.encode_indices(
-            [*self.action_discretizer.discretize(action)[1]]
-        )
-
-        # reward /= 10.
-
-        if done:
-            td_target = reward  # No future reward if the episode is done
-        else:
-            # Compute the best next action's Q-value
-            best_next_action_value = max(
-                [
-                    self.q_table.get((next_state_encoded, a), 0.0)
-                    for a in self.all_actions_encoded
-                ],
-                default=0.0,
-            )
-            td_target = reward + gamma * best_next_action_value
-
-        # Update Q-value for the current state-action pair
-        td_error = td_target - self.q_table[(state_encoded, action_encoded)]
-        self.q_table[(state_encoded, action_encoded)] += alpha * td_error
-        self.visit_table[(state_encoded, action_encoded)] += 1
-
-    def learn(
-        self,
-        total_timesteps: int,
-        reset_num_timesteps: bool = True,
-        progress_bar: bool = False,
-        temperature: float = None,
+        eval_env,
+        eval_interval: int,
+        eval_episodes: int = 10,
+        best_model_save_path: Optional[str] = None,
+        log_path: Optional[str] = None,
+        deterministic: bool = True,
+        verbose: int = 1,
+        optimal_score: Optional[float] = None
     ):
-        state, info = self.env.reset()
-        episode_step_count = 0
-        num_episodes = 0
-        num_truncated = 0
-        num_terminated = 0
-        sum_episode_rewards = 0
+        super().__init__(verbose)
+        self.eval_env = eval_env
+        self.eval_interval = eval_interval
+        self.eval_episodes = eval_episodes
+        self.deterministic = deterministic
 
-        # Initialize the progress bar
-        pbar = None
-        if progress_bar:
-            pbar = tqdm.tqdm(total=total_timesteps, desc="Inner Training", unit="step")
+        self.best_model_save_path = best_model_save_path
+        self.log_path = log_path
 
-        for timestep in range(total_timesteps):
-            if reset_num_timesteps:
-                pass
-            action = self.choose_action(state, temperature=temperature)
-            next_state, reward, terminated, truncated, info = self.env.step(action)
-            self.update(
-                state,
-                action,
-                reward,
-                next_state,
-                terminated,
-                alpha=self.learning_rate,
-                gamma=self.gamma,
-            )
+        self.optimal_score = optimal_score
+        self.best_mean_reward = -np.inf
+        self.step_reached_optimal = None
+        self.records = []
+
+    def _on_training_start(self):
+        self.records = []
+        self.step_reached_optimal = None
+        if self.verbose > 0:
+            print("[EvalCallback] Starting evaluation callback.")
+
+    def _on_step(self):
+        if self.num_timesteps % self.eval_interval != 0:
+            return True
+
+        mean_reward, std_reward = self.evaluate_policy()
+
+        if self.verbose > 0:
+            print(f"[EvalCallback] Step {self.num_timesteps} | Mean reward: {mean_reward:.2f} ± {std_reward:.2f}")
+
+        self.records.append((self.num_timesteps, mean_reward, std_reward))
+
+        if mean_reward > self.best_mean_reward:
+            self.best_mean_reward = mean_reward
+            if self.verbose > 0:
+                print(f"[EvalCallback] New best mean reward: {mean_reward:.2f}, saving model.")
+            if self.best_model_save_path is not None:
+                self.agent.save(self.best_model_save_path)
+
+        if self.optimal_score is not None and mean_reward >= self.optimal_score:
+            if self.step_reached_optimal is None:
+                self.step_reached_optimal = self.num_timesteps
+
+        return True
+
+    def _on_training_end(self):
+        if self.verbose > 0:
+            print("[EvalCallback] Training finished. Saving logs.")
+        df = pd.DataFrame(self.records, columns=["Timesteps", "MeanReward", "StdReward"])
+        if self.log_path is not None:
+            os.makedirs(self.log_path, exist_ok=True)
+            log_file = os.path.join(self.log_path, "evaluation_log.csv")
+            df.to_csv(log_file, index=False)
+            if self.verbose > 0:
+                print(f"[EvalCallback] Logs saved at: {log_file}")
+
+        self.eval_env.close()
+
+    def evaluate_policy(self):
+        all_rewards = []
+        for episode in range(self.eval_episodes):
+            state, info = self.eval_env.reset()
+            done = False
+            total_reward = 0.0
+
+            while not done:
+                action = self.agent.choose_action(state, greedy=self.deterministic)
+                next_state, reward, terminated, truncated, info = self.eval_env.step(action)
+                done = terminated or truncated
+                total_reward += reward
+                state = next_state
+
+            all_rewards.append(total_reward)
+
+        mean_reward = np.mean(all_rewards)
+        std_reward = np.std(all_rewards)
+        return mean_reward, std_reward
+
+
+if __name__ == "__main__":
+    import os
+    import gymnasium as gym
+    import numpy as np
+    import pandas as pd
+    import matplotlib.pyplot as plt
+    import tqdm
+    from typing import Callable, Union, List
+    from stable_baselines3.common.vec_env import SubprocVecEnv
+
+
+    # ---- Hyperparameters ---- #
+    TOTAL_TIMESTEPS = 100_000
+    EVAL_INTERVAL = 2_000
+    EVAL_EPISODES = 10
+    N_ENVS = 8
+    MAP_SIZE = 8
+    SAVE_PATH = "./tabular_q_agent_frozenlake/"
+    BEST_MODEL_FILE = os.path.join(SAVE_PATH, "best_model.zip")
+    LOG_PATH = os.path.join(SAVE_PATH, "logs")
+
+    os.makedirs(SAVE_PATH, exist_ok=True)
+
+    # ---- Create parallel FrozenLake envs (train + eval) ---- #
+    def make_env():
+        def _init():
+            env = gym.make("FrozenLake-v1", map_name=f"{MAP_SIZE}x{MAP_SIZE}", is_slippery=True)
+            return env
+        return _init
+
+    train_env = SubprocVecEnv([make_env() for _ in range(N_ENVS)])
+    eval_env = gym.make("FrozenLake-v1", map_name=f"{MAP_SIZE}x{MAP_SIZE}", is_slippery=True)
+
+    # ---- Create TabularQAgent instance ---- #
+    agent = TabularQAgent(
+        env=train_env,
+        learning_rate=0.1,
+        gamma=0.99,
+        buffer_size=100_000,
+        priority_exponent=0.6,
+        importance_sampling_correction=1.0,
+        max_temperature=1.0,
+        temperature_sensitivity=0.1,
+        batch_size=32,
+        batch_update_interval=8,
+        print_info=True
+    )
+
+    # ---- EvalCallback ---- #
+    eval_callback = EvalCallback(
+        eval_env=eval_env,
+        eval_interval=EVAL_INTERVAL,
+        eval_episodes=EVAL_EPISODES,
+        best_model_save_path=BEST_MODEL_FILE,
+        log_path=LOG_PATH,
+        deterministic=True,
+        verbose=1
+    )
+
+    # ---- Train ---- #
+    agent.learn(
+        total_timesteps=TOTAL_TIMESTEPS,
+        callback=eval_callback,
+        reset_num_timesteps=True,
+        progress_bar=True
+    )
+
+    # ---- Plot training curve ---- #
+    eval_log_file = os.path.join(LOG_PATH, "evaluation_log.csv")
+    if os.path.exists(eval_log_file):
+        df = pd.read_csv(eval_log_file)
+        plt.figure(figsize=(10, 6))
+        plt.plot(df["Timesteps"], df["MeanReward"], label="Mean Reward")
+        plt.fill_between(df["Timesteps"],
+                         df["MeanReward"] - df["StdReward"],
+                         df["MeanReward"] + df["StdReward"],
+                         alpha=0.2)
+        plt.title("Evaluation Mean Reward Over Time")
+        plt.xlabel("Timesteps")
+        plt.ylabel("Mean Reward")
+        plt.legend()
+        plt.grid()
+        plt.tight_layout()
+        plt.savefig(os.path.join(LOG_PATH, "eval_curve.png"))
+        plt.show()
+
+    # ---- Load best model and evaluate ---- #
+    print("\n=== Loading Best Model ===")
+    loaded_agent = TabularQAgent.load(
+        path=BEST_MODEL_FILE,
+        env=eval_env,
+        print_system_info=True
+    )
+
+    print("=== Evaluating Loaded Model ===")
+    test_rewards = []
+    n_test_episodes = 20
+    for ep in range(n_test_episodes):
+        state, info = eval_env.reset()
+        total_reward = 0.0
+        done = False
+        while not done:
+            action = loaded_agent.choose_action(state, greedy=True)
+            next_state, reward, terminated, truncated, info = eval_env.step(action)
+            done = terminated or truncated
+            total_reward += reward
             state = next_state
-            episode_step_count += 1
-            sum_episode_rewards += reward
-            if terminated or truncated:
-                episode_step_count = 0
-                num_episodes += 1
-                num_terminated += 1 if terminated else 0
-                num_truncated += 1 if truncated else 0
-                state, info = self.env.reset()
+        test_rewards.append(total_reward)
+        print(f"Episode {ep+1}/{n_test_episodes}: Reward = {total_reward:.2f}")
 
-            if progress_bar:
-                # Update the progress bar
-                pbar.set_postfix(
-                    {
-                        "Episodes": num_episodes,
-                        "Terminated": num_terminated,
-                        "Truncated": num_truncated,
-                        "Reward (last)": reward,
-                        "Avg Episode Reward": (
-                            sum_episode_rewards / num_episodes
-                            if num_episodes > 0
-                            else 0.0
-                        ),
-                    }
-                )
-                pbar.update(1)
-        if progress_bar:
-            pbar.close()
+    mean_test_reward = np.mean(test_rewards)
+    print(f"\n=== Loaded Model Mean Test Reward over {n_test_episodes} episodes: {mean_test_reward:.2f} ===")
+
+    eval_env.close()
+    train_env.close()
