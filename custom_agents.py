@@ -1232,18 +1232,38 @@ class TabularQAgent(Agent):
 
         return probabilities
 
-    def choose_action(self, state: np.ndarray, greedy: bool = False) -> np.ndarray:
+    def choose_action(self, state: Union[np.ndarray, List[np.ndarray]], greedy: bool = False) -> Union[
+        np.ndarray, List[np.ndarray]]:
         """
-        Select an action for a given state using state-specific temperature (softmax).
+        Select an action (or batch of actions) for the given state(s), using state-specific temperature (softmax).
         If greedy is True, always select the highest probability action.
-        :param state: The current observation (raw state array).
+
+        :param state: The current observation(s). Single state (np.ndarray) or batch of states (list or np.ndarray).
         :param greedy: Whether to use greedy action selection.
         :return: Action formatted for the environment (decoded if necessary).
+                 Single action (np.ndarray) or batch of actions (list of np.ndarray)
         """
-        # --- Get action probabilities using state-specific temperature ---
+
+        # --- Detect batched observations directly ---
+        is_discrete_obs = isinstance(self.observation_space, spaces.Discrete)
+        if is_discrete_obs:
+            # If Discrete observation_space, batch if ndim == 1 and len > 1
+            is_batched = isinstance(state, np.ndarray) and state.ndim == 1 and len(state) > 1
+        else:
+            # Otherwise batch if ndim >= 2
+            is_batched = isinstance(state, np.ndarray) and state.ndim >= 2
+
+        # --- Handle batched observations ---
+        if is_batched:
+            actions = []
+            for idx in range(len(state)):
+                action = self.choose_action(state[idx], greedy=greedy)
+                actions.append(action)
+            return actions
+
+        # --- Single observation case ---
         action_probabilities = self.get_action_probabilities(state)
 
-        # --- Select action ---
         if greedy:
             action_encoded = np.argmax(action_probabilities)
         else:
@@ -1252,20 +1272,26 @@ class TabularQAgent(Agent):
                 p=action_probabilities
             )
 
-        # --- Convert encoded action to actual action (for env.step) ---
         action = np.array(
             self.action_discretizer.indices_to_midpoints(
                 self.action_discretizer.decode_indices(action_encoded)
             )
         )
 
-        # --- Handle discrete action spaces ---
         if isinstance(self.env.action_space, spaces.Discrete):
             action = action.squeeze().item()
 
         return action
 
-    def predict(self, state: np.ndarray, greedy: bool = False) -> np.ndarray:
+    def predict(self, state: Union[np.ndarray, List[np.ndarray]], greedy: bool = False) -> Union[
+        np.ndarray, List[np.ndarray]]:
+        """
+        Alias for choose_action() to align with SB3 predict() interface.
+
+        :param state: Current observation(s).
+        :param greedy: Whether to select greedy actions.
+        :return: Selected action(s).
+        """
         return self.choose_action(state, greedy)
 
     def update(
@@ -1334,65 +1360,104 @@ class TabularQAgent(Agent):
         if reset_num_timesteps:
             self.num_timesteps = 0
 
-        # --- Prepare callback ---
         callback = self._init_callback(callback)
 
-        # --- Callback training start ---
         if not callback.on_training_start():
             print("Training aborted by callback.")
             return self
 
-        # --- Initialize env ---
-        state, info = self.env.reset()
+        state = self.env.reset()
         episode_step_count = 0
         num_episodes = 0
         num_truncated = 0
         num_terminated = 0
         sum_episode_rewards = 0
 
-        pbar = tqdm.tqdm(total=total_timesteps, desc="Training", unit="step") if progress_bar else None
+        pbar = tqdm.tqdm(total=total_timesteps, desc="Training", unit="step", dynamic_ncols=True,) if progress_bar else None
 
         batch_size = self.batch_size
         batch_update_interval = self.batch_update_interval
 
         for timestep in range(total_timesteps):
-            # --- Encode current state ---
-            state_encoded = self.state_discretizer.encode_indices(
-                [*self.state_discretizer.discretize(state)[1]]
-            )
+            # --- Detect batched observation directly ---
+            is_discrete_obs = isinstance(self.observation_space, spaces.Discrete)
+            if is_discrete_obs:
+                is_batched = isinstance(state, np.ndarray) and state.ndim == 1 and len(state) > 1
+            else:
+                is_batched = isinstance(state, np.ndarray) and state.ndim >= 2
 
-            # --- Select action with current temperature ---
-            action_probs = self.get_action_probabilities(state)
-            action_encoded = np.random.choice(self.all_actions_encoded, p=action_probs)
+            # --- Encode current state(s) ---
+            if is_batched:
+                state_encoded_batch = []
+                for s in state:
+                    if is_discrete_obs:
+                        state_encoded = int(s)
+                    else:
+                        state_encoded = self.state_discretizer.encode_indices(
+                            [*self.state_discretizer.discretize(s)[1]]
+                        )
+                    state_encoded_batch.append(state_encoded)
+                state_encoded = state_encoded_batch
+            else:
+                if is_discrete_obs:
+                    state_encoded = int(state)
+                else:
+                    state_encoded = self.state_discretizer.encode_indices(
+                        [*self.state_discretizer.discretize(state)[1]]
+                    )
 
-            # --- Convert to env action ---
-            action = np.array(
-                self.action_discretizer.indices_to_midpoints(
-                    self.action_discretizer.decode_indices(action_encoded)
+            # --- Select action(s) ---
+            actions = self.choose_action(state)
+
+            # --- Step the environment ---
+            next_state, reward, terminated, info = self.env.step(actions)
+
+            # --- Encode next_state(s) ---
+            if is_batched:
+                next_state_encoded_batch = []
+                for s in next_state:
+                    if is_discrete_obs:
+                        next_state_encoded = int(s)
+                    else:
+                        next_state_encoded = self.state_discretizer.encode_indices(
+                            [*self.state_discretizer.discretize(s)[1]]
+                        )
+                    next_state_encoded_batch.append(next_state_encoded)
+                next_state_encoded = next_state_encoded_batch
+            else:
+                if is_discrete_obs:
+                    next_state_encoded = int(next_state)
+                else:
+                    next_state_encoded = self.state_discretizer.encode_indices(
+                        [*self.state_discretizer.discretize(next_state)[1]]
+                    )
+
+            # --- Add to replay buffer ---
+            if is_batched:
+                for idx in range(len(state)):
+                    transition = Transition(
+                        state=state_encoded[idx],
+                        action=self.action_discretizer.encode_indices(
+                            [*self.action_discretizer.discretize(actions[idx])[1]]
+                        ),
+                        reward=reward[idx],
+                        next_state=next_state_encoded[idx],
+                        done=terminated[idx]
+                    )
+                    self.replay_buffer.add(transition)
+            else:
+                transition = Transition(
+                    state=state_encoded,
+                    action=self.action_discretizer.encode_indices(
+                        [*self.action_discretizer.discretize(actions)[1]]
+                    ),
+                    reward=reward,
+                    next_state=next_state_encoded,
+                    done=terminated
                 )
-            )
-            if isinstance(self.env.action_space, spaces.Discrete):
-                action = action.squeeze().item()
+                self.replay_buffer.add(transition)
 
-            # --- Interact with environment ---
-            next_state, reward, terminated, truncated, info = self.env.step(action)
-
-            next_state_encoded = self.state_discretizer.encode_indices(
-                [*self.state_discretizer.discretize(next_state)[1]]
-            )
-
-            # --- Store transition in replay buffer (NO online update anymore!) ---
-            transition = Transition(
-                state=state_encoded,
-                action=action_encoded,
-                reward=reward,
-                next_state=next_state_encoded,
-                done=terminated
-            )
-            # You can skip td_error here since PER will update after batch updates
-            self.replay_buffer.add(transition)
-
-            # --- Periodic batch update from replay buffer ---
+            # --- Periodic batch update ---
             if self.num_timesteps % batch_update_interval == 0 and len(self.replay_buffer.buffer) >= batch_size:
                 transitions, indices, weights = self.replay_buffer.sample(
                     batch_size=batch_size,
@@ -1411,12 +1476,11 @@ class TabularQAgent(Agent):
                     )
                     batch_td_errors.append(td_error_batch)
 
-                    # --- VDBE temperature update for each sampled state ---
+                    # --- VDBE temperature update ---
                     self.state_temperature_table[trans.state] = (
                             self.T_max * np.exp(-td_error_batch / self.temperature_sensitivity)
                     )
 
-                # --- Update priorities after batch updates ---
                 self.replay_buffer.update_priorities(indices, batch_td_errors)
 
             # --- Move to next state ---
@@ -1424,32 +1488,29 @@ class TabularQAgent(Agent):
 
             # --- Episode control ---
             episode_step_count += 1
-            sum_episode_rewards += reward
+            sum_episode_rewards += reward if not is_batched else np.mean(reward)
 
-            if terminated or truncated:
+            if not is_batched and (terminated or truncated):
                 episode_step_count = 0
                 num_episodes += 1
                 num_terminated += int(terminated)
                 num_truncated += int(truncated)
-                state, info = self.env.reset()
+                state = self.env.reset()
 
-                # --- Callback on episode end ---
                 if not callback.on_rollout_end():
                     print("Training aborted by callback (on_rollout_end).")
                     break
 
-            # --- Callback on step ---
             if not callback.on_step():
                 print("Training aborted by callback (on_step).")
                 break
 
-            # --- Progress bar ---
             if progress_bar:
                 pbar.set_postfix({
                     "Episodes": num_episodes,
                     "Terminated": num_terminated,
                     "Truncated": num_truncated,
-                    "Reward (last)": reward,
+                    "Reward (last)": reward if not is_batched else np.mean(reward),
                     "Avg Episode Reward": (
                         sum_episode_rewards / num_episodes if num_episodes > 0 else 0.0
                     ),
@@ -1458,7 +1519,6 @@ class TabularQAgent(Agent):
 
             self.num_timesteps += 1
 
-        # --- End of training ---
         if progress_bar:
             pbar.close()
 
@@ -1499,8 +1559,8 @@ class TabularQAgent(Agent):
 
 class EvalCallback(BaseCallback):
     """
-    General evaluation callback for any tabular/actor-critic algorithm.
-    Supports evaluation, best model saving, logging, and plotting.
+    General evaluation callback for tabular/actor-critic algorithm.
+    Supports evaluation on VecEnv, best model saving, logging, and plotting.
     """
 
     def __init__(
@@ -1572,23 +1632,39 @@ class EvalCallback(BaseCallback):
         self.eval_env.close()
 
     def evaluate_policy(self):
-        all_rewards = []
-        for episode in range(self.eval_episodes):
-            state, info = self.eval_env.reset()
-            done = False
-            total_reward = 0.0
+        """
+        Evaluate agent in a VecEnv-compatible loop.
+        """
+        total_rewards = []
+        n_envs = self.eval_env.num_envs if hasattr(self.eval_env, 'num_envs') else 1
+        episodes_per_env = int(np.ceil(self.eval_episodes / n_envs))
 
-            while not done:
-                action = self.agent.choose_action(state, greedy=self.deterministic)
-                next_state, reward, terminated, truncated, info = self.eval_env.step(action)
-                done = terminated or truncated
-                total_reward += reward
-                state = next_state
+        for _ in range(episodes_per_env):
+            obs = self.eval_env.reset()
+            dones = [False] * n_envs
+            episode_rewards = [0.0 for _ in range(n_envs)]
 
-            all_rewards.append(total_reward)
+            while not all(dones):
+                actions = []
+                for single_obs in obs:
+                    action = self.agent.choose_action(single_obs, greedy=self.deterministic)
+                    actions.append(action)
+                actions = np.array(actions)
 
-        mean_reward = np.mean(all_rewards)
-        std_reward = np.std(all_rewards)
+                next_obs, rewards, dones_flags, infos = self.eval_env.step(actions)
+
+                for i in range(n_envs):
+                    if not dones[i]:
+                        episode_rewards[i] += rewards[i]
+
+                obs = next_obs
+                dones = dones_flags
+
+            total_rewards.extend(episode_rewards)
+
+        total_rewards = total_rewards[:self.eval_episodes]  # limit to exactly eval_episodes
+        mean_reward = np.mean(total_rewards)
+        std_reward = np.std(total_rewards)
         return mean_reward, std_reward
 
 
