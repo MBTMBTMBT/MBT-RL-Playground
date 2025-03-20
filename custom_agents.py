@@ -1,4 +1,5 @@
 from collections import defaultdict
+from dataclasses import dataclass
 from itertools import product
 from typing import List, Tuple, Optional, Union
 from abc import ABC, abstractmethod
@@ -579,7 +580,576 @@ class Discretizer:
         return noisy_vector
 
 
+@dataclass
+class Transition:
+    state: int         # Encoded state index
+    action: int        # Encoded action index
+    reward: float
+    next_state: int    # Encoded next state index
+    done: bool
+
+
+class ReplayBuffer:
+    """
+    Replay Buffer with Prioritized Experience Replay (PER) support.
+    Stores tabular state-action transitions, with priorities driven by TD error.
+    """
+    def __init__(self, capacity: int = 10000, alpha: float = 0.6):
+        """
+        :param capacity: Maximum number of transitions stored in the buffer.
+        :param alpha: Degree of prioritization (0 = uniform, 1 = full prioritization).
+        """
+        self.capacity = capacity
+        self.buffer: List[Transition] = []
+        self.priorities: List[float] = []
+        self.alpha = alpha
+        self.pos = 0
+
+    def add(self, transition: Transition, td_error: Optional[float] = None):
+        """
+        Add a transition with TD-error-based priority to the buffer.
+
+        :param transition: The Transition to store.
+        :param td_error: The TD error used to compute priority (optional).
+        """
+        if td_error is not None:
+            priority = abs(td_error) + 1e-5  # Small epsilon to avoid zero priority
+        else:
+            priority = max(self.priorities, default=1.0)
+
+        if len(self.buffer) < self.capacity:
+            self.buffer.append(transition)
+            self.priorities.append(priority)
+        else:
+            self.buffer[self.pos] = transition
+            self.priorities[self.pos] = priority
+            self.pos = (self.pos + 1) % self.capacity
+
+    def sample(self, batch_size: int = 32, beta: float = 1.0) -> Tuple[List[Transition], List[int], np.ndarray]:
+        """
+        Sample a batch of transitions according to priorities.
+
+        :param batch_size: Number of transitions to sample.
+        :param beta: Importance-sampling weight adjustment.
+        :return: Tuple (samples, indices, IS weights)
+        """
+        if len(self.buffer) == 0:
+            return [], [], np.array([])
+
+        priorities = np.array(self.priorities)
+        scaled_priorities = priorities ** self.alpha
+        probs = scaled_priorities / scaled_priorities.sum()
+
+        indices = np.random.choice(len(self.buffer), batch_size, p=probs)
+        samples = [self.buffer[i] for i in indices]
+
+        # Importance-sampling weights to compensate bias
+        total = len(self.buffer)
+        weights = (total * probs[indices]) ** (-beta)
+        weights /= weights.max()  # Normalize to 1
+
+        return samples, indices, weights
+
+    def update_priorities(self, indices: List[int], td_errors: List[float]):
+        """
+        Update the priorities of sampled transitions after TD-error recalculation.
+
+        :param indices: List of indices for which priorities are updated.
+        :param td_errors: New TD-errors corresponding to sampled transitions.
+        """
+        for idx, td_error in zip(indices, td_errors):
+            self.priorities[idx] = abs(td_error) + 1e-5
+
+
 class TabularQAgent(Agent):
+    def __init__(
+            self,
+            env: gym.Env,
+            *,
+            state_discretizer: Union[Discretizer, None] = None,
+            action_discretizer: Union[Discretizer, None] = None,
+            state_ranges: Union[List[Tuple[float, float]], None] = None,
+            num_state_buckets: Union[List[int], None] = None,
+            state_normal_params: List[Optional[Tuple[float, float]]] = None,
+            action_ranges: Union[List[Tuple[float, float]], None] = None,
+            num_action_buckets: Union[List[int], None] = None,
+            action_normal_params: List[Optional[Tuple[float, float]]] = None,
+            learning_rate: float = 0.1,
+            gamma: float = 0.99,
+            buffer_size: int = 100_000,
+            priority_exponent: float = 0.6,
+            importance_sampling_correction = 1.0,
+            max_temperature: float = 1.0,
+            temperature_sensitivity = 0.1,
+            batch_size = 32,
+            batch_update_interval = 8,
+            print_info: bool = True,
+    ):
+        super().__init__(env)
+
+        # If discretizers are already provided, use them directly
+        if state_discretizer is not None:
+            self.state_discretizer = state_discretizer
+        else:
+            auto_state_ranges, auto_num_state_buckets = generate_discretizer_params_from_space(
+                self.observation_space
+            )
+
+            final_state_ranges = [
+                user if user is not None else auto
+                for user, auto in zip(state_ranges or auto_state_ranges, auto_state_ranges)
+            ]
+
+            final_num_state_buckets = [
+                user if user is not None else auto
+                for user, auto in zip(num_state_buckets or auto_num_state_buckets, auto_num_state_buckets)
+            ]
+
+            final_state_normal_params = [
+                param if param is not None else None
+                for param in (state_normal_params or [None] * len(final_state_ranges))
+            ]
+
+            self.state_discretizer = Discretizer(
+                ranges=final_state_ranges,
+                num_buckets=final_num_state_buckets,
+                normal_params=final_state_normal_params
+            )
+
+        if action_discretizer is not None:
+            self.action_discretizer = action_discretizer
+        else:
+            auto_action_ranges, auto_num_action_buckets = generate_discretizer_params_from_space(
+                self.action_space
+            )
+
+            final_action_ranges = [
+                user if user is not None else auto
+                for user, auto in zip(action_ranges or auto_action_ranges, auto_action_ranges)
+            ]
+
+            final_action_num_buckets = [
+                user if user is not None else auto
+                for user, auto in zip(num_action_buckets or auto_num_action_buckets, auto_num_action_buckets)
+            ]
+
+            final_action_normal_params = [
+                param if param is not None else None
+                for param in (action_normal_params or [None] * len(final_action_ranges))
+            ]
+
+            self.action_discretizer = Discretizer(
+                ranges=final_action_ranges,
+                num_buckets=final_action_num_buckets,
+                normal_params=final_action_normal_params
+            )
+
+        self.q_table_1 = defaultdict(lambda: 0.0)
+        self.q_table_2 = defaultdict(lambda: 0.0)
+        self.visit_table = defaultdict(lambda: 0)  # Uses the same keys of the Q-Table to do visit count.
+
+        # Q-Learning
+        self.learning_rate = learning_rate
+        self.gamma = gamma
+
+        # Replay Buffer with PER
+        self.replay_buffer = ReplayBuffer(
+            capacity=buffer_size,
+            alpha=priority_exponent,
+        )
+        self.importance_sampling_correction = importance_sampling_correction
+
+        # VDBE temperature control
+        self.T_max = max_temperature
+        self.temperature_sensitivity = temperature_sensitivity
+        self.state_temperature_table = defaultdict(lambda: self.T_max)
+
+        # Batch update
+        self.batch_size = batch_size
+        self.batch_update_interval = batch_update_interval
+
+        self.all_actions_encoded = sorted(
+            [
+                self.action_discretizer.encode_indices([*indices])
+                for indices in self.action_discretizer.list_all_possible_combinations()[1]
+            ]
+        )
+        if print_info:
+            self.print_q_table_info()
+
+    def reset_q_table(self) -> None:
+        self.q_table = defaultdict(
+            lambda: 0.0
+        )  # Flattened Q-Table with state-action tuple keys
+
+    def reset_visit_table(self) -> None:
+        self.visit_table = defaultdict(
+            lambda: 0
+        )  # Uses the same keys of the Q-Table to do visit count.
+
+    def clone(self) -> "TabularQAgent":
+        """
+        Create a deep copy of the Q-Table agent.
+
+        :return: A new QTableAgent instance with the same Q-Table.
+        """
+        new_agent = TabularQAgent(
+            self.env,
+            state_discretizer=self.state_discretizer,
+            action_discretizer=self.action_discretizer,
+            learning_rate=self.learning_rate,
+            gamma=self.gamma,
+            print_info=False,
+        )
+        new_agent.q_table = self.q_table.copy()
+        new_agent.visit_table = self.visit_table.copy()
+        new_agent.print_q_table_info()
+        return new_agent
+
+    def print_q_table_info(self) -> None:
+        """
+        Print information about the Q-Table size and its structure.
+        """
+        print("Q-Table Information:")
+        print(f"State Discretizer:")
+        self.state_discretizer.print_buckets()
+        print(f"Action Discretizer:")
+        self.action_discretizer.print_buckets()
+        total_combinations = (
+            self.state_discretizer.count_possible_combinations()
+            * self.action_discretizer.count_possible_combinations()
+        )
+        print(
+            f"Q-Table Size: {len(self.q_table)} state-action pairs / total combinations: {total_combinations}."
+        )
+        print(
+            f"State-Action usage: {len(self.q_table) / total_combinations * 100:.2f}%."
+        )
+
+    def save_q_table(self, file_path: str = None) -> pd.DataFrame:
+        """
+        Save the Q-Table to a CSV file and/or return as a DataFrame.
+        IMPORTANT: This method is not a class method but an instance method, This is different from sb3!
+        :param file_path: Path to save the file.
+        :return: DataFrame representation of the Q-Table.
+        """
+        # list all possible actions (but not states, cause states are just too many)
+        checked_states = set()
+        data = []
+        for (encoded_state, encoded_action), q_value in tuple(self.q_table.items()):
+            if encoded_state in checked_states:
+                continue
+            row = {f"state": encoded_state}
+            row.update(
+                {
+                    f"action_{a}_q_value": self.q_table[(encoded_state, a)]
+                    for a in self.all_actions_encoded
+                }
+            )
+            row.update(
+                {
+                    f"action_{a}_visit_count": self.visit_table[(encoded_state, a)]
+                    for a in self.all_actions_encoded
+                }
+            )
+            row.update(
+                {
+                    "total_visit_count": sum(
+                        [
+                            self.visit_table[(encoded_state, a)]
+                            for a in self.all_actions_encoded
+                        ]
+                    )
+                }
+            )
+            data.append(row)
+            checked_states.add(encoded_state)
+        df = pd.DataFrame(data)
+        if file_path:
+            df.to_csv(file_path, index=False)
+            print(f"Q-Table saved to {file_path}.")
+        return df
+
+    def load_q_table(self, file_path: str = None, df: pd.DataFrame = None):
+        """
+        Load a Q-Table from a CSV file or a DataFrame.
+
+        :param file_path: Path to the saved file.
+        :param df: DataFrame representation of the Q-Table.
+        :return: An instance of QTableAgent.
+        """
+        if file_path:
+            df = pd.read_csv(file_path)
+        elif df is None:
+            raise ValueError("Either file_path or df must be provided.")
+
+        if len(self.q_table) > 0 or len(self.visit_table) > 0:
+            print(
+                "Warning: Loading a Q-Table that already has data. Part of them might be overwritten."
+            )
+
+        for _, row in df.iterrows():
+            encoded_state = int(row["state"])
+            for a in self.all_actions_encoded:
+                self.q_table[(encoded_state, a)] = row[f"action_{a}_q_value"]
+                self.visit_table[(encoded_state, a)] = row[f"action_{a}_visit_count"]
+        print(f"Q-Table loaded from {f'{file_path}' if file_path else 'DataFrame'}.")
+        self.print_q_table_info()
+
+    def get_action_probabilities(self, state: np.ndarray) -> np.ndarray:
+        """
+        Calculate action probabilities for a given state using state-specific temperature.
+
+        :param state: The current observation (raw state array).
+        :return: An array of action probabilities.
+        """
+        # --- Encode the current state (discrete index) ---
+        encoded_state = self.state_discretizer.encode_indices(
+            [*self.state_discretizer.discretize(state)[1]]
+        )
+
+        # --- Retrieve Q-values for all actions ---
+        q_values = np.array([
+            (self.q_table_1[(encoded_state, a)] + self.q_table_2[(encoded_state, a)]) / 2.0
+            for a in self.all_actions_encoded
+        ])
+
+        # --- Get temperature for this state ---
+        temperature = self.state_temperature_table[encoded_state]
+
+        # --- Handle all-zero Q-values ---
+        if np.all(q_values == 0):
+            probabilities = np.ones_like(q_values, dtype=float) / len(q_values)
+            return probabilities
+
+        # --- Stability control for temperature ---
+        temperature = max(temperature, 1e-6)  # Prevent division by zero
+
+        # --- Softmax computation ---
+        q_values_stable = q_values - np.max(q_values)  # Numerical stability
+        exp_values = np.exp(q_values_stable / temperature)
+        probabilities = exp_values / (np.sum(exp_values) + 1e-10)
+
+        return probabilities
+
+    def choose_action(self, state: np.ndarray, greedy: bool = False) -> np.ndarray:
+        """
+        Select an action for a given state using state-specific temperature (softmax).
+        If greedy is True, always select the highest probability action.
+
+        :param state: The current observation (raw state array).
+        :param greedy: Whether to use greedy action selection.
+        :return: Action formatted for the environment (decoded if necessary).
+        """
+        # --- Get action probabilities using state-specific temperature ---
+        action_probabilities = self.get_action_probabilities(state)
+
+        # --- Select action ---
+        if greedy:
+            action_encoded = np.argmax(action_probabilities)
+        else:
+            action_encoded = np.random.choice(
+                self.all_actions_encoded,
+                p=action_probabilities
+            )
+
+        # --- Convert encoded action to actual action (for env.step) ---
+        action = np.array(
+            self.action_discretizer.indices_to_midpoints(
+                self.action_discretizer.decode_indices(action_encoded)
+            )
+        )
+
+        # --- Handle discrete action spaces ---
+        if isinstance(self.env.action_space, spaces.Discrete):
+            action = action.squeeze().item()
+
+        return action
+
+    def predict(self, state: np.ndarray, greedy: bool = False) -> np.ndarray:
+        return self.choose_action(state, greedy)
+
+    def update(
+            self,
+            state_encoded: int,
+            action_encoded: int,
+            reward: float,
+            next_state_encoded: int,
+            done: bool,
+            is_weight: float = 1.0  # Importance-sampling weight, default no correction
+    ) -> float:
+        """
+        Double Q-Learning update rule with IS weight.
+
+        :param state_encoded: Encoded current state index.
+        :param action_encoded: Encoded action index.
+        :param reward: Immediate reward.
+        :param next_state_encoded: Encoded next state index.
+        :param done: Whether episode ended.
+        :param is_weight: Importance-sampling weight (PER correction factor).
+        :return: Absolute TD error (unweighted), for PER priority update.
+        """
+        # Randomly decide which table to update
+        update_first = np.random.rand() < 0.5
+
+        if update_first:
+            q_update, q_target = self.q_table_1, self.q_table_2
+        else:
+            q_update, q_target = self.q_table_2, self.q_table_1
+
+        # Compute TD target
+        if done:
+            td_target = reward
+        else:
+            best_next_action = max(
+                self.all_actions_encoded,
+                key=lambda a: q_update[(next_state_encoded, a)]
+            )
+            td_target = reward + self.gamma * q_target[(next_state_encoded, best_next_action)]
+
+        # TD error
+        td_error = td_target - q_update[(state_encoded, action_encoded)]
+
+        # Apply importance-sampling weight on the TD error (scale update)
+        q_update[(state_encoded, action_encoded)] += (
+                self.learning_rate * is_weight * td_error
+        )
+
+        # Optional visit tracking
+        self.visit_table[(state_encoded, action_encoded)] += 1
+
+        # Return abs(TD error), not weighted → for priority updates
+        return abs(td_error)
+
+    def learn(
+            self,
+            total_timesteps: int,
+            reset_num_timesteps: bool = True,
+            progress_bar: bool = False
+    ):
+        """
+        Double Q-Learning loop with Replay Buffer (PER), IS correction, and VDBE temperature.
+        """
+
+        state, info = self.env.reset()
+        episode_step_count = 0
+        num_episodes = 0
+        num_truncated = 0
+        num_terminated = 0
+        sum_episode_rewards = 0
+
+        pbar = tqdm.tqdm(total=total_timesteps, desc="Inner Training", unit="step") if progress_bar else None
+
+        batch_size = self.batch_size
+        batch_update_interval = self.batch_update_interval
+
+        for timestep in range(total_timesteps):
+            # --- Encode current state ---
+            state_encoded = self.state_discretizer.encode_indices(
+                [*self.state_discretizer.discretize(state)[1]]
+            )
+
+            # --- Select action with current_temperature (VDBE) ---
+            action_probs = self.get_action_probabilities(state,)
+            action_encoded = np.random.choice(self.all_actions_encoded, p=action_probs)
+
+            action = np.array(
+                self.action_discretizer.indices_to_midpoints(
+                    self.action_discretizer.decode_indices(action_encoded)
+                )
+            )
+            if isinstance(self.env.action_space, spaces.Discrete):
+                action = action.squeeze().item()
+
+            # --- Interact with environment ---
+            next_state, reward, terminated, truncated, info = self.env.step(action)
+
+            next_state_encoded = self.state_discretizer.encode_indices(
+                [*self.state_discretizer.discretize(next_state)[1]]
+            )
+
+            # --- Online update (IS weight=1.0 for online update) ---
+            td_error = self.update(
+                state_encoded=state_encoded,
+                action_encoded=action_encoded,
+                reward=reward,
+                next_state_encoded=next_state_encoded,
+                done=terminated,
+                is_weight=1.0  # Online step no correction
+            )
+
+            # --- Store in replay buffer with priority ---
+            transition = Transition(
+                state=state_encoded,
+                action=action_encoded,
+                reward=reward,
+                next_state=next_state_encoded,
+                done=terminated
+            )
+            self.replay_buffer.add(transition, td_error)
+
+            # --- VDBE temperature update ---
+            # VDBE-based temperature update for the current state
+            self.state_temperature_table[state_encoded] = (
+                    self.T_max * np.exp(-td_error / self.temperature_sensitivity)
+            )
+
+            # --- Periodic batch update from replay buffer ---
+            if timestep % batch_update_interval == 0 and len(self.replay_buffer.buffer) >= batch_size:
+                # Sample batch
+                transitions, indices, weights = self.replay_buffer.sample(
+                    batch_size=batch_size,
+                    beta=self.importance_sampling_correction  # Fixed beta
+                )
+
+                batch_td_errors = []
+                for trans, is_weight in zip(transitions, weights):
+                    td_error_batch = self.update(
+                        state_encoded=trans.state,
+                        action_encoded=trans.action,
+                        reward=trans.reward,
+                        next_state_encoded=trans.next_state,
+                        done=trans.done,
+                        is_weight=is_weight
+                    )
+                    batch_td_errors.append(td_error_batch)
+
+                # Update priorities after batch updates
+                self.replay_buffer.update_priorities(indices, batch_td_errors)
+
+            # --- Move to next state ---
+            state = next_state
+
+            # --- Episode control and statistics ---
+            episode_step_count += 1
+            sum_episode_rewards += reward
+            if terminated or truncated:
+                episode_step_count = 0
+                num_episodes += 1
+                num_terminated += 1 if terminated else 0
+                num_truncated += 1 if truncated else 0
+                state, info = self.env.reset()
+
+            # --- Progress bar update ---
+            if progress_bar:
+                pbar.set_postfix({
+                    "Episodes": num_episodes,
+                    "Terminated": num_terminated,
+                    "Truncated": num_truncated,
+                    "Reward (last)": reward,
+                    "Avg Episode Reward": (
+                        sum_episode_rewards / num_episodes
+                        if num_episodes > 0
+                        else 0.0
+                    ),
+                })
+                pbar.update(1)
+
+        if progress_bar:
+            pbar.close()
+
+
+class _TabularQAgent(Agent):
     def __init__(
             self,
             env: gym.Env,
@@ -731,7 +1301,7 @@ class TabularQAgent(Agent):
     def save_q_table(self, file_path: str = None) -> pd.DataFrame:
         """
         Save the Q-Table to a CSV file and/or return as a DataFrame.
-
+        IMPORTANT: This method is not a class method but an instance method, This is different from sb3!
         :param file_path: Path to save the file.
         :return: DataFrame representation of the Q-Table.
         """
