@@ -9,7 +9,9 @@ from tqdm import tqdm
 import plotly.graph_objs as go
 
 from dyna_q_modernized import DeepPyramidDynaQAgent
-from old_stuff.dyna_q_task_configs_modernized_pyramid import get_envs_discretizers_and_configs
+from old_stuff.dyna_q_task_configs_modernized_pyramid import (
+    get_envs_discretizers_and_configs,
+)
 from parallel_training import generate_test_gif
 
 

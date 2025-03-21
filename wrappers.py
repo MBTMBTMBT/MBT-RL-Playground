@@ -11,7 +11,11 @@ from torch import optim
 
 from old_stuff.discretizer import Discretizer
 from old_stuff.sb3_vec_dataset import GymDataset
-from old_stuff.ae import DeterministicAE, ae_total_correlation_uniform_loss, contrastive_loss_v2
+from old_stuff.ae import (
+    DeterministicAE,
+    ae_total_correlation_uniform_loss,
+    contrastive_loss_v2,
+)
 
 
 # class SparseRewardWrapper(gym.Wrapper):

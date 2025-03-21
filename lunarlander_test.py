@@ -92,7 +92,7 @@ class EvalAndGifCallback(BaseCallback):
         # Save path for best model
         self.best_model_path = os.path.join(
             SAVE_PATH,
-            f"sac_lander_density_{self.lander_density:.1f}_repeat_{self.repeat}_best.zip"
+            f"sac_lander_density_{self.lander_density:.1f}_repeat_{self.repeat}_best.zip",
         )
 
     def _on_step(self) -> bool:
@@ -119,10 +119,14 @@ class EvalAndGifCallback(BaseCallback):
             if mean_reward > self.best_mean_reward:
                 self.best_mean_reward = mean_reward
                 # Save current best model
-                print(f"[Best Model] Saving new best model at step {self.num_timesteps} "
-                      f"with mean reward {mean_reward:.2f}")
+                print(
+                    f"[Best Model] Saving new best model at step {self.num_timesteps} "
+                    f"with mean reward {mean_reward:.2f}"
+                )
                 self.model.save(self.best_model_path)
-                if (NEAR_OPTIMAL_SCORE > 0 and mean_reward >= (NEAR_OPTIMAL_SCORE / 2)) or NEAR_OPTIMAL_SCORE <= 0:
+                if (
+                    NEAR_OPTIMAL_SCORE > 0 and mean_reward >= (NEAR_OPTIMAL_SCORE / 2)
+                ) or NEAR_OPTIMAL_SCORE <= 0:
                     self.save_gif()
 
             # if TRAIN_STEPS - EVAL_INTERVAL * 2 < self.num_timesteps:

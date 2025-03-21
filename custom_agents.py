@@ -5,7 +5,7 @@ import zipfile
 from collections import defaultdict
 from dataclasses import dataclass
 from itertools import product
-from typing import List, Tuple, Optional, Union, Callable
+from typing import List, Tuple, Optional, Union, Callable, Any
 from abc import ABC, abstractmethod
 
 import numpy as np
@@ -15,21 +15,27 @@ from gymnasium import spaces
 import gymnasium as gym
 import tqdm
 from gymnasium.core import Env
-from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.type_aliases import GymEnv
 from stable_baselines3.common.vec_env import VecEnv, DummyVecEnv
 
 
-def check_for_correct_spaces(env: Union[Env, "VecEnv"], observation_space: spaces.Space, action_space: spaces.Space) -> None:
+def check_for_correct_spaces(
+    env: Union[Env, "VecEnv"],
+    observation_space: spaces.Space,
+    action_space: spaces.Space,
+) -> None:
     if observation_space != env.observation_space:
-        raise ValueError(f"Observation spaces do not match: {observation_space} != {env.observation_space}")
+        raise ValueError(
+            f"Observation spaces do not match: {observation_space} != {env.observation_space}"
+        )
     if action_space != env.action_space:
-        raise ValueError(f"Action spaces do not match: {action_space} != {env.action_space}")
+        raise ValueError(
+            f"Action spaces do not match: {action_space} != {env.action_space}"
+        )
 
 
 def generate_discretizer_params_from_space(
-        space: spaces.Space,
-        default_num_buckets_per_dim: int = 15
+    space: spaces.Space, default_num_buckets_per_dim: int = 15
 ) -> Tuple[List[Tuple[float, float]], List[int]]:
     """
     Automatically generate `ranges` and `num_buckets` from a Gym space.
@@ -87,14 +93,14 @@ def generate_discretizer_params_from_space(
             num_buckets.append(0)
 
     else:
-        raise NotImplementedError(f"Space type {type(space)} is not supported for discretization.")
+        raise NotImplementedError(
+            f"Space type {type(space)} is not supported for discretization."
+        )
 
     return ranges, num_buckets
 
 
-def merge_params(
-        user_values: Optional[List], auto_values: List
-) -> List:
+def merge_params(user_values: Optional[List], auto_values: List) -> List:
     """
     Merge user-specified parameters with auto-generated ones.
     If user provides a partial list, missing entries will be filled from auto_values.
@@ -117,13 +123,32 @@ def merge_params(
     return merged
 
 
+def safe_json(obj):
+    """
+    Recursively convert numpy types to native Python types
+    """
+    if isinstance(obj, dict):
+        return {safe_json(k): safe_json(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [safe_json(i) for i in obj]
+    elif isinstance(obj, tuple):
+        return tuple(safe_json(i) for i in obj)
+    elif isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    else:
+        return obj
+
+
 class BaseCallback:
     """
     Base class for callbacks (compatible with SB3 style).
     """
 
     def __init__(self, verbose=0):
-        self.agent = None
         self.verbose = verbose
         self.training_env = None
         self.locals = None
@@ -138,12 +163,17 @@ class BaseCallback:
         Initialize callback before training starts.
         """
         self.model = model
+        self._init_callback()
 
-    def on_training_start(self):
-        """
-        Called before the training loop.
-        """
-        return True
+    def on_training_start(
+        self, locals_: dict[str, Any], globals_: dict[str, Any]
+    ) -> None:
+        # Those are reference and will be updated automatically
+        self.locals = locals_
+        self.globals = globals_
+        # Update num_timesteps in case training was done before
+        self.num_timesteps = self.model.num_timesteps
+        self._on_training_start()
 
     def on_step(self):
         """
@@ -151,20 +181,38 @@ class BaseCallback:
         """
         self.n_calls += 1
         self.num_timesteps = self.model.num_timesteps
-        return True
+
+        return self._on_step()
 
     def on_rollout_end(self):
         """
         Called when an episode ends (rollout finished).
         """
         self.n_episodes += 1
-        return True
+        self._on_rollout_end()
 
     def on_training_end(self):
         """
         Called after the training loop.
         """
-        return True
+        self._on_training_end()
+
+    def _init_callback(
+        self,
+    ):
+        pass
+
+    def _on_training_start(self):
+        pass
+
+    def _on_step(self):
+        pass
+
+    def _on_rollout_end(self):
+        pass
+
+    def _on_training_end(self):
+        pass
 
 
 class CallbackList(BaseCallback):
@@ -176,33 +224,45 @@ class CallbackList(BaseCallback):
         super().__init__()
         self.callbacks = callbacks
 
-    def init_callback(self, agent):
+    def _init_callback(self):
         for callback in self.callbacks:
-            callback.init_callback(agent)
+            callback.init_callback(self.model)
 
-    def on_training_start(self):
-        return all(callback.on_training_start() for callback in self.callbacks)
+    def _on_training_start(self) -> None:
+        for callback in self.callbacks:
+            callback.on_training_start(self.locals, self.globals)
 
-    def on_step(self):
-        return all(callback.on_step() for callback in self.callbacks)
+    def _on_step(self) -> bool:
+        continue_training = True
+        for callback in self.callbacks:
+            # Return False (stop training) if at least one callback returns False
+            continue_training = callback.on_step() and continue_training
+        return continue_training
 
-    def on_rollout_end(self):
-        return all(callback.on_rollout_end() for callback in self.callbacks)
+    def _on_rollout_start(self) -> None:
+        for callback in self.callbacks:
+            callback.on_rollout_start()
 
-    def on_training_end(self):
-        return all(callback.on_training_end() for callback in self.callbacks)
+    def _on_rollout_end(self) -> None:
+        for callback in self.callbacks:
+            callback.on_rollout_end()
+
+    def _on_training_end(self) -> None:
+        for callback in self.callbacks:
+            callback.on_training_end()
 
 
 class FunctionCallback(BaseCallback):
     """
     Wrap a callable into a BaseCallback.
     """
+
     def __init__(self, func):
         super().__init__()
         self.func = func
 
     def on_step(self):
-        return self.func(self.agent)
+        return self.func(self.model)
 
 
 class Agent(ABC):
@@ -249,11 +309,11 @@ class Agent(ABC):
 
     @abstractmethod
     def learn(
-            self,
-            total_timesteps: int,
-            callback: Union[None, Callable, list["BaseCallback"], "BaseCallback"] = None,
-            reset_num_timesteps: bool = True,
-            progress_bar: bool = False,
+        self,
+        total_timesteps: int,
+        callback: Union[None, Callable, list["BaseCallback"], "BaseCallback"] = None,
+        reset_num_timesteps: bool = True,
+        progress_bar: bool = False,
     ) -> "Agent":
         """
         Abstract learn method. Must be implemented by subclasses.
@@ -277,7 +337,12 @@ class Agent(ABC):
 
     @classmethod
     @abstractmethod
-    def load(cls, path: str, env: Optional[GymEnv] = None, print_system_info: bool = False,):
+    def load(
+        cls,
+        path: str,
+        env: Optional[GymEnv] = None,
+        print_system_info: bool = False,
+    ):
         """
         Abstract class method to load an agent from a file.
 
@@ -678,18 +743,23 @@ class Discretizer:
 
 @dataclass
 class Transition:
-    state: int         # Encoded state index
-    action: int        # Encoded action index
+    state: int  # Encoded state index
+    action: int  # Encoded action index
     reward: float
-    next_state: int    # Encoded next state index
+    next_state: int  # Encoded next state index
     done: bool
+
 
 class ReplayBuffer:
     """
     Simple Replay Buffer (no Prioritized Experience Replay).
     Stores tabular state-action transitions.
     """
-    def __init__(self, capacity: int = 10000,):
+
+    def __init__(
+        self,
+        capacity: int = 10000,
+    ):
         """
         :param capacity: Maximum number of transitions stored in the buffer.
         """
@@ -712,7 +782,10 @@ class ReplayBuffer:
             self.buffer[self.pos] = transition
             self.pos = (self.pos + 1) % self.capacity
 
-    def sample(self, batch_size: int = 32,) -> Tuple[List[Transition], List[int], np.ndarray]:
+    def sample(
+        self,
+        batch_size: int = 32,
+    ) -> Tuple[List[Transition], List[int], np.ndarray]:
         """
         Uniformly sample a batch of transitions.
 
@@ -741,7 +814,9 @@ class ReplayBuffer:
         """
         Create a shallow copy of the replay buffer.
         """
-        new_buffer = ReplayBuffer(capacity=self.capacity,)
+        new_buffer = ReplayBuffer(
+            capacity=self.capacity,
+        )
         new_buffer.buffer = self.buffer.copy()
         new_buffer.size = self.size
         new_buffer.pos = self.pos
@@ -757,24 +832,22 @@ class ReplayBuffer:
 
         # --- Save transitions ---
         transition_data = []
-        for t in self.buffer[:self.size]:
-            transition_data.append({
-                "state": t.state,
-                "action": t.action,
-                "reward": t.reward,
-                "next_state": t.next_state,
-                "done": t.done
-            })
+        for t in self.buffer[: self.size]:
+            transition_data.append(
+                {
+                    "state": t.state,
+                    "action": t.action,
+                    "reward": t.reward,
+                    "next_state": t.next_state,
+                    "done": t.done,
+                }
+            )
 
         df_transitions = pd.DataFrame(transition_data)
         df_transitions.to_csv(os.path.join(directory, "replay_buffer.csv"), index=False)
 
         # --- Save buffer meta ---
-        meta = {
-            "pos": self.pos,
-            "capacity": self.capacity,
-            "size": self.size
-        }
+        meta = {"pos": self.pos, "capacity": self.capacity, "size": self.size}
         with open(os.path.join(directory, "replay_buffer_meta.json"), "w") as f:
             json.dump(meta, f, indent=4)
 
@@ -791,7 +864,9 @@ class ReplayBuffer:
         with open(os.path.join(directory, "replay_buffer_meta.json"), "r") as f:
             meta = json.load(f)
 
-        buffer = cls(capacity=meta["capacity"],)
+        buffer = cls(
+            capacity=meta["capacity"],
+        )
         buffer.pos = meta["pos"]
         buffer.size = meta["size"]
 
@@ -804,7 +879,7 @@ class ReplayBuffer:
                 action=int(row["action"]),
                 reward=row["reward"],
                 next_state=int(row["next_state"]),
-                done=bool(row["done"])
+                done=bool(row["done"]),
             )
             buffer.buffer.append(transition)
 
@@ -814,25 +889,25 @@ class ReplayBuffer:
 
 class TabularQAgent(Agent):
     def __init__(
-            self,
-            env: Union[Env, VecEnv, None],
-            *,
-            state_discretizer: Union[Discretizer, None] = None,
-            action_discretizer: Union[Discretizer, None] = None,
-            state_ranges: Union[List[Tuple[float, float]], None] = None,
-            num_state_buckets: Union[List[int], None] = None,
-            state_normal_params: List[Optional[Tuple[float, float]]] = None,
-            action_ranges: Union[List[Tuple[float, float]], None] = None,
-            num_action_buckets: Union[List[int], None] = None,
-            action_normal_params: List[Optional[Tuple[float, float]]] = None,
-            learning_rate: float = 0.1,
-            gamma: float = 0.99,
-            buffer_size: int = 100_000,
-            max_temperature: float = 1.0,
-            temperature_sensitivity = 0.1,
-            batch_size = 32,
-            batch_update_interval = 8,
-            print_info: bool = True,
+        self,
+        env: Union[Env, VecEnv, None],
+        *,
+        state_discretizer: Union[Discretizer, None] = None,
+        action_discretizer: Union[Discretizer, None] = None,
+        state_ranges: Union[List[Tuple[float, float]], None] = None,
+        num_state_buckets: Union[List[int], None] = None,
+        state_normal_params: List[Optional[Tuple[float, float]]] = None,
+        action_ranges: Union[List[Tuple[float, float]], None] = None,
+        num_action_buckets: Union[List[int], None] = None,
+        action_normal_params: List[Optional[Tuple[float, float]]] = None,
+        learning_rate: float = 0.1,
+        gamma: float = 0.99,
+        buffer_size: int = 100_000,
+        max_temperature: float = 1.0,
+        temperature_sensitivity=0.1,
+        batch_size=32,
+        batch_update_interval=8,
+        print_info: bool = True,
     ):
         super().__init__(env)
 
@@ -840,18 +915,22 @@ class TabularQAgent(Agent):
         if state_discretizer is not None:
             self.state_discretizer = state_discretizer
         else:
-            auto_state_ranges, auto_num_state_buckets = generate_discretizer_params_from_space(
-                self.observation_space
+            auto_state_ranges, auto_num_state_buckets = (
+                generate_discretizer_params_from_space(self.observation_space)
             )
 
             final_state_ranges = [
                 user if user is not None else auto
-                for user, auto in zip(state_ranges or auto_state_ranges, auto_state_ranges)
+                for user, auto in zip(
+                    state_ranges or auto_state_ranges, auto_state_ranges
+                )
             ]
 
             final_num_state_buckets = [
                 user if user is not None else auto
-                for user, auto in zip(num_state_buckets or auto_num_state_buckets, auto_num_state_buckets)
+                for user, auto in zip(
+                    num_state_buckets or auto_num_state_buckets, auto_num_state_buckets
+                )
             ]
 
             final_state_normal_params = [
@@ -862,24 +941,29 @@ class TabularQAgent(Agent):
             self.state_discretizer = Discretizer(
                 ranges=final_state_ranges,
                 num_buckets=final_num_state_buckets,
-                normal_params=final_state_normal_params
+                normal_params=final_state_normal_params,
             )
 
         if action_discretizer is not None:
             self.action_discretizer = action_discretizer
         else:
-            auto_action_ranges, auto_num_action_buckets = generate_discretizer_params_from_space(
-                self.action_space
+            auto_action_ranges, auto_num_action_buckets = (
+                generate_discretizer_params_from_space(self.action_space)
             )
 
             final_action_ranges = [
                 user if user is not None else auto
-                for user, auto in zip(action_ranges or auto_action_ranges, auto_action_ranges)
+                for user, auto in zip(
+                    action_ranges or auto_action_ranges, auto_action_ranges
+                )
             ]
 
             final_action_num_buckets = [
                 user if user is not None else auto
-                for user, auto in zip(num_action_buckets or auto_num_action_buckets, auto_num_action_buckets)
+                for user, auto in zip(
+                    num_action_buckets or auto_num_action_buckets,
+                    auto_num_action_buckets,
+                )
             ]
 
             final_action_normal_params = [
@@ -890,12 +974,14 @@ class TabularQAgent(Agent):
             self.action_discretizer = Discretizer(
                 ranges=final_action_ranges,
                 num_buckets=final_action_num_buckets,
-                normal_params=final_action_normal_params
+                normal_params=final_action_normal_params,
             )
 
         self.q_table_1 = defaultdict(lambda: 0.0)
         self.q_table_2 = defaultdict(lambda: 0.0)
-        self.visit_table = defaultdict(lambda: 0)  # Uses the same keys of the Q-Table to do visit count.
+        self.visit_table = defaultdict(
+            lambda: 0
+        )  # Uses the same keys of the Q-Table to do visit count.
 
         # Q-Learning
         self.learning_rate = learning_rate
@@ -918,7 +1004,9 @@ class TabularQAgent(Agent):
         self.all_actions_encoded = sorted(
             [
                 self.action_discretizer.encode_indices([*indices])
-                for indices in self.action_discretizer.list_all_possible_combinations()[1]
+                for indices in self.action_discretizer.list_all_possible_combinations()[
+                    1
+                ]
             ]
         )
 
@@ -927,7 +1015,9 @@ class TabularQAgent(Agent):
             self.print_q_table_info()
 
     @classmethod
-    def load(cls, path: str, env: Optional[GymEnv] = None, print_system_info: bool = True) -> "TabularQAgent":
+    def load(
+        cls, path: str, env: Optional[GymEnv] = None, print_system_info: bool = True
+    ) -> "TabularQAgent":
         """
         Load an agent from a zip file.
         :param path: Path to the saved zip file (including filename.zip)
@@ -948,12 +1038,12 @@ class TabularQAgent(Agent):
             state_discretizer = Discretizer(
                 ranges=params["state_discretizer"]["ranges"],
                 num_buckets=params["state_discretizer"]["num_buckets"],
-                normal_params=params["state_discretizer"]["normal_params"]
+                normal_params=params["state_discretizer"]["normal_params"],
             )
             action_discretizer = Discretizer(
                 ranges=params["action_discretizer"]["ranges"],
                 num_buckets=params["action_discretizer"]["num_buckets"],
-                normal_params=params["action_discretizer"]["normal_params"]
+                normal_params=params["action_discretizer"]["normal_params"],
             )
 
             # --- Initialize agent ---
@@ -968,23 +1058,29 @@ class TabularQAgent(Agent):
                 temperature_sensitivity=params["temperature_sensitivity"],
                 batch_size=params["batch_size"],
                 batch_update_interval=params["batch_update_interval"],
-                print_info=False
+                print_info=False,
             )
 
             # --- Load Q-Table 1 ---
             df_q1 = pd.read_csv(os.path.join(temp_dir, "q_table_1.csv"))
             for _, row in df_q1.iterrows():
-                agent.q_table_1[(int(row["state"]), int(row["action"]))] = row["q_value"]
+                agent.q_table_1[(int(row["state"]), int(row["action"]))] = row[
+                    "q_value"
+                ]
 
             # --- Load Q-Table 2 ---
             df_q2 = pd.read_csv(os.path.join(temp_dir, "q_table_2.csv"))
             for _, row in df_q2.iterrows():
-                agent.q_table_2[(int(row["state"]), int(row["action"]))] = row["q_value"]
+                agent.q_table_2[(int(row["state"]), int(row["action"]))] = row[
+                    "q_value"
+                ]
 
             # --- Load visit table ---
             df_visit = pd.read_csv(os.path.join(temp_dir, "visit_table.csv"))
             for _, row in df_visit.iterrows():
-                agent.visit_table[(int(row["state"]), int(row["action"]))] = int(row["visit_count"])
+                agent.visit_table[(int(row["state"]), int(row["action"]))] = int(
+                    row["visit_count"]
+                )
 
             # --- Load state temperature table ---
             df_temp = pd.read_csv(os.path.join(temp_dir, "state_temperature_table.csv"))
@@ -1009,24 +1105,40 @@ class TabularQAgent(Agent):
         """
         with tempfile.TemporaryDirectory() as temp_dir:
             # --- Save Q-Table 1 ---
-            q1_data = [{"state": s, "action": a, "q_value": v}
-                       for (s, a), v in self.q_table_1.items()]
-            pd.DataFrame(q1_data).to_csv(os.path.join(temp_dir, "q_table_1.csv"), index=False)
+            q1_data = [
+                {"state": s, "action": a, "q_value": v}
+                for (s, a), v in self.q_table_1.items()
+            ]
+            pd.DataFrame(q1_data).to_csv(
+                os.path.join(temp_dir, "q_table_1.csv"), index=False
+            )
 
             # --- Save Q-Table 2 ---
-            q2_data = [{"state": s, "action": a, "q_value": v}
-                       for (s, a), v in self.q_table_2.items()]
-            pd.DataFrame(q2_data).to_csv(os.path.join(temp_dir, "q_table_2.csv"), index=False)
+            q2_data = [
+                {"state": s, "action": a, "q_value": v}
+                for (s, a), v in self.q_table_2.items()
+            ]
+            pd.DataFrame(q2_data).to_csv(
+                os.path.join(temp_dir, "q_table_2.csv"), index=False
+            )
 
             # --- Save visit table ---
-            visit_data = [{"state": s, "action": a, "visit_count": count}
-                          for (s, a), count in self.visit_table.items()]
-            pd.DataFrame(visit_data).to_csv(os.path.join(temp_dir, "visit_table.csv"), index=False)
+            visit_data = [
+                {"state": s, "action": a, "visit_count": count}
+                for (s, a), count in self.visit_table.items()
+            ]
+            pd.DataFrame(visit_data).to_csv(
+                os.path.join(temp_dir, "visit_table.csv"), index=False
+            )
 
             # --- Save state temperature table ---
-            temp_data = [{"state": s, "temperature": t}
-                         for s, t in self.state_temperature_table.items()]
-            pd.DataFrame(temp_data).to_csv(os.path.join(temp_dir, "state_temperature_table.csv"), index=False)
+            temp_data = [
+                {"state": s, "temperature": t}
+                for s, t in self.state_temperature_table.items()
+            ]
+            pd.DataFrame(temp_data).to_csv(
+                os.path.join(temp_dir, "state_temperature_table.csv"), index=False
+            )
 
             # --- Save hyperparameters & settings ---
             params = {
@@ -1041,16 +1153,16 @@ class TabularQAgent(Agent):
                 "state_discretizer": {
                     "ranges": self.state_discretizer.ranges,
                     "num_buckets": self.state_discretizer.num_buckets,
-                    "normal_params": self.state_discretizer.normal_params
+                    "normal_params": self.state_discretizer.normal_params,
                 },
                 "action_discretizer": {
                     "ranges": self.action_discretizer.ranges,
                     "num_buckets": self.action_discretizer.num_buckets,
-                    "normal_params": self.action_discretizer.normal_params
+                    "normal_params": self.action_discretizer.normal_params,
                 },
             }
             with open(os.path.join(temp_dir, "parameters.json"), "w") as f:
-                json.dump(params, f, indent=4)
+                json.dump(safe_json(params), f, indent=4)
 
             # --- Save ReplayBuffer ---
             replay_dir = os.path.join(temp_dir, "replay_buffer")
@@ -1088,7 +1200,7 @@ class TabularQAgent(Agent):
             temperature_sensitivity=self.temperature_sensitivity,
             batch_size=self.batch_size,
             batch_update_interval=self.batch_update_interval,
-            print_info=False
+            print_info=False,
         )
 
         # Deep copy all tables
@@ -1120,8 +1232,12 @@ class TabularQAgent(Agent):
         self.action_discretizer.print_buckets()
 
         total_state_combinations = self.state_discretizer.count_possible_combinations()
-        total_action_combinations = self.action_discretizer.count_possible_combinations()
-        total_state_action_combinations = total_state_combinations * total_action_combinations
+        total_action_combinations = (
+            self.action_discretizer.count_possible_combinations()
+        )
+        total_state_action_combinations = (
+            total_state_combinations * total_action_combinations
+        )
 
         # --- Q-Tables ---
         q_table_1_size = len(self.q_table_1)
@@ -1129,8 +1245,12 @@ class TabularQAgent(Agent):
         print(f"[Q-Table 1] {q_table_1_size} state-action pairs.")
         print(f"[Q-Table 2] {q_table_2_size} state-action pairs.")
         print(f"Total State-Action Combinations: {total_state_action_combinations}")
-        print(f"Q-Table 1 Coverage: {q_table_1_size / total_state_action_combinations * 100:.2f}%")
-        print(f"Q-Table 2 Coverage: {q_table_2_size / total_state_action_combinations * 100:.2f}%")
+        print(
+            f"Q-Table 1 Coverage: {q_table_1_size / total_state_action_combinations * 100:.2f}%"
+        )
+        print(
+            f"Q-Table 2 Coverage: {q_table_2_size / total_state_action_combinations * 100:.2f}%"
+        )
 
         # --- Visit table ---
         visit_table_size = len(self.visit_table)
@@ -1141,24 +1261,24 @@ class TabularQAgent(Agent):
         if temp_values:
             print(f"[State Temperature Table]")
             print(f"  Number of states with temperature: {len(temp_values)}")
-            print(f"  Temperature (min / mean / max): {min(temp_values):.4f} / "
-                  f"{sum(temp_values) / len(temp_values):.4f} / {max(temp_values):.4f}")
+            print(
+                f"  Temperature (min / mean / max): {min(temp_values):.4f} / "
+                f"{sum(temp_values) / len(temp_values):.4f} / {max(temp_values):.4f}"
+            )
         else:
             print(f"[State Temperature Table] No entries found.")
 
         # --- Replay Buffer info ---
         print(f"[Replay Buffer]")
-        print(f"  Current size: {len(self.replay_buffer.buffer)} / {self.replay_buffer.capacity}")
+        print(
+            f"  Current size: {len(self.replay_buffer.buffer)} / {self.replay_buffer.capacity}"
+        )
 
         print("=" * 40)
 
     def reset_q_table(self) -> None:
-        self.q_table_1 = defaultdict(
-            lambda: 0.0
-        )
-        self.q_table_2 = defaultdict(
-            lambda: 0.0
-        )
+        self.q_table_1 = defaultdict(lambda: 0.0)
+        self.q_table_2 = defaultdict(lambda: 0.0)
 
     def reset_visit_table(self) -> None:
         self.visit_table = defaultdict(
@@ -1172,15 +1292,22 @@ class TabularQAgent(Agent):
         :return: An array of action probabilities.
         """
         # --- Encode the current state (discrete index) ---
-        encoded_state = self.state_discretizer.encode_indices(
-            [*self.state_discretizer.discretize(state)[1]]
-        )
+        # encoded_state = self.state_discretizer.encode_indices(
+        #     [*self.state_discretizer.discretize(state)[1]]
+        # )
+        encoded_state = state
 
         # --- Retrieve Q-values for all actions ---
-        q_values = np.array([
-            (self.q_table_1[(encoded_state, a)] + self.q_table_2[(encoded_state, a)]) / 2.0
-            for a in self.all_actions_encoded
-        ])
+        q_values = np.array(
+            [
+                (
+                    self.q_table_1[(encoded_state, a)]
+                    + self.q_table_2[(encoded_state, a)]
+                )
+                / 2.0
+                for a in self.all_actions_encoded
+            ]
+        )
 
         # --- Get temperature for this state ---
         temperature = self.state_temperature_table[encoded_state]
@@ -1200,8 +1327,9 @@ class TabularQAgent(Agent):
 
         return probabilities
 
-    def choose_action(self, state: Union[np.ndarray, List[np.ndarray]], greedy: bool = False) -> Union[
-        np.ndarray, List[np.ndarray]]:
+    def choose_action(
+        self, state: Union[np.ndarray, List[np.ndarray]], greedy: bool = False
+    ) -> Union[np.ndarray, List[np.ndarray]]:
         """
         Select an action (or batch of actions) for the given state(s), using state-specific temperature (softmax).
         If greedy is True, always select the highest probability action.
@@ -1216,7 +1344,9 @@ class TabularQAgent(Agent):
         is_discrete_obs = isinstance(self.observation_space, spaces.Discrete)
         if is_discrete_obs:
             # If Discrete observation_space, batch if ndim == 1 and len > 1
-            is_batched = isinstance(state, np.ndarray) and state.ndim == 1 and len(state) > 1
+            is_batched = (
+                isinstance(state, np.ndarray) and state.ndim == 1 and len(state) > 1
+            )
         else:
             # Otherwise batch if ndim >= 2
             is_batched = isinstance(state, np.ndarray) and state.ndim >= 2
@@ -1236,8 +1366,7 @@ class TabularQAgent(Agent):
             action_encoded = np.argmax(action_probabilities)
         else:
             action_encoded = np.random.choice(
-                self.all_actions_encoded,
-                p=action_probabilities
+                self.all_actions_encoded, p=action_probabilities
             )
 
         action = np.array(
@@ -1251,8 +1380,9 @@ class TabularQAgent(Agent):
 
         return action
 
-    def predict(self, state: Union[np.ndarray, List[np.ndarray]], greedy: bool = False) -> Union[
-        np.ndarray, List[np.ndarray]]:
+    def predict(
+        self, state: Union[np.ndarray, List[np.ndarray]], greedy: bool = False
+    ) -> Union[np.ndarray, List[np.ndarray]]:
         """
         Alias for choose_action() to align with SB3 predict() interface.
 
@@ -1263,13 +1393,13 @@ class TabularQAgent(Agent):
         return self.choose_action(state, greedy)
 
     def update(
-            self,
-            state_encoded: int,
-            action_encoded: int,
-            reward: float,
-            next_state_encoded: int,
-            done: bool,
-            is_weight: float = 1.0  # Importance-sampling weight, default no correction
+        self,
+        state_encoded: int,
+        action_encoded: int,
+        reward: float,
+        next_state_encoded: int,
+        done: bool,
+        is_weight: float = 1.0,  # Importance-sampling weight, default no correction
     ) -> float:
         """
         Double Q-Learning update rule with IS weight.
@@ -1295,16 +1425,18 @@ class TabularQAgent(Agent):
         else:
             best_next_action = max(
                 self.all_actions_encoded,
-                key=lambda a: q_update[(next_state_encoded, a)]
+                key=lambda a: q_update[(next_state_encoded, a)],
             )
-            td_target = reward + self.gamma * q_target[(next_state_encoded, best_next_action)]
+            td_target = (
+                reward + self.gamma * q_target[(next_state_encoded, best_next_action)]
+            )
 
         # TD error
         td_error = td_target - q_update[(state_encoded, action_encoded)]
 
         # Apply importance-sampling weight on the TD error (scale update)
         q_update[(state_encoded, action_encoded)] += (
-                self.learning_rate * is_weight * td_error
+            self.learning_rate * is_weight * td_error
         )
 
         # Optional visit tracking
@@ -1314,42 +1446,58 @@ class TabularQAgent(Agent):
         return abs(td_error)
 
     def learn(
-            self,
-            total_timesteps: int,
-            callback: Union[None, Callable, list, BaseCallback] = None,
-            reset_num_timesteps: bool = True,
-            progress_bar: bool = False
+        self,
+        total_timesteps: int,
+        callback: Union[None, Callable, list, BaseCallback] = None,
+        reset_num_timesteps: bool = True,
+        progress_bar: bool = False,
     ):
         """
         Double Q-Learning loop with Replay Buffer (PER), IS correction, and VDBE temperature.
-        Supports SB3-like callback system.
         Fully Offline version (no online updates).
         """
+
+        # --- Reset internal counter if requested ---
         if reset_num_timesteps:
             self.num_timesteps = 0
 
-        callback = self._init_callback(callback)
+        # === Callback preparation ===
+        callback = self._init_callback(callback)  # Wrap into CallbackList if needed
+        locals_ = locals()
+        globals_ = globals()
 
-        if not callback.on_training_start():
-            print("Training aborted by callback.")
-            return self
+        # --- Callback training start ---
+        callback.init_callback(self)
+        callback.on_training_start(locals_=locals_, globals_=globals_)
 
+        # === Environment reset ===
         state = self.env.reset()
         episode_step_count = 0
         num_episodes = 0
         num_terminated = 0
         sum_episode_rewards = 0
 
-        pbar = tqdm.tqdm(total=total_timesteps, desc="Training", unit="step", dynamic_ncols=True,) if progress_bar else None
+        # === Progress bar ===
+        pbar = (
+            tqdm.tqdm(
+                total=total_timesteps, desc="Training", unit="step", dynamic_ncols=True
+            )
+            if progress_bar
+            else None
+        )
 
         batch_size = self.batch_size
         batch_update_interval = self.batch_update_interval
 
+        # === Main training loop ===
         for timestep in range(total_timesteps):
+
             # --- Detect batched observation directly ---
             is_discrete_obs = isinstance(self.observation_space, spaces.Discrete)
             if is_discrete_obs:
-                is_batched = isinstance(state, np.ndarray) and state.ndim == 1 and len(state) > 1
+                is_batched = (
+                    isinstance(state, np.ndarray) and state.ndim == 1 and len(state) > 1
+                )
             else:
                 is_batched = isinstance(state, np.ndarray) and state.ndim >= 2
 
@@ -1399,7 +1547,7 @@ class TabularQAgent(Agent):
                         [*self.state_discretizer.discretize(next_state)[1]]
                     )
 
-            # --- Add to replay buffer ---
+            # --- Add transition(s) to replay buffer ---
             if is_batched:
                 for idx in range(len(state)):
                     transition = Transition(
@@ -1409,7 +1557,7 @@ class TabularQAgent(Agent):
                         ),
                         reward=reward[idx],
                         next_state=next_state_encoded[idx],
-                        done=terminated[idx]
+                        done=terminated[idx],
                     )
                     self.replay_buffer.add(transition)
             else:
@@ -1420,12 +1568,15 @@ class TabularQAgent(Agent):
                     ),
                     reward=reward,
                     next_state=next_state_encoded,
-                    done=terminated
+                    done=terminated,
                 )
                 self.replay_buffer.add(transition)
 
             # --- Periodic batch update ---
-            if self.num_timesteps % batch_update_interval == 0 and len(self.replay_buffer.buffer) >= batch_size:
+            if (
+                self.num_timesteps % batch_update_interval == 0
+                and len(self.replay_buffer.buffer) >= batch_size
+            ):
                 transitions, indices, weights = self.replay_buffer.sample(
                     batch_size=batch_size,
                 )
@@ -1438,47 +1589,41 @@ class TabularQAgent(Agent):
                         reward=trans.reward,
                         next_state_encoded=trans.next_state,
                         done=trans.done,
-                        is_weight=is_weight
+                        is_weight=is_weight,
                     )
                     batch_td_errors.append(td_error_batch)
 
                     # --- VDBE temperature update ---
-                    self.state_temperature_table[trans.state] = (
-                            self.T_max * np.exp(-td_error_batch / self.temperature_sensitivity)
+                    self.state_temperature_table[trans.state] = self.T_max * np.exp(
+                        -td_error_batch / self.temperature_sensitivity
                     )
 
+                # --- Update priorities ---
                 self.replay_buffer.update_priorities(indices, batch_td_errors)
 
             # --- Move to next state ---
             state = next_state
 
-            # --- Episode control ---
+            # --- Episode statistics ---
             episode_step_count += 1
             sum_episode_rewards += reward if not is_batched else np.mean(reward)
 
-            # Check if we are using batched environments
+            # === Rollout/episode termination handling ===
             is_batched = isinstance(terminated, (list, np.ndarray))
 
             if is_batched:
-                # --- VecEnv case ---
-                # 1. Count number of terminations in this batch
                 terminations_in_batch = np.sum(terminated)
 
                 if terminations_in_batch > 0:
-                    # 2. Update statistics for terminated episodes
                     num_episodes += terminations_in_batch
                     num_terminated += terminations_in_batch
 
-                    # 3. Reset those specific environments that are done
-                    # Note: Some vec_envs automatically reset; if not, you can use:
-                    # state = self.env.reset_done() (not all support this)
+                    # callback on episode/rollout end
+                    callback.n_episodes = num_episodes
 
-                    # 4. Call on_rollout_end() callback once per batch where termination occurred
-                    if not callback.on_rollout_end():
-                        print("Training aborted by callback (on_rollout_end).")
-                        break
+                    callback.on_rollout_end()
+
             else:
-                # --- Single env case ---
                 if terminated:
                     episode_step_count = 0
                     num_episodes += 1
@@ -1486,16 +1631,18 @@ class TabularQAgent(Agent):
 
                     state = self.env.reset()
 
+                    callback.n_episodes = num_episodes
                     if not callback.on_rollout_end():
                         print("Training aborted by callback (on_rollout_end).")
                         break
 
-            # --- Callback on every step ---
+            # === Callback on every step ===
+            callback.num_timesteps = self.num_timesteps
             if not callback.on_step():
                 print("Training aborted by callback (on_step).")
                 break
 
-            # --- Progress bar update ---
+            # === Progress bar update ===
             if progress_bar:
                 # pbar.set_postfix({
                 #     "Episodes": num_episodes,
@@ -1506,8 +1653,10 @@ class TabularQAgent(Agent):
                 # })
                 pbar.update(1)
 
+            # === Time step increment ===
             self.num_timesteps += 1
 
+        # === End of training ===
         if progress_bar:
             pbar.close()
 
@@ -1548,7 +1697,7 @@ class TabularQAgent(Agent):
 
 class EvalCallback(BaseCallback):
     """
-    General evaluation callback for tabular/actor-critic algorithm.
+    General evaluation callback for tabular/actor-critic algorithms.
     Supports evaluation on VecEnv, best model saving, logging, and plotting.
     """
 
@@ -1561,10 +1710,18 @@ class EvalCallback(BaseCallback):
         log_path: Optional[str] = None,
         deterministic: bool = True,
         verbose: int = 1,
-        optimal_score: Optional[float] = None
+        optimal_score: Optional[float] = None,
     ):
         super().__init__(verbose)
-        self.eval_env = eval_env
+
+        # === Auto-wrap single env into DummyVecEnv ===
+        if hasattr(eval_env, "num_envs"):
+            # Already a VecEnv
+            self.eval_env = eval_env
+        else:
+            # Wrap single env
+            self.eval_env = DummyVecEnv([lambda: eval_env])
+
         self.eval_interval = eval_interval
         self.eval_episodes = eval_episodes
         self.deterministic = deterministic
@@ -1590,16 +1747,20 @@ class EvalCallback(BaseCallback):
         mean_reward, std_reward = self.evaluate_policy()
 
         if self.verbose > 0:
-            print(f"[EvalCallback] Step {self.num_timesteps} | Mean reward: {mean_reward:.2f} ± {std_reward:.2f}")
+            print(
+                f"[EvalCallback] Step {self.num_timesteps} | Mean reward: {mean_reward:.2f} ± {std_reward:.2f}"
+            )
 
         self.records.append((self.num_timesteps, mean_reward, std_reward))
 
         if mean_reward > self.best_mean_reward:
             self.best_mean_reward = mean_reward
             if self.verbose > 0:
-                print(f"[EvalCallback] New best mean reward: {mean_reward:.2f}, saving model.")
+                print(
+                    f"[EvalCallback] New best mean reward: {mean_reward:.2f}, saving model."
+                )
             if self.best_model_save_path is not None:
-                self.agent.save(self.best_model_save_path)
+                self.model.save(self.best_model_save_path)
 
         if self.optimal_score is not None and mean_reward >= self.optimal_score:
             if self.step_reached_optimal is None:
@@ -1610,7 +1771,9 @@ class EvalCallback(BaseCallback):
     def _on_training_end(self):
         if self.verbose > 0:
             print("[EvalCallback] Training finished. Saving logs.")
-        df = pd.DataFrame(self.records, columns=["Timesteps", "MeanReward", "StdReward"])
+        df = pd.DataFrame(
+            self.records, columns=["Timesteps", "MeanReward", "StdReward"]
+        )
         if self.log_path is not None:
             os.makedirs(self.log_path, exist_ok=True)
             log_file = os.path.join(self.log_path, "evaluation_log.csv")
@@ -1618,61 +1781,83 @@ class EvalCallback(BaseCallback):
             if self.verbose > 0:
                 print(f"[EvalCallback] Logs saved at: {log_file}")
 
-        self.eval_env.close()
+        # self.eval_env.close()
 
     def evaluate_policy(self):
         """
-        Evaluate agent in a VecEnv-compatible loop.
+        Evaluate agent by running multiple episodes in parallel.
+
+        - Ensures each environment runs its own episode independently.
+        - Correctly accumulates rewards per episode.
+        - Works even if there are more environments than needed episodes.
+
+        Returns:
+            mean_reward: float
+            std_reward: float
         """
         total_rewards = []
-        n_envs = self.eval_env.num_envs if hasattr(self.eval_env, 'num_envs') else 1
-        episodes_per_env = int(np.ceil(self.eval_episodes / n_envs))
 
-        for _ in range(episodes_per_env):
-            obs = self.eval_env.reset()
-            dones = [False] * n_envs
-            episode_rewards = [0.0 for _ in range(n_envs)]
+        # --- Ensure VecEnv is correctly set ---
+        is_vec_env = hasattr(self.eval_env, "num_envs")
+        n_envs = self.eval_env.num_envs if is_vec_env else 1
+        eval_episodes = self.eval_episodes
 
-            while not all(dones):
-                actions = []
-                for single_obs in obs:
-                    action = self.agent.choose_action(single_obs, greedy=self.deterministic)
-                    actions.append(action)
-                actions = np.array(actions)
+        # --- Reduce number of parallel envs if not enough episodes are needed ---
+        active_envs = min(n_envs, eval_episodes)
+        episodes_finished = 0
+        episode_rewards = np.zeros(active_envs, dtype=np.float32)
 
-                next_obs, rewards, dones_flags, infos = self.eval_env.step(actions)
+        # --- Initialize envs ---
+        obs = self.eval_env.reset()
+        dones = np.zeros(active_envs, dtype=bool)
 
-                for i in range(n_envs):
-                    if not dones[i]:
-                        episode_rewards[i] += rewards[i]
+        while episodes_finished < eval_episodes:
+            # --- Choose actions ---
+            actions = self.model.choose_action(obs, greedy=self.deterministic)
 
-                obs = next_obs
-                dones = dones_flags
+            # --- Step the environment ---
+            next_obs, rewards, dones_flags, infos = self.eval_env.step(actions)
 
-            total_rewards.extend(episode_rewards)
+            # --- Accumulate rewards only for active episodes ---
+            episode_rewards += rewards
 
-        total_rewards = total_rewards[:self.eval_episodes]  # limit to exactly eval_episodes
+            # --- If an episode finishes, log it and reset that env ---
+            for i in range(active_envs):
+                if dones_flags[i]:
+                    total_rewards.append(episode_rewards[i])  # Save final reward
+                    episode_rewards[i] = 0  # Reset reward tracker
+                    episodes_finished += 1  # Increase completed episode count
+
+                    # Reset the environment only if we need more episodes
+                    if episodes_finished < eval_episodes:
+                        obs[i] = self.eval_env.reset()[
+                            i
+                        ]  # Reset only this specific env
+
+            # --- Update observation ---
+            obs = next_obs
+
         mean_reward = np.mean(total_rewards)
         std_reward = np.std(total_rewards)
+
+        # --- Logging ---
+        if self.verbose > 0:
+            print(
+                f"[Eval] Episodes: {eval_episodes} | Mean Reward: {mean_reward:.2f} | Std: {std_reward:.2f}"
+            )
+
         return mean_reward, std_reward
 
 
 if __name__ == "__main__":
-    import os
-    import gymnasium as gym
-    import numpy as np
-    import pandas as pd
     import matplotlib.pyplot as plt
-    import tqdm
-    from typing import Callable, Union, List
     from stable_baselines3.common.vec_env import SubprocVecEnv
-
 
     # ---- Hyperparameters ---- #
     N_ENVS = 8
     TOTAL_TIMESTEPS = 100_000
-    EVAL_INTERVAL = 50 * N_ENVS
-    EVAL_EPISODES = 10
+    EVAL_INTERVAL = 500 * N_ENVS
+    EVAL_EPISODES = 500
     MAP_SIZE = 8
     SAVE_PATH = "./tabular_q_agent_frozenlake/"
     BEST_MODEL_FILE = os.path.join(SAVE_PATH, "best_model.zip")
@@ -1683,12 +1868,14 @@ if __name__ == "__main__":
     # ---- Create parallel FrozenLake envs (train + eval) ---- #
     def make_env():
         def _init():
-            env = gym.make("FrozenLake-v1", map_name=f"{MAP_SIZE}x{MAP_SIZE}", is_slippery=True)
+            env = gym.make(
+                "FrozenLake-v1", map_name=f"{MAP_SIZE}x{MAP_SIZE}", is_slippery=False
+            )
             return env
+
         return _init
 
     train_env = SubprocVecEnv([make_env() for _ in range(N_ENVS)])
-    eval_env = gym.make("FrozenLake-v1", map_name=f"{MAP_SIZE}x{MAP_SIZE}", is_slippery=True)
 
     # ---- Create TabularQAgent instance ---- #
     agent = TabularQAgent(
@@ -1700,10 +1887,11 @@ if __name__ == "__main__":
         temperature_sensitivity=0.1,
         batch_size=32,
         batch_update_interval=8,
-        print_info=True
+        print_info=True,
     )
 
     # ---- EvalCallback ---- #
+    eval_env = SubprocVecEnv([make_env() for _ in range(N_ENVS)])
     eval_callback = EvalCallback(
         eval_env=eval_env,
         eval_interval=EVAL_INTERVAL,
@@ -1711,7 +1899,7 @@ if __name__ == "__main__":
         best_model_save_path=BEST_MODEL_FILE,
         log_path=LOG_PATH,
         deterministic=True,
-        verbose=1
+        verbose=1,
     )
 
     # ---- Train ---- #
@@ -1719,7 +1907,7 @@ if __name__ == "__main__":
         total_timesteps=TOTAL_TIMESTEPS,
         callback=eval_callback,
         reset_num_timesteps=True,
-        progress_bar=True
+        progress_bar=True,
     )
 
     # ---- Plot training curve ---- #
@@ -1728,10 +1916,12 @@ if __name__ == "__main__":
         df = pd.read_csv(eval_log_file)
         plt.figure(figsize=(10, 6))
         plt.plot(df["Timesteps"], df["MeanReward"], label="Mean Reward")
-        plt.fill_between(df["Timesteps"],
-                         df["MeanReward"] - df["StdReward"],
-                         df["MeanReward"] + df["StdReward"],
-                         alpha=0.2)
+        plt.fill_between(
+            df["Timesteps"],
+            df["MeanReward"] - df["StdReward"],
+            df["MeanReward"] + df["StdReward"],
+            alpha=0.2,
+        )
         plt.title("Evaluation Mean Reward Over Time")
         plt.xlabel("Timesteps")
         plt.ylabel("Mean Reward")
@@ -1744,29 +1934,64 @@ if __name__ == "__main__":
     # ---- Load best model and evaluate ---- #
     print("\n=== Loading Best Model ===")
     loaded_agent = TabularQAgent.load(
-        path=BEST_MODEL_FILE,
-        env=eval_env,
-        print_system_info=True
+        path=BEST_MODEL_FILE, env=eval_env, print_system_info=True
     )
 
-    print("=== Evaluating Loaded Model ===")
-    test_rewards = []
-    n_test_episodes = 20
-    for ep in range(n_test_episodes):
-        state, info = eval_env.reset()
-        total_reward = 0.0
-        done = False
-        while not done:
-            action = loaded_agent.choose_action(state, greedy=True)
-            next_state, reward, terminated, truncated, info = eval_env.step(action)
-            done = terminated or truncated
-            total_reward += reward
-            state = next_state
-        test_rewards.append(total_reward)
-        print(f"Episode {ep+1}/{n_test_episodes}: Reward = {total_reward:.2f}")
+    # === Evaluating Loaded Model in VecEnv ===
+    print("=== Evaluating Loaded Model (VecEnv Compatible) ===")
 
+    n_test_episodes = EVAL_EPISODES
+    n_envs = eval_env.num_envs
+    episodes_finished = 0
+    test_rewards = []
+
+    # --- Reduce parallel envs if we have fewer episodes to evaluate ---
+    active_envs = min(n_envs, n_test_episodes)
+
+    # --- Initialize envs ---
+    obs = eval_env.reset()
+    dones = np.zeros(active_envs, dtype=bool)
+    episode_rewards = np.zeros(active_envs, dtype=np.float32)
+
+    while episodes_finished < n_test_episodes:
+        # --- Choose actions in batch ---
+        actions = loaded_agent.choose_action(obs, greedy=True)
+
+        # --- Step the environment ---
+        next_obs, rewards, dones_flags, infos = eval_env.step(actions)
+
+        # --- Accumulate rewards ---
+        episode_rewards += rewards
+
+        # --- Handle finished episodes ---
+        for i in range(active_envs):
+            if dones_flags[i]:
+                total_reward = episode_rewards[i]
+                test_rewards.append(total_reward)
+                print(
+                    f"Episode {episodes_finished + 1}/{n_test_episodes}: Reward = {total_reward:.2f}"
+                )
+
+                episodes_finished += 1
+
+                if episodes_finished >= n_test_episodes:
+                    continue
+
+                # Reset the specific env if more episodes are required
+                reset_obs = eval_env.reset()  # Reset returns batched obs
+                obs[i] = reset_obs[i]
+                episode_rewards[i] = 0.0
+
+        # --- Move to next observation ---
+        obs = next_obs
+
+    # --- Results ---
     mean_test_reward = np.mean(test_rewards)
-    print(f"\n=== Loaded Model Mean Test Reward over {n_test_episodes} episodes: {mean_test_reward:.2f} ===")
+    std_test_reward = np.std(test_rewards)
+
+    print(
+        f"\n=== Loaded Model Mean Test Reward over {n_test_episodes} episodes: {mean_test_reward:.2f} ± {std_test_reward:.2f} ==="
+    )
 
     eval_env.close()
     train_env.close()
