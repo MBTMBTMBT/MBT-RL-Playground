@@ -904,6 +904,7 @@ class TabularQAgent(Agent):
         gamma: float = 0.99,
         buffer_size: int = 100_000,
         max_temperature: float = 1.0,
+        min_temperature: float = 0.01,
         temperature_sensitivity=0.1,
         batch_size=32,
         batch_update_interval=8,
@@ -994,6 +995,7 @@ class TabularQAgent(Agent):
 
         # VDBE temperature control
         self.T_max = max_temperature
+        self.T_min = min_temperature
         self.temperature_sensitivity = temperature_sensitivity
         self.state_temperature_table = defaultdict(lambda: self.T_max)
 
@@ -1055,6 +1057,7 @@ class TabularQAgent(Agent):
                 gamma=params["gamma"],
                 buffer_size=params["buffer_size"],
                 max_temperature=params["max_temperature"],
+                min_temperature=params["min_temperature"],
                 temperature_sensitivity=params["temperature_sensitivity"],
                 batch_size=params["batch_size"],
                 batch_update_interval=params["batch_update_interval"],
@@ -1146,6 +1149,7 @@ class TabularQAgent(Agent):
                 "gamma": self.gamma,
                 "buffer_size": self.replay_buffer.capacity,
                 "max_temperature": self.T_max,
+                "min_temperature": self.T_min,
                 "temperature_sensitivity": self.temperature_sensitivity,
                 "batch_size": self.batch_size,
                 "batch_update_interval": self.batch_update_interval,
@@ -1197,6 +1201,7 @@ class TabularQAgent(Agent):
             gamma=self.gamma,
             buffer_size=self.replay_buffer.capacity,
             max_temperature=self.T_max,
+            min_temperature=self.T_min,
             temperature_sensitivity=self.temperature_sensitivity,
             batch_size=self.batch_size,
             batch_update_interval=self.batch_update_interval,
@@ -1594,9 +1599,9 @@ class TabularQAgent(Agent):
                     batch_td_errors.append(td_error_batch)
 
                     # --- VDBE temperature update ---
-                    self.state_temperature_table[trans.state] = self.T_max * np.exp(
+                    self.state_temperature_table[trans.state] = max(self.T_max * np.exp(
                         -td_error_batch / self.temperature_sensitivity
-                    )
+                    ), self.T_min)
 
                 # --- Update priorities ---
                 self.replay_buffer.update_priorities(indices, batch_td_errors)
@@ -1885,6 +1890,7 @@ if __name__ == "__main__":
         gamma=0.99,
         buffer_size=100_000,
         max_temperature=1.0,
+        min_temperature=0.05,
         temperature_sensitivity=10.0,
         batch_size=128,
         batch_update_interval=8,
