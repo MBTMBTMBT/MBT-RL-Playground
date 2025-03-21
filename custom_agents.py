@@ -15,6 +15,8 @@ from gymnasium import spaces
 import gymnasium as gym
 import tqdm
 from gymnasium.core import Env
+from numpy import ndarray
+from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.type_aliases import GymEnv
 from stable_baselines3.common.vec_env import VecEnv, DummyVecEnv
 
@@ -326,10 +328,20 @@ class Agent(ABC):
         pass
 
     @abstractmethod
-    def predict(self, observation, deterministic: bool = True):
+    def predict(
+            self,
+            observation: Union[np.ndarray, dict[str, np.ndarray]],
+            state: Optional[tuple[np.ndarray, ...]] = None,
+            episode_start: Optional[np.ndarray] = None,
+            deterministic: bool = False,
+    ):
         """
         Predict an action given an observation.
         :param observation: Observation from the environment.
+        :param state: The last hidden states (can be None, used in recurrent policies)
+        :param episode_start: The last masks (can be None, used in recurrent policies)
+            this correspond to beginning of episodes,
+            where the hidden states of the RNN must be reset.
         :param deterministic: Whether to return deterministic actions.
         :return: Action(s) to take.
         """
@@ -1386,16 +1398,21 @@ class TabularQAgent(Agent):
         return action
 
     def predict(
-        self, state: Union[np.ndarray, List[np.ndarray]], greedy: bool = False
-    ) -> Union[np.ndarray, List[np.ndarray]]:
+        self,
+        observation: Union[np.ndarray, dict[str, np.ndarray]],
+        state: Optional[tuple[np.ndarray, ...]] = None,
+        episode_start: Optional[np.ndarray] = None,
+        deterministic: bool = False,
+    ) -> tuple[Union[ndarray, list[ndarray]], Optional[tuple[ndarray, ...]]]:
         """
         Alias for choose_action() to align with SB3 predict() interface.
-
-        :param state: Current observation(s).
-        :param greedy: Whether to select greedy actions.
+        :param observation: the input observation.
+        :param state: Not used.
+        :param episode_start: Not used.
+        :param deterministic: Whether or not to return deterministic actions.
         :return: Selected action(s).
         """
-        return self.choose_action(state, greedy)
+        return self.choose_action(observation, deterministic), state
 
     def update(
         self,
@@ -1749,7 +1766,14 @@ class EvalCallback(BaseCallback):
         if self.num_timesteps % self.eval_interval != 0:
             return True
 
-        mean_reward, std_reward = self.evaluate_policy()
+        mean_reward, std_reward = evaluate_policy(
+                self.model,
+                self.eval_env,
+                n_eval_episodes=self.eval_episodes,
+                deterministic=True,
+                render=False,
+                warn=False,
+            )
 
         if self.verbose > 0:
             print(
@@ -1787,71 +1811,6 @@ class EvalCallback(BaseCallback):
                 print(f"[EvalCallback] Logs saved at: {log_file}")
 
         # self.eval_env.close()
-
-    def evaluate_policy(self):
-        """
-        Evaluate agent by running multiple episodes in parallel.
-
-        - Ensures each environment runs its own episode independently.
-        - Correctly accumulates rewards per episode.
-        - Works even if there are more environments than needed episodes.
-
-        Returns:
-            mean_reward: float
-            std_reward: float
-        """
-        total_rewards = []
-
-        # --- Ensure VecEnv is correctly set ---
-        is_vec_env = hasattr(self.eval_env, "num_envs")
-        n_envs = self.eval_env.num_envs if is_vec_env else 1
-        eval_episodes = self.eval_episodes
-
-        # --- Reduce number of parallel envs if not enough episodes are needed ---
-        active_envs = min(n_envs, eval_episodes)
-        episodes_finished = 0
-        episode_rewards = np.zeros(active_envs, dtype=np.float32)
-
-        # --- Initialize envs ---
-        obs = self.eval_env.reset()
-        dones = np.zeros(active_envs, dtype=bool)
-
-        while episodes_finished < eval_episodes:
-            # --- Choose actions ---
-            actions = self.model.choose_action(obs, greedy=self.deterministic)
-
-            # --- Step the environment ---
-            next_obs, rewards, dones_flags, infos = self.eval_env.step(actions)
-
-            # --- Accumulate rewards only for active episodes ---
-            episode_rewards += rewards
-
-            # --- If an episode finishes, log it and reset that env ---
-            for i in range(active_envs):
-                if dones_flags[i]:
-                    total_rewards.append(episode_rewards[i])  # Save final reward
-                    episode_rewards[i] = 0  # Reset reward tracker
-                    episodes_finished += 1  # Increase completed episode count
-
-                    # Reset the environment only if we need more episodes
-                    if episodes_finished < eval_episodes:
-                        obs[i] = self.eval_env.reset()[
-                            i
-                        ]  # Reset only this specific env
-
-            # --- Update observation ---
-            obs = next_obs
-
-        mean_reward = np.mean(total_rewards)
-        std_reward = np.std(total_rewards)
-
-        # --- Logging ---
-        if self.verbose > 0:
-            print(
-                f"[Eval] Episodes: {eval_episodes} | Mean Reward: {mean_reward:.2f} | Std: {std_reward:.2f}"
-            )
-
-        return mean_reward, std_reward
 
 
 if __name__ == "__main__":
