@@ -1152,12 +1152,12 @@ class TabularQAgent(Agent):
                 # Discretizers
                 "state_discretizer": {
                     "ranges": self.state_discretizer.ranges,
-                    "num_buckets": self.state_discretizer.num_buckets,
+                    "num_buckets": self.state_discretizer.input_num_buckets,
                     "normal_params": self.state_discretizer.normal_params,
                 },
                 "action_discretizer": {
                     "ranges": self.action_discretizer.ranges,
-                    "num_buckets": self.action_discretizer.num_buckets,
+                    "num_buckets": self.action_discretizer.input_num_buckets,
                     "normal_params": self.action_discretizer.normal_params,
                 },
             }
@@ -1855,9 +1855,10 @@ if __name__ == "__main__":
 
     # ---- Hyperparameters ---- #
     N_ENVS = 8
-    TOTAL_TIMESTEPS = 100_000
-    EVAL_INTERVAL = 500 * N_ENVS
-    EVAL_EPISODES = 500
+    TOTAL_TIMESTEPS = 250_000
+    TOTAL_TIMESTEPS = 250_000
+    EVAL_INTERVAL = 1000 * N_ENVS
+    EVAL_EPISODES = 200
     MAP_SIZE = 8
     SAVE_PATH = "./tabular_q_agent_frozenlake/"
     BEST_MODEL_FILE = os.path.join(SAVE_PATH, "best_model.zip")
@@ -1869,7 +1870,7 @@ if __name__ == "__main__":
     def make_env():
         def _init():
             env = gym.make(
-                "FrozenLake-v1", map_name=f"{MAP_SIZE}x{MAP_SIZE}", is_slippery=False
+                "FrozenLake-v1", map_name=f"{MAP_SIZE}x{MAP_SIZE}", is_slippery=True
             )
             return env
 
@@ -1884,8 +1885,8 @@ if __name__ == "__main__":
         gamma=0.99,
         buffer_size=100_000,
         max_temperature=1.0,
-        temperature_sensitivity=0.1,
-        batch_size=32,
+        temperature_sensitivity=10.0,
+        batch_size=128,
         batch_update_interval=8,
         print_info=True,
     )
@@ -1940,7 +1941,7 @@ if __name__ == "__main__":
     # === Evaluating Loaded Model in VecEnv ===
     print("=== Evaluating Loaded Model (VecEnv Compatible) ===")
 
-    n_test_episodes = EVAL_EPISODES
+    n_test_episodes = 20
     n_envs = eval_env.num_envs
     episodes_finished = 0
     test_rewards = []
