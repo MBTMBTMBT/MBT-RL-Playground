@@ -1302,17 +1302,12 @@ class TabularQAgent(Agent):
             lambda: 0
         )  # Uses the same keys of the Q-Table to do visit count.
 
-    def get_action_probabilities(self, state: np.ndarray) -> np.ndarray:
+    def get_action_probabilities(self, encoded_state: np.ndarray) -> np.ndarray:
         """
         Calculate action probabilities for a given state using state-specific temperature.
-        :param state: The current observation (raw state array).
+        :param encoded_state: The current observation (raw state array).
         :return: An array of action probabilities.
         """
-        # --- Encode the current state (discrete index) ---
-        # encoded_state = self.state_discretizer.encode_indices(
-        #     [*self.state_discretizer.discretize(state)[1]]
-        # )
-        encoded_state = state
 
         # --- Retrieve Q-values for all actions ---
         q_values = np.array(
@@ -1377,7 +1372,10 @@ class TabularQAgent(Agent):
             return actions
 
         # --- Single observation case ---
-        action_probabilities = self.get_action_probabilities(state)
+        state_encoded = self.state_discretizer.encode_indices(
+            [*self.state_discretizer.discretize(state)[1]]
+        )
+        action_probabilities = self.get_action_probabilities(state_encoded)
 
         if greedy:
             action_encoded = np.argmax(action_probabilities)
