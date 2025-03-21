@@ -915,10 +915,11 @@ class TabularQAgent(Agent):
         learning_rate: float = 0.1,
         gamma: float = 0.99,
         buffer_size: int = 100_000,
+        learning_starts: int = 100_000,
         max_temperature: float = 1.0,
         min_temperature: float = 0.01,
-        temperature_sensitivity=0.1,
-        batch_size=32,
+        temperature_scale=1.0,
+        update_steps=32,
         batch_update_interval=8,
         print_info: bool = True,
     ):
@@ -1004,15 +1005,15 @@ class TabularQAgent(Agent):
         self.replay_buffer = ReplayBuffer(
             capacity=buffer_size,
         )
+        self.learning_starts = learning_starts
 
-        # VDBE temperature control
+        # temperature control
         self.T_max = max_temperature
         self.T_min = min_temperature
-        self.temperature_sensitivity = temperature_sensitivity
-        self.state_temperature_table = defaultdict(lambda: self.T_max)
+        self.temperature_scale = temperature_scale
 
         # Batch update
-        self.batch_size = batch_size
+        self.update_steps = update_steps
         self.batch_update_interval = batch_update_interval
 
         self.all_actions_encoded = sorted(
@@ -1068,10 +1069,11 @@ class TabularQAgent(Agent):
                 learning_rate=params["learning_rate"],
                 gamma=params["gamma"],
                 buffer_size=params["buffer_size"],
+                learning_starts=params["learning_starts"],
                 max_temperature=params["max_temperature"],
                 min_temperature=params["min_temperature"],
-                temperature_sensitivity=params["temperature_sensitivity"],
-                batch_size=params["batch_size"],
+                temperature_scale=params["temperature_scale"],
+                update_steps=params["update_steps"],
                 batch_update_interval=params["batch_update_interval"],
                 print_info=False,
             )
@@ -1096,11 +1098,6 @@ class TabularQAgent(Agent):
                 agent.visit_table[(int(row["state"]), int(row["action"]))] = int(
                     row["visit_count"]
                 )
-
-            # --- Load state temperature table ---
-            df_temp = pd.read_csv(os.path.join(temp_dir, "state_temperature_table.csv"))
-            for _, row in df_temp.iterrows():
-                agent.state_temperature_table[int(row["state"])] = row["temperature"]
 
             # --- Load ReplayBuffer ---
             replay_dir = os.path.join(temp_dir, "replay_buffer")
@@ -1146,24 +1143,16 @@ class TabularQAgent(Agent):
                 os.path.join(temp_dir, "visit_table.csv"), index=False
             )
 
-            # --- Save state temperature table ---
-            temp_data = [
-                {"state": s, "temperature": t}
-                for s, t in self.state_temperature_table.items()
-            ]
-            pd.DataFrame(temp_data).to_csv(
-                os.path.join(temp_dir, "state_temperature_table.csv"), index=False
-            )
-
             # --- Save hyperparameters & settings ---
             params = {
                 "learning_rate": self.learning_rate,
                 "gamma": self.gamma,
                 "buffer_size": self.replay_buffer.capacity,
+                "learning_starts": self.learning_starts,
                 "max_temperature": self.T_max,
                 "min_temperature": self.T_min,
-                "temperature_sensitivity": self.temperature_sensitivity,
-                "batch_size": self.batch_size,
+                "temperature_scale": self.temperature_scale,
+                "update_steps": self.update_steps,
                 "batch_update_interval": self.batch_update_interval,
                 # Discretizers
                 "state_discretizer": {
@@ -1212,10 +1201,11 @@ class TabularQAgent(Agent):
             learning_rate=self.learning_rate,
             gamma=self.gamma,
             buffer_size=self.replay_buffer.capacity,
+            learning_starts=self.learning_starts,
             max_temperature=self.T_max,
             min_temperature=self.T_min,
-            temperature_sensitivity=self.temperature_sensitivity,
-            batch_size=self.batch_size,
+            temperature_scale=self.temperature_scale,
+            update_steps=self.update_steps,
             batch_update_interval=self.batch_update_interval,
             print_info=False,
         )
@@ -1224,7 +1214,6 @@ class TabularQAgent(Agent):
         new_agent.q_table_1 = self.q_table_1.copy()
         new_agent.q_table_2 = self.q_table_2.copy()
         new_agent.visit_table = self.visit_table.copy()
-        new_agent.state_temperature_table = self.state_temperature_table.copy()
 
         # Shallow copy of replay buffer (optional)
         new_agent.replay_buffer = self.replay_buffer.clone()
@@ -1273,18 +1262,6 @@ class TabularQAgent(Agent):
         visit_table_size = len(self.visit_table)
         print(f"[Visit Table] {visit_table_size} entries (state-action pairs tracked).")
 
-        # --- State temperature table ---
-        temp_values = list(self.state_temperature_table.values())
-        if temp_values:
-            print(f"[State Temperature Table]")
-            print(f"  Number of states with temperature: {len(temp_values)}")
-            print(
-                f"  Temperature (min / mean / max): {min(temp_values):.4f} / "
-                f"{sum(temp_values) / len(temp_values):.4f} / {max(temp_values):.4f}"
-            )
-        else:
-            print(f"[State Temperature Table] No entries found.")
-
         # --- Replay Buffer info ---
         print(f"[Replay Buffer]")
         print(
@@ -1302,40 +1279,42 @@ class TabularQAgent(Agent):
             lambda: 0
         )  # Uses the same keys of the Q-Table to do visit count.
 
-    def get_action_probabilities(self, encoded_state: np.ndarray) -> np.ndarray:
+    def get_action_probabilities(self, encoded_state: int) -> np.ndarray:
         """
-        Calculate action probabilities for a given state using state-specific temperature.
-        :param encoded_state: The current observation (raw state array).
-        :return: An array of action probabilities.
-        """
+        Calculate action probabilities for a given state using adaptive temperature
+        based on the Q-value distribution.
 
+        :param encoded_state: The current encoded state (int).
+        :return: An array of action probabilities for each action (np.ndarray of shape [n_actions]).
+        """
         # --- Retrieve Q-values for all actions ---
-        q_values = np.array(
-            [
-                (
-                    self.q_table_1[(encoded_state, a)]
-                    + self.q_table_2[(encoded_state, a)]
-                )
-                / 2.0
-                for a in self.all_actions_encoded
-            ]
-        )
+        q_values = np.array([
+            (self.q_table_1[(encoded_state, a)] + self.q_table_2[(encoded_state, a)]) / 2.0
+            for a in self.all_actions_encoded
+        ])
 
-        # --- Get temperature for this state ---
-        temperature = self.state_temperature_table[encoded_state]
-
-        # --- Handle all-zero Q-values ---
+        # --- Handle all-zero Q-values (fully uninitialized state) ---
         if np.all(q_values == 0):
+            # Uniform probabilities if no learning signal yet
             probabilities = np.ones_like(q_values, dtype=float) / len(q_values)
             return probabilities
 
-        # --- Stability control for temperature ---
-        temperature = max(temperature, 1e-6)  # Prevent division by zero
+        # --- Compute Q-value range (or other dispersion measure) ---
+        q_max = np.max(q_values)
+        q_min = np.min(q_values)
+        delta_q = q_max - q_min
 
-        # --- Softmax computation ---
-        q_values_stable = q_values - np.max(q_values)  # Numerical stability
+        # --- Compute adaptive temperature ---
+        eps = 1e-8  # To avoid division by zero
+        temperature = self.temperature_scale / (delta_q + eps)
+
+        # --- Clip temperature to stay within [T_min, T_max] ---
+        temperature = np.clip(temperature, self.T_min, self.T_max)
+
+        # --- Softmax action selection ---
+        q_values_stable = q_values - q_max  # for numerical stability
         exp_values = np.exp(q_values_stable / temperature)
-        probabilities = exp_values / (np.sum(exp_values) + 1e-10)
+        probabilities = exp_values / (np.sum(exp_values) + 1e-10)  # Avoid divide by zero
 
         return probabilities
 
@@ -1506,7 +1485,7 @@ class TabularQAgent(Agent):
             else None
         )
 
-        batch_size = self.batch_size
+        update_steps = self.update_steps
         batch_update_interval = self.batch_update_interval
 
         # === Main training loop ===
@@ -1595,10 +1574,11 @@ class TabularQAgent(Agent):
             # --- Periodic batch update ---
             if (
                 self.num_timesteps % batch_update_interval == 0
-                and len(self.replay_buffer.buffer) >= batch_size
+                and len(self.replay_buffer.buffer) >= update_steps
+                and self.replay_buffer.size >= self.learning_starts
             ):
                 transitions, indices, weights = self.replay_buffer.sample(
-                    batch_size=batch_size,
+                    batch_size=update_steps,
                 )
 
                 batch_td_errors = []
@@ -1612,11 +1592,6 @@ class TabularQAgent(Agent):
                         is_weight=is_weight,
                     )
                     batch_td_errors.append(td_error_batch)
-
-                    # --- VDBE temperature update ---
-                    self.state_temperature_table[trans.state] = max(self.T_max * np.exp(
-                        -td_error_batch / self.temperature_sensitivity
-                    ), self.T_min)
 
                 # --- Update priorities ---
                 self.replay_buffer.update_priorities(indices, batch_td_errors)
@@ -1818,9 +1793,8 @@ if __name__ == "__main__":
     # ---- Hyperparameters ---- #
     N_ENVS = 8
     TOTAL_TIMESTEPS = 250_000
-    TOTAL_TIMESTEPS = 250_000
     EVAL_INTERVAL = 1000 * N_ENVS
-    EVAL_EPISODES = 200
+    EVAL_EPISODES = 500 * N_ENVS
     MAP_SIZE = 8
     SAVE_PATH = "./tabular_q_agent_frozenlake/"
     BEST_MODEL_FILE = os.path.join(SAVE_PATH, "best_model.zip")
@@ -1843,14 +1817,15 @@ if __name__ == "__main__":
     # ---- Create TabularQAgent instance ---- #
     agent = TabularQAgent(
         env=train_env,
-        learning_rate=0.1,
+        learning_rate=0.01,
         gamma=0.99,
         buffer_size=100_000,
+        learning_starts=10_000,
         max_temperature=1.0,
         min_temperature=0.05,
-        temperature_sensitivity=10.0,
-        batch_size=128,
-        batch_update_interval=8,
+        temperature_scale=1.0,
+        update_steps=500,
+        batch_update_interval=N_ENVS,
         print_info=True,
     )
 
@@ -1904,7 +1879,7 @@ if __name__ == "__main__":
     # === Evaluating Loaded Model in VecEnv ===
     print("=== Evaluating Loaded Model (VecEnv Compatible) ===")
 
-    n_test_episodes = 20
+    n_test_episodes = 5 * N_ENVS
     n_envs = eval_env.num_envs
     episodes_finished = 0
     test_rewards = []
