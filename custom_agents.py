@@ -1740,7 +1740,7 @@ class EvalCallback(BaseCallback):
         os.makedirs(self.save_dir, exist_ok=True)
 
         self.model_name = model_name
-        self.best_model_save_path = os.path.join(self.save_dir, f"{self.model_name}_best.zip")
+        self.best_model_save_path = os.path.join(self.save_dir, f"{self.model_name}.zip")
         self.log_path = os.path.join(self.save_dir, f"{self.model_name}_evaluation_log.csv")
         self.gif_path = os.path.join(self.save_dir, f"{self.model_name}_eval.gif")
 
@@ -1805,11 +1805,9 @@ class EvalCallback(BaseCallback):
             self.records, columns=["Timesteps", "MeanReward", "StdReward"]
         )
         if self.log_path is not None:
-            os.makedirs(self.log_path, exist_ok=True)
-            log_file = os.path.join(self.log_path, "evaluation_log.csv")
-            df.to_csv(log_file, index=False)
+            df.to_csv(self.log_path, index=False)
             if self.verbose > 0:
-                print(f"[EvalCallback] Logs saved at: {log_file}")
+                print(f"[EvalCallback] Logs saved at: {self.log_path}")
 
     def record_eval_gif(
             self,
@@ -1885,10 +1883,10 @@ if __name__ == "__main__":
 
     # ---- Hyperparameters ---- #
     N_ENVS = 8
-    TOTAL_TIMESTEPS = 150_000
-    EVAL_INTERVAL = 1000 * N_ENVS
+    TOTAL_TIMESTEPS = 20_000
+    EVAL_INTERVAL = 500 * N_ENVS
     EVAL_EPISODES = 500 * N_ENVS
-    MAP_SIZE = 8
+    MAP_SIZE = 4
     SAVE_DIR = "./tabular_q_agent_frozenlake"
     MODEL_NAME = "tabular_q_agent"
 
