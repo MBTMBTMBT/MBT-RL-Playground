@@ -8,6 +8,8 @@ from itertools import product
 from typing import List, Tuple, Optional, Union, Callable, Any
 from abc import ABC, abstractmethod
 
+import cv2
+import imageio
 import numpy as np
 import pandas as pd
 import scipy
@@ -459,8 +461,10 @@ class Discretizer:
         if (
             isinstance(vector, int)
             or isinstance(vector, np.int64)
+            or isinstance(vector, np.int32)
             or isinstance(vector, float)
             or isinstance(vector, np.float32)
+            or isinstance(vector, np.float64)
         ):
             vector = [vector]
         elif isinstance(vector, np.ndarray) and vector.size == 1:
@@ -1347,7 +1351,7 @@ class TabularQAgent(Agent):
             actions = []
             for idx in range(len(state)):
                 action = self.choose_action(state[idx], greedy=greedy)
-                actions.append(action)
+                actions.append(action[0])
             return actions
 
         # --- Single observation case ---
@@ -1371,6 +1375,9 @@ class TabularQAgent(Agent):
 
         if isinstance(self.env.action_space, spaces.Discrete):
             action = action.squeeze().item()
+
+        if not isinstance(action, list):
+            action = [action]
 
         return action
 
@@ -1693,7 +1700,7 @@ class TabularQAgent(Agent):
 class EvalCallback(BaseCallback):
     """
     General evaluation callback for tabular/actor-critic algorithms.
-    Supports evaluation on VecEnv, best model saving, logging, and plotting.
+    Supports evaluation on VecEnv, best model saving, logging, plotting, and GIF recording.
     """
 
     def __init__(
@@ -1701,30 +1708,43 @@ class EvalCallback(BaseCallback):
         eval_env,
         eval_interval: int,
         eval_episodes: int = 10,
-        best_model_save_path: Optional[str] = None,
-        log_path: Optional[str] = None,
+        save_dir: Optional[str] = "./eval_results",
+        model_name: Optional[str] = "agent",
         deterministic: bool = True,
         verbose: int = 1,
-        optimal_score: Optional[float] = None,
+        near_optimal_score: Optional[float] = None,
+        gif_env: Union[Env, VecEnv, None] = None,
+        gif_fps: int = 30,
     ):
         super().__init__(verbose)
 
         # === Auto-wrap single env into DummyVecEnv ===
         if hasattr(eval_env, "num_envs"):
-            # Already a VecEnv
             self.eval_env = eval_env
         else:
-            # Wrap single env
             self.eval_env = DummyVecEnv([lambda: eval_env])
 
         self.eval_interval = eval_interval
         self.eval_episodes = eval_episodes
         self.deterministic = deterministic
+        self.gif_fps = gif_fps
+        self.record_gif = gif_env is not None
+        if gif_env is not None:
+            if hasattr(eval_env, "num_envs"):
+                self.gif_env = gif_env
+            else:
+                self.gif_env = DummyVecEnv([lambda: gif_env])
 
-        self.best_model_save_path = best_model_save_path
-        self.log_path = log_path
+        # === Directory and filenames ===
+        self.save_dir = save_dir
+        os.makedirs(self.save_dir, exist_ok=True)
 
-        self.optimal_score = optimal_score
+        self.model_name = model_name
+        self.best_model_save_path = os.path.join(self.save_dir, f"{self.model_name}_best.zip")
+        self.log_path = os.path.join(self.save_dir, f"{self.model_name}_evaluation_log.csv")
+        self.gif_path = os.path.join(self.save_dir, f"{self.model_name}_eval.gif")
+
+        self.near_optimal_score = near_optimal_score
         self.best_mean_reward = -np.inf
         self.step_reached_optimal = None
         self.records = []
@@ -1736,6 +1756,7 @@ class EvalCallback(BaseCallback):
             print("[EvalCallback] Starting evaluation callback.")
 
     def _on_step(self):
+        # --- Trigger evaluation ---
         if self.num_timesteps % self.eval_interval != 0:
             return True
 
@@ -1743,28 +1764,35 @@ class EvalCallback(BaseCallback):
                 self.model,
                 self.eval_env,
                 n_eval_episodes=self.eval_episodes,
-                deterministic=True,
+                deterministic=self.deterministic,
                 render=False,
-                warn=False,
+                warn=self.verbose > 0,
             )
 
+        # === Logging ===
         if self.verbose > 0:
             print(
-                f"[EvalCallback] Step {self.num_timesteps} | Mean reward: {mean_reward:.2f} ± {std_reward:.2f}"
+                f"[EvalCallback] Step {self.num_timesteps} | "
+                f"Mean reward: {mean_reward:.2f} ± {std_reward:.2f}"
             )
 
         self.records.append((self.num_timesteps, mean_reward, std_reward))
 
+        # === Save best model ===
         if mean_reward > self.best_mean_reward:
             self.best_mean_reward = mean_reward
             if self.verbose > 0:
-                print(
-                    f"[EvalCallback] New best mean reward: {mean_reward:.2f}, saving model."
-                )
-            if self.best_model_save_path is not None:
-                self.model.save(self.best_model_save_path)
+                print(f"[EvalCallback] New best mean reward: {mean_reward:.2f}. Saving model to {self.best_model_save_path}")
+            self.model.save(self.best_model_save_path)
+            self.record_eval_gif(
+                save_path=self.gif_path,
+                fps=self.gif_fps,
+                deterministic=self.deterministic,
+                verbose=self.verbose,
+            )
 
-        if self.optimal_score is not None and mean_reward >= self.optimal_score:
+        # === Check optimal score ===
+        if self.near_optimal_score is not None and mean_reward >= self.near_optimal_score:
             if self.step_reached_optimal is None:
                 self.step_reached_optimal = self.num_timesteps
 
@@ -1783,7 +1811,72 @@ class EvalCallback(BaseCallback):
             if self.verbose > 0:
                 print(f"[EvalCallback] Logs saved at: {log_file}")
 
-        # self.eval_env.close()
+    def record_eval_gif(
+            self,
+            save_path: str,
+            fps: int = 30,
+            deterministic: bool = True,
+            verbose: int = 1
+    ):
+        """
+        Record a single episode as a GIF, from a DummyVecEnv (num_envs=1).
+
+        Args:
+            save_path (str): Path to save the GIF.
+            fps (int): Frames per second for GIF playback.
+            deterministic (bool): Whether to use deterministic actions.
+            verbose (int): Verbosity level.
+        """
+        frames = []
+
+        # === 1. Ensure gif_env is DummyVecEnv ===
+        if not hasattr(self.gif_env, "num_envs") or not isinstance(self.gif_env, DummyVecEnv):
+            raise ValueError("record_eval_gif requires a DummyVecEnv (num_envs=1) as gif_env.")
+
+        if self.gif_env.num_envs != 1:
+            raise ValueError(
+                f"record_eval_gif only supports DummyVecEnv with 1 env, got num_envs={self.gif_env.num_envs}.")
+
+        env = self.gif_env
+        raw_env = env.envs[0]  # single raw env (for rendering)
+
+        # === 2. Reset VecEnv ===
+        obs = env.reset()
+
+        # === 3. Initialize done flag ===
+        done = np.array([False])  # VecEnv always returns batch results
+        step_count = 0
+
+        # === 4. Start recording episode ===
+        while not done[0]:
+            # --- Render raw env (avoid multi-frame issue) ---
+            frame = raw_env.render()
+
+            # --- Optional resize ---
+            frame_resized = cv2.resize(
+                frame,
+                (frame.shape[1] // 2, frame.shape[0] // 2),
+                interpolation=cv2.INTER_AREA
+            )
+            frames.append(frame_resized)
+
+            # --- Select batched actions ---
+            action = self.model.choose_action(obs, greedy=deterministic)
+
+            # --- Step VecEnv ---
+            obs, rewards, done, info = env.step(action)
+
+            step_count += 1
+
+        # === 5. Save GIF ===
+        duration_per_frame = 1.0 / fps
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+
+        imageio.mimsave(save_path, frames, duration=duration_per_frame, loop=0)
+
+        if verbose > 0:
+            print(f"[record_eval_gif] DummyVecEnv episode finished after {step_count} steps.")
+            print(f"[record_eval_gif] GIF saved at: {save_path}")
 
 
 if __name__ == "__main__":
@@ -1792,21 +1885,20 @@ if __name__ == "__main__":
 
     # ---- Hyperparameters ---- #
     N_ENVS = 8
-    TOTAL_TIMESTEPS = 250_000
+    TOTAL_TIMESTEPS = 150_000
     EVAL_INTERVAL = 1000 * N_ENVS
     EVAL_EPISODES = 500 * N_ENVS
     MAP_SIZE = 8
-    SAVE_PATH = "./tabular_q_agent_frozenlake/"
-    BEST_MODEL_FILE = os.path.join(SAVE_PATH, "best_model.zip")
-    LOG_PATH = os.path.join(SAVE_PATH, "logs")
+    SAVE_DIR = "./tabular_q_agent_frozenlake"
+    MODEL_NAME = "tabular_q_agent"
 
-    os.makedirs(SAVE_PATH, exist_ok=True)
+    os.makedirs(SAVE_DIR, exist_ok=True)
 
     # ---- Create parallel FrozenLake envs (train + eval) ---- #
     def make_env():
         def _init():
             env = gym.make(
-                "FrozenLake-v1", map_name=f"{MAP_SIZE}x{MAP_SIZE}", is_slippery=True
+                "FrozenLake-v1", map_name=f"{MAP_SIZE}x{MAP_SIZE}", is_slippery=True, render_mode="rgb_array",
             )
             return env
 
@@ -1831,14 +1923,17 @@ if __name__ == "__main__":
 
     # ---- EvalCallback ---- #
     eval_env = SubprocVecEnv([make_env() for _ in range(N_ENVS)])
+    gif_env = DummyVecEnv([make_env() for _ in range(1)])
     eval_callback = EvalCallback(
         eval_env=eval_env,
         eval_interval=EVAL_INTERVAL,
         eval_episodes=EVAL_EPISODES,
-        best_model_save_path=BEST_MODEL_FILE,
-        log_path=LOG_PATH,
+        save_dir=SAVE_DIR,
+        model_name=MODEL_NAME,
         deterministic=True,
         verbose=1,
+        gif_env=gif_env,
+        gif_fps=5,
     )
 
     # ---- Train ---- #
@@ -1850,7 +1945,7 @@ if __name__ == "__main__":
     )
 
     # ---- Plot training curve ---- #
-    eval_log_file = os.path.join(LOG_PATH, "evaluation_log.csv")
+    eval_log_file = os.path.join(SAVE_DIR, f"{MODEL_NAME}_evaluation_log.csv")
     if os.path.exists(eval_log_file):
         df = pd.read_csv(eval_log_file)
         plt.figure(figsize=(10, 6))
@@ -1867,13 +1962,13 @@ if __name__ == "__main__":
         plt.legend()
         plt.grid()
         plt.tight_layout()
-        plt.savefig(os.path.join(LOG_PATH, "eval_curve.png"))
+        plt.savefig(os.path.join(SAVE_DIR, f"{MODEL_NAME}eval_curve.png"))
         plt.show()
 
     # ---- Load best model and evaluate ---- #
     print("\n=== Loading Best Model ===")
     loaded_agent = TabularQAgent.load(
-        path=BEST_MODEL_FILE, env=eval_env, print_system_info=True
+        path=os.path.join(SAVE_DIR, f"{MODEL_NAME}.zip"), env=eval_env, print_system_info=True,
     )
 
     # === Evaluating Loaded Model in VecEnv ===
