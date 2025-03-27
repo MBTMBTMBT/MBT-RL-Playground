@@ -14,25 +14,25 @@ print(custom_envs.WELCOME)  # so that IDE wouldn't say this is not used
 if __name__ == '__main__':
     # ---- Frozen Lake Example ---- #
     N_ENVS = 4
-    TOTAL_TIMESTEPS = 50_000
+    TOTAL_TIMESTEPS = 25_000
     EVAL_INTERVAL = 500 * N_ENVS
     EVAL_EPISODES = 100 * N_ENVS
     SAVE_DIR = "./tabular_playground/tabular_q_agent_frozenlake"
     MODEL_NAME = "tabular_q_agent"
-    LR = 0.01
+    LR = 0.025
     GAMMA = 0.99
     BUFFER_SIZE = 1_000_000
     LEARNING_STARTS = 1_000
-    MAX_T = 1.0
-    MIN_T = 0.025
-    TEMPERATURE_SCALE = 0.25
-    UPDATE_STEPS = N_ENVS * 4
+    MAX_T = 0.1
+    MIN_T = MAX_T / 4
+    TEMPERATURE_SCALE = 0.5
+    UPDATE_STEPS = N_ENVS * 512
     UPDATE_INTERVAL = N_ENVS
 
     MAP_DESC = [
         "SFFFFFFF",
         "FFFFFFFF",
-        "HFFFHHHF",
+        "HFFFHFFH",
         "FFFFFFFF",
         "FFFHHFFF",
         "FFFFHGFF",

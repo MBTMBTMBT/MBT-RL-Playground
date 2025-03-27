@@ -34,7 +34,7 @@ register(
         "is_slippery": True,
         "slipperiness": 0.8,
     },
-    max_episode_steps=250,
+    max_episode_steps=100,
 )
 
 register(

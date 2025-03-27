@@ -1320,6 +1320,8 @@ class TabularQAgent(Agent):
         exp_values = np.exp(q_values_stable / temperature)
         probabilities = exp_values / (np.sum(exp_values) + 1e-10)  # Avoid divide by zero
 
+        # print(temperature, q_values, probabilities)
+
         return probabilities
 
     def choose_action(
