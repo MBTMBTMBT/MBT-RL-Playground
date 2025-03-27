@@ -17,7 +17,10 @@ from gymnasium.envs.classic_control.mountain_car import MountainCarEnv
 from gymnasium.envs.classic_control.acrobot import AcrobotEnv
 from gymnasium.envs.box2d.car_racing import CarRacing
 from gymnasium.envs.registration import register
-from gymnasium.envs.box2d.lunar_lander import LunarLander, INITIAL_RANDOM
+from gymnasium.envs.box2d.lunar_lander import LunarLander
+
+
+WELCOME = "CUSTOM ENVS OF MBTMBTMBT!!!"
 
 
 # Register the custom environments
@@ -31,7 +34,7 @@ register(
         "is_slippery": True,
         "slipperiness": 0.8,
     },
-    max_episode_steps=100,
+    max_episode_steps=250,
 )
 
 register(

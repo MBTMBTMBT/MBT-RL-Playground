@@ -924,7 +924,7 @@ class TabularQAgent(Agent):
         min_temperature: float = 0.01,
         temperature_scale=1.0,
         update_steps=32,
-        batch_update_interval=8,
+        update_interval=8,
         print_info: bool = True,
     ):
         super().__init__(env)
@@ -1018,7 +1018,7 @@ class TabularQAgent(Agent):
 
         # Batch update
         self.update_steps = update_steps
-        self.batch_update_interval = batch_update_interval
+        self.update_interval = update_interval
 
         self.all_actions_encoded = sorted(
             [
@@ -1078,7 +1078,7 @@ class TabularQAgent(Agent):
                 min_temperature=params["min_temperature"],
                 temperature_scale=params["temperature_scale"],
                 update_steps=params["update_steps"],
-                batch_update_interval=params["batch_update_interval"],
+                update_interval=params["update_interval"],
                 print_info=False,
             )
 
@@ -1157,7 +1157,7 @@ class TabularQAgent(Agent):
                 "min_temperature": self.T_min,
                 "temperature_scale": self.temperature_scale,
                 "update_steps": self.update_steps,
-                "batch_update_interval": self.batch_update_interval,
+                "update_interval": self.update_interval,
                 # Discretizers
                 "state_discretizer": {
                     "ranges": self.state_discretizer.ranges,
@@ -1210,7 +1210,7 @@ class TabularQAgent(Agent):
             min_temperature=self.T_min,
             temperature_scale=self.temperature_scale,
             update_steps=self.update_steps,
-            batch_update_interval=self.batch_update_interval,
+            update_interval=self.update_interval,
             print_info=False,
         )
 
@@ -1493,7 +1493,7 @@ class TabularQAgent(Agent):
         )
 
         update_steps = self.update_steps
-        batch_update_interval = self.batch_update_interval
+        batch_update_interval = self.update_interval
 
         # === Main training loop ===
         for timestep in range(total_timesteps):
@@ -1710,7 +1710,6 @@ class EvalCallback(BaseCallback):
         eval_episodes: int = 10,
         save_dir: Optional[str] = "./eval_results",
         model_name: Optional[str] = "agent",
-        deterministic: bool = True,
         verbose: int = 1,
         near_optimal_score: Optional[float] = None,
         gif_env: Union[Env, VecEnv, None] = None,
@@ -1726,7 +1725,6 @@ class EvalCallback(BaseCallback):
 
         self.eval_interval = eval_interval
         self.eval_episodes = eval_episodes
-        self.deterministic = deterministic
         self.gif_fps = gif_fps
         self.record_gif = gif_env is not None
         if gif_env is not None:
@@ -1741,16 +1739,19 @@ class EvalCallback(BaseCallback):
 
         self.model_name = model_name
         self.best_model_save_path = os.path.join(self.save_dir, f"{self.model_name}.zip")
-        self.log_path = os.path.join(self.save_dir, f"{self.model_name}_evaluation_log.csv")
+        self.log_path = os.path.join(self.save_dir, f"{self.model_name}_evaluation_determined_log.csv")
+        self.log_path_ = os.path.join(self.save_dir, f"{self.model_name}_evaluation_non_determined_log.csv")
         self.gif_path = os.path.join(self.save_dir, f"{self.model_name}_eval.gif")
 
         self.near_optimal_score = near_optimal_score
         self.best_mean_reward = -np.inf
         self.step_reached_optimal = None
-        self.records = []
+        self.records_determined = []
+        self.records_non_determined = []
 
     def _on_training_start(self):
-        self.records = []
+        self.records_determined = []
+        self.records_non_determined = []
         self.step_reached_optimal = None
         if self.verbose > 0:
             print("[EvalCallback] Starting evaluation callback.")
@@ -1764,19 +1765,33 @@ class EvalCallback(BaseCallback):
                 self.model,
                 self.eval_env,
                 n_eval_episodes=self.eval_episodes,
-                deterministic=self.deterministic,
+                deterministic=True,
                 render=False,
                 warn=self.verbose > 0,
             )
+
+        mean_reward_, std_reward_ = evaluate_policy(
+            self.model,
+            self.eval_env,
+            n_eval_episodes=self.eval_episodes,
+            deterministic=False,
+            render=False,
+            warn=self.verbose > 0,
+        )
 
         # === Logging ===
         if self.verbose > 0:
             print(
                 f"[EvalCallback] Step {self.num_timesteps} | "
-                f"Mean reward: {mean_reward:.2f} ± {std_reward:.2f}"
+                f"Mean reward (determined): {mean_reward:.2f} ± {std_reward:.2f}"
+            )
+            print(
+                f"[EvalCallback] Step {self.num_timesteps} | "
+                f"Mean reward (not determined): {mean_reward_:.2f} ± {std_reward_:.2f}"
             )
 
-        self.records.append((self.num_timesteps, mean_reward, std_reward))
+        self.records_determined.append((self.num_timesteps, mean_reward, std_reward))
+        self.records_non_determined.append((self.num_timesteps, mean_reward_, std_reward_))
 
         # === Save best model ===
         if mean_reward > self.best_mean_reward:
@@ -1787,7 +1802,7 @@ class EvalCallback(BaseCallback):
             self.record_eval_gif(
                 save_path=self.gif_path,
                 fps=self.gif_fps,
-                deterministic=self.deterministic,
+                deterministic=True,
                 verbose=self.verbose,
             )
 
@@ -1802,12 +1817,16 @@ class EvalCallback(BaseCallback):
         if self.verbose > 0:
             print("[EvalCallback] Training finished. Saving logs.")
         df = pd.DataFrame(
-            self.records, columns=["Timesteps", "MeanReward", "StdReward"]
+            self.records_determined, columns=["Timesteps", "MeanReward", "StdReward"]
+        )
+        df_ = pd.DataFrame(
+            self.records_non_determined, columns=["Timesteps", "MeanReward", "StdReward"]
         )
         if self.log_path is not None:
             df.to_csv(self.log_path, index=False)
+            df_.to_csv(self.log_path_, index=False)
             if self.verbose > 0:
-                print(f"[EvalCallback] Logs saved at: {self.log_path}")
+                print(f"[EvalCallback] Logs saved at: {self.log_path} and {self.log_path_}")
 
     def record_eval_gif(
             self,
@@ -1875,155 +1894,3 @@ class EvalCallback(BaseCallback):
         if verbose > 0:
             print(f"[record_eval_gif] DummyVecEnv episode finished after {step_count} steps.")
             print(f"[record_eval_gif] GIF saved at: {save_path}")
-
-
-if __name__ == "__main__":
-    import matplotlib.pyplot as plt
-    from stable_baselines3.common.vec_env import SubprocVecEnv
-
-    # ---- Hyperparameters ---- #
-    N_ENVS = 8
-    TOTAL_TIMESTEPS = 20_000
-    EVAL_INTERVAL = 500 * N_ENVS
-    EVAL_EPISODES = 500 * N_ENVS
-    MAP_SIZE = 4
-    SAVE_DIR = "./tabular_q_agent_frozenlake"
-    MODEL_NAME = "tabular_q_agent"
-
-    os.makedirs(SAVE_DIR, exist_ok=True)
-
-    # ---- Create parallel FrozenLake envs (train + eval) ---- #
-    def make_env():
-        def _init():
-            env = gym.make(
-                "FrozenLake-v1", map_name=f"{MAP_SIZE}x{MAP_SIZE}", is_slippery=True, render_mode="rgb_array",
-            )
-            return env
-
-        return _init
-
-    train_env = SubprocVecEnv([make_env() for _ in range(N_ENVS)])
-
-    # ---- Create TabularQAgent instance ---- #
-    agent = TabularQAgent(
-        env=train_env,
-        learning_rate=0.01,
-        gamma=0.99,
-        buffer_size=100_000,
-        learning_starts=10_000,
-        max_temperature=1.0,
-        min_temperature=0.05,
-        temperature_scale=1.0,
-        update_steps=500,
-        batch_update_interval=N_ENVS,
-        print_info=True,
-    )
-
-    # ---- EvalCallback ---- #
-    eval_env = SubprocVecEnv([make_env() for _ in range(N_ENVS)])
-    gif_env = DummyVecEnv([make_env() for _ in range(1)])
-    eval_callback = EvalCallback(
-        eval_env=eval_env,
-        eval_interval=EVAL_INTERVAL,
-        eval_episodes=EVAL_EPISODES,
-        save_dir=SAVE_DIR,
-        model_name=MODEL_NAME,
-        deterministic=True,
-        verbose=1,
-        gif_env=gif_env,
-        gif_fps=5,
-    )
-
-    # ---- Train ---- #
-    agent.learn(
-        total_timesteps=TOTAL_TIMESTEPS,
-        callback=eval_callback,
-        reset_num_timesteps=True,
-        progress_bar=True,
-    )
-
-    # ---- Plot training curve ---- #
-    eval_log_file = os.path.join(SAVE_DIR, f"{MODEL_NAME}_evaluation_log.csv")
-    if os.path.exists(eval_log_file):
-        df = pd.read_csv(eval_log_file)
-        plt.figure(figsize=(10, 6))
-        plt.plot(df["Timesteps"], df["MeanReward"], label="Mean Reward")
-        plt.fill_between(
-            df["Timesteps"],
-            df["MeanReward"] - df["StdReward"],
-            df["MeanReward"] + df["StdReward"],
-            alpha=0.2,
-        )
-        plt.title("Evaluation Mean Reward Over Time")
-        plt.xlabel("Timesteps")
-        plt.ylabel("Mean Reward")
-        plt.legend()
-        plt.grid()
-        plt.tight_layout()
-        plt.savefig(os.path.join(SAVE_DIR, f"{MODEL_NAME}eval_curve.png"))
-        plt.show()
-
-    # ---- Load best model and evaluate ---- #
-    print("\n=== Loading Best Model ===")
-    loaded_agent = TabularQAgent.load(
-        path=os.path.join(SAVE_DIR, f"{MODEL_NAME}.zip"), env=eval_env, print_system_info=True,
-    )
-
-    # === Evaluating Loaded Model in VecEnv ===
-    print("=== Evaluating Loaded Model (VecEnv Compatible) ===")
-
-    n_test_episodes = 5 * N_ENVS
-    n_envs = eval_env.num_envs
-    episodes_finished = 0
-    test_rewards = []
-
-    # --- Reduce parallel envs if we have fewer episodes to evaluate ---
-    active_envs = min(n_envs, n_test_episodes)
-
-    # --- Initialize envs ---
-    obs = eval_env.reset()
-    dones = np.zeros(active_envs, dtype=bool)
-    episode_rewards = np.zeros(active_envs, dtype=np.float32)
-
-    while episodes_finished < n_test_episodes:
-        # --- Choose actions in batch ---
-        actions = loaded_agent.choose_action(obs, greedy=True)
-
-        # --- Step the environment ---
-        next_obs, rewards, dones_flags, infos = eval_env.step(actions)
-
-        # --- Accumulate rewards ---
-        episode_rewards += rewards
-
-        # --- Handle finished episodes ---
-        for i in range(active_envs):
-            if dones_flags[i]:
-                total_reward = episode_rewards[i]
-                test_rewards.append(total_reward)
-                print(
-                    f"Episode {episodes_finished + 1}/{n_test_episodes}: Reward = {total_reward:.2f}"
-                )
-
-                episodes_finished += 1
-
-                if episodes_finished >= n_test_episodes:
-                    continue
-
-                # Reset the specific env if more episodes are required
-                reset_obs = eval_env.reset()  # Reset returns batched obs
-                obs[i] = reset_obs[i]
-                episode_rewards[i] = 0.0
-
-        # --- Move to next observation ---
-        obs = next_obs
-
-    # --- Results ---
-    mean_test_reward = np.mean(test_rewards)
-    std_test_reward = np.std(test_rewards)
-
-    print(
-        f"\n=== Loaded Model Mean Test Reward over {n_test_episodes} episodes: {mean_test_reward:.2f} ± {std_test_reward:.2f} ==="
-    )
-
-    eval_env.close()
-    train_env.close()
