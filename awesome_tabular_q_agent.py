@@ -1291,6 +1291,11 @@ class TabularQAgent(Agent):
         :param encoded_state: The current encoded state (int).
         :return: An array of action probabilities for each action (np.ndarray of shape [n_actions]).
         """
+        # --- If the state is not well-learned, just take random action ---
+        for a in self.all_actions_encoded:
+            if self.visit_table[(encoded_state, a)] == 0:
+                return np.array([1 / len(self.all_actions_encoded)] * len(self.all_actions_encoded))
+
         # --- Retrieve Q-values for all actions ---
         q_values = np.array([
             (self.q_table_1[(encoded_state, a)] + self.q_table_2[(encoded_state, a)]) / 2.0
