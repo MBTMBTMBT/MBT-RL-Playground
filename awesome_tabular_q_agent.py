@@ -14,7 +14,6 @@ import numpy as np
 import pandas as pd
 import scipy
 from gymnasium import spaces
-import gymnasium as gym
 import tqdm
 from gymnasium.core import Env
 from numpy import ndarray
@@ -331,11 +330,11 @@ class Agent(ABC):
 
     @abstractmethod
     def predict(
-            self,
-            observation: Union[np.ndarray, dict[str, np.ndarray]],
-            state: Optional[tuple[np.ndarray, ...]] = None,
-            episode_start: Optional[np.ndarray] = None,
-            deterministic: bool = False,
+        self,
+        observation: Union[np.ndarray, dict[str, np.ndarray]],
+        state: Optional[tuple[np.ndarray, ...]] = None,
+        episode_start: Optional[np.ndarray] = None,
+        deterministic: bool = False,
     ):
         """
         Predict an action given an observation.
@@ -1294,13 +1293,21 @@ class TabularQAgent(Agent):
         # --- If the state is not well-learned, just take random action ---
         for a in self.all_actions_encoded:
             if self.visit_table[(encoded_state, a)] == 0:
-                return np.array([1 / len(self.all_actions_encoded)] * len(self.all_actions_encoded))
+                return np.array(
+                    [1 / len(self.all_actions_encoded)] * len(self.all_actions_encoded)
+                )
 
         # --- Retrieve Q-values for all actions ---
-        q_values = np.array([
-            (self.q_table_1[(encoded_state, a)] + self.q_table_2[(encoded_state, a)]) / 2.0
-            for a in self.all_actions_encoded
-        ])
+        q_values = np.array(
+            [
+                (
+                    self.q_table_1[(encoded_state, a)]
+                    + self.q_table_2[(encoded_state, a)]
+                )
+                / 2.0
+                for a in self.all_actions_encoded
+            ]
+        )
 
         # --- Handle all-zero Q-values (fully uninitialized state) ---
         if np.all(q_values == 0):
@@ -1323,7 +1330,9 @@ class TabularQAgent(Agent):
         # --- Softmax action selection ---
         q_values_stable = q_values - q_max  # for numerical stability
         exp_values = np.exp(q_values_stable / temperature)
-        probabilities = exp_values / (np.sum(exp_values) + 1e-10)  # Avoid divide by zero
+        probabilities = exp_values / (
+            np.sum(exp_values) + 1e-10
+        )  # Avoid divide by zero
 
         # print(temperature, q_values, probabilities)
 
@@ -1745,9 +1754,15 @@ class EvalCallback(BaseCallback):
         os.makedirs(self.save_dir, exist_ok=True)
 
         self.model_name = model_name
-        self.best_model_save_path = os.path.join(self.save_dir, f"{self.model_name}.zip")
-        self.log_path = os.path.join(self.save_dir, f"{self.model_name}_evaluation_determined_log.csv")
-        self.log_path_ = os.path.join(self.save_dir, f"{self.model_name}_evaluation_non_determined_log.csv")
+        self.best_model_save_path = os.path.join(
+            self.save_dir, f"{self.model_name}.zip"
+        )
+        self.log_path = os.path.join(
+            self.save_dir, f"{self.model_name}_evaluation_determined_log.csv"
+        )
+        self.log_path_ = os.path.join(
+            self.save_dir, f"{self.model_name}_evaluation_non_determined_log.csv"
+        )
         self.gif_path = os.path.join(self.save_dir, f"{self.model_name}_eval.gif")
 
         self.near_optimal_score = near_optimal_score
@@ -1769,13 +1784,13 @@ class EvalCallback(BaseCallback):
             return True
 
         mean_reward, std_reward = evaluate_policy(
-                self.model,
-                self.eval_env,
-                n_eval_episodes=self.eval_episodes,
-                deterministic=True,
-                render=False,
-                warn=self.verbose > 0,
-            )
+            self.model,
+            self.eval_env,
+            n_eval_episodes=self.eval_episodes,
+            deterministic=True,
+            render=False,
+            warn=self.verbose > 0,
+        )
 
         mean_reward_, std_reward_ = evaluate_policy(
             self.model,
@@ -1798,13 +1813,17 @@ class EvalCallback(BaseCallback):
             )
 
         self.records_determined.append((self.num_timesteps, mean_reward, std_reward))
-        self.records_non_determined.append((self.num_timesteps, mean_reward_, std_reward_))
+        self.records_non_determined.append(
+            (self.num_timesteps, mean_reward_, std_reward_)
+        )
 
         # === Save best model ===
         if mean_reward > self.best_mean_reward:
             self.best_mean_reward = mean_reward
             if self.verbose > 0:
-                print(f"[EvalCallback] New best mean reward: {mean_reward:.2f}. Saving model to {self.best_model_save_path}")
+                print(
+                    f"[EvalCallback] New best mean reward: {mean_reward:.2f}. Saving model to {self.best_model_save_path}"
+                )
             self.model.save(self.best_model_save_path)
             self.record_eval_gif(
                 save_path=self.gif_path,
@@ -1814,7 +1833,10 @@ class EvalCallback(BaseCallback):
             )
 
         # === Check optimal score ===
-        if self.near_optimal_score is not None and mean_reward >= self.near_optimal_score:
+        if (
+            self.near_optimal_score is not None
+            and mean_reward >= self.near_optimal_score
+        ):
             if self.step_reached_optimal is None:
                 self.step_reached_optimal = self.num_timesteps
 
@@ -1827,20 +1849,23 @@ class EvalCallback(BaseCallback):
             self.records_determined, columns=["Timesteps", "MeanReward", "StdReward"]
         )
         df_ = pd.DataFrame(
-            self.records_non_determined, columns=["Timesteps", "MeanReward", "StdReward"]
+            self.records_non_determined,
+            columns=["Timesteps", "MeanReward", "StdReward"],
         )
         if self.log_path is not None:
             df.to_csv(self.log_path, index=False)
             df_.to_csv(self.log_path_, index=False)
             if self.verbose > 0:
-                print(f"[EvalCallback] Logs saved at: {self.log_path} and {self.log_path_}")
+                print(
+                    f"[EvalCallback] Logs saved at: {self.log_path} and {self.log_path_}"
+                )
 
     def record_eval_gif(
-            self,
-            save_path: str,
-            fps: int = 30,
-            deterministic: bool = True,
-            verbose: int = 1
+        self,
+        save_path: str,
+        fps: int = 30,
+        deterministic: bool = True,
+        verbose: int = 1,
     ):
         """
         Record a single episode as a GIF, from a DummyVecEnv (num_envs=1).
@@ -1854,12 +1879,17 @@ class EvalCallback(BaseCallback):
         frames = []
 
         # === 1. Ensure gif_env is DummyVecEnv ===
-        if not hasattr(self.gif_env, "num_envs") or not isinstance(self.gif_env, DummyVecEnv):
-            raise ValueError("record_eval_gif requires a DummyVecEnv (num_envs=1) as gif_env.")
+        if not hasattr(self.gif_env, "num_envs") or not isinstance(
+            self.gif_env, DummyVecEnv
+        ):
+            raise ValueError(
+                "record_eval_gif requires a DummyVecEnv (num_envs=1) as gif_env."
+            )
 
         if self.gif_env.num_envs != 1:
             raise ValueError(
-                f"record_eval_gif only supports DummyVecEnv with 1 env, got num_envs={self.gif_env.num_envs}.")
+                f"record_eval_gif only supports DummyVecEnv with 1 env, got num_envs={self.gif_env.num_envs}."
+            )
 
         env = self.gif_env
         raw_env = env.envs[0]  # single raw env (for rendering)
@@ -1880,7 +1910,7 @@ class EvalCallback(BaseCallback):
             frame_resized = cv2.resize(
                 frame,
                 (frame.shape[1] // 2, frame.shape[0] // 2),
-                interpolation=cv2.INTER_AREA
+                interpolation=cv2.INTER_AREA,
             )
             frames.append(frame_resized)
 
@@ -1899,5 +1929,7 @@ class EvalCallback(BaseCallback):
         imageio.mimsave(save_path, frames, duration=duration_per_frame, loop=0)
 
         if verbose > 0:
-            print(f"[record_eval_gif] DummyVecEnv episode finished after {step_count} steps.")
+            print(
+                f"[record_eval_gif] DummyVecEnv episode finished after {step_count} steps."
+            )
             print(f"[record_eval_gif] GIF saved at: {save_path}")
