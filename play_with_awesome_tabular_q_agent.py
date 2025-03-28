@@ -168,7 +168,7 @@ if __name__ == "__main__":
     N_ENVS = 4
     TOTAL_TIMESTEPS = 15_000
     EVAL_INTERVAL = 500 * N_ENVS
-    EVAL_EPISODES = 100 * N_ENVS
+    EVAL_EPISODES = 50 * N_ENVS
     SAVE_DIR = "./tabular_playground/taxi"
     MODEL_NAME = "tabular_q_agent"
     LR = 0.025
@@ -443,7 +443,7 @@ if __name__ == "__main__":
     N_ENVS = 4
     TOTAL_TIMESTEPS = 750_000
     EVAL_INTERVAL = 2_500 * N_ENVS
-    EVAL_EPISODES = 100 * N_ENVS
+    EVAL_EPISODES = 50 * N_ENVS
     SAVE_DIR = "./tabular_playground/pendulum"
     MODEL_NAME = "tabular_q_agent"
     LR = 0.05
@@ -592,7 +592,7 @@ if __name__ == "__main__":
     N_ENVS = 4
     TOTAL_TIMESTEPS = 1_500_000
     EVAL_INTERVAL = 2_500 * N_ENVS
-    EVAL_EPISODES = 100 * N_ENVS
+    EVAL_EPISODES = 20 * N_ENVS
     SAVE_DIR = "./tabular_playground/lunarlander"
     MODEL_NAME = "tabular_q_agent"
     LR = 0.05
