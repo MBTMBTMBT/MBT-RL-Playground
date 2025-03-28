@@ -590,7 +590,7 @@ if __name__ == "__main__":
     # ---- Lunarlander Example ---- #
 
     N_ENVS = 4
-    TOTAL_TIMESTEPS = 1_500_000
+    TOTAL_TIMESTEPS = 2_500_000
     EVAL_INTERVAL = 2_500 * N_ENVS
     EVAL_EPISODES = 20 * N_ENVS
     SAVE_DIR = "./tabular_playground/lunarlander"
@@ -615,11 +615,11 @@ if __name__ == "__main__":
         (0, 1),
     ]
     STATE_BUCKETS = [
-        17,
-        17,
+        33,
+        33,
         49,
         49,
-        25,
+        33,
         49,
         0,
         0,
