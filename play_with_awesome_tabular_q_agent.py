@@ -277,7 +277,7 @@ if __name__ == '__main__':
     # ---- Cartpole Example ---- #
 
     N_ENVS = 4
-    TOTAL_TIMESTEPS = 250_000
+    TOTAL_TIMESTEPS = 500_000
     EVAL_INTERVAL = 2_500 * N_ENVS
     EVAL_EPISODES = 100 * N_ENVS
     SAVE_DIR = "./tabular_playground/cartpole"
@@ -431,7 +431,7 @@ if __name__ == '__main__':
         (-1.0, 1.0),
         (-8.0, 8.0),
     ]
-    STATE_BUCKETS = [17, 17, 33]
+    STATE_BUCKETS = [23, 23, 37]
     ACTION_RANGES = [
         (-2.0, 2.0),
     ]
