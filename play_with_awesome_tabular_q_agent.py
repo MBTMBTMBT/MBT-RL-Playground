@@ -589,7 +589,7 @@ if __name__ == "__main__":
 
     # ---- Lunarlander Example ---- #
 
-    N_ENVS = 4
+    N_ENVS = 8
     TOTAL_TIMESTEPS = 2_500_000
     EVAL_INTERVAL = 2_500 * N_ENVS
     EVAL_EPISODES = 20 * N_ENVS
