@@ -19,7 +19,7 @@ from old_stuff.custom_cartpole import CustomCartPoleEnv
 from old_stuff.discretizer import Discretizer
 from old_stuff.dqn_agent import DQNAgent
 from old_stuff.q_table_agent import Qtableagent
-from utils import (
+from tabular_utils import (
     compute_action_probabilities,
     merge_q_table_with_counts,
     compute_average_kl_divergence_between_dfs,

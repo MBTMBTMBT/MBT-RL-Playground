@@ -198,7 +198,7 @@ class Qtableagent:
 if __name__ == "__main__":
     import random
     import gymnasium as gym
-    from utils import (
+    from tabular_utils import (
         merge_q_table_with_counts,
         compute_action_probabilities,
         compute_average_kl_divergence_between_dfs,
