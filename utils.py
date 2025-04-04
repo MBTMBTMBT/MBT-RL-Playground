@@ -6,9 +6,11 @@ import gymnasium as gym
 import imageio
 import numpy as np
 import pandas as pd
+from matplotlib import pyplot as plt
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv
+from tqdm import tqdm
 
 import custom_envs
 
@@ -250,3 +252,165 @@ class EvalAndGifCallback(BaseCallback):
 
         imageio.mimsave(gif_path, new_frames, duration=20, loop=0)
         print(f"[GIF Saved] {gif_path}")
+
+
+def plot_lunarlander_results(density_results, save_dir):
+    plt.figure(figsize=(12, 8))
+
+    for density, results in density_results.items():
+        steps = results["Timesteps"]
+        means = results["MeanReward"]
+        stds = results["StdReward"]
+
+        plt.plot(steps, means, label=f"Lander Density {density:.1f}")
+        plt.fill_between(
+            steps,
+            np.array(means) - np.array(stds),
+            np.array(means) + np.array(stds),
+            alpha=0.2,
+        )
+
+        plt_single = plt.figure(figsize=(10, 6))
+        plt_single_ax = plt_single.add_subplot(111)
+        plt_single_ax.plot(steps, means, label=f"Lander Density {density:.1f}")
+        plt_single_ax.fill_between(steps, means - stds, means + stds, alpha=0.2)
+        plt_single_ax.set_xlabel("Timesteps")
+        plt_single_ax.set_ylabel("Mean Reward")
+        plt_single_ax.set_title(f"Reward Curve for Lander Density {density:.1f}")
+        plt_single_ax.legend()
+        plt_single_ax.grid()
+
+        plot_single_path = os.path.join(
+            save_dir, f"reward_curve_density_{density:.1f}.png"
+        )
+        plt_single.savefig(plot_single_path)
+        plt.close(plt_single)
+
+    plt.xlabel("Timesteps")
+    plt.ylabel("Mean Reward")
+    plt.title("Evaluation Reward over Timesteps (All Lander Densities)")
+    plt.legend()
+    plt.grid()
+
+    plot_path = os.path.join(save_dir, "reward_curves_all_densities.png")
+    plt.savefig(plot_path)
+    plt.close()
+
+
+def plot_lunarlander_optimal_step_bar_chart(summary_results, save_dir):
+    df = pd.DataFrame(summary_results)
+
+    densities = df["LanderDensity"]
+    means = df["OptimalStepMean"]
+    stds = df["OptimalStepStd"]
+
+    plt.figure(figsize=(12, 6))
+
+    plt.bar(densities, means, yerr=stds, align="center", alpha=0.7, capsize=5)
+    plt.xlabel("Lander Density")
+    plt.ylabel("Average Steps to Reach Near-Optimal Score")
+    plt.title("Average Optimal Step vs Lander Density")
+    plt.xticks(densities, rotation=45)
+    plt.grid(True, axis="y")
+
+    plot_path = os.path.join(save_dir, "optimal_step_bar_chart.png")
+    plt.savefig(plot_path)
+    plt.close()
+    print(f"[Plot Saved] {plot_path}")
+
+
+def plot_carracing_results(map_seed_results, save_dir):
+    plt.figure(figsize=(12, 8))
+
+    # Plot all map seeds on one figure
+    for map_seed, results in map_seed_results.items():
+        steps = results["Timesteps"]
+        means = results["MeanReward"]
+        stds = results["StdReward"]
+
+        plt.plot(steps, means, label=f"Map Seed {map_seed}")
+        plt.fill_between(
+            steps,
+            np.array(means) - np.array(stds),
+            np.array(means) + np.array(stds),
+            alpha=0.2,
+        )
+
+        # Plot individual per-map_seed reward curves
+        plt_single = plt.figure(figsize=(10, 6))
+        ax = plt_single.add_subplot(111)
+        ax.plot(steps, means, label=f"Map Seed {map_seed}")
+        ax.fill_between(steps, means - stds, means + stds, alpha=0.2)
+        ax.set_xlabel("Timesteps")
+        ax.set_ylabel("Mean Reward")
+        ax.set_title(f"Reward Curve for Map Seed {map_seed}")
+        ax.legend()
+        ax.grid()
+
+        single_plot_path = os.path.join(
+            save_dir, f"reward_curve_mapseed_{map_seed}.png"
+        )
+        plt_single.savefig(single_plot_path)
+        plt.close(plt_single)
+
+    plt.xlabel("Timesteps")
+    plt.ylabel("Mean Reward")
+    plt.title("Evaluation Reward over Timesteps (All Map Seeds)")
+    plt.legend()
+    plt.grid()
+
+    all_plot_path = os.path.join(save_dir, "reward_curves_all_mapseeds.png")
+    plt.savefig(all_plot_path)
+    plt.close()
+
+    print(f"[Plot Saved] {all_plot_path}")
+
+
+def plot_carracing_optimal_step_bar_chart(summary_results, save_dir):
+    df = pd.DataFrame(summary_results)
+
+    map_seeds = df["MapSeed"]
+    means = df["OptimalStepMean"]
+    stds = df["OptimalStepStd"]
+
+    plt.figure(figsize=(12, 6))
+    plt.bar(map_seeds, means, yerr=stds, align="center", alpha=0.7, capsize=5)
+
+    plt.xlabel("Map Seed")
+    plt.ylabel("Average Steps to Reach Near-Optimal Score")
+    plt.title("Average Optimal Step vs Map Seed")
+    plt.xticks(map_seeds)
+    plt.grid(True, axis="y")
+
+    plot_path = os.path.join(save_dir, "optimal_step_bar_chart.png")
+    plt.savefig(plot_path)
+    plt.close()
+
+    print(f"[Plot Saved] {plot_path}")
+
+
+class ProgressBarCallback(BaseCallback):
+    def __init__(self, total_timesteps, verbose=1):
+        super().__init__(verbose)
+        self.total_timesteps = total_timesteps
+        self.pbar = None
+        self._last_num_timesteps = 0
+
+    def _on_training_start(self):
+        self.pbar = tqdm(
+            total=self.total_timesteps,
+            desc="Training Progress",
+            mininterval=5,
+            maxinterval=25,
+            smoothing=0.9,
+        )
+        self._last_num_timesteps = 0
+
+    def _on_step(self):
+        delta_steps = self.num_timesteps - self._last_num_timesteps
+        self.pbar.update(delta_steps)
+        self._last_num_timesteps = self.num_timesteps
+        return True
+
+    def _on_training_end(self):
+        self.pbar.close()
