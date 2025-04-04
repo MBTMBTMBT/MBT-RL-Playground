@@ -51,7 +51,7 @@ class CustomCartPoleEnv(CartPoleEnv):
         Resets the environment to an initial state and returns an initial observation.
 
         Parameters:
-            seed (Optional[int]): Random seed.
+            seed (Optional[int]): Random init_seed.
             options (Optional[dict]): Additional options.
 
         Returns:

@@ -222,7 +222,7 @@ if __name__ == "__main__":
 
             eval_callback = EvalAndGifCallback(
                 map_seed=map_seed,
-                repeat=repeat + 1,
+                run_idx=repeat + 1,
                 eval_interval=EVAL_INTERVAL,
                 optimal_score=NEAR_OPTIMAL_SCORE,
                 verbose=1,

@@ -26,7 +26,7 @@ for row, (env_name, seeds, render_mode) in enumerate(environments):
         else:
             env = gym.make(env_name, render_mode=render_mode)
 
-        # Reset environment with the specific seed
+        # Reset environment with the specific init_seed
         obs, _ = env.reset(seed=seed)
 
         # Capture the rendered image

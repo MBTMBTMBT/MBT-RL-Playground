@@ -7,7 +7,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.callbacks import BaseCallback
 
-# Set random seed for reproducibility
+# Set random init_seed for reproducibility
 SEED = 0
 TOTAL_TIMESTEPS = 1_000_000  # Total training steps
 EVAL_INTERVAL = 25_000  # Interval to save GIF

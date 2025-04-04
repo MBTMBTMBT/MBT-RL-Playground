@@ -87,7 +87,7 @@ class GymDataset(Dataset):
         return len(self.data) * self.repeat
 
     def __getitem__(self, idx):
-        """Retrieve a sample, accounting for repeat functionality."""
+        """Retrieve a sample, accounting for run_idx functionality."""
         actual_idx = idx % len(self.data)  # Map to original dataset indices
         sample = self.data[actual_idx]
         return {

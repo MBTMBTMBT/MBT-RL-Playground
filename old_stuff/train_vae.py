@@ -129,7 +129,7 @@ def visualize_reconstruction(model, dataloader, epoch, save_dir, is_color):
         # Convert grayscale to RGB if needed for visualization
         if not is_color:
             inputs = inputs.repeat(1, 3, 1, 1)
-            recons = recons.repeat(1, 3, 1, 1)
+            recons = recons.run_idx(1, 3, 1, 1)
 
         # Select a few samples (e.g., first 8) for visualization
         num_samples = min(8, inputs.shape[0])  # Ensure we don't exceed batch size

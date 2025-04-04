@@ -1,4 +1,5 @@
 import os
+from typing import Union, Any
 
 import cv2
 import gymnasium as gym
@@ -10,17 +11,13 @@ from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv
 
 import custom_envs
-from configs import carracing_configs, lunarlander_configs
-from carracing_test import EVAL_EPISODES, N_ENVS, NUM_INIT_STATES, SAVE_PATH, NEAR_OPTIMAL_SCORE
-from train_gaussian_agent import NUM_INIT_STATES
-
 
 def make_lunarlander_env(
     lander_density,
     render_mode=None,
     deterministic_init=False,
-    seed=None,
-    number_of_initial_states=NUM_INIT_STATES,
+    number_of_initial_states=64,
+    init_seed=None,
 ):
     def _init():
         env = gym.make(
@@ -30,7 +27,7 @@ def make_lunarlander_env(
             gravity=-10.0,  # fixed gravity
             lander_density=lander_density,
             use_deterministic_initial_states=deterministic_init,
-            custom_seed=seed if deterministic_init else None,
+            custom_seed=init_seed if deterministic_init else None,
             number_of_initial_states=number_of_initial_states,
         )
         env = gym.wrappers.RecordEpisodeStatistics(env)
@@ -43,7 +40,7 @@ def make_carracing_env(
     map_seed,
     render_mode=None,
     deterministic_init=False,
-    number_of_initial_states=NUM_INIT_STATES,
+    number_of_initial_states=16,
     init_seed=None,
 ):
     def _init():
@@ -66,10 +63,20 @@ def make_carracing_env(
 
 
 class EvalAndGifCallback(BaseCallback):
-    def __init__(self, config, repeat, eval_interval, optimal_score, verbose=1):
+    def __init__(
+            self,
+            config: dict,
+            env_param: Union[int, float, Any],
+            n_eval_envs: int,
+            run_idx: int,
+            eval_interval,
+            optimal_score,
+            verbose=1,
+    ):
         super().__init__(verbose)
         self.config = config
-        self.repeat = repeat
+        self.env_param = env_param
+        self.run_idx = run_idx
         self.eval_interval = eval_interval
         self.optimal_score = optimal_score
 
@@ -79,25 +86,44 @@ class EvalAndGifCallback(BaseCallback):
         self.last_eval_step = 0
 
         self.eval_episodes = self.config["eval_episodes"]
-        self.n_eval_envs = 1
+        self.n_eval_envs = n_eval_envs
 
-        self.eval_env = SubprocVecEnv(
-            [
-                make_carracing_env(
-                    map_seed=self.map_seed,
-                    render_mode=None,
-                    deterministic_init=False,
-                    number_of_initial_states=NUM_INIT_STATES,
-                    init_seed=i,
-                )
-                for i in range(self.n_eval_envs)
-            ]
-        )
+        # check the config to find the environment type
+        if config["env_type"] == "lunarlander":
+            self.eval_env = SubprocVecEnv(
+                [
+                    make_carracing_env(
+                        map_seed=env_param,
+                        render_mode=None,
+                        deterministic_init=False,
+                        number_of_initial_states=config["num_init_states"],
+                        init_seed=i,
+                    )
+                    for i in range(self.n_eval_envs)
+                ]
+            )
+
+        elif config["env_type"] == "carracing":
+            self.eval_env = SubprocVecEnv(
+                [
+                    make_lunarlander_env(
+                        lander_density=env_param,
+                        render_mode=None,
+                        deterministic_init=True,
+                        number_of_initial_states=config["num_init_states"],
+                        init_seed=i,
+                    )
+                    for i in range(self.n_eval_envs)
+                ]
+            )
+
+        else:
+            self.eval_env = None
 
         # Save path for best model
         self.best_model_path = os.path.join(
-            SAVE_PATH,
-            f"sac_carracing_mapseed_{self.map_seed}_repeat_{self.repeat}_best.zip",
+            config["save_path"],
+            f"sac_env_param_{self.env_param}_run_{self.run_idx}_best.zip",
         )
 
     def _on_step(self) -> bool:
@@ -117,7 +143,7 @@ class EvalAndGifCallback(BaseCallback):
 
             if self.verbose:
                 print(
-                    f"[EvalCallback] Map Seed {self.map_seed} | Repeat {self.repeat} | "
+                    f"[EvalCallback] Env Param {self.env_param} | Repeat {self.run_idx} | "
                     f"Steps {self.num_timesteps} | Mean Reward: {mean_reward:.2f} ± {std_reward:.2f}"
                 )
 
@@ -130,8 +156,8 @@ class EvalAndGifCallback(BaseCallback):
                 )
                 self.model.save(self.best_model_path)
                 if (
-                    NEAR_OPTIMAL_SCORE > 0 and mean_reward >= (NEAR_OPTIMAL_SCORE / 2)
-                ) or NEAR_OPTIMAL_SCORE <= 0:
+                    self.config["near_optimal_score"] > 0 and mean_reward >= (self.config["near_optimal_score"] / 2)
+                ) or self.config["near_optimal_score"] <= 0:
                     self.save_gif()
 
             # if TRAIN_STEPS - EVAL_INTERVAL * 2 < self.num_timesteps:
@@ -151,8 +177,8 @@ class EvalAndGifCallback(BaseCallback):
             self.records, columns=["Timesteps", "MeanReward", "StdReward"]
         )
         repeat_log_path = os.path.join(
-            SAVE_PATH,
-            f"eval_log_mapseed_{self.map_seed}_repeat_{self.repeat}.csv",
+            self.config["save_path"],
+            f"eval_log_mapseed_{self.env_param}_repeat_{self.run_idx}.csv",
         )
         df.to_csv(repeat_log_path, index=False)
         self.eval_env.close()
@@ -161,18 +187,37 @@ class EvalAndGifCallback(BaseCallback):
         frames = []
         initial_state_count = 8
 
-        for idx in range(initial_state_count):
+        if self.config["env_type"] == "lunarlander":
             single_env = DummyVecEnv(
                 [
                     make_carracing_env(
-                        map_seed=self.map_seed,
+                        map_seed=self.env_param,
                         render_mode="rgb_array",
                         deterministic_init=False,
                         number_of_initial_states=initial_state_count,
-                        init_seed=idx,
+                        init_seed=0,
                     )
                 ]
             )
+
+        elif self.config["env_type"] == "carracing":
+            single_env = DummyVecEnv(
+                [
+                    make_lunarlander_env(
+                        lander_density=self.env_param,
+                        render_mode="rgb_array",
+                        deterministic_init=True,
+                        number_of_initial_states=initial_state_count,
+                        init_seed=0,
+                    )
+                ]
+            )
+
+        else:
+            single_env = None
+
+        for idx in range(initial_state_count):
+
             obs = single_env.reset()
             episode_frames = []
             while True:
@@ -199,8 +244,8 @@ class EvalAndGifCallback(BaseCallback):
             new_frames.append(resized)
 
         gif_path = os.path.join(
-            SAVE_PATH,
-            f"carracing_mapseed_{self.map_seed}_repeat_{self.repeat}_all_initial_states.gif",
+            self.config["save_path"],
+            f"sac_env_param_{self.env_param}_repeat_{self.run_idx}_all_initial_states.gif",
         )
 
         imageio.mimsave(gif_path, new_frames, duration=20, loop=0)

@@ -939,7 +939,7 @@ class CarRacingFixedMap(CarRacing):
         retries = 0
 
         while retries < max_retries:
-            # Deterministic seed transformation
+            # Deterministic init_seed transformation
             current_seed = derive_new_seed(self.map_seed, retries)
             map_random = np.random.RandomState(current_seed)
 
@@ -1062,7 +1062,7 @@ class CarRacingFixedMap(CarRacing):
                 retries += 1
                 if self.verbose:
                     print(
-                        f"Retry {retries} for map_seed {self.map_seed} -> seed {current_seed}"
+                        f"Retry {retries} for map_seed {self.map_seed} -> init_seed {current_seed}"
                     )
 
         if not success:
@@ -1341,7 +1341,7 @@ class CustomLunarLander(LunarLander):
         number_of_initial_states : int
             How many distinct initial velocity/angle-velocity combinations we store.
         use_deterministic_initial_states : bool
-            - True: We cycle through the stored states in a fixed order (determined by seed).
+            - True: We cycle through the stored states in a fixed order (determined by init_seed).
             - False: We pick a random one from the stored states for each reset.
         init_seed : int or None
             Seed used to generate the set of initial states (and the deterministic order).
