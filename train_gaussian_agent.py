@@ -10,13 +10,30 @@ from stable_baselines3.common.vec_env import SubprocVecEnv
 
 from utils import ProgressBarCallback
 
-from configs import lunarlander_configs, carracing_configs
+from configs import lunarlander_config, carracing_config
 
 
 # --------------- Main Training Loop ---------------
 if __name__ == "__main__":
-    lander_densities = np.linspace(3.0, 7.0, NUM_DENSITY_SETTINGS)
-    # random.shuffle(lander_densities)
+    configs = [
+        lunarlander_config,
+        carracing_config,
+    ]
+
+    for config in configs:
+        # iterate among environment parameters
+        if config["env_type"] == "lunarlander":
+            env_params = np.linspace(3.0, 7.0, config["num_densities"]).tolist()
+        elif config["env_type"] == "carracing":
+            env_params = list(range(config["num_seeds"]))
+        else:
+            raise ValueError("Invalid environment type.")
+
+        for env_param in env_params:
+            for run in range(config["n_repeat"]):
+                # get training environments
+
+                # train the agent with callbacks
 
     summary_results = []
     density_results = {}
