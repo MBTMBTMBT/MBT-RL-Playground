@@ -1,4 +1,4 @@
-carracing_configs = {
+carracing_config = {
     "env_type": "carracing",
     "num_seeds": 8,
     "n_repeat": 8,
@@ -12,7 +12,7 @@ carracing_configs = {
 }
 
 
-lunarlander_configs = {
+lunarlander_config = {
     "env_type": "lunarlander",
     "num_densities": 5,
     "n_repeat": 8,
