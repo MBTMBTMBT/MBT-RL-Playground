@@ -414,3 +414,88 @@ class ProgressBarCallback(BaseCallback):
 
     def _on_training_end(self):
         self.pbar.close()
+
+
+def compare_gaussian_distributions(
+        mean1: np.ndarray,
+        std1: np.ndarray,
+        mean2: np.ndarray,
+        std2: np.ndarray,
+) -> dict:
+    """
+    Compute multiple distribution distance/divergence metrics between two diagonal Gaussians.
+
+    Args:
+        mean1 (np.ndarray): Mean of distribution 1, shape (batch_size, action_dim)
+        std1 (np.ndarray): Std of distribution 1, same shape
+        mean2 (np.ndarray): Mean of distribution 2, same shape
+        std2 (np.ndarray): Std of distribution 2, same shape
+
+    Returns:
+        dict: {
+            'kl_forward': [...],
+            'kl_reverse': [...],
+            'js': [...],
+            'wasserstein2': [...],
+            'hellinger': [...],
+            'bhattacharyya': [...]
+        }, each is np.ndarray of shape (batch_size,)
+    """
+
+    var1 = std1 ** 2
+    var2 = std2 ** 2
+    eps = 1e-8  # For numerical stability
+
+    # KL(P||Q): forward KL
+    kl_forward = 0.5 * np.sum(
+        (var1 + (mean1 - mean2) ** 2) / (var2 + eps) - 1 + np.log((var2 + eps) / (var1 + eps)),
+        axis=1
+    )
+
+    # KL(Q||P): reverse KL
+    kl_reverse = 0.5 * np.sum(
+        (var2 + (mean2 - mean1) ** 2) / (var1 + eps) - 1 + np.log((var1 + eps) / (var2 + eps)),
+        axis=1
+    )
+
+    # JS Divergence: average of KL(P||M) and KL(Q||M)
+    mean_m = 0.5 * (mean1 + mean2)
+    var_m = 0.5 * (var1 + var2)
+    kl1_m = 0.5 * np.sum(
+        (var1 + (mean1 - mean_m) ** 2) / (var_m + eps) - 1 + np.log((var_m + eps) / (var1 + eps)),
+        axis=1
+    )
+    kl2_m = 0.5 * np.sum(
+        (var2 + (mean2 - mean_m) ** 2) / (var_m + eps) - 1 + np.log((var_m + eps) / (var2 + eps)),
+        axis=1
+    )
+    js = 0.5 * (kl1_m + kl2_m)
+
+    # Wasserstein-2 Distance (squared form)
+    mean_diff2 = np.sum((mean1 - mean2) ** 2, axis=1)
+    std_diff2 = np.sum((std1 - std2) ** 2, axis=1)
+    wasserstein2 = mean_diff2 + std_diff2
+
+    # Bhattacharyya distance (diagonal Gaussians)
+    sigma_avg = 0.5 * (var1 + var2)
+    term1 = 0.125 * np.sum((mean1 - mean2) ** 2 / (sigma_avg + eps), axis=1)
+    term2 = 0.5 * np.sum(np.log((sigma_avg + eps) / np.sqrt(var1 * var2 + eps)), axis=1)
+    bhattacharyya = term1 + term2
+
+    # Hellinger distance (squared form)
+    hellinger_squared = 1 - np.prod(
+        (2 * std1 * std2 / (var1 + var2 + eps)) ** 0.25 *
+        np.exp(-0.25 * (mean1 - mean2) ** 2 / (var1 + var2 + eps)),
+        axis=1
+    )
+    hellinger = np.sqrt(np.clip(hellinger_squared, 0.0, 1.0))
+
+    return {
+        "kl_forward": kl_forward,
+        "kl_reverse": kl_reverse,
+        "js": js,
+        "wasserstein2": wasserstein2,
+        "bhattacharyya": bhattacharyya,
+        "hellinger": hellinger
+    }
+
