@@ -108,6 +108,7 @@ class EvalAndGifCallback(BaseCallback):
         optimal_score: Union[int, float],
         verbose=1,
         temp_dir=".",
+        use_default_policy=True,
     ):
         super().__init__(verbose)
         self.config = config
@@ -179,6 +180,8 @@ class EvalAndGifCallback(BaseCallback):
             f"sac_env_param_{self.env_param}_run_{self.run_idx}_best.zip",
         )
 
+        self.use_default_policy = use_default_policy
+
     def _init_callback(self) -> None:
         self.original_model = hard_clone_agent(self.model, temp_dir=self.temp_dir)
 
@@ -190,7 +193,7 @@ class EvalAndGifCallback(BaseCallback):
             prior_result = evaluate_policy_with_distribution(
                 self.original_model,
                 self.model,
-                use_default_policy=True,
+                use_default_policy=self.use_default_policy,
                 use_default_policy_for_prior=False,
                 env=self.eval_env,
                 n_eval_episodes=self.eval_episodes,
@@ -204,7 +207,7 @@ class EvalAndGifCallback(BaseCallback):
                 self.model,
                 self.original_model,
                 use_default_policy=False,
-                use_default_policy_for_prior=True,
+                use_default_policy_for_prior=self.use_default_policy,
                 env=self.eval_env,
                 n_eval_episodes=self.eval_episodes,
                 deterministic=True,
