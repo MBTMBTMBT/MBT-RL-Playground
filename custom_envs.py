@@ -9,6 +9,7 @@ from gymnasium.error import DependencyNotInstalled, InvalidAction
 from matplotlib import pyplot as plt
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.patches import Polygon, Rectangle
+from nbconvert.preprocessors.coalescestreams import CR_PAT
 from numpy import cos, pi, sin
 from gymnasium import spaces
 import numpy as np
@@ -485,32 +486,32 @@ def _normalize_value(x, scale):
     return _clip_value(val, -1.0, 1.0)
 
 
-STATE_W = 96  # less than Atari 160x192
-STATE_H = 96
-VIDEO_W = 600
-VIDEO_H = 400
-WINDOW_W = 1000
-WINDOW_H = 800
+CR_STATE_W = 96  # less than Atari 160x192
+CR_STATE_H = 96
+CR_VIDEO_W = 600
+CR_VIDEO_H = 400
+CR_WINDOW_W = 1000
+CR_WINDOW_H = 800
 
-SCALE = 6.0  # Track scale
-TRACK_RAD = 900 / SCALE  # Track is heavily morphed circle with this radius
-PLAYFIELD = 2000 / SCALE  # Game over boundary
-FPS = 50  # Frames per second
-ZOOM = 2.7  # Camera zoom
-ZOOM_FOLLOW = True  # Set to False for fixed view (don't use zoom)
+CR_SCALE = 6.0  # Track scale
+CR_TRACK_RAD = 900 / CR_SCALE  # Track is heavily morphed circle with this radius
+CR_PLAYFIELD = 2000 / CR_SCALE  # Game over boundary
+CR_FPS = 50  # Frames per second
+CR_ZOOM = 2.7  # Camera zoom
+CR_ZOOM_FOLLOW = True  # Set to False for fixed view (don't use zoom)
 
 
-TRACK_DETAIL_STEP = 21 / SCALE
-TRACK_TURN_RATE = 0.31
-TRACK_WIDTH = 40 / SCALE
-BORDER = 8 / SCALE
-BORDER_MIN_COUNT = 4
-GRASS_DIM = PLAYFIELD / 20.0
-MAX_SHAPE_DIM = (
-    max(GRASS_DIM, TRACK_WIDTH, TRACK_DETAIL_STEP) * math.sqrt(2) * ZOOM * SCALE
+CR_TRACK_DETAIL_STEP = 21 / CR_SCALE
+CR_TRACK_TURN_RATE = 0.31
+CR_TRACK_WIDTH = 40 / CR_SCALE
+CR_BORDER = 8 / CR_SCALE
+CR_BORDER_MIN_COUNT = 4
+CR_GRASS_DIM = CR_PLAYFIELD / 20.0
+CR_MAX_SHAPE_DIM = (
+        max(CR_GRASS_DIM, CR_TRACK_WIDTH, CR_TRACK_DETAIL_STEP) * math.sqrt(2) * CR_ZOOM * CR_SCALE
 )
-NO_FREEZE = 16384
-ANCHORS = [
+CR_NO_FREEZE = 16384
+CR_ANCHORS = [
     1,
     3,
     6,
@@ -575,10 +576,10 @@ class CarRacingFixedMap(CarRacing):
 
         # If vector obs, override observation_space
         if self.vector_obs:
-            # Example dimension: 7 + len(ANCHORS)*3
+            # Example dimension: 7 + len(CR_ANCHORS)*3
             # (heading_error, car_angular_vel, v_x, v_y, local_y, distance_left, distance_right) = 7
             # plus anchor info
-            obs_dim = 7 + len(ANCHORS) * 3
+            obs_dim = 7 + len(CR_ANCHORS) * 3
             self.observation_space = gym.spaces.Box(
                 low=-np.inf, high=np.inf, shape=(obs_dim,), dtype=np.float32
             )
@@ -656,9 +657,9 @@ class CarRacingFixedMap(CarRacing):
                 self.car.brake(0.8 * (action == 4))
 
         # === Step physics ===
-        self.car.step(1.0 / FPS)
-        self.world.Step(1.0 / FPS, 6 * 30, 2 * 30)
-        self.t += 1.0 / FPS
+        self.car.step(1.0 / CR_FPS)
+        self.world.Step(1.0 / CR_FPS, 6 * 30, 2 * 30)
+        self.t += 1.0 / CR_FPS
 
         # === Observation ===
         if self.vector_obs:
@@ -685,7 +686,7 @@ class CarRacingFixedMap(CarRacing):
 
             # Check if car is out of bounds
             x, y = self.car.hull.position
-            if abs(x) > PLAYFIELD or abs(y) > PLAYFIELD:
+            if abs(x) > CR_PLAYFIELD or abs(y) > CR_PLAYFIELD:
                 terminated = True
                 step_reward = -100
 
@@ -801,7 +802,7 @@ class CarRacingFixedMap(CarRacing):
         # - Relative (local_x, local_y) position in car's local track frame
         # - Heading difference (anchor tangent relative to current track tangent)
         anchors = []
-        for anchor_step in ANCHORS:
+        for anchor_step in CR_ANCHORS:
             idx = (progress_idx + anchor_step) % len(self.track)
             anchor_x, anchor_y = self.track[idx][2:4]
             anchor_beta = self.track[idx][1]
@@ -853,11 +854,11 @@ class CarRacingFixedMap(CarRacing):
         center_x, center_y = track_point[2:4]
 
         # Compute left and right border positions
-        left_x = center_x - TRACK_WIDTH * np.cos(beta)
-        left_y = center_y - TRACK_WIDTH * np.sin(beta)
+        left_x = center_x - CR_TRACK_WIDTH * np.cos(beta)
+        left_y = center_y - CR_TRACK_WIDTH * np.sin(beta)
 
-        right_x = center_x + TRACK_WIDTH * np.cos(beta)
-        right_y = center_y + TRACK_WIDTH * np.sin(beta)
+        right_x = center_x + CR_TRACK_WIDTH * np.cos(beta)
+        right_y = center_y + CR_TRACK_WIDTH * np.sin(beta)
 
         # Euclidean distances to each border
         dist_left = np.sqrt((pos[0] - left_x) ** 2 + (pos[1] - left_y) ** 2)
@@ -954,24 +955,24 @@ class CarRacingFixedMap(CarRacing):
             for c in range(CHECKPOINTS):
                 noise = map_random.uniform(0, 2 * np.pi * 1 / CHECKPOINTS)
                 alpha = 2 * np.pi * c / CHECKPOINTS + noise
-                rad = map_random.uniform(TRACK_RAD / 3, TRACK_RAD)
+                rad = map_random.uniform(CR_TRACK_RAD / 3, CR_TRACK_RAD)
 
                 if c == 0:
                     alpha = 0
-                    rad = 1.5 * TRACK_RAD
+                    rad = 1.5 * CR_TRACK_RAD
                 if c == CHECKPOINTS - 1:
                     alpha = 2 * np.pi * c / CHECKPOINTS
                     self.start_alpha = 2 * np.pi * (-0.5) / CHECKPOINTS
-                    rad = 1.5 * TRACK_RAD
+                    rad = 1.5 * CR_TRACK_RAD
 
                 checkpoints.append((alpha, rad * np.cos(alpha), rad * np.sin(alpha)))
 
             self.road = []
-            x, y, beta = 1.5 * TRACK_RAD, 0, 0
+            x, y, beta = 1.5 * CR_TRACK_RAD, 0, 0
             dest_i = 0
             laps = 0
             track = []
-            no_freeze = NO_FREEZE
+            no_freeze = CR_NO_FREEZE
             visited_other_side = False
             while True:
                 alpha = np.arctan2(y, x)
@@ -1014,14 +1015,14 @@ class CarRacingFixedMap(CarRacing):
                 while beta - alpha < -1.5 * np.pi:
                     beta += 2 * np.pi
                 prev_beta = beta
-                proj *= SCALE
+                proj *= CR_SCALE
                 if proj > 0.3:
-                    beta -= min(TRACK_TURN_RATE, abs(0.001 * proj))
+                    beta -= min(CR_TRACK_TURN_RATE, abs(0.001 * proj))
                 if proj < -0.3:
-                    beta += min(TRACK_TURN_RATE, abs(0.001 * proj))
+                    beta += min(CR_TRACK_TURN_RATE, abs(0.001 * proj))
 
-                x += p1x * TRACK_DETAIL_STEP
-                y += p1y * TRACK_DETAIL_STEP
+                x += p1x * CR_TRACK_DETAIL_STEP
+                y += p1y * CR_TRACK_DETAIL_STEP
                 track.append((alpha, prev_beta * 0.5 + beta * 0.5, x, y))
 
                 if laps > 4:
@@ -1056,7 +1057,7 @@ class CarRacingFixedMap(CarRacing):
                     (first_perp_x * (track[0][2] - track[-1][2])) ** 2
                     + (first_perp_y * (track[0][3] - track[-1][3])) ** 2
                 )
-                if well_glued_together > TRACK_DETAIL_STEP:
+                if well_glued_together > CR_TRACK_DETAIL_STEP:
                     success = False
                 else:
                     success = True
@@ -1080,36 +1081,36 @@ class CarRacingFixedMap(CarRacing):
         for i in range(len(track)):
             good = True
             oneside = 0
-            for neg in range(BORDER_MIN_COUNT):
+            for neg in range(CR_BORDER_MIN_COUNT):
                 beta1 = track[i - neg - 0][1]
                 beta2 = track[i - neg - 1][1]
-                good &= abs(beta1 - beta2) > TRACK_TURN_RATE * 0.2
+                good &= abs(beta1 - beta2) > CR_TRACK_TURN_RATE * 0.2
                 oneside += np.sign(beta1 - beta2)
-            good &= abs(oneside) == BORDER_MIN_COUNT
+            good &= abs(oneside) == CR_BORDER_MIN_COUNT
             border[i] = good
 
         for i in range(len(track)):
-            for neg in range(BORDER_MIN_COUNT):
+            for neg in range(CR_BORDER_MIN_COUNT):
                 border[i - neg] |= border[i]
 
         for i in range(len(track)):
             alpha1, beta1, x1, y1 = track[i]
             alpha2, beta2, x2, y2 = track[i - 1]
             road1_l = (
-                x1 - TRACK_WIDTH * np.cos(beta1),
-                y1 - TRACK_WIDTH * np.sin(beta1),
+                x1 - CR_TRACK_WIDTH * np.cos(beta1),
+                y1 - CR_TRACK_WIDTH * np.sin(beta1),
             )
             road1_r = (
-                x1 + TRACK_WIDTH * np.cos(beta1),
-                y1 + TRACK_WIDTH * np.sin(beta1),
+                x1 + CR_TRACK_WIDTH * np.cos(beta1),
+                y1 + CR_TRACK_WIDTH * np.sin(beta1),
             )
             road2_l = (
-                x2 - TRACK_WIDTH * np.cos(beta2),
-                y2 - TRACK_WIDTH * np.sin(beta2),
+                x2 - CR_TRACK_WIDTH * np.cos(beta2),
+                y2 - CR_TRACK_WIDTH * np.sin(beta2),
             )
             road2_r = (
-                x2 + TRACK_WIDTH * np.cos(beta2),
-                y2 + TRACK_WIDTH * np.sin(beta2),
+                x2 + CR_TRACK_WIDTH * np.cos(beta2),
+                y2 + CR_TRACK_WIDTH * np.sin(beta2),
             )
             vertices = [road1_l, road1_r, road2_r, road2_l]
 
@@ -1128,20 +1129,20 @@ class CarRacingFixedMap(CarRacing):
             if border[i]:
                 side = np.sign(beta2 - beta1)
                 b1_l = (
-                    x1 + side * TRACK_WIDTH * np.cos(beta1),
-                    y1 + side * TRACK_WIDTH * np.sin(beta1),
+                    x1 + side * CR_TRACK_WIDTH * np.cos(beta1),
+                    y1 + side * CR_TRACK_WIDTH * np.sin(beta1),
                 )
                 b1_r = (
-                    x1 + side * (TRACK_WIDTH + BORDER) * np.cos(beta1),
-                    y1 + side * (TRACK_WIDTH + BORDER) * np.sin(beta1),
+                    x1 + side * (CR_TRACK_WIDTH + CR_BORDER) * np.cos(beta1),
+                    y1 + side * (CR_TRACK_WIDTH + CR_BORDER) * np.sin(beta1),
                 )
                 b2_l = (
-                    x2 + side * TRACK_WIDTH * np.cos(beta2),
-                    y2 + side * TRACK_WIDTH * np.sin(beta2),
+                    x2 + side * CR_TRACK_WIDTH * np.cos(beta2),
+                    y2 + side * CR_TRACK_WIDTH * np.sin(beta2),
                 )
                 b2_r = (
-                    x2 + side * (TRACK_WIDTH + BORDER) * np.cos(beta2),
-                    y2 + side * (TRACK_WIDTH + BORDER) * np.sin(beta2),
+                    x2 + side * (CR_TRACK_WIDTH + CR_BORDER) * np.cos(beta2),
+                    y2 + side * (CR_TRACK_WIDTH + CR_BORDER) * np.sin(beta2),
                 )
                 self.road_poly.append(
                     (
@@ -1160,24 +1161,24 @@ class CarRacingFixedMap(CarRacing):
         if self.screen is None and mode == "human":
             pygame.init()
             pygame.display.init()
-            self.screen = pygame.display.set_mode((WINDOW_W, WINDOW_H))
+            self.screen = pygame.display.set_mode((CR_WINDOW_W, CR_WINDOW_H))
         if self.clock is None:
             self.clock = pygame.time.Clock()
 
         if "t" not in self.__dict__:
             return  # reset() not called yet
 
-        self.surf = pygame.Surface((WINDOW_W, WINDOW_H))
+        self.surf = pygame.Surface((CR_WINDOW_W, CR_WINDOW_H))
 
         assert self.car is not None
         # computing transformations
         angle = -self.car.hull.angle
         # Animating first second zoom.
-        zoom = 0.1 * SCALE * max(1 - self.t, 0) + ZOOM * SCALE * min(self.t, 1)
+        zoom = 0.1 * CR_SCALE * max(1 - self.t, 0) + CR_ZOOM * CR_SCALE * min(self.t, 1)
         scroll_x = -(self.car.hull.position[0]) * zoom
         scroll_y = -(self.car.hull.position[1]) * zoom
         trans = pygame.math.Vector2((scroll_x, scroll_y)).rotate_rad(angle)
-        trans = (WINDOW_W / 2 + trans[0], WINDOW_H / 4 + trans[1])
+        trans = (CR_WINDOW_W / 2 + trans[0], CR_WINDOW_H / 4 + trans[1])
 
         self._render_road(zoom, trans, angle)
         self.car.draw(
@@ -1191,12 +1192,12 @@ class CarRacingFixedMap(CarRacing):
         self.surf = pygame.transform.flip(self.surf, False, True)
 
         # showing stats
-        self._render_indicators(WINDOW_W, WINDOW_H)
+        self._render_indicators(CR_WINDOW_W, CR_WINDOW_H)
 
         font = pygame.font.Font(pygame.font.get_default_font(), 42)
         text = font.render("%04i" % self.reward, True, (255, 255, 255), (0, 0, 0))
         text_rect = text.get_rect()
-        text_rect.center = (60, WINDOW_H - WINDOW_H * 2.5 / 40.0)
+        text_rect.center = (60, CR_WINDOW_H - CR_WINDOW_H * 2.5 / 40.0)
         self.surf.blit(text, text_rect)
 
         if mode == "human":
@@ -1207,14 +1208,14 @@ class CarRacingFixedMap(CarRacing):
             self.screen.blit(self.surf, (0, 0))
             pygame.display.flip()
         elif mode == "rgb_array":
-            return self._create_image_array(self.surf, (VIDEO_W, VIDEO_H))
+            return self._create_image_array(self.surf, (CR_VIDEO_W, CR_VIDEO_H))
         elif mode == "state_pixels":
-            return self._create_image_array(self.surf, (STATE_W, STATE_H))
+            return self._create_image_array(self.surf, (CR_STATE_W, CR_STATE_H))
         else:
             return self.isopen
 
     def get_track_image(self, figsize=(10, 10), return_rgb=True):
-        playfield = 2000 / SCALE
+        playfield = 2000 / CR_SCALE
         grass_dim = playfield / 20.0
 
         fig, ax = plt.subplots(figsize=figsize)
@@ -1283,6 +1284,8 @@ class CarRacingFixedMap(CarRacing):
         else:
             return img[:, :, ::-1]
 
+
+LL_INITIAL_RANDOM = 1000.0  # Set 1500 to make game harder
 
 class CustomLunarLander(LunarLander):
     """
@@ -1428,11 +1431,11 @@ class CustomLunarLander(LunarLander):
            one of the fixed initial states (either deterministic cycling or random).
         """
         # We want to keep parent's terrain and body creation, but not parent's random velocity.
-        # So we do the following: temporarily modify INITIAL_RANDOM = 0, so that the parent's
+        # So we do the following: temporarily modify LL_INITIAL_RANDOM = 0, so that the parent's
         # applyForce random velocity is effectively null. Then restore it after calling super().
-        global INITIAL_RANDOM
-        original_val = INITIAL_RANDOM
-        INITIAL_RANDOM = 0.0  # Force no random impulse from the parent's reset
+        global LL_INITIAL_RANDOM
+        original_val = LL_INITIAL_RANDOM
+        LL_INITIAL_RANDOM = 0.0  # Force no random impulse from the parent's reset
 
         # Call parent's reset
         obs, info = super().reset(seed=seed, options=options)
@@ -1442,7 +1445,7 @@ class CustomLunarLander(LunarLander):
         self.lander.ResetMassData()
 
         # Restore original value
-        INITIAL_RANDOM = original_val
+        LL_INITIAL_RANDOM = original_val
 
         # Now manually set the velocity & angular velocity from our stored states
         if self.use_deterministic_initial_states:

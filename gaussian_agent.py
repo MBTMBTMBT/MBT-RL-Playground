@@ -138,51 +138,80 @@ class SACJax(SAC):
             _init_setup_model=_init_setup_model,
         )
 
-    def predict_action_distribution(
-        self, np_state: np.ndarray
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    def predict_action_distribution(self, np_state: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """
-        Return the mean and std of the action distribution given a batch of states.
+        Return the mean and std of the Gaussian action distribution predicted by the policy network.
+        No Tanh applied. This is suitable for analyzing the policy distribution itself.
+
         Args:
             np_state (np.ndarray): State input with shape (batch_size, obs_dim)
+
         Returns:
-            Tuple[np.ndarray, np.ndarray]: Mean and std of actions with shape (batch_size, action_dim)
+            Tuple[np.ndarray, np.ndarray]: Mean and std of Gaussian distribution before Tanh.
         """
-        # Convert numpy input to JAX array
         jax_state = jnp.asarray(np_state)
 
-        # Get mean and log_std from policy (assumes SBX JAX policy structure)
-        mean, log_std = self.policy.actor(jax_state)
+        # Apply policy actor network
+        dist = self.policy.actor.apply(self.policy.actor_state.params, jax_state)
 
-        # Convert to std
-        std = jnp.exp(log_std)
+        # Get mean and std directly from the Gaussian distribution
+        mean = dist.distribution.loc  # (batch_size, action_dim)
+        std = dist.distribution._scale_diag  # (batch_size, action_dim)
 
-        # Return as numpy arrays
         return np.array(mean), np.array(std)
 
     def get_default_action_distribution(
-        self, np_state: np.ndarray, strategy: str = "policy_init"  # or "uniform_like"
+            self, np_state: np.ndarray
     ) -> tuple[np.ndarray, np.ndarray]:
         """
-        Return a default action distribution before the policy is trained.
+        Return the default action distribution for comparison.
+        By default, use untrained Gaussian policy distribution: mean=0, std=1.
+
         Args:
             np_state (np.ndarray): Input states, shape (batch_size, obs_dim)
-            strategy (str): "policy_init" or "uniform_like"
+
         Returns:
             Tuple[np.ndarray, np.ndarray]: Mean and std, shape (batch_size, action_dim)
         """
         batch_size = np_state.shape[0]
         action_dim = self.action_space.shape[0]
 
-        if strategy == "policy_init":
-            mean = np.zeros((batch_size, action_dim), dtype=np.float32)
-            std = np.ones((batch_size, action_dim), dtype=np.float32)
-        elif strategy == "uniform_like":
-            center = (self.action_space.low + self.action_space.high) / 2.0
-            scale = (self.action_space.high - self.action_space.low) / 2.0
-            mean = np.tile(center, (batch_size, 1)).astype(np.float32)
-            std = np.tile(scale, (batch_size, 1)).astype(np.float32)
-        else:
-            raise ValueError(f"Unknown strategy: {strategy}")
+        # Standard untrained Gaussian Policy
+        mean = np.zeros((batch_size, action_dim), dtype=np.float32)
+        std = np.ones((batch_size, action_dim), dtype=np.float32)
 
         return mean, std
+
+    def sample_action_from_distribution(
+            self,
+            mean: np.ndarray,
+            std: np.ndarray,
+            deterministic: bool = False,
+    ) -> np.ndarray:
+        """
+        Sample actions from a given Gaussian distribution (mean, std),
+        apply Tanh squashing, and rescale to the environment's action space.
+
+        Args:
+            mean (np.ndarray): shape (batch_size, action_dim)
+            std (np.ndarray): shape (batch_size, action_dim)
+            deterministic (bool): If True, use mean directly without noise.
+
+        Returns:
+            np.ndarray: Actions after Tanh and rescaling, shape (batch_size, action_dim)
+        """
+        if deterministic:
+            raw_action = mean  # No noise
+        else:
+            raw_action = mean + std * np.random.randn(*mean.shape)  # Gaussian sampling
+
+        # Apply Tanh squashing
+        squashed_action = np.tanh(raw_action)
+
+        # Rescale from [-1, 1] to env action space
+        action_low = self.action_space.low
+        action_high = self.action_space.high
+
+        action = action_low + (squashed_action + 1.0) * (action_high - action_low) / 2.0
+
+        return action

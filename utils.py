@@ -145,10 +145,10 @@ class EvalAndGifCallback(BaseCallback):
         if config["env_type"] == "lunarlander":
             self.eval_env = SubprocVecEnv(
                 [
-                    make_carracing_env(
-                        map_seed=env_param,
+                    make_lunarlander_env(
+                        lander_density=env_param,
                         render_mode=None,
-                        deterministic_init=False,
+                        deterministic_init=True,
                         number_of_initial_states=config["num_init_states"],
                         init_seed=i,
                     )
@@ -159,10 +159,10 @@ class EvalAndGifCallback(BaseCallback):
         elif config["env_type"] == "carracing":
             self.eval_env = SubprocVecEnv(
                 [
-                    make_lunarlander_env(
-                        lander_density=env_param,
+                    make_carracing_env(
+                        map_seed=env_param,
                         render_mode=None,
-                        deterministic_init=True,
+                        deterministic_init=False,
                         number_of_initial_states=config["num_init_states"],
                         init_seed=i,
                     )
@@ -230,14 +230,24 @@ class EvalAndGifCallback(BaseCallback):
 
             if self.verbose:
                 # Prepare table content
-                table_data = [
-                    ["Env Param", self.env_param],
-                    ["Repeat", self.run_idx],
-                    ["Steps", self.num_timesteps],
-                    ["Mean Reward", f"{mean_reward:.2f} ± {std_reward:.2f}"],
-                ]
+                table_data = [["Env Param", self.env_param], ["Repeat", self.run_idx], ["Steps", self.num_timesteps],
+                              ["Mean Reward", f"{mean_reward:.2f} ± {std_reward:.2f}"],
+                              ["-- Prior Policy Metrics --", ""]]
 
-                # Append key metrics from current_result
+                # Append prior_policy metrics
+                for key in [
+                    "kl_forward",
+                    "kl_reverse",
+                    "js",
+                    "wasserstein2",
+                    "bhattacharyya",
+                    "hellinger",
+                ]:
+                    mean, std = prior_result[key]
+                    table_data.append([f"prior_policy-{key}", f"{mean:.4f} ± {std:.4f}"])
+
+                # Append current_policy metrics
+                table_data.append(["-- Current Policy Metrics --", ""])
                 for key in [
                     "kl_forward",
                     "kl_reverse",
@@ -247,7 +257,7 @@ class EvalAndGifCallback(BaseCallback):
                     "hellinger",
                 ]:
                     mean, std = current_result[key]
-                    table_data.append([f"{key}", f"{mean:.4f} ± {std:.4f}"])
+                    table_data.append([f"current_policy-{key}", f"{mean:.4f} ± {std:.4f}"])
 
                 print("[EvalCallback] Evaluation Summary")
                 print(tabulate(table_data, tablefmt="grid"))
@@ -288,6 +298,9 @@ class EvalAndGifCallback(BaseCallback):
             "current_policy-hellinger": [],
         }
         self.step_reached_optimal = None
+        # Force evaluation at step 0
+        self.last_eval_step = -self.eval_interval
+        self._on_step()
 
     def _on_training_end(self):
         """
@@ -338,10 +351,10 @@ class EvalAndGifCallback(BaseCallback):
         if self.config["env_type"] == "lunarlander":
             single_env = DummyVecEnv(
                 [
-                    make_carracing_env(
-                        map_seed=self.env_param,
+                    make_lunarlander_env(
+                        lander_density=self.env_param,
                         render_mode="rgb_array",
-                        deterministic_init=False,
+                        deterministic_init=True,
                         number_of_initial_states=initial_state_count,
                         init_seed=0,
                     )
@@ -351,10 +364,10 @@ class EvalAndGifCallback(BaseCallback):
         elif self.config["env_type"] == "carracing":
             single_env = DummyVecEnv(
                 [
-                    make_lunarlander_env(
-                        lander_density=self.env_param,
+                    make_carracing_env(
+                        map_seed=self.env_param,
                         render_mode="rgb_array",
-                        deterministic_init=True,
+                        deterministic_init=False,
                         number_of_initial_states=initial_state_count,
                         init_seed=0,
                     )
@@ -689,6 +702,7 @@ def evaluate_policy_with_distribution(
 
         mean1, std1 = model.predict_action_distribution(observations)
         mean2, std2 = prior_model.predict_action_distribution(observations)
+        # mean2, std2 = prior_model.get_default_action_distribution(observations)
 
         metrics = compare_gaussian_distributions(mean1, std1, mean2, std2)
         distribution_metrics.append(metrics)

@@ -94,9 +94,7 @@ if __name__ == "__main__":
                 eval_callback = EvalAndGifCallback(
                     config=config,
                     env_param=env_param,
-                    n_eval_envs=config["n_envs"]
-                    if env_type == "lunarlander"
-                    else 1,
+                    n_eval_envs=config["n_envs"],
                     run_idx=run + 1,
                     eval_interval=config["eval_interval"],
                     optimal_score=config["near_optimal_score"],
