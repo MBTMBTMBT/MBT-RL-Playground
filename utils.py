@@ -190,7 +190,9 @@ class EvalAndGifCallback(BaseCallback):
             prior_result = evaluate_policy_with_distribution(
                 self.original_model,
                 self.model,
-                self.eval_env,
+                use_default_policy=True,
+                use_default_policy_for_prior=False,
+                env=self.eval_env,
                 n_eval_episodes=self.eval_episodes,
                 deterministic=True,
                 render=False,
@@ -201,7 +203,9 @@ class EvalAndGifCallback(BaseCallback):
             current_result = evaluate_policy_with_distribution(
                 self.model,
                 self.original_model,
-                self.eval_env,
+                use_default_policy=False,
+                use_default_policy_for_prior=True,
+                env=self.eval_env,
                 n_eval_episodes=self.eval_episodes,
                 deterministic=True,
                 render=False,
@@ -645,6 +649,8 @@ def evaluate_policy_with_distribution(
         BaseAlgorithm,
         SAC,
     ],
+    use_default_policy: bool,
+    use_default_policy_for_prior: bool,
     env: Union[gym.Env, VecEnv],
     n_eval_episodes: int = 10,
     deterministic: bool = True,
@@ -700,9 +706,14 @@ def evaluate_policy_with_distribution(
             deterministic=deterministic,
         )
 
-        mean1, std1 = model.predict_action_distribution(observations)
-        # mean2, std2 = prior_model.predict_action_distribution(observations)
-        mean2, std2 = prior_model.get_default_action_distribution(observations)
+        if use_default_policy:
+            mean1, std1 = model.get_default_action_distribution(observations)
+        else:
+            mean1, std1 = model.predict_action_distribution(observations)
+        if use_default_policy_for_prior:
+            mean2, std2 = prior_model.get_default_action_distribution(observations)
+        else:
+            mean2, std2 = prior_model.predict_action_distribution(observations)
 
         metrics = compare_gaussian_distributions(mean1, std1, mean2, std2)
         distribution_metrics.append(metrics)
