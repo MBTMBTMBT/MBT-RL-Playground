@@ -5,10 +5,17 @@ import numpy as np
 import pandas as pd
 import torch
 
-from sbx import SAC
+from gaussian_agent import SACJax as SAC
 from stable_baselines3.common.vec_env import SubprocVecEnv
 
-from utils import ProgressBarCallback
+from utils import (
+    ProgressBarCallback,
+    make_carracing_env,
+    make_lunarlander_env,
+    EvalAndGifCallback,
+    plot_eval_results,
+    plot_optimal_step_bar_chart,
+)
 
 from configs import lunarlander_config, carracing_config
 
@@ -21,136 +28,165 @@ if __name__ == "__main__":
     ]
 
     for config in configs:
-        # iterate among environment parameters
-        if config["env_type"] == "lunarlander":
+        env_type = config["env_type"]
+        summary_results = []
+        curve_results = {}
+
+        # Decide environment parameters
+        if env_type == "lunarlander":
             env_params = np.linspace(3.0, 7.0, config["num_densities"]).tolist()
-        elif config["env_type"] == "carracing":
+        elif env_type == "carracing":
             env_params = list(range(config["num_seeds"]))
         else:
             raise ValueError("Invalid environment type.")
 
         for env_param in env_params:
+            repeat_results = []
+            reward_curves = []
+
             for run in range(config["n_repeat"]):
-                # get training environments
+                print(
+                    f"\n--- Repeat {run + 1}/{config['n_repeat']} for Env Param = {env_param} ---"
+                )
 
-                # train the agent with callbacks
-
-    summary_results = []
-    density_results = {}
-
-    for lander_density in lander_densities:
-        print(f"\n===== Lander Density = {lander_density:.1f} =====")
-
-        repeat_results = []
-        reward_curves = []
-
-        for repeat in range(N_REPEAT):
-            print(
-                f"\n--- Repeat {repeat + 1}/{N_REPEAT} for Lander Density = {lander_density:.1f} ---"
-            )
-
-            train_env = SubprocVecEnv(
-                [
-                    make_lander_env(
-                        lander_density=lander_density,
-                        render_mode=None,
-                        deterministic_init=False,
+                if env_type == "lunarlander":
+                    train_env = SubprocVecEnv(
+                        [
+                            make_lunarlander_env(
+                                lander_density=env_param,
+                                render_mode=None,
+                                deterministic_init=False,
+                                number_of_initial_states=config["num_init_states"],
+                                init_seed=None,
+                            )
+                            for _ in range(config["n_envs"])
+                        ]
                     )
-                    for _ in range(N_ENVS)
-                ]
-            )
+                elif env_type == "carracing":
+                    train_env = SubprocVecEnv(
+                        [
+                            make_carracing_env(
+                                map_seed=env_param,
+                                render_mode=None,
+                                deterministic_init=False,
+                                number_of_initial_states=config["num_init_states"],
+                                init_seed=None,
+                            )
+                            for _ in range(config["n_envs"])
+                        ]
+                    )
 
-            model = SAC(
-                "MlpPolicy",
-                train_env,
-                verbose=0,
-                learning_rate=2e-4,
-                buffer_size=1_200_000,
-                learning_starts=5_000,
-                batch_size=256,
-                tau=0.005,
-                train_freq=N_ENVS,
-                gradient_steps=N_ENVS * 8,
-                ent_coef="auto",
-                policy_kwargs=dict(net_arch=[256, 256]),
-            )
+                model = SAC(
+                    "MlpPolicy",
+                    train_env,
+                    verbose=0,
+                    learning_rate=2e-4,
+                    buffer_size=config["train_steps"],
+                    learning_starts=5_000,
+                    batch_size=256,
+                    tau=0.005,
+                    train_freq=config["n_envs"],
+                    gradient_steps=config["n_envs"] * 8,
+                    ent_coef="auto",
+                    policy_kwargs=dict(net_arch=[256, 256]),
+                )
 
-            eval_callback = EvalAndGifCallback(
-                lander_density=lander_density,
-                repeat=repeat + 1,
-                eval_interval=EVAL_INTERVAL,
-                optimal_score=NEAR_OPTIMAL_SCORE,
-                verbose=1,
-            )
-            progress_callback = ProgressBarCallback(total_timesteps=TRAIN_STEPS)
+                eval_callback = EvalAndGifCallback(
+                    config=config,
+                    env_param=env_param,
+                    n_eval_envs=config["n_envs"]
+                    if env_type == "lunarlander"
+                    else 1,
+                    run_idx=run + 1,
+                    eval_interval=config["eval_interval"],
+                    optimal_score=config["near_optimal_score"],
+                    verbose=1,
+                    temp_dir=".",
+                )
 
-            model.learn(
-                total_timesteps=TRAIN_STEPS, callback=[eval_callback, progress_callback]
-            )
+                progress_callback = ProgressBarCallback(
+                    total_timesteps=config["train_steps"]
+                )
 
-            repeat_results.append(
+                model.learn(
+                    total_timesteps=config["train_steps"],
+                    callback=[eval_callback, progress_callback],
+                )
+
+                repeat_results.append(
+                    {
+                        "EnvParam": env_param,
+                        "Repeat": run + 1,
+                        "OptimalStep": eval_callback.step_reached_optimal
+                        or config["train_steps"],
+                        "BestScore": eval_callback.best_mean_reward,
+                    }
+                )
+
+                df_repeat = pd.DataFrame(
+                    eval_callback.records["reward"],
+                    columns=["Timesteps", "MeanReward", "StdReward"],
+                )
+                reward_curves.append(df_repeat)
+
+                print(
+                    f"\n--- Cleanup after Repeat {run + 1} for Env Param {env_param} ---"
+                )
+                train_env.close()
+                del model
+                gc.collect()
+                torch.cuda.empty_cache()
+
+            # Calculate summary
+            best_scores = [res["BestScore"] for res in repeat_results]
+            optimal_steps = [res["OptimalStep"] for res in repeat_results]
+
+            summary_results.append(
                 {
-                    "LanderDensity": lander_density,
-                    "Repeat": repeat + 1,
-                    "OptimalStep": eval_callback.step_reached_optimal or TRAIN_STEPS,
-                    "BestScore": eval_callback.best_mean_reward,
+                    "LanderDensity"
+                    if env_type == "lunarlander"
+                    else "MapSeed": env_param,
+                    "BestScoreMean": np.mean(best_scores),
+                    "BestScoreStd": np.std(best_scores),
+                    "OptimalStepMean": np.mean(optimal_steps),
+                    "OptimalStepStd": np.std(optimal_steps),
                 }
             )
 
-            df_repeat = pd.DataFrame(
-                eval_callback.records, columns=["Timesteps", "MeanReward", "StdReward"]
-            )
-            reward_curves.append(df_repeat)
+            mean_rewards = np.mean([df["MeanReward"] for df in reward_curves], axis=0)
+            std_rewards = np.std([df["MeanReward"] for df in reward_curves], axis=0)
+            timesteps = reward_curves[0]["Timesteps"]
 
-            print(
-                f"\n--- Cleanup after Repeat {repeat + 1} for Lander Density {lander_density:.1f} ---"
-            )
-            train_env.close()
-            del model
-            gc.collect()
-            torch.cuda.empty_cache()
-
-        best_scores = [res["BestScore"] for res in repeat_results]
-        optimal_steps = [res["OptimalStep"] for res in repeat_results]
-
-        summary_results.append(
-            {
-                "LanderDensity": lander_density,
-                "BestScoreMean": np.mean(best_scores),
-                "BestScoreStd": np.std(best_scores),
-                "OptimalStepMean": np.mean(optimal_steps),
-                "OptimalStepStd": np.std(optimal_steps),
-            }
-        )
-
-        mean_rewards = np.mean([df["MeanReward"] for df in reward_curves], axis=0)
-        std_rewards = np.std([df["MeanReward"] for df in reward_curves], axis=0)
-        timesteps = reward_curves[0]["Timesteps"]
-
-        density_results[lander_density] = {
-            "Timesteps": timesteps,
-            "MeanReward": mean_rewards,
-            "StdReward": std_rewards,
-        }
-
-        df_density = pd.DataFrame(
-            {
+            curve_results[env_param] = {
                 "Timesteps": timesteps,
                 "MeanReward": mean_rewards,
                 "StdReward": std_rewards,
             }
+
+            # Save reward curves per env_param
+            df_curve = pd.DataFrame(
+                {
+                    "Timesteps": timesteps,
+                    "MeanReward": mean_rewards,
+                    "StdReward": std_rewards,
+                }
+            )
+            csv_curve_path = os.path.join(
+                config["save_path"],
+                f"mean_std_{'density' if env_type == 'lunarlander' else 'mapseed'}_{env_param}.csv",
+            )
+            df_curve.to_csv(csv_curve_path, index=False)
+
+        # Save summary results
+        df_summary = pd.DataFrame(summary_results)
+        csv_summary_path = os.path.join(
+            config["save_path"], "summary_results_mean_std.csv"
         )
-        density_csv_path = os.path.join(
-            SAVE_PATH, f"mean_std_density_{lander_density:.1f}.csv"
-        )
-        df_density.to_csv(density_csv_path, index=False)
+        df_summary.to_csv(csv_summary_path, index=False)
 
-    df_summary = pd.DataFrame(summary_results)
-    df_summary_path = os.path.join(SAVE_PATH, "summary_results_mean_std.csv")
-    df_summary.to_csv(df_summary_path, index=False)
+        print("\n===== All Training Completed =====")
+        print(df_summary)
 
-    print("\n===== All Training Completed =====")
-    print(df_summary)
-
-    plot_results(density_results, SAVE_PATH)
-    plot_optimal_step_bar_chart(summary_results, SAVE_PATH)
+        # Plot results
+        plot_eval_results(config, curve_results, config["save_path"])
+        plot_optimal_step_bar_chart(config, summary_results, config["save_path"])

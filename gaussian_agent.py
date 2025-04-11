@@ -75,35 +75,37 @@ def fuse_gaussian_distributions(
 
 class SACJax(SAC):
     def __init__(
-            self,
-            policy,
-            env: Union[GymEnv, str],
-            learning_rate: Union[float, Schedule] = 3e-4,
-            qf_learning_rate: Optional[float] = None,
-            buffer_size: int = 1_000_000,  # 1e6
-            learning_starts: int = 100,
-            batch_size: int = 256,
-            tau: float = 0.005,
-            gamma: float = 0.99,
-            train_freq: Union[int, tuple[int, str]] = 1,
-            gradient_steps: int = 1,
-            policy_delay: int = 1,
-            action_noise: Optional[ActionNoise] = None,
-            replay_buffer_class: Optional[type[ReplayBuffer]] = None,
-            replay_buffer_kwargs: Optional[dict[str, Any]] = None,
-            ent_coef: Union[str, float] = "auto",
-            target_entropy: Union[Literal["auto"], float] = "auto",
-            use_sde: bool = False,
-            sde_sample_freq: int = -1,
-            use_sde_at_warmup: bool = False,
-            stats_window_size: int = 100,
-            tensorboard_log: Optional[str] = None,
-            policy_kwargs: Optional[dict[str, Any]] = None,
-            param_resets: Optional[list[int]] = None,  # List of timesteps after which to reset the params
-            verbose: int = 0,
-            seed: Optional[int] = None,
-            device: str = "auto",
-            _init_setup_model: bool = True,
+        self,
+        policy,
+        env: Union[GymEnv, str],
+        learning_rate: Union[float, Schedule] = 3e-4,
+        qf_learning_rate: Optional[float] = None,
+        buffer_size: int = 1_000_000,  # 1e6
+        learning_starts: int = 100,
+        batch_size: int = 256,
+        tau: float = 0.005,
+        gamma: float = 0.99,
+        train_freq: Union[int, tuple[int, str]] = 1,
+        gradient_steps: int = 1,
+        policy_delay: int = 1,
+        action_noise: Optional[ActionNoise] = None,
+        replay_buffer_class: Optional[type[ReplayBuffer]] = None,
+        replay_buffer_kwargs: Optional[dict[str, Any]] = None,
+        ent_coef: Union[str, float] = "auto",
+        target_entropy: Union[Literal["auto"], float] = "auto",
+        use_sde: bool = False,
+        sde_sample_freq: int = -1,
+        use_sde_at_warmup: bool = False,
+        stats_window_size: int = 100,
+        tensorboard_log: Optional[str] = None,
+        policy_kwargs: Optional[dict[str, Any]] = None,
+        param_resets: Optional[
+            list[int]
+        ] = None,  # List of timesteps after which to reset the params
+        verbose: int = 0,
+        seed: Optional[int] = None,
+        device: str = "auto",
+        _init_setup_model: bool = True,
     ):
         super().__init__(
             policy=policy,
@@ -136,7 +138,9 @@ class SACJax(SAC):
             _init_setup_model=_init_setup_model,
         )
 
-    def predict_action_distribution(self, np_state: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    def predict_action_distribution(
+        self, np_state: np.ndarray
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Return the mean and std of the action distribution given a batch of states.
         Args:
@@ -157,9 +161,7 @@ class SACJax(SAC):
         return np.array(mean), np.array(std)
 
     def get_default_action_distribution(
-            self,
-            np_state: np.ndarray,
-            strategy: str = "policy_init"  # or "uniform_like"
+        self, np_state: np.ndarray, strategy: str = "policy_init"  # or "uniform_like"
     ) -> tuple[np.ndarray, np.ndarray]:
         """
         Return a default action distribution before the policy is trained.

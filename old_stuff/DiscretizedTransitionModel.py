@@ -386,10 +386,10 @@ class TransitionTable:
     ):
         self.state_discretizer = state_discretizer
         self.action_discretizer = action_discretizer
-        self.transition_table: Dict[int, Dict[int, Dict[int, Dict[float, int]]]] = (
-            defaultdict(
-                lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: 0)))
-            )
+        self.transition_table: Dict[
+            int, Dict[int, Dict[int, Dict[float, int]]]
+        ] = defaultdict(
+            lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: 0)))
         )  # {state: {action: {next_state: {reward: count}}}
         self.neighbour_dict = defaultdict(lambda: set())
         self.forward_dict = defaultdict(lambda: defaultdict(lambda: set()))
@@ -398,8 +398,10 @@ class TransitionTable:
         # They will not be saved!
         self.state_count = defaultdict(lambda: 0)
         self.state_action_count = defaultdict(lambda: defaultdict(lambda: 0))
-        self.transition_prob_table: Dict[int, Dict[int, Dict[int, float]]] = (
-            defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: 0)))
+        self.transition_prob_table: Dict[
+            int, Dict[int, Dict[int, float]]
+        ] = defaultdict(
+            lambda: defaultdict(lambda: defaultdict(lambda: 0))
         )  # {state: {action: {next_state: rate}}
         self.done_set = set()
         self.start_set = set()

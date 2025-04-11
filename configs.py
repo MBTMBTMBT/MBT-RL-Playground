@@ -8,7 +8,7 @@ carracing_config = {
     "num_init_states": 16,
     "eval_episodes": 16,
     "near_optimal_score": 8.5,
-    "save_path": "./carracing_mapseed_results"
+    "save_path": "./carracing_mapseed_results",
 }
 
 
@@ -22,5 +22,5 @@ lunarlander_config = {
     "num_init_states": 64,
     "eval_episodes": 64,
     "near_optimal_score": 250,
-    "save_path": "./lunar_lander_density_results"
+    "save_path": "./lunar_lander_density_results",
 }

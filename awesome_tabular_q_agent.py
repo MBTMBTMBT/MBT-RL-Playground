@@ -932,9 +932,10 @@ class TabularQAgent(Agent):
         if state_discretizer is not None:
             self.state_discretizer = state_discretizer
         else:
-            auto_state_ranges, auto_num_state_buckets = (
-                generate_discretizer_params_from_space(self.observation_space)
-            )
+            (
+                auto_state_ranges,
+                auto_num_state_buckets,
+            ) = generate_discretizer_params_from_space(self.observation_space)
 
             final_state_ranges = [
                 user if user is not None else auto
@@ -964,9 +965,10 @@ class TabularQAgent(Agent):
         if action_discretizer is not None:
             self.action_discretizer = action_discretizer
         else:
-            auto_action_ranges, auto_num_action_buckets = (
-                generate_discretizer_params_from_space(self.action_space)
-            )
+            (
+                auto_action_ranges,
+                auto_num_action_buckets,
+            ) = generate_discretizer_params_from_space(self.action_space)
 
             final_action_ranges = [
                 user if user is not None else auto
