@@ -701,8 +701,8 @@ def evaluate_policy_with_distribution(
         )
 
         mean1, std1 = model.predict_action_distribution(observations)
-        mean2, std2 = prior_model.predict_action_distribution(observations)
-        # mean2, std2 = prior_model.get_default_action_distribution(observations)
+        # mean2, std2 = prior_model.predict_action_distribution(observations)
+        mean2, std2 = prior_model.get_default_action_distribution(observations)
 
         metrics = compare_gaussian_distributions(mean1, std1, mean2, std2)
         distribution_metrics.append(metrics)
