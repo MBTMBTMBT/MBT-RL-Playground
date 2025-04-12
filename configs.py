@@ -19,7 +19,7 @@ lunarlander_config = {
     "density_stop": 7.0,
     "n_repeat": 8,
     "n_envs": 24,
-    "train_steps": 1_500_000,
+    "train_steps": 1_200_000,
     "eval_interval": 5_000 * 24,
     "num_init_states": 24,
     "eval_episodes": 120,
