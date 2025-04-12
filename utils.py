@@ -11,7 +11,6 @@ import pandas as pd
 from matplotlib import pyplot as plt
 from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.callbacks import BaseCallback
-from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.vec_env import (
     SubprocVecEnv,
     DummyVecEnv,
