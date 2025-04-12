@@ -24,7 +24,7 @@ from configs import lunarlander_config, carracing_config
 if __name__ == "__main__":
     configs = [
         lunarlander_config,
-        # carracing_config,
+        carracing_config,
     ]
 
     # make model paths
@@ -42,9 +42,9 @@ if __name__ == "__main__":
             for run in range(config["n_repeat"]):
                 best_model_path = os.path.join(
                     config["save_path"],
-                    f"sac_env_param_{env_param}_run_{run}_best.zip",
+                    f"sac_env_param_{env_param}_run_{run + 1}_best.zip",
                 )
-                model_paths[(env_type, env_param, run)] = best_model_path
+                model_paths[(env_type, env_param, run + 1)] = best_model_path
     print("All model paths:")
     print(model_paths)
 
@@ -212,52 +212,65 @@ if __name__ == "__main__":
         mix_results = {}
 
         for env_param in env_params:
-            if config["env_type"] == "lunarlander":
-                test_env = SubprocVecEnv(
-                    [
-                        make_lunarlander_env(
-                            lander_density=env_param,
-                            render_mode=None,
-                            deterministic_init=True,
-                            number_of_initial_states=config["num_init_states"],
-                            init_seed=i,
-                        )
-                        for i in range(config["n_envs"])
-                    ]
-                )
-            elif config["env_type"] == "carracing":
-                test_env = SubprocVecEnv(
-                    [
-                        make_carracing_env(
-                            map_seed=env_param,
-                            render_mode=None,
-                            deterministic_init=False,
-                            number_of_initial_states=config["num_init_states"],
-                            init_seed=i,
-                        )
-                        for i in range(config["n_envs"])
-                    ]
-                )
-            else:
-                test_env = None
-            model_path = model_paths[(env_type, env_param, 0)]  # use best model of run 0
-            model = SAC.load(model_path, env=test_env)
-            mix_agent = MixPolicySAC(model)
+            all_repeat_rewards = []
 
-            mean_rewards = evaluate_mix_policy_agent(
-                mix_agent,
-                test_env,
-                total_episodes=config["eval_episodes"],
-                num_p_values=20,
-            )
-            p_values = np.linspace(0.0, 1.0, 11)
+            for run in range(config["n_repeat"]):
+                if config["env_type"] == "lunarlander":
+                    test_env = SubprocVecEnv(
+                        [
+                            make_lunarlander_env(
+                                lander_density=env_param,
+                                render_mode=None,
+                                deterministic_init=True,
+                                number_of_initial_states=config["num_init_states"],
+                                init_seed=i,
+                            )
+                            for i in range(config["n_envs"])
+                        ]
+                    )
+                elif config["env_type"] == "carracing":
+                    test_env = SubprocVecEnv(
+                        [
+                            make_carracing_env(
+                                map_seed=env_param,
+                                render_mode=None,
+                                deterministic_init=False,
+                                number_of_initial_states=config["num_init_states"],
+                                init_seed=i,
+                            )
+                            for i in range(config["n_envs"])
+                        ]
+                    )
+                else:
+                    test_env = None
+                model_path = model_paths[(env_type, env_param, run + 1)]
+                model = SAC.load(model_path, env=test_env)
+                mix_agent = MixPolicySAC(model)
+
+                mean_rewards = evaluate_mix_policy_agent(
+                    mix_agent,
+                    test_env,
+                    total_episodes=config["eval_episodes"],
+                    num_p_values=20,
+                )
+                all_repeat_rewards.append(mean_rewards)
+
+            all_repeat_rewards = np.array(all_repeat_rewards)  # (n_repeat, num_p_values)
+            mean_rewards = all_repeat_rewards.mean(axis=0)
+            std_rewards = all_repeat_rewards.std(axis=0)
+            p_values = np.linspace(0.0, 1.0, 20)
 
             mix_results[env_param] = {
                 "p_values": p_values,
                 "mean_rewards": mean_rewards,
+                "std_rewards": std_rewards,
             }
 
-            df = pd.DataFrame({"p": p_values, "mean_reward": mean_rewards})
+            df = pd.DataFrame({
+                "p": p_values,
+                "mean_reward": mean_rewards,
+                "std_reward": std_rewards,
+            })
             csv_path = os.path.join(
                 config["save_path"],
                 f"mix_policy_curve_{'density' if env_type == 'lunarlander' else 'mapseed'}_{env_param}.csv",
