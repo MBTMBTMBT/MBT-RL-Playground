@@ -80,7 +80,7 @@ if __name__ == "__main__":
                     "MlpPolicy",
                     train_env,
                     verbose=0,
-                    learning_rate=2e-4,
+                    learning_rate=1e-4,
                     buffer_size=config["train_steps"],
                     learning_starts=5_000,
                     batch_size=256,
@@ -88,7 +88,7 @@ if __name__ == "__main__":
                     train_freq=config["n_envs"],
                     gradient_steps=config["n_envs"] * 8,
                     ent_coef="auto",
-                    policy_kwargs=dict(net_arch=[256, 256]),
+                    policy_kwargs=dict(net_arch=[256, 256, 256]),
                 )
 
                 eval_callback = EvalAndGifCallback(

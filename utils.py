@@ -423,6 +423,9 @@ class EvalAndGifCallback(BaseCallback):
 def plot_eval_results(config, results, save_dir):
     """
     Plot evaluation results for different environments.
+    This function will plot:
+        - Reward curve
+        - All distribution metrics curves (per metric)
 
     Args:
         config (dict): Configuration dictionary, must contain "env_type".
@@ -432,54 +435,58 @@ def plot_eval_results(config, results, save_dir):
     env_type = config["env_type"]
     assert env_type in ["lunarlander", "carracing"], "Unsupported env_type."
 
-    plt.figure(figsize=(12, 8))
+    # Determine available metrics from the first result item
+    metrics_keys = [key for key in results[list(results.keys())[0]].keys() if key != "Timesteps"]
 
-    for env_param, result in results.items():
-        steps = result["Timesteps"]
-        means = result["MeanReward"]
-        stds = result["StdReward"]
+    for metric in metrics_keys:
+        plt.figure(figsize=(12, 8))
 
-        plt.plot(steps, means, label=f"{env_type.capitalize()} Param {env_param}")
-        plt.fill_between(
-            steps,
-            np.array(means) - np.array(stds),
-            np.array(means) + np.array(stds),
-            alpha=0.2,
-        )
+        for env_param, result in results.items():
+            steps = result["Timesteps"]
+            means = result[metric + "_mean"]
+            stds = result[metric + "_std"]
 
-        # Plot single curve for each env_param
-        plt_single = plt.figure(figsize=(10, 6))
-        ax = plt_single.add_subplot(111)
-        ax.plot(steps, means, label=f"{env_type.capitalize()} Param {env_param}")
-        ax.fill_between(
-            steps,
-            np.array(means) - np.array(stds),
-            np.array(means) + np.array(stds),
-            alpha=0.2,
-        )
-        ax.set_xlabel("Timesteps")
-        ax.set_ylabel("Mean Reward")
-        ax.set_title(f"Reward Curve for {env_type.capitalize()} Param {env_param}")
-        ax.legend()
-        ax.grid()
+            plt.plot(steps, means, label=f"{env_type.capitalize()} Param {env_param}")
+            plt.fill_between(
+                steps,
+                np.array(means) - np.array(stds),
+                np.array(means) + np.array(stds),
+                alpha=0.2,
+            )
 
-        single_plot_path = os.path.join(
-            save_dir, f"reward_curve_{env_type}_param_{env_param}.png"
-        )
-        plt_single.savefig(single_plot_path)
-        plt.close(plt_single)
+            # Plot single curve for this env_param
+            plt_single = plt.figure(figsize=(10, 6))
+            ax = plt_single.add_subplot(111)
+            ax.plot(steps, means, label=f"{env_type.capitalize()} Param {env_param}")
+            ax.fill_between(
+                steps,
+                np.array(means) - np.array(stds),
+                np.array(means) + np.array(stds),
+                alpha=0.2,
+            )
+            ax.set_xlabel("Timesteps")
+            ax.set_ylabel(f"Mean {metric.replace('_', ' ').title()}")
+            ax.set_title(f"{metric.replace('_', ' ').title()} Curve for {env_type.capitalize()} Param {env_param}")
+            ax.legend()
+            ax.grid()
 
-    plt.xlabel("Timesteps")
-    plt.ylabel("Mean Reward")
-    plt.title(f"Evaluation Reward over Timesteps (All {env_type.capitalize()} Params)")
-    plt.legend()
-    plt.grid()
+            single_plot_path = os.path.join(
+                save_dir, f"{metric}_curve_{env_type}_param_{env_param}.png"
+            )
+            plt_single.savefig(single_plot_path)
+            plt.close(plt_single)
 
-    all_plot_path = os.path.join(save_dir, f"reward_curves_all_{env_type}.png")
-    plt.savefig(all_plot_path)
-    plt.close()
+        plt.xlabel("Timesteps")
+        plt.ylabel(f"Mean {metric.replace('_', ' ').title()}")
+        plt.title(f"{metric.replace('_', ' ').title()} over Timesteps (All {env_type.capitalize()} Params)")
+        plt.legend()
+        plt.grid()
 
-    print(f"[Plot Saved] {all_plot_path}")
+        all_plot_path = os.path.join(save_dir, f"{metric}_curves_all_{env_type}.png")
+        plt.savefig(all_plot_path)
+        plt.close()
+
+        print(f"[Plot Saved] {all_plot_path}")
 
 
 # multiple params multiple runs
