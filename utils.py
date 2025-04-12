@@ -77,23 +77,41 @@ def make_carracing_env(
 
 
 def hard_clone_agent(
-    agent: Union[
-        BaseAlgorithm,
-        SAC,
-    ],
-    temp_dir=".",
+    agent: Union[BaseAlgorithm, SAC],
+    temp_dir: str = ".",
 ) -> Optional[Union[BaseAlgorithm, SAC]]:
-    """Hard clone a sbx agent via save and load mechanism."""
-    with tempfile.NamedTemporaryFile(
-        suffix=".zip", delete=False, dir=temp_dir
-    ) as tmp_file:
-        tmp_path = tmp_file.name
+    """Hard clone a SBX agent via save and load mechanism,
+    including replay buffer if available.
+
+    Args:
+        agent (BaseAlgorithm | SAC): Agent to be cloned.
+        temp_dir (str): Temporary directory to store checkpoint.
+
+    Returns:
+        Optional[BaseAlgorithm | SAC]: Cloned agent with same weights and replay buffer.
+    """
+    with tempfile.NamedTemporaryFile(suffix=".zip", delete=False, dir=temp_dir) as tmp_file:
+        model_path = tmp_file.name
+    with tempfile.NamedTemporaryFile(suffix=".pkl", delete=False, dir=temp_dir) as tmp_file:
+        buffer_path = tmp_file.name
+
     try:
-        agent.save(tmp_path)
-        new_agent = agent.__class__.load(tmp_path, env=agent.env)
+        # Save model and replay buffer
+        agent.save(model_path)
+        if agent.replay_buffer is not None:
+            agent.save_replay_buffer(buffer_path)
+
+        # Load model and replay buffer
+        new_agent = agent.__class__.load(model_path, env=agent.env)
+        if new_agent.replay_buffer is not None:
+            new_agent.load_replay_buffer(buffer_path)
+
     finally:
-        os.remove(tmp_path)
+        os.remove(model_path)
+        os.remove(buffer_path)
+
     return new_agent
+
 
 
 class EvalAndGifCallback(BaseCallback):

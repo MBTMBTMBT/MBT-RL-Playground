@@ -122,7 +122,7 @@ if __name__ == "__main__":
                     optimal_score=config["near_optimal_score"],
                     verbose=1,
                     temp_dir=".",
-                    use_default_policy=False,
+                    use_default_policy=True,
                 )
 
                 progress_callback = ProgressBarCallback(
