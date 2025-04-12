@@ -185,14 +185,16 @@ class SACJax(SAC):
         return mean, std
 
     def sample_action_from_distribution(
-        self,
-        mean: np.ndarray,
-        std: np.ndarray,
-        deterministic: bool = False,
+            self,
+            mean: np.ndarray,
+            std: np.ndarray,
+            deterministic: bool = False,
     ) -> np.ndarray:
         """
         Sample actions from a given Gaussian distribution (mean, std),
         apply Tanh squashing, and rescale to the environment's action space.
+
+        This version matches the training sampling logic.
 
         Args:
             mean (np.ndarray): shape (batch_size, action_dim)
@@ -200,20 +202,18 @@ class SACJax(SAC):
             deterministic (bool): If True, use mean directly without noise.
 
         Returns:
-            np.ndarray: Actions after Tanh and rescaling, shape (batch_size, action_dim)
+            np.ndarray: Actions after rescaling, shape (batch_size, action_dim)
         """
         if deterministic:
             raw_action = mean  # No noise
         else:
-            raw_action = mean + std * np.random.randn(*mean.shape)  # Gaussian sampling
+            noise = np.random.randn(*mean.shape)
+            raw_action = mean + std * noise
 
-        # Apply Tanh squashing
+        # Squash action to [-1, 1] using tanh
         squashed_action = np.tanh(raw_action)
 
-        # Rescale from [-1, 1] to env action space
-        action_low = self.action_space.low
-        action_high = self.action_space.high
-
-        action = action_low + (squashed_action + 1.0) * (action_high - action_low) / 2.0
+        # Rescale to action_space
+        action = self.policy.unscale_action(squashed_action)
 
         return action
