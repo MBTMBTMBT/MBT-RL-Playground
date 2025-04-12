@@ -1,7 +1,7 @@
 import os
 import tempfile
 import warnings
-from typing import Union, Any, Optional, Callable
+from typing import Union, Any, Optional, Callable, List
 
 import cv2
 import gymnasium as gym
@@ -9,6 +9,7 @@ import imageio
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
+from numpy import floating
 from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.vec_env import (
@@ -23,7 +24,7 @@ from tabulate import tabulate
 from tqdm import tqdm
 
 import custom_envs
-from gaussian_agent import SACJax as SAC
+from gaussian_agent import SACJax as SAC, MixPolicySAC
 
 
 def make_lunarlander_env(
@@ -815,3 +816,90 @@ def evaluate_policy_with_distribution(
         result["episode_lengths"] = episode_lengths
 
     return result
+
+
+def evaluate_mix_policy_agent(
+    agent: MixPolicySAC,
+    test_env,
+    total_episodes: int,
+    num_p_values: int = 11,
+) -> list[floating[Any]]:
+    """
+    Evaluate MixPolicySAC agent with different p values from 0.0 to 1.0.
+
+    Args:
+        agent (MixPolicySAC): MixPolicySAC agent.
+        test_env: Gymnasium Env, could be vectorized env.
+        total_episodes (int): Number of episodes to evaluate per p value.
+        num_p_values (int): Number of p values to evaluate (linear spaced).
+
+    Returns:
+        List[float]: Mean episode rewards for each p value.
+    """
+    p_values = np.linspace(0.0, 1.0, num_p_values)
+    rewards_per_p = []
+
+    for p in p_values:
+        episode_rewards = []
+        obs, _ = test_env.reset()
+        episode_reward = np.zeros(test_env.num_envs, dtype=np.float32)
+        episode_counts = np.zeros(test_env.num_envs, dtype=np.int32)
+
+        while np.sum(episode_counts) < total_episodes:
+            action = agent.predict_with_weight(obs, p)
+            next_obs, reward, terminated, truncated, _ = test_env.step(action)
+            done = np.logical_or(terminated, truncated)
+            episode_reward += reward
+
+            for i in range(test_env.num_envs):
+                if done[i]:
+                    episode_rewards.append(episode_reward[i])
+                    episode_reward[i] = 0.0
+                    episode_counts[i] += 1
+            obs = next_obs
+
+        mean_reward = np.mean(episode_rewards[:total_episodes])
+        rewards_per_p.append(mean_reward)
+
+    return rewards_per_p
+
+
+def plot_mix_policy_results(config, results_dict, save_path):
+    """
+    Plot reward vs p curves and reward integral bar chart.
+
+    Args:
+        config (dict): Config dict.
+        results_dict (dict): Dict of {env_param: {'p_values': [], 'mean_rewards': []}}.
+        save_path (str): Path to save figures.
+    """
+    env_type = config["env_type"]
+    param_name = "LanderDensity" if env_type == "lunarlander" else "MapSeed"
+
+    plt.figure()
+    for env_param, result in results_dict.items():
+        plt.plot(result["p_values"], result["mean_rewards"], label=f"{param_name}={env_param}")
+    plt.xlabel("Mix Weight p")
+    plt.ylabel("Mean Episode Reward")
+    plt.legend()
+    plt.grid()
+    plt.tight_layout()
+    plt.savefig(os.path.join(save_path, "mix_policy_p_curve.png"))
+    plt.close()
+
+    # Calculate reward integral for bar chart
+    plt.figure()
+    env_params = []
+    integrals = []
+    for env_param, result in results_dict.items():
+        env_params.append(env_param)
+        integral = np.trapz(result["mean_rewards"], result["p_values"])
+        integrals.append(integral)
+
+    plt.bar([str(p) for p in env_params], integrals)
+    plt.xlabel(param_name)
+    plt.ylabel("Integral of Reward Curve")
+    plt.grid(axis="y")
+    plt.tight_layout()
+    plt.savefig(os.path.join(save_path, "mix_policy_integral_bar_chart.png"))
+    plt.close()
