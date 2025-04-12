@@ -117,9 +117,9 @@ class __QTableAgent:
         self.state_bins: List[np.ndarray] = [
             self._discretize_space(dim, normal_partition_state) for dim in state_space
         ]
-        self.state_value_map: List[
-            np.ndarray
-        ] = self.state_bins  # Save the bin edges as the mapping
+        self.state_value_map: List[np.ndarray] = (
+            self.state_bins
+        )  # Save the bin edges as the mapping
 
         # Discretize the action space and create a mapping
         if action_combination:

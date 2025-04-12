@@ -775,10 +775,10 @@ class TransitionTable:
     ):
         self.state_discretizer = state_discretizer
         self.action_discretizer = action_discretizer
-        self.transition_table: Dict[
-            int, Dict[int, Dict[int, Dict[float, int]]]
-        ] = defaultdict(
-            lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: 0)))
+        self.transition_table: Dict[int, Dict[int, Dict[int, Dict[float, int]]]] = (
+            defaultdict(
+                lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: 0)))
+            )
         )  # {state: {action: {next_state: {reward: count}}}
         self.neighbour_dict = defaultdict(lambda: set())
         self.forward_dict = defaultdict(lambda: defaultdict(lambda: set()))
@@ -787,10 +787,8 @@ class TransitionTable:
         # They will not be saved!
         self.state_count = defaultdict(lambda: 0)
         self.state_action_count = defaultdict(lambda: defaultdict(lambda: 0))
-        self.transition_prob_table: Dict[
-            int, Dict[int, Dict[int, float]]
-        ] = defaultdict(
-            lambda: defaultdict(lambda: defaultdict(lambda: 0))
+        self.transition_prob_table: Dict[int, Dict[int, Dict[int, float]]] = (
+            defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: 0)))
         )  # {state: {action: {next_state: rate}}
         self.done_set = set()
         self.start_set = set()
@@ -2435,9 +2433,11 @@ class DeepDynaQAgent:
         self.transition_table_env_t.print_transition_table_info()
         self.transition_table_env_b.print_transition_table_info()
 
-    def save_agent(
-        self, file_path: str = None
-    ) -> tuple[DataFrame, DataFrame, DataFrame,]:
+    def save_agent(self, file_path: str = None) -> tuple[
+        DataFrame,
+        DataFrame,
+        DataFrame,
+    ]:
         if file_path:
             q_table_file_path = file_path.split(".csv")[0] + "_exploit_agent"
             exploration_agent_q_table_file_path = (

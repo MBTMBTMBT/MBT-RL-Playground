@@ -68,9 +68,9 @@ def sample_q_table_with_counts(
 
         for action_idx, q_value in enumerate(q_values):
             sampled_row = {col: row[col] for col in state_columns}
-            sampled_row[
-                f"action_dim_0"
-            ] = action_idx  # Assuming single-dimensional action
+            sampled_row[f"action_dim_0"] = (
+                action_idx  # Assuming single-dimensional action
+            )
             sampled_row["q_value"] = q_value
             sampled_row["count"] = row["count"]
             sampled_data.append(sampled_row)

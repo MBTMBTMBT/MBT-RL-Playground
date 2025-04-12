@@ -67,7 +67,7 @@ def fuse_gaussian_distributions(
     fused_mean = (1 - p) * mean1 + p * mean2
 
     # Weighted variance: Var = E[std^2]
-    fused_var = (1 - p) * (std1 ** 2) + p * (std2 ** 2)
+    fused_var = (1 - p) * (std1**2) + p * (std2**2)
     fused_log_std = 0.5 * np.log(fused_var + 1e-8)  # avoid log(0)
 
     return fused_mean, fused_log_std
@@ -138,7 +138,9 @@ class SACJax(SAC):
             _init_setup_model=_init_setup_model,
         )
 
-    def predict_action_distribution(self, np_state: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    def predict_action_distribution(
+        self, np_state: np.ndarray
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Return the mean and std of the Gaussian action distribution predicted by the policy network.
         No Tanh applied. This is suitable for analyzing the policy distribution itself.
@@ -161,7 +163,7 @@ class SACJax(SAC):
         return np.array(mean), np.array(std)
 
     def get_default_action_distribution(
-            self, np_state: np.ndarray
+        self, np_state: np.ndarray
     ) -> tuple[np.ndarray, np.ndarray]:
         """
         Return the default action distribution for comparison.
@@ -183,10 +185,10 @@ class SACJax(SAC):
         return mean, std
 
     def sample_action_from_distribution(
-            self,
-            mean: np.ndarray,
-            std: np.ndarray,
-            deterministic: bool = False,
+        self,
+        mean: np.ndarray,
+        std: np.ndarray,
+        deterministic: bool = False,
     ) -> np.ndarray:
         """
         Sample actions from a given Gaussian distribution (mean, std),
