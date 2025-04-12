@@ -24,7 +24,7 @@ from configs import lunarlander_config, carracing_config
 if __name__ == "__main__":
     configs = [
         lunarlander_config,
-        carracing_config,
+        # carracing_config,
     ]
 
     for config in configs:
@@ -34,7 +34,7 @@ if __name__ == "__main__":
 
         # Decide environment parameters
         if env_type == "lunarlander":
-            env_params = np.linspace(3.0, 7.0, config["num_densities"]).tolist()
+            env_params = np.linspace(config["density_start"], config["density_stop"], config["num_densities"]).tolist()
         elif env_type == "carracing":
             env_params = list(range(config["num_seeds"]))
         else:

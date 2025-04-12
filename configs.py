@@ -15,6 +15,8 @@ carracing_config = {
 lunarlander_config = {
     "env_type": "lunarlander",
     "num_densities": 5,
+    "density_start": 3.0,
+    "density_stop": 1.0,
     "n_repeat": 8,
     "n_envs": 16,
     "train_steps": 1_200_000,
