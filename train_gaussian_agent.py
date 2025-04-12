@@ -42,13 +42,14 @@ if __name__ == "__main__":
 
         for env_param in env_params:
             repeat_results = []
-            reward_curves = []
+            all_repeat_records = []
 
             for run in range(config["n_repeat"]):
                 print(
                     f"\n--- Repeat {run + 1}/{config['n_repeat']} for Env Param = {env_param} ---"
                 )
 
+                # Prepare training environment
                 if env_type == "lunarlander":
                     train_env = SubprocVecEnv(
                         [
@@ -122,11 +123,7 @@ if __name__ == "__main__":
                     }
                 )
 
-                df_repeat = pd.DataFrame(
-                    eval_callback.records["reward"],
-                    columns=["Timesteps", "MeanReward", "StdReward"],
-                )
-                reward_curves.append(df_repeat)
+                all_repeat_records.append(eval_callback.records)
 
                 print(
                     f"\n--- Cleanup after Repeat {run + 1} for Env Param {env_param} ---"
@@ -152,24 +149,24 @@ if __name__ == "__main__":
                 }
             )
 
-            mean_rewards = np.mean([df["MeanReward"] for df in reward_curves], axis=0)
-            std_rewards = np.std([df["MeanReward"] for df in reward_curves], axis=0)
-            timesteps = reward_curves[0]["Timesteps"]
+            # Merge all repeat records for this env_param
+            keys = all_repeat_records[0].keys()
+            timesteps = [x[0] for x in all_repeat_records[0]["reward"]]
 
-            curve_results[env_param] = {
-                "Timesteps": timesteps,
-                "MeanReward": mean_rewards,
-                "StdReward": std_rewards,
-            }
+            curve_results[env_param] = {"Timesteps": timesteps}
 
-            # Save reward curves per env_param
-            df_curve = pd.DataFrame(
-                {
-                    "Timesteps": timesteps,
-                    "MeanReward": mean_rewards,
-                    "StdReward": std_rewards,
-                }
-            )
+            for key in keys:
+                values_per_repeat = np.array(
+                    [[v[1] for v in records[key]] for records in all_repeat_records]
+                )
+
+                mean_values = values_per_repeat.mean(axis=0)
+                std_values = values_per_repeat.std(axis=0)
+
+                curve_results[env_param][f"{key}_mean"] = mean_values
+                curve_results[env_param][f"{key}_std"] = std_values
+
+            df_curve = pd.DataFrame(curve_results[env_param])
             csv_curve_path = os.path.join(
                 config["save_path"],
                 f"mean_std_{'density' if env_type == 'lunarlander' else 'mapseed'}_{env_param}.csv",

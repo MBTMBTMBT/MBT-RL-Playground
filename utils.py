@@ -236,9 +236,13 @@ class EvalAndGifCallback(BaseCallback):
 
             if self.verbose:
                 # Prepare table content
-                table_data = [["Env Param", self.env_param], ["Repeat", self.run_idx], ["Steps", self.num_timesteps],
-                              ["Mean Reward", f"{mean_reward:.2f} ± {std_reward:.2f}"],
-                              ["-- Prior Policy Metrics --", ""]]
+                table_data = [
+                    ["Env Param", self.env_param],
+                    ["Repeat", self.run_idx],
+                    ["Steps", self.num_timesteps],
+                    ["Mean Reward", f"{mean_reward:.2f} ± {std_reward:.2f}"],
+                    ["-- Prior Policy Metrics --", ""],
+                ]
 
                 # Append prior_policy metrics
                 for key in [
@@ -250,7 +254,9 @@ class EvalAndGifCallback(BaseCallback):
                     "hellinger",
                 ]:
                     mean, std = prior_result[key]
-                    table_data.append([f"prior_policy-{key}", f"{mean:.4f} ± {std:.4f}"])
+                    table_data.append(
+                        [f"prior_policy-{key}", f"{mean:.4f} ± {std:.4f}"]
+                    )
 
                 # Append current_policy metrics
                 table_data.append(["-- Current Policy Metrics --", ""])
@@ -263,7 +269,9 @@ class EvalAndGifCallback(BaseCallback):
                     "hellinger",
                 ]:
                     mean, std = current_result[key]
-                    table_data.append([f"current_policy-{key}", f"{mean:.4f} ± {std:.4f}"])
+                    table_data.append(
+                        [f"current_policy-{key}", f"{mean:.4f} ± {std:.4f}"]
+                    )
 
                 print("[EvalCallback] Evaluation Summary")
                 print(tabulate(table_data, tablefmt="grid"))
@@ -321,8 +329,8 @@ class EvalAndGifCallback(BaseCallback):
         df = pd.DataFrame({"Timesteps": [x[0] for x in self.records["reward"]]})
 
         # Add reward columns
-        df["MeanReward"] = [x[1] for x in self.records["reward"]]
-        df["StdReward"] = [x[2] for x in self.records["reward"]]
+        df["reward_mean"] = [x[1] for x in self.records["reward"]]
+        df["reward_std"] = [x[2] for x in self.records["reward"]]
 
         # Add prior/current policy metrics
         for key in self.records.keys():
@@ -436,7 +444,8 @@ def plot_eval_results(config, results, save_dir):
     assert env_type in ["lunarlander", "carracing"], "Unsupported env_type."
 
     # Determine available metrics from the first result item
-    metrics_keys = [key for key in results[list(results.keys())[0]].keys() if key != "Timesteps"]
+    metrics_keys = [key[:-5] for key in results[list(results.keys())[0]].keys()
+                    if key.endswith("_mean")]
 
     for metric in metrics_keys:
         plt.figure(figsize=(12, 8))
@@ -466,7 +475,9 @@ def plot_eval_results(config, results, save_dir):
             )
             ax.set_xlabel("Timesteps")
             ax.set_ylabel(f"Mean {metric.replace('_', ' ').title()}")
-            ax.set_title(f"{metric.replace('_', ' ').title()} Curve for {env_type.capitalize()} Param {env_param}")
+            ax.set_title(
+                f"{metric.replace('_', ' ').title()} Curve for {env_type.capitalize()} Param {env_param}"
+            )
             ax.legend()
             ax.grid()
 
@@ -478,7 +489,9 @@ def plot_eval_results(config, results, save_dir):
 
         plt.xlabel("Timesteps")
         plt.ylabel(f"Mean {metric.replace('_', ' ').title()}")
-        plt.title(f"{metric.replace('_', ' ').title()} over Timesteps (All {env_type.capitalize()} Params)")
+        plt.title(
+            f"{metric.replace('_', ' ').title()} over Timesteps (All {env_type.capitalize()} Params)"
+        )
         plt.legend()
         plt.grid()
 
@@ -583,8 +596,8 @@ def compare_gaussian_distributions(
         }, each is np.ndarray of shape (batch_size,)
     """
 
-    var1 = std1 ** 2
-    var2 = std2 ** 2
+    var1 = std1**2
+    var2 = std2**2
     eps = 1e-8  # For numerical stability
 
     # KL(P||Q): forward KL
