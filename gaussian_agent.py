@@ -217,3 +217,47 @@ class SACJax(SAC):
         action = self.policy.unscale_action(squashed_action)
 
         return action
+
+
+class MixPolicySAC:
+    def __init__(
+            self,
+            model: SACJax,
+    ):
+        self.model = model
+        self.action_space = model.action_space
+        self.action_dim = model.action_space.shape[0]
+        self.obs_dim = model.observation_space.shape[0]
+        self.device = model.device
+
+    def predict_action_distribution_with_weight(
+            self, np_state: np.ndarray, p: float = 1.0
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Return the mean and std of the mixed Gaussian action distribution.
+
+        The mixed distribution is obtained by linearly interpolating
+        between the prior policy distribution and the current policy distribution.
+
+        Args:
+            np_state (np.ndarray): shape (batch_size, obs_dim)
+            p (float): weight for the current policy, in [0, 1]
+
+        Returns:
+            Tuple[np.ndarray, np.ndarray]: Mixed mean and std (before tanh)
+        """
+        assert 0.0 <= p <= 1.0, "Weight p must be in [0, 1]"
+
+        predicted_mean, predicted_std = self.model.predict_action_distribution(np_state)
+        prior_mean, prior_std = self.model.get_default_action_distribution(np_state)
+
+        # Linear interpolation for mean
+        mixed_mean = p * predicted_mean + (1.0 - p) * prior_mean
+
+        # Interpolation for variance (more stable)
+        mixed_var = p * (predicted_std ** 2) + (1.0 - p) * (prior_std ** 2)
+        mixed_std = np.sqrt(mixed_var)
+
+        return mixed_mean, mixed_std
+
+
