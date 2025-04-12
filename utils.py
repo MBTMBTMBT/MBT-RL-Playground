@@ -829,9 +829,9 @@ def evaluate_mix_policy_agent(
 
     Args:
         agent (MixPolicySAC): MixPolicySAC agent.
-        test_env: Gymnasium Env, could be vectorized env.
-        total_episodes (int): Number of episodes to evaluate per p value.
-        num_p_values (int): Number of p values to evaluate (linear spaced).
+        test_env: SB3 VecEnv.
+        total_episodes (int): Total episodes per p value.
+        num_p_values (int): Number of p values to evaluate.
 
     Returns:
         List[float]: Mean episode rewards for each p value.
@@ -839,27 +839,37 @@ def evaluate_mix_policy_agent(
     p_values = np.linspace(0.0, 1.0, num_p_values)
     rewards_per_p = []
 
-    for p in tqdm(p_values, desc="[Evaluate MixPolicy]", ncols=80):
+    n_envs = test_env.num_envs
+    n_eval_episodes = total_episodes
+    assert n_eval_episodes >= n_envs, "Total episodes must >= number of envs."
+
+    progress_bar = tqdm(p_values, desc="[Evaluate MixPolicy]", ncols=100)
+
+    for p in progress_bar:
         episode_rewards = []
-        obs, _ = test_env.reset()
-        episode_reward = np.zeros(test_env.num_envs, dtype=np.float32)
-        episode_counts = np.zeros(test_env.num_envs, dtype=np.int32)
+        obs = test_env.reset()
 
-        while np.sum(episode_counts) < total_episodes:
-            action = agent.predict_with_weight(obs, p)
-            next_obs, reward, terminated, truncated, _ = test_env.step(action)
-            done = np.logical_or(terminated, truncated)
-            episode_reward += reward
+        current_rewards = np.zeros(n_envs, dtype=np.float32)
+        episode_counts = np.zeros(n_envs, dtype=np.int32)
 
-            for i in range(test_env.num_envs):
-                if done[i]:
-                    episode_rewards.append(episode_reward[i])
-                    episode_reward[i] = 0.0
+        while len(episode_rewards) < n_eval_episodes:
+            actions = agent.predict_with_weight(obs, p)
+            obs, rewards, dones, infos = test_env.step(actions)
+            current_rewards += rewards
+
+            for i in range(n_envs):
+                if dones[i]:
+                    episode_rewards.append(current_rewards[i])
+                    current_rewards[i] = 0.0
                     episode_counts[i] += 1
-            obs = next_obs
 
-        mean_reward = np.mean(episode_rewards[:total_episodes])
+        mean_reward = np.mean(episode_rewards[:n_eval_episodes])
         rewards_per_p.append(mean_reward)
+
+        # Dynamically update progress bar info
+        progress_bar.set_postfix(
+            p=f"{p:.2f}", mean_reward=f"{mean_reward:.2f}"
+        )
 
     return rewards_per_p
 
@@ -867,33 +877,51 @@ def evaluate_mix_policy_agent(
 def plot_mix_policy_results(config, results_dict, save_path):
     """
     Plot reward vs p curves and reward integral bar chart.
+    Also plot normalized curves and their integral bar chart.
 
     Args:
         config (dict): Config dict.
-        results_dict (dict): Dict of {env_param: {'p_values': [], 'mean_rewards': []}}.
-        save_path (str): Path to save figures.
+        results_dict (dict): Dict of {env_param: {'p_values': [], 'mean_rewards': [], 'std_rewards': []}}.
+        save_path (str): Directory to save figures.
     """
     env_type = config["env_type"]
     param_name = "LanderDensity" if env_type == "lunarlander" else "MapSeed"
 
+    # ========== 1. Raw reward vs p curves ==========
     plt.figure()
-    for env_param, result in results_dict.items():
-        plt.plot(result["p_values"], result["mean_rewards"], label=f"{param_name}={env_param}")
+    for env_param in sorted(results_dict.keys()):
+        result = results_dict[env_param]
+        p_values = result["p_values"]
+        mean_rewards = result["mean_rewards"]
+        std_rewards = result["std_rewards"]
+
+        plt.plot(p_values, mean_rewards, label=f"{param_name}={env_param}")
+        plt.fill_between(
+            p_values,
+            mean_rewards - std_rewards,
+            mean_rewards + std_rewards,
+            alpha=0.2,
+        )
     plt.xlabel("Mix Weight p")
     plt.ylabel("Mean Episode Reward")
     plt.legend()
     plt.grid()
     plt.tight_layout()
-    plt.savefig(os.path.join(save_path, "mix_policy_p_curve.png"))
-    plt.close()
 
-    # Calculate reward integral for bar chart
+    curve_path = os.path.join(save_path, "mix_policy_p_curve.png")
+    plt.savefig(curve_path)
+    plt.close()
+    print(f"[Save Figure] Reward vs p curve saved to {curve_path}")
+
+    # ========== 2. Integral of raw curves ==========
     plt.figure()
     env_params = []
     integrals = []
-    for env_param, result in results_dict.items():
-        env_params.append(env_param)
+
+    for env_param in sorted(results_dict.keys()):
+        result = results_dict[env_param]
         integral = np.trapz(result["mean_rewards"], result["p_values"])
+        env_params.append(env_param)
         integrals.append(integral)
 
     plt.bar([str(p) for p in env_params], integrals)
@@ -901,5 +929,55 @@ def plot_mix_policy_results(config, results_dict, save_path):
     plt.ylabel("Integral of Reward Curve")
     plt.grid(axis="y")
     plt.tight_layout()
-    plt.savefig(os.path.join(save_path, "mix_policy_integral_bar_chart.png"))
+
+    bar_path = os.path.join(save_path, "mix_policy_integral_bar_chart.png")
+    plt.savefig(bar_path)
     plt.close()
+    print(f"[Save Figure] Reward integral bar chart saved to {bar_path}")
+
+    # ========== 3. Normalized reward vs p curves ==========
+    plt.figure()
+    normalized_results = {}
+
+    for env_param in sorted(results_dict.keys()):
+        result = results_dict[env_param]
+        p_values = result["p_values"]
+        mean_rewards = result["mean_rewards"]
+
+        min_r = mean_rewards.min()
+        max_r = mean_rewards.max()
+        normalized_rewards = (mean_rewards - min_r) / (max_r - min_r + 1e-8)  # prevent div 0
+
+        normalized_results[env_param] = normalized_rewards
+
+        plt.plot(p_values, normalized_rewards, label=f"{param_name}={env_param}")
+    plt.xlabel("Mix Weight p")
+    plt.ylabel("Normalized Mean Reward")
+    plt.legend()
+    plt.grid()
+    plt.tight_layout()
+
+    norm_curve_path = os.path.join(save_path, "mix_policy_normalized_p_curve.png")
+    plt.savefig(norm_curve_path)
+    plt.close()
+    print(f"[Save Figure] Normalized reward vs p curve saved to {norm_curve_path}")
+
+    # ========== 4. Integral of normalized curves ==========
+    plt.figure()
+    integrals_norm = []
+
+    for env_param in sorted(results_dict.keys()):
+        normalized_rewards = normalized_results[env_param]
+        integral = np.trapz(normalized_rewards, result["p_values"])
+        integrals_norm.append(integral)
+
+    plt.bar([str(p) for p in env_params], integrals_norm)
+    plt.xlabel(param_name)
+    plt.ylabel("Integral of Normalized Reward Curve")
+    plt.grid(axis="y")
+    plt.tight_layout()
+
+    norm_bar_path = os.path.join(save_path, "mix_policy_normalized_integral_bar_chart.png")
+    plt.savefig(norm_bar_path)
+    plt.close()
+    print(f"[Save Figure] Normalized reward integral bar chart saved to {norm_bar_path}")
