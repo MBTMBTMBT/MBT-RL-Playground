@@ -27,6 +27,27 @@ if __name__ == "__main__":
         # carracing_config,
     ]
 
+    # make model paths
+    model_paths = {}
+    for config in configs:
+        env_type = config["env_type"]
+        # Decide environment parameters
+        if env_type == "lunarlander":
+            env_params = np.linspace(config["density_start"], config["density_stop"], config["num_densities"]).tolist()
+        elif env_type == "carracing":
+            env_params = list(range(config["num_seeds"]))
+        else:
+            raise ValueError("Invalid environment type.")
+        for env_param in env_params:
+            for run in range(config["n_repeat"]):
+                best_model_path = os.path.join(
+                    config["save_path"],
+                    f"sac_env_param_{env_param}_run_{run}_best.zip",
+                )
+                model_paths[(env_type, env_param, run)] = best_model_path
+    print("All model paths:")
+    print(model_paths)
+
     for config in configs:
         env_type = config["env_type"]
         summary_results = []
