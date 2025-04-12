@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import torch
 
-from gaussian_agent import SACJax as SAC
+from gaussian_agent import SACJax as SAC, MixPolicySAC
 from stable_baselines3.common.vec_env import SubprocVecEnv
 
 from utils import (
@@ -14,7 +14,7 @@ from utils import (
     make_lunarlander_env,
     EvalAndGifCallback,
     plot_eval_results,
-    plot_optimal_step_bar_chart,
+    plot_optimal_step_bar_chart, evaluate_mix_policy_agent, plot_mix_policy_results,
 )
 
 from configs import lunarlander_config, carracing_config
@@ -207,3 +207,62 @@ if __name__ == "__main__":
         # Plot results
         plot_eval_results(config, curve_results, config["save_path"])
         plot_optimal_step_bar_chart(config, summary_results, config["save_path"])
+
+        # Evaluate MixPolicy Performance
+        mix_results = {}
+
+        for env_param in env_params:
+            if config["env_type"] == "lunarlander":
+                test_env = SubprocVecEnv(
+                    [
+                        make_lunarlander_env(
+                            lander_density=env_param,
+                            render_mode=None,
+                            deterministic_init=True,
+                            number_of_initial_states=config["num_init_states"],
+                            init_seed=i,
+                        )
+                        for i in range(config["n_envs"])
+                    ]
+                )
+            elif config["env_type"] == "carracing":
+                test_env = SubprocVecEnv(
+                    [
+                        make_carracing_env(
+                            map_seed=env_param,
+                            render_mode=None,
+                            deterministic_init=False,
+                            number_of_initial_states=config["num_init_states"],
+                            init_seed=i,
+                        )
+                        for i in range(config["n_envs"])
+                    ]
+                )
+            else:
+                test_env = None
+            model_path = model_paths[(env_type, env_param, 0)]  # use best model of run 0
+            model = SAC.load(model_path, env=test_env)
+            mix_agent = MixPolicySAC(model)
+
+            mean_rewards = evaluate_mix_policy_agent(
+                mix_agent,
+                test_env,
+                total_episodes=100,
+                num_p_values=11,
+            )
+            p_values = np.linspace(0.0, 1.0, 11)
+
+            mix_results[env_param] = {
+                "p_values": p_values,
+                "mean_rewards": mean_rewards,
+            }
+
+            df = pd.DataFrame({"p": p_values, "mean_reward": mean_rewards})
+            csv_path = os.path.join(
+                config["save_path"],
+                f"mix_policy_curve_{'density' if env_type == 'lunarlander' else 'mapseed'}_{env_param}.csv",
+            )
+            df.to_csv(csv_path, index=False)
+
+        # Plot MixPolicy Evaluation Results
+        plot_mix_policy_results(config, mix_results, config["save_path"])

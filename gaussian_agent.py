@@ -260,4 +260,9 @@ class MixPolicySAC:
 
         return mixed_mean, mixed_std
 
-
+    def predict_with_weight(
+            self, np_state: np.ndarray, p: float = 1.0
+    ) -> np.ndarray:
+        action_mean, action_std = self.predict_action_distribution_with_weight(np_state, p)
+        action = self.model.sample_action_from_distribution(action_mean, action_std)
+        return action
