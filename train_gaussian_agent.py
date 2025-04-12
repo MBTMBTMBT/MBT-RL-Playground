@@ -247,8 +247,8 @@ if __name__ == "__main__":
             mean_rewards = evaluate_mix_policy_agent(
                 mix_agent,
                 test_env,
-                total_episodes=100,
-                num_p_values=11,
+                total_episodes=config["eval_episodes"],
+                num_p_values=20,
             )
             p_values = np.linspace(0.0, 1.0, 11)
 

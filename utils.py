@@ -822,7 +822,7 @@ def evaluate_mix_policy_agent(
     agent: MixPolicySAC,
     test_env,
     total_episodes: int,
-    num_p_values: int = 11,
+    num_p_values: int = 20,
 ) -> list[floating[Any]]:
     """
     Evaluate MixPolicySAC agent with different p values from 0.0 to 1.0.
@@ -839,7 +839,7 @@ def evaluate_mix_policy_agent(
     p_values = np.linspace(0.0, 1.0, num_p_values)
     rewards_per_p = []
 
-    for p in p_values:
+    for p in tqdm(p_values, desc="[Evaluate MixPolicy]", ncols=80):
         episode_rewards = []
         obs, _ = test_env.reset()
         episode_reward = np.zeros(test_env.num_envs, dtype=np.float32)
