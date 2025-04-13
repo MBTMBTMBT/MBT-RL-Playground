@@ -9,7 +9,6 @@ from gymnasium.error import DependencyNotInstalled, InvalidAction
 from matplotlib import pyplot as plt
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.patches import Polygon, Rectangle
-from nbconvert.preprocessors.coalescestreams import CR_PAT
 from numpy import cos, pi, sin
 from gymnasium import spaces
 import numpy as np
@@ -22,6 +21,7 @@ from gymnasium.envs.box2d.lunar_lander import LunarLander
 
 
 WELCOME = "CUSTOM ENVS OF MBTMBTMBT!!!"
+print(WELCOME)
 
 
 # Register the custom environments
