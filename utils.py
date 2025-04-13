@@ -875,15 +875,6 @@ def evaluate_mix_policy_agent(
 
 
 def plot_mix_policy_results(config, results_dict, save_path):
-    """
-    Plot reward vs p curves and reward integral bar chart.
-    Also plot normalized curves and their integral bar chart.
-
-    Args:
-        config (dict): Config dict.
-        results_dict (dict): Dict of {env_param: {'p_values': [], 'mean_rewards': [], 'std_rewards': []}}.
-        save_path (str): Directory to save figures.
-    """
     env_type = config["env_type"]
     param_name = "LanderDensity" if env_type == "lunarlander" else "MapSeed"
 
@@ -892,8 +883,11 @@ def plot_mix_policy_results(config, results_dict, save_path):
     for env_param in sorted(results_dict.keys()):
         result = results_dict[env_param]
         p_values = result["p_values"]
-        mean_rewards = result["mean_rewards"]
-        std_rewards = result["std_rewards"]
+        mean_rewards_list = result["mean_rewards_list"]
+
+        # Average mean rewards and std deviation over repeats
+        mean_rewards = np.mean(mean_rewards_list, axis=0)
+        std_rewards = np.std(mean_rewards_list, axis=0)
 
         plt.plot(p_values, mean_rewards, label=f"{param_name}={env_param}")
         plt.fill_between(
@@ -917,14 +911,20 @@ def plot_mix_policy_results(config, results_dict, save_path):
     plt.figure()
     env_params = []
     integrals = []
+    integrals_std = []
 
     for env_param in sorted(results_dict.keys()):
         result = results_dict[env_param]
-        integral = np.trapz(result["mean_rewards"], result["p_values"])
-        env_params.append(env_param)
-        integrals.append(integral)
+        p_values = result["p_values"]
+        mean_rewards_list = result["mean_rewards_list"]
 
-    plt.bar([str(p) for p in env_params], integrals)
+        auc_list = [np.trapz(mean_rewards, p_values) for mean_rewards in mean_rewards_list]
+
+        env_params.append(env_param)
+        integrals.append(np.mean(auc_list))
+        integrals_std.append(np.std(auc_list))
+
+    plt.bar([str(p) for p in env_params], integrals, yerr=integrals_std, capsize=5)
     plt.xlabel(param_name)
     plt.ylabel("Integral of Reward Curve")
     plt.grid(axis="y")
@@ -942,15 +942,34 @@ def plot_mix_policy_results(config, results_dict, save_path):
     for env_param in sorted(results_dict.keys()):
         result = results_dict[env_param]
         p_values = result["p_values"]
-        mean_rewards = result["mean_rewards"]
+        mean_rewards_list = result["mean_rewards_list"]
 
-        min_r = mean_rewards.min()
-        max_r = mean_rewards.max()
-        normalized_rewards = (mean_rewards - min_r) / (max_r - min_r + 1e-8)  # prevent div 0
+        # Compute normalized mean_rewards for each repeat
+        normalized_list = []
+        for rewards in mean_rewards_list:
+            min_r = rewards.min()
+            max_r = rewards.max()
+            normalized = (rewards - min_r) / (max_r - min_r + 1e-8)
+            normalized_list.append(normalized)
 
-        normalized_results[env_param] = normalized_rewards
+        # Compute mean/std of normalized rewards
+        normalized_mean = np.mean(normalized_list, axis=0)
+        normalized_std = np.std(normalized_list, axis=0)
 
-        plt.plot(p_values, normalized_rewards, label=f"{param_name}={env_param}")
+        normalized_results[env_param] = {
+            "mean": normalized_mean,
+            "std": normalized_std,
+            "normalized_list": normalized_list,
+            "p_values": p_values,
+        }
+
+        plt.plot(p_values, normalized_mean, label=f"{param_name}={env_param}")
+        plt.fill_between(
+            p_values,
+            normalized_mean - normalized_std,
+            normalized_mean + normalized_std,
+            alpha=0.2,
+        )
     plt.xlabel("Mix Weight p")
     plt.ylabel("Normalized Mean Reward")
     plt.legend()
@@ -965,13 +984,18 @@ def plot_mix_policy_results(config, results_dict, save_path):
     # ========== 4. Integral of normalized curves ==========
     plt.figure()
     integrals_norm = []
+    integrals_norm_std = []
 
     for env_param in sorted(results_dict.keys()):
-        normalized_rewards = normalized_results[env_param]
-        integral = np.trapz(normalized_rewards, result["p_values"])
-        integrals_norm.append(integral)
+        norm_result = normalized_results[env_param]
+        p_values = norm_result["p_values"]
 
-    plt.bar([str(p) for p in env_params], integrals_norm)
+        auc_list = [np.trapz(rewards, p_values) for rewards in norm_result["normalized_list"]]
+
+        integrals_norm.append(np.mean(auc_list))
+        integrals_norm_std.append(np.std(auc_list))
+
+    plt.bar([str(p) for p in env_params], integrals_norm, yerr=integrals_norm_std, capsize=5)
     plt.xlabel(param_name)
     plt.ylabel("Integral of Normalized Reward Curve")
     plt.grid(axis="y")
