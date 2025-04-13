@@ -217,6 +217,8 @@ if __name__ == "__main__":
             all_repeat_rewards = []
 
             for run in range(config["n_repeat"]):
+                print(f"Evaluating with param: {env_param} at run {run + 1}...")
+
                 if config["env_type"] == "lunarlander":
                     test_env = SubprocVecEnv(
                         [
