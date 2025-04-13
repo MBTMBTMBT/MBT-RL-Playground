@@ -21,7 +21,7 @@ from gymnasium.envs.box2d.lunar_lander import LunarLander
 
 
 WELCOME = "CUSTOM ENVS OF MBTMBTMBT!!!"
-print(WELCOME)
+# print(WELCOME)
 
 
 # Register the custom environments

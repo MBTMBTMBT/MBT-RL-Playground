@@ -5,8 +5,8 @@ carracing_config = {
     "n_envs": 32,
     "train_steps": 1_500_000,
     "eval_interval": 2_500 * 32,
-    "num_init_states": 24,
-    "eval_episodes": 120,
+    "num_init_states": 32,
+    "eval_episodes": 64,
     "near_optimal_score": 8.5,
     "save_path": "./carracing_mapseed_results",
 }
@@ -21,8 +21,8 @@ lunarlander_config = {
     "n_envs": 32,
     "train_steps": 1_200_000,
     "eval_interval": 2_500 * 32,
-    "num_init_states": 24,
-    "eval_episodes": 120,
+    "num_init_states": 32,
+    "eval_episodes": 64,
     "near_optimal_score": 250,
     "save_path": "./lunar_lander_density_results",
 }
