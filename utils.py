@@ -845,7 +845,7 @@ def evaluate_mix_policy_agent(
     n_eval_episodes = total_episodes
     assert n_eval_episodes >= n_envs, "Total episodes must >= number of envs."
 
-    progress_bar = tqdm(p_values, desc="[Evaluate MixPolicy]", ncols=100)
+    progress_bar = tqdm(p_values, desc="Eval MixPolicy", ncols=100)
 
     for p in progress_bar:
         episode_rewards = []
@@ -870,7 +870,7 @@ def evaluate_mix_policy_agent(
 
         # Dynamically update progress bar info
         progress_bar.set_postfix(
-            p=f"{p:.2f}", mean_reward=f"{mean_reward:.2f}"
+            p=f"{p:.2f}", mean_rwd=f"{mean_reward:.2f}"
         )
 
     return rewards_per_p
