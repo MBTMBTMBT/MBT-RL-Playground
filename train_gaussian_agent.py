@@ -14,7 +14,9 @@ from utils import (
     make_lunarlander_env,
     EvalAndGifCallback,
     plot_eval_results,
-    plot_optimal_step_bar_chart, evaluate_mix_policy_agent, plot_mix_policy_results,
+    plot_optimal_step_bar_chart,
+    evaluate_mix_policy_agent,
+    compute_and_plot_mix_policy_results,
 )
 
 from configs import lunarlander_config, carracing_config
@@ -278,4 +280,4 @@ if __name__ == "__main__":
             df.to_csv(csv_path, index=False)
 
         # Plot MixPolicy Evaluation Results
-        plot_mix_policy_results(config, mix_results, config["save_path"])
+        rst = compute_and_plot_mix_policy_results(config, mix_results, config["save_path"])
