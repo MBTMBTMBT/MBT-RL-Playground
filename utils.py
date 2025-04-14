@@ -723,7 +723,7 @@ def plot_eval_results(config, results, save_dir, save_name=None):
 
             single_name = save_name or f"{metric}_curve_{env_type}_param_{env_param}.png"
             if single_name == save_name:
-                single_name = f"{metric}_" + single_name
+                single_name = f"{metric}_param_{env_param}_" + single_name
             single_plot_path = os.path.join(save_dir, single_name)
             plt_single.savefig(single_plot_path)
             plt.close(plt_single)
@@ -798,6 +798,7 @@ class ProgressBarCallback(BaseCallback):
             mininterval=5,
             maxinterval=25,
             smoothing=0.9,
+            dynamic_ncols=True
         )
         self._last_num_timesteps = 0
 
@@ -1072,7 +1073,7 @@ def evaluate_mix_policy_agent(
     n_eval_episodes = total_episodes
     assert n_eval_episodes >= n_envs, "Total episodes must >= number of envs."
 
-    progress_bar = tqdm(p_values, desc="Eval MixPolicy", ncols=100)
+    progress_bar = tqdm(p_values, desc="Eval MixPolicy", dynamic_ncols=True)
 
     for p in progress_bar:
         episode_rewards = []
