@@ -634,7 +634,7 @@ class CurriculumCallBack(EvalAndGifCallback):
 
             # Record current policy sampling distribution metrics
             for key, value in current_result.items():
-                if key == "reward" or (not self.change_env_flag):
+                if key == "reward":  # or (not self.change_env_flag):
                     continue  # Already recorded
                 self.records[f"current_policy-{key}"].append(
                     (self.num_timesteps, value[0], value[1])
@@ -647,6 +647,7 @@ class CurriculumCallBack(EvalAndGifCallback):
                     ["Repeat", self.run_idx],
                     ["Steps", self.num_timesteps],
                     ["Mean Reward", f"{mean_reward:.2f} ± {std_reward:.2f}"],
+                    ["Mean Reward (Target Env)", f"{self.records['reward_target'][-1][1]:.2f} ± {self.records['reward_target'][-1][2]:.2f}"],
                     ["-- Prior Policy Metrics --", ""],
                 ]
 
@@ -668,23 +669,23 @@ class CurriculumCallBack(EvalAndGifCallback):
                 print("[EvalCallback] Evaluation Summary")
                 print(tabulate(table_data, tablefmt="grid"))
 
-            if mean_reward > self.best_mean_reward:
-                self.best_mean_reward = mean_reward
+            if self.records['reward_target'][-1][1] > self.best_mean_reward:
+                self.best_mean_reward = self.records['reward_target'][-1][1]
                 print(
                     f"[Best Model] Saving new best model at step {self.num_timesteps} "
-                    f"with mean reward {mean_reward:.2f}"
+                    f"with mean reward {self.records['reward_target'][-1][1]:.2f}"
                 )
                 self.model.save(self.best_model_path)
 
                 if (
                     self.config["near_optimal_score"] > 0
-                    and mean_reward >= (self.config["near_optimal_score"] / 2)
+                    and self.records['reward_target'][-1][1] >= (self.config["near_optimal_score"] / 2)
                 ) or self.config["near_optimal_score"] <= 0:
                     pass
                     # self.save_gif()
 
             # must be the target phase
-            if self.change_env_flag and mean_reward >= self.optimal_score and self.step_reached_optimal is None:
+            if self.records['reward_target'][-1][1] >= self.optimal_score and self.step_reached_optimal is None:
                 self.step_reached_optimal = self.num_timesteps
 
         return True
