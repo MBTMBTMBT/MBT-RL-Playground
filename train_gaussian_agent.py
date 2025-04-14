@@ -282,4 +282,4 @@ if __name__ == "__main__":
             )
             df.to_csv(csv_path, index=False)
 
-            rst = compute_and_plot_mix_policy_results(config, mix_results, config["save_path"])
+        rst = compute_and_plot_mix_policy_results(config, mix_results, config["save_path"])

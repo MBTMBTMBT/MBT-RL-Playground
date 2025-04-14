@@ -27,6 +27,18 @@ import custom_envs
 from gaussian_agent import SACJax as SAC, MixPolicySAC
 
 
+MEASURES = [
+    "kl_forward",
+    "kl_reverse",
+    "js",
+    "wasserstein2",
+    "bhattacharyya",
+    "hellinger",
+    "entropy1",
+    "entropy2",
+]
+
+
 def make_lunarlander_env(
     lander_density,
     render_mode=None,
@@ -144,12 +156,16 @@ class EvalAndGifCallback(BaseCallback):
             "prior_policy-wasserstein2": [],
             "prior_policy-bhattacharyya": [],
             "prior_policy-hellinger": [],
+            "prior_policy-entropy1": [],
+            "prior_policy-entropy2": [],
             "current_policy-kl_forward": [],
             "current_policy-kl_reverse": [],
             "current_policy-js": [],
             "current_policy-wasserstein2": [],
             "current_policy-bhattacharyya": [],
             "current_policy-hellinger": [],
+            "current_policy-entropy1": [],
+            "current_policy-entropy2": [],
         }
         self.last_eval_step = 0
 
@@ -263,14 +279,7 @@ class EvalAndGifCallback(BaseCallback):
                 ]
 
                 # Append prior_policy metrics
-                for key in [
-                    "kl_forward",
-                    "kl_reverse",
-                    "js",
-                    "wasserstein2",
-                    "bhattacharyya",
-                    "hellinger",
-                ]:
+                for key in MEASURES:
                     mean, std = prior_result[key]
                     table_data.append(
                         [f"prior_policy-{key}", f"{mean:.4f} ± {std:.4f}"]
@@ -278,14 +287,7 @@ class EvalAndGifCallback(BaseCallback):
 
                 # Append current_policy metrics
                 table_data.append(["-- Current Policy Metrics --", ""])
-                for key in [
-                    "kl_forward",
-                    "kl_reverse",
-                    "js",
-                    "wasserstein2",
-                    "bhattacharyya",
-                    "hellinger",
-                ]:
+                for key in MEASURES:
                     mean, std = current_result[key]
                     table_data.append(
                         [f"current_policy-{key}", f"{mean:.4f} ± {std:.4f}"]
@@ -306,7 +308,8 @@ class EvalAndGifCallback(BaseCallback):
                     self.config["near_optimal_score"] > 0
                     and mean_reward >= (self.config["near_optimal_score"] / 2)
                 ) or self.config["near_optimal_score"] <= 0:
-                    self.save_gif()
+                    pass
+                    # self.save_gif()
 
             if mean_reward >= self.optimal_score and self.step_reached_optimal is None:
                 self.step_reached_optimal = self.num_timesteps
@@ -322,12 +325,16 @@ class EvalAndGifCallback(BaseCallback):
             "prior_policy-wasserstein2": [],
             "prior_policy-bhattacharyya": [],
             "prior_policy-hellinger": [],
+            "prior_policy-entropy1": [],
+            "prior_policy-entropy2": [],
             "current_policy-kl_forward": [],
             "current_policy-kl_reverse": [],
             "current_policy-js": [],
             "current_policy-wasserstein2": [],
             "current_policy-bhattacharyya": [],
             "current_policy-hellinger": [],
+            "current_policy-entropy1": [],
+            "current_policy-entropy2": [],
         }
         self.step_reached_optimal = None
         # Force evaluation at step 0
@@ -339,6 +346,9 @@ class EvalAndGifCallback(BaseCallback):
         Save evaluation logs to a CSV file after training ends.
         File name will automatically adapt to env_type and env_param naming conventions.
         """
+        print("[EvalCallback] Training ended. Saving evaluation logs.")
+        self.save_gif()
+
         config = self.config  # For convenience
         env_type = config["env_type"]
         assert env_type in ["lunarlander", "carracing"], "Unsupported env_type."
@@ -613,12 +623,13 @@ def compare_gaussian_distributions(
             'js': [...],
             'wasserstein2': [...],
             'hellinger': [...],
-            'bhattacharyya': [...]
+            'bhattacharyya': [...],
+            'entropy1': [...],
+            'entropy2': [...]
         }, each is np.ndarray of shape (batch_size,)
     """
-
-    var1 = std1**2
-    var2 = std2**2
+    var1 = std1 ** 2
+    var2 = std2 ** 2
     eps = 1e-8  # For numerical stability
 
     # KL(P||Q): forward KL
@@ -637,7 +648,7 @@ def compare_gaussian_distributions(
         axis=1,
     )
 
-    # JS Divergence: average of KL(P||M) and KL(Q||M)
+    # JS Divergence
     mean_m = 0.5 * (mean1 + mean2)
     var_m = 0.5 * (var1 + var2)
     kl1_m = 0.5 * np.sum(
@@ -654,12 +665,12 @@ def compare_gaussian_distributions(
     )
     js = 0.5 * (kl1_m + kl2_m)
 
-    # Wasserstein-2 Distance (squared form)
+    # Wasserstein-2 distance (squared)
     mean_diff2 = np.sum((mean1 - mean2) ** 2, axis=1)
     std_diff2 = np.sum((std1 - std2) ** 2, axis=1)
     wasserstein2 = mean_diff2 + std_diff2
 
-    # Bhattacharyya distance (diagonal Gaussians)
+    # Bhattacharyya distance
     sigma_avg = 0.5 * (var1 + var2)
     term1 = 0.125 * np.sum((mean1 - mean2) ** 2 / (sigma_avg + eps), axis=1)
     term2 = 0.5 * np.sum(np.log((sigma_avg + eps) / np.sqrt(var1 * var2 + eps)), axis=1)
@@ -673,6 +684,10 @@ def compare_gaussian_distributions(
     )
     hellinger = np.sqrt(np.clip(hellinger_squared, 0.0, 1.0))
 
+    # Differential entropy of a diagonal Gaussian
+    entropy1 = 0.5 * np.sum(np.log(2 * np.pi * np.e * var1 + eps), axis=1)
+    entropy2 = 0.5 * np.sum(np.log(2 * np.pi * np.e * var2 + eps), axis=1)
+
     return {
         "kl_forward": kl_forward,
         "kl_reverse": kl_reverse,
@@ -680,6 +695,8 @@ def compare_gaussian_distributions(
         "wasserstein2": wasserstein2,
         "bhattacharyya": bhattacharyya,
         "hellinger": hellinger,
+        "entropy1": entropy1,
+        "entropy2": entropy2,
     }
 
 
