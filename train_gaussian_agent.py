@@ -291,9 +291,12 @@ if __name__ == "__main__":
         _curve_results = curve_results
         curve_results = {most_difficult_param: _curve_results[most_difficult_param]}
 
+        summary_results_ = []
+        curve_results_ = {}
+
         for env_param in env_params:
-            repeat_results = []
-            all_repeat_records = []
+            repeat_results_ = []
+            all_repeat_records_ = []
 
             if env_param == most_difficult_param:
                 continue
@@ -366,3 +369,78 @@ if __name__ == "__main__":
                     total_timesteps=config["train_steps"],
                     callback=[eval_callback, progress_callback],
                 )
+
+                repeat_results_.append(
+                    {
+                        "EnvParam": env_param,
+                        "Repeat": run + 1,
+                        "OptimalStep": eval_callback.step_reached_optimal
+                                       or config["train_steps"],
+                        "BestScore": eval_callback.best_mean_reward,
+                    }
+                )
+
+                all_repeat_records_.append(eval_callback.records)
+
+                print(
+                    f"\n--- Cleanup after Repeat {run + 1} for Env Param {env_param} ---"
+                )
+                train_env.close()
+                del model
+                gc.collect()
+                torch.cuda.empty_cache()
+
+                # Calculate summary
+            best_scores = [res["BestScore"] for res in repeat_results_]
+            optimal_steps = [res["OptimalStep"] for res in repeat_results_]
+
+            summary_results_.append(
+                {
+                    "LanderDensity"
+                    if env_type == "lunarlander"
+                    else "MapSeed": env_param,
+                    "BestScoreMean": np.mean(best_scores),
+                    "BestScoreStd": np.std(best_scores),
+                    "OptimalStepMean": np.mean(optimal_steps),
+                    "OptimalStepStd": np.std(optimal_steps),
+                }
+            )
+
+            # Merge all repeat records for this env_param
+            keys = all_repeat_records_[0].keys()
+            timesteps = [x[0] for x in all_repeat_records_[0]["reward"]]
+
+            curve_results_[env_param] = {"Timesteps": timesteps}
+
+            for key in keys:
+                values_per_repeat = np.array(
+                    [[v[1] for v in records[key]] for records in all_repeat_records_]
+                )
+
+                mean_values = values_per_repeat.mean(axis=0)
+                std_values = values_per_repeat.std(axis=0)
+
+                curve_results_[env_param][f"{key}_mean"] = mean_values
+                curve_results_[env_param][f"{key}_std"] = std_values
+
+            df_curve = pd.DataFrame(curve_results_[env_param])
+            csv_curve_path = os.path.join(
+                config["save_path"],
+                f"mean_std_{'density' if env_type == 'lunarlander' else 'mapseed'}_{env_param}.csv",
+            )
+            df_curve.to_csv(csv_curve_path, index=False)
+
+            # Save summary results
+        df_summary = pd.DataFrame(summary_results_)
+        csv_summary_path = os.path.join(
+            config["save_path"], "summary_results_mean_std.csv"
+        )
+        df_summary.to_csv(csv_summary_path, index=False)
+
+        print("\n===== All Training Completed =====")
+
+        print(df_summary)
+
+        # Plot results
+        plot_eval_results(config, curve_results_, config["save_path"], save_name=f"curve_{env_type}_curriculum.png")
+        most_difficult_param = plot_optimal_step_bar_chart_and_return_max(config, summary_results_, config["save_path"], save_name=f"optimal_step_bar_chart_{env_type}_curriculum.png")
