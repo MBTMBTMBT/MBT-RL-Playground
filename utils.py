@@ -319,57 +319,55 @@ class EvalAndGifCallback(BaseCallback):
         return True
 
     def _on_training_start(self):
-        self.records = {
-            "reward": [],
-            "prior_policy-kl_forward": [],
-            "prior_policy-kl_reverse": [],
-            "prior_policy-js": [],
-            "prior_policy-wasserstein2": [],
-            "prior_policy-bhattacharyya": [],
-            "prior_policy-hellinger": [],
-            "prior_policy-entropy1": [],
-            "prior_policy-entropy2": [],
-            "current_policy-kl_forward": [],
-            "current_policy-kl_reverse": [],
-            "current_policy-js": [],
-            "current_policy-wasserstein2": [],
-            "current_policy-bhattacharyya": [],
-            "current_policy-hellinger": [],
-            "current_policy-entropy1": [],
-            "current_policy-entropy2": [],
-        }
         self.step_reached_optimal = None
         # Force evaluation at step 0
         self.last_eval_step = -self.eval_interval
         self._on_step()
 
+    import numpy as np
+    import pandas as pd
+    import os
+
     def _on_training_end(self):
         """
         Save evaluation logs to a CSV file after training ends.
-        File name will automatically adapt to env_type and env_param naming conventions.
+        Automatically pad shorter records with NaN at the front to align with the longest sequence.
         """
         print("[EvalCallback] Training ended. Saving evaluation logs.")
         self.save_gif()
 
-        config = self.config  # For convenience
+        config = self.config
         env_type = config["env_type"]
         assert env_type in ["lunarlander", "carracing"], "Unsupported env_type."
 
-        # Initialize the dataframe with timesteps
-        df = pd.DataFrame({"Timesteps": [x[0] for x in self.records["reward"]]})
+        # Determine maximum length among all records
+        max_len = max(len(v) for v in self.records.values())
+
+        def pad_front(data, target_len):
+            pad_len = target_len - len(data)
+            if pad_len <= 0:
+                return data
+            return [np.nan] * pad_len + data
+
+        # Initialize dataframe
+        df = pd.DataFrame()
+
+        # Handle Timesteps (assume reward always has timesteps)
+        timesteps = [x[0] for x in self.records["reward"]]
+        df["Timesteps"] = pad_front(timesteps, max_len)
 
         # Add reward columns
-        df["reward_mean"] = [x[1] for x in self.records["reward"]]
-        df["reward_std"] = [x[2] for x in self.records["reward"]]
+        df["reward_mean"] = pad_front([x[1] for x in self.records["reward"]], max_len)
+        df["reward_std"] = pad_front([x[2] for x in self.records["reward"]], max_len)
 
-        # Add prior/current policy metrics
+        # Add other metrics
         for key in self.records.keys():
             if key == "reward":
                 continue
-            df[f"{key}_mean"] = [x[1] for x in self.records[key]]
-            df[f"{key}_std"] = [x[2] for x in self.records[key]]
+            df[f"{key}_mean"] = pad_front([x[1] for x in self.records[key]], max_len)
+            df[f"{key}_std"] = pad_front([x[2] for x in self.records[key]], max_len)
 
-        # Generate save filename based on env_type
+        # Generate save filename
         if env_type == "lunarlander":
             log_name = f"eval_log_density_{self.env_param}_repeat_{self.run_idx}.csv"
         elif env_type == "carracing":
@@ -556,7 +554,7 @@ class CurriculumCallBack(EvalAndGifCallback):
 
             # test target env all the times.
             if not self.change_env_flag:
-                mean_reward, std_reward = evaluate_policy(
+                mean_reward_, std_reward_ = evaluate_policy(
                     self.model,
                     env=self.eval_env_target,
                     n_eval_episodes=self.eval_episodes,
@@ -564,11 +562,16 @@ class CurriculumCallBack(EvalAndGifCallback):
                     render=False,
                     warn=False,
                 )
-            self.records["reward_target"].append(
-                (self.num_timesteps, mean_reward, std_reward)
-            )
+                self.records["reward_target"].append(
+                    (self.num_timesteps, mean_reward_, std_reward_)
+                )
+            else:
+                self.records["reward_target"].append(
+                    (self.num_timesteps, mean_reward, std_reward)
+                )
 
-            if mean_reward > self.config["optimal_score"] and not self.change_env_flag:
+            if mean_reward > self.config["near_optimal_score"] and not self.change_env_flag:
+                print("First stage training ends.")
                 self.change_env_flag = True
                 # clean the buffer, no reuse of the previous data
                 self.model.replay_buffer = ReplayBuffer(
@@ -718,7 +721,9 @@ def plot_eval_results(config, results, save_dir, save_name=None):
             ax.legend()
             ax.grid()
 
-            single_name = f"{metric}_" + save_name or f"{metric}_curve_{env_type}_param_{env_param}.png"
+            single_name = save_name or f"{metric}_curve_{env_type}_param_{env_param}.png"
+            if single_name == save_name:
+                single_name = f"{metric}_" + single_name
             single_plot_path = os.path.join(save_dir, single_name)
             plt_single.savefig(single_plot_path)
             plt.close(plt_single)
@@ -729,7 +734,9 @@ def plot_eval_results(config, results, save_dir, save_name=None):
         plt.legend()
         plt.grid()
 
-        all_name = f"{metric}_" + save_name or f"{metric}_curves_all_{env_type}.png"
+        all_name = save_name or f"{metric}_curves_all_{env_type}.png"
+        if all_name == save_name:
+            all_name = f"{metric}_" + all_name
         all_plot_path = os.path.join(save_dir, all_name)
         plt.savefig(all_plot_path)
         plt.close()

@@ -16,7 +16,7 @@ from utils import (
     plot_eval_results,
     plot_optimal_step_bar_chart_and_return_max,
     evaluate_mix_policy_agent,
-    compute_and_plot_mix_policy_results,
+    compute_and_plot_mix_policy_results, CurriculumCallBack,
 )
 
 from configs import lunarlander_config, carracing_config
@@ -345,16 +345,17 @@ if __name__ == "__main__":
                     policy_kwargs=dict(net_arch=[256, 256, 256]),
                 )
 
-                eval_callback = EvalAndGifCallback(
+                eval_callback = CurriculumCallBack(
                     config=config,
-                    env_param=env_param,
+                    env_param_at_start=env_param,
+                    env_param_target=most_difficult_param,
                     n_eval_envs=config["n_envs"],
                     run_idx=run + 1,
                     eval_interval=config["eval_interval"],
                     optimal_score=config["near_optimal_score"],
                     verbose=1,
                     temp_dir=".",
-                    use_default_policy=True,
+                    use_default_policy_at_start=True,
                 )
 
                 progress_callback = ProgressBarCallback(
