@@ -258,7 +258,7 @@ class SACJax(SAC):
             if self.num_timesteps > 0 and self.num_timesteps > self.learning_starts:
                 # Additional condition: make sure replay buffer is sufficiently filled
                 buffer_ready = (
-                        self.replay_buffer.size >= min(self.learning_starts, self.replay_buffer.buffer_size)
+                        self.replay_buffer.size() >= min(self.learning_starts, self.replay_buffer.buffer_size)
                 )
                 if buffer_ready:
                     # If no `gradient_steps` is specified,

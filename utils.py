@@ -578,7 +578,7 @@ class CurriculumCallBack(EvalAndGifCallback):
                     buffer_size=self.model.replay_buffer.buffer_size,
                     observation_space=self.model.observation_space,
                     action_space=self.model.action_space,
-                    device=self.model.device,
+                    device="cpu",
                     n_envs=self.model.replay_buffer.n_envs,
                     optimize_memory_usage=self.model.replay_buffer.optimize_memory_usage,
                     handle_timeout_termination=self.model.replay_buffer.handle_timeout_termination,
@@ -613,7 +613,16 @@ class CurriculumCallBack(EvalAndGifCallback):
 
                 else:
                     env_target = None
+
+                # Step 1: Set new environment
                 self.model.set_env(env_target)
+
+                # Step 2: Force reset
+                obs = self.model.env.reset()
+
+                # Step 3: Update model's internal state
+                self.model._last_obs = obs
+                self.model._last_episode_starts = np.ones((env_target.num_envs,), dtype=bool)
 
             # Record prior policy sampling distribution metrics
             for key, value in prior_result.items():
