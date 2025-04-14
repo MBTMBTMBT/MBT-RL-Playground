@@ -880,12 +880,24 @@ def compute_and_plot_mix_policy_results(config, results_dict, save_path):
     env_type = config["env_type"]
     param_name = "LanderDensity" if env_type == "lunarlander" else "MapSeed"
 
-    raw_curve_data = {}
-    raw_integral_data = {}
-    norm_curve_data = {}
-    norm_integral_data = {}
+    # Initialize result dictionary
+    final_results = {
+        "mean_rewards": {},
+        "std_rewards": {},
+        "integrals": {},
+        "integrals_std": {},
+        "normalized_mean_rewards": {},
+        "normalized_std_rewards": {},
+        "integrals_norm": {},
+        "integrals_norm_std": {},
+    }
 
-    # ========== 1. Raw reward vs p curves ==========
+    raw_curve_data = []
+    raw_integral_data = []
+    norm_curve_data = []
+    norm_integral_data = []
+
+    print("[Compute] Start plotting raw reward curves...")
     plt.figure()
     for env_param in sorted(results_dict.keys()):
         result = results_dict[env_param]
@@ -895,72 +907,50 @@ def compute_and_plot_mix_policy_results(config, results_dict, save_path):
         mean_rewards = np.mean(mean_rewards_list, axis=0)
         std_rewards = np.std(mean_rewards_list, axis=0)
 
-        raw_curve_data[env_param] = {
-            "p_values": p_values,
-            "mean_rewards": mean_rewards,
-            "std_rewards": std_rewards,
-        }
+        final_results["mean_rewards"][env_param] = mean_rewards
+        final_results["std_rewards"][env_param] = std_rewards
+
+        auc_list = [np.trapz(rewards, p_values) for rewards in mean_rewards_list]
+        integral_mean = np.mean(auc_list)
+        integral_std = np.std(auc_list)
+
+        final_results["integrals"][env_param] = integral_mean
+        final_results["integrals_std"][env_param] = integral_std
+
+        raw_curve_data.append(pd.DataFrame({
+            "p": p_values,
+            "mean_reward": mean_rewards,
+            "std_reward": std_rewards,
+        }).assign(**{param_name: env_param}))
+
+        raw_integral_data.append(pd.DataFrame({
+            param_name: [env_param],
+            "integral": [integral_mean],
+            "std": [integral_std],
+        }))
 
         plt.plot(p_values, mean_rewards, label=f"{param_name}={env_param}")
-        plt.fill_between(p_values, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=0.2)
+        plt.fill_between(
+            p_values,
+            mean_rewards - std_rewards,
+            mean_rewards + std_rewards,
+            alpha=0.2,
+        )
+
+        print(f"[Compute] Raw reward curve processed for {param_name}={env_param}")
 
     plt.xlabel("Mix Weight p")
     plt.ylabel("Mean Episode Reward")
     plt.legend()
     plt.grid()
     plt.tight_layout()
-    plt.savefig(os.path.join(save_path, "mix_policy_p_curve.png"))
+    curve_path = os.path.join(save_path, "mix_policy_p_curve.png")
+    plt.savefig(curve_path)
     plt.close()
+    print(f"[Save Figure] Raw reward curve figure saved to {curve_path}")
 
-    for env_param, data in raw_curve_data.items():
-        df = pd.DataFrame({
-            "p": data["p_values"],
-            "mean": data["mean_rewards"],
-            "std": data["std_rewards"],
-        })
-        df.to_csv(os.path.join(save_path, f"mix_policy_raw_curve_{env_param}.csv"), index=False)
-
-    # ========== 2. Integral of raw curves ==========
+    print("[Compute] Start plotting normalized reward curves...")
     plt.figure()
-    env_params = []
-    integrals = []
-    integrals_std = []
-
-    for env_param in sorted(results_dict.keys()):
-        result = results_dict[env_param]
-        p_values = result["p_values"]
-        mean_rewards_list = result["mean_rewards_list"]
-
-        auc_list = [np.trapz(mean_rewards, p_values) for mean_rewards in mean_rewards_list]
-
-        env_params.append(env_param)
-        integrals.append(np.mean(auc_list))
-        integrals_std.append(np.std(auc_list))
-
-        raw_integral_data[env_param] = {
-            "integral": np.mean(auc_list),
-            "std": np.std(auc_list),
-        }
-
-    plt.bar([str(p) for p in env_params], integrals, yerr=integrals_std, capsize=5)
-    plt.xlabel(param_name)
-    plt.ylabel("Integral of Reward Curve")
-    plt.grid(axis="y")
-    plt.tight_layout()
-    plt.savefig(os.path.join(save_path, "mix_policy_integral_bar_chart.png"))
-    plt.close()
-
-    df_raw_integral = pd.DataFrame({
-        param_name: env_params,
-        "integral": integrals,
-        "std": integrals_std,
-    })
-    df_raw_integral.to_csv(os.path.join(save_path, "mix_policy_raw_integral.csv"), index=False)
-
-    # ========== 3. Normalized reward vs p curves ==========
-    plt.figure()
-    normalized_results = {}
-
     for env_param in sorted(results_dict.keys()):
         result = results_dict[env_param]
         p_values = result["p_values"]
@@ -975,77 +965,96 @@ def compute_and_plot_mix_policy_results(config, results_dict, save_path):
         normalized_mean = np.mean(normalized_list, axis=0)
         normalized_std = np.std(normalized_list, axis=0)
 
-        normalized_results[env_param] = {
-            "mean": normalized_mean,
-            "std": normalized_std,
-            "normalized_list": normalized_list,
-            "p_values": p_values,
-        }
+        final_results["normalized_mean_rewards"][env_param] = normalized_mean
+        final_results["normalized_std_rewards"][env_param] = normalized_std
 
-        norm_curve_data[env_param] = {
-            "p_values": p_values,
-            "mean_rewards": normalized_mean,
-            "std_rewards": normalized_std,
-        }
+        auc_list_norm = [np.trapz(r, p_values) for r in normalized_list]
+        integral_norm_mean = np.mean(auc_list_norm)
+        integral_norm_std = np.std(auc_list_norm)
+
+        final_results["integrals_norm"][env_param] = integral_norm_mean
+        final_results["integrals_norm_std"][env_param] = integral_norm_std
+
+        norm_curve_data.append(pd.DataFrame({
+            "p": p_values,
+            "mean_reward": normalized_mean,
+            "std_reward": normalized_std,
+        }).assign(**{param_name: env_param}))
+
+        norm_integral_data.append(pd.DataFrame({
+            param_name: [env_param],
+            "integral": [integral_norm_mean],
+            "std": [integral_norm_std],
+        }))
 
         plt.plot(p_values, normalized_mean, label=f"{param_name}={env_param}")
-        plt.fill_between(p_values, normalized_mean - normalized_std, normalized_mean + normalized_std, alpha=0.2)
+        plt.fill_between(
+            p_values,
+            normalized_mean - normalized_std,
+            normalized_mean + normalized_std,
+            alpha=0.2,
+        )
+
+        print(f"[Compute] Normalized reward curve processed for {param_name}={env_param}")
 
     plt.xlabel("Mix Weight p")
     plt.ylabel("Normalized Mean Reward")
     plt.legend()
     plt.grid()
     plt.tight_layout()
-    plt.savefig(os.path.join(save_path, "mix_policy_normalized_p_curve.png"))
+    norm_curve_path = os.path.join(save_path, "mix_policy_normalized_p_curve.png")
+    plt.savefig(norm_curve_path)
     plt.close()
+    print(f"[Save Figure] Normalized reward curve figure saved to {norm_curve_path}")
 
-    for env_param, data in norm_curve_data.items():
-        df = pd.DataFrame({
-            "p": data["p_values"],
-            "mean": data["mean_rewards"],
-            "std": data["std_rewards"],
-        })
-        df.to_csv(os.path.join(save_path, f"mix_policy_normalized_curve_{env_param}.csv"), index=False)
-
-    # ========== 4. Integral of normalized curves ==========
+    # Plot raw integral bar chart
     plt.figure()
-    integrals_norm = []
-    integrals_norm_std = []
+    env_params = list(sorted(results_dict.keys()))
+    integrals = [final_results["integrals"][p] for p in env_params]
+    integrals_std = [final_results["integrals_std"][p] for p in env_params]
 
-    for env_param in sorted(results_dict.keys()):
-        norm_result = normalized_results[env_param]
-        p_values = norm_result["p_values"]
+    plt.bar([str(p) for p in env_params], integrals, yerr=integrals_std, capsize=5)
+    plt.xlabel(param_name)
+    plt.ylabel("Integral of Reward Curve")
+    plt.grid(axis="y")
+    plt.tight_layout()
+    bar_path = os.path.join(save_path, "mix_policy_integral_bar_chart.png")
+    plt.savefig(bar_path)
+    plt.close()
+    print(f"[Save Figure] Raw reward integral bar chart saved to {bar_path}")
 
-        auc_list = [np.trapz(rewards, p_values) for rewards in norm_result["normalized_list"]]
-
-        integrals_norm.append(np.mean(auc_list))
-        integrals_norm_std.append(np.std(auc_list))
-
-        norm_integral_data[env_param] = {
-            "integral": np.mean(auc_list),
-            "std": np.std(auc_list),
-        }
+    # Plot normalized integral bar chart
+    plt.figure()
+    integrals_norm = [final_results["integrals_norm"][p] for p in env_params]
+    integrals_norm_std = [final_results["integrals_norm_std"][p] for p in env_params]
 
     plt.bar([str(p) for p in env_params], integrals_norm, yerr=integrals_norm_std, capsize=5)
     plt.xlabel(param_name)
     plt.ylabel("Integral of Normalized Reward Curve")
     plt.grid(axis="y")
     plt.tight_layout()
-    plt.savefig(os.path.join(save_path, "mix_policy_normalized_integral_bar_chart.png"))
+    norm_bar_path = os.path.join(save_path, "mix_policy_normalized_integral_bar_chart.png")
+    plt.savefig(norm_bar_path)
     plt.close()
+    print(f"[Save Figure] Normalized reward integral bar chart saved to {norm_bar_path}")
 
-    df_norm_integral = pd.DataFrame({
-        param_name: env_params,
-        "integral": integrals_norm,
-        "std": integrals_norm_std,
-    })
-    df_norm_integral.to_csv(os.path.join(save_path, "mix_policy_normalized_integral.csv"), index=False)
+    # Save CSVs with log info
+    raw_curve_csv = os.path.join(save_path, "mix_policy_curve_raw.csv")
+    pd.concat(raw_curve_data).to_csv(raw_curve_csv, index=False)
+    print(f"[Save CSV] Raw curve data saved to {raw_curve_csv}")
 
-    print(f"[Save Completed] All figures and data saved to {save_path}")
+    raw_integral_csv = os.path.join(save_path, "mix_policy_integral_raw.csv")
+    pd.concat(raw_integral_data).to_csv(raw_integral_csv, index=False)
+    print(f"[Save CSV] Raw integral data saved to {raw_integral_csv}")
 
-    return {
-        "raw_curve": raw_curve_data,
-        "raw_integral": raw_integral_data,
-        "normalized_curve": norm_curve_data,
-        "normalized_integral": norm_integral_data,
-    }
+    norm_curve_csv = os.path.join(save_path, "mix_policy_curve_normalized.csv")
+    pd.concat(norm_curve_data).to_csv(norm_curve_csv, index=False)
+    print(f"[Save CSV] Normalized curve data saved to {norm_curve_csv}")
+
+    norm_integral_csv = os.path.join(save_path, "mix_policy_integral_normalized.csv")
+    pd.concat(norm_integral_data).to_csv(norm_integral_csv, index=False)
+    print(f"[Save CSV] Normalized integral data saved to {norm_integral_csv}")
+
+    print("[Compute] All results computation and visualization finished.")
+
+    return final_results

@@ -268,6 +268,7 @@ if __name__ == "__main__":
                 "p_values": p_values,
                 "mean_rewards": mean_rewards,
                 "std_rewards": std_rewards,
+                "mean_rewards_list": all_repeat_rewards,
             }
 
             df = pd.DataFrame({
@@ -281,5 +282,4 @@ if __name__ == "__main__":
             )
             df.to_csv(csv_path, index=False)
 
-        # Plot MixPolicy Evaluation Results
-        rst = compute_and_plot_mix_policy_results(config, mix_results, config["save_path"])
+            rst = compute_and_plot_mix_policy_results(config, mix_results, config["save_path"])
