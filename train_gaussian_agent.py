@@ -14,7 +14,7 @@ from utils import (
     make_lunarlander_env,
     EvalAndGifCallback,
     plot_eval_results,
-    plot_optimal_step_bar_chart,
+    plot_optimal_step_bar_chart_and_return_max,
     evaluate_mix_policy_agent,
     compute_and_plot_mix_policy_results,
 )
@@ -208,7 +208,7 @@ if __name__ == "__main__":
 
         # Plot results
         plot_eval_results(config, curve_results, config["save_path"])
-        plot_optimal_step_bar_chart(config, summary_results, config["save_path"])
+        most_difficult_param = plot_optimal_step_bar_chart_and_return_max(config, summary_results, config["save_path"])
 
         # Evaluate MixPolicy Performance
         mix_results = {}
@@ -258,6 +258,7 @@ if __name__ == "__main__":
                     num_p_values=20,
                 )
                 all_repeat_rewards.append(mean_rewards)
+                test_env.close()
 
             all_repeat_rewards = np.array(all_repeat_rewards)  # (n_repeat, num_p_values)
             mean_rewards = all_repeat_rewards.mean(axis=0)
@@ -283,3 +284,84 @@ if __name__ == "__main__":
             df.to_csv(csv_path, index=False)
 
         rst = compute_and_plot_mix_policy_results(config, mix_results, config["save_path"])
+
+        print("===== All MixPolicy Evaluation Completed =====")
+        print("\n===== Start Curriculum Learning =====")
+        print(f"Most difficult param: {most_difficult_param}")
+        _curve_results = curve_results
+        curve_results = {most_difficult_param: _curve_results[most_difficult_param]}
+
+        for env_param in env_params:
+            repeat_results = []
+            all_repeat_records = []
+
+            if env_param == most_difficult_param:
+                continue
+            for run in range(config["n_repeat"]):
+                print(
+                    f"\n--- Repeat {run + 1}/{config['n_repeat']} for Env Param = {env_param} ---"
+                )
+
+                # Prepare training environment
+                if env_type == "lunarlander":
+                    train_env = SubprocVecEnv(
+                        [
+                            make_lunarlander_env(
+                                lander_density=env_param,
+                                render_mode=None,
+                                deterministic_init=False,
+                                number_of_initial_states=config["num_init_states"],
+                                init_seed=None,
+                            )
+                            for _ in range(config["n_envs"])
+                        ]
+                    )
+                elif env_type == "carracing":
+                    train_env = SubprocVecEnv(
+                        [
+                            make_carracing_env(
+                                map_seed=env_param,
+                                render_mode=None,
+                                deterministic_init=False,
+                                number_of_initial_states=config["num_init_states"],
+                                init_seed=None,
+                            )
+                            for _ in range(config["n_envs"])
+                        ]
+                    )
+
+                model = SAC(
+                    "MlpPolicy",
+                    train_env,
+                    verbose=0,
+                    learning_rate=1e-4,
+                    buffer_size=config["train_steps"],
+                    learning_starts=5_000,
+                    batch_size=256,
+                    tau=0.005,
+                    train_freq=config["n_envs"],
+                    gradient_steps=config["n_envs"] * 8,
+                    ent_coef="auto",
+                    policy_kwargs=dict(net_arch=[256, 256, 256]),
+                )
+
+                eval_callback = EvalAndGifCallback(
+                    config=config,
+                    env_param=env_param,
+                    n_eval_envs=config["n_envs"],
+                    run_idx=run + 1,
+                    eval_interval=config["eval_interval"],
+                    optimal_score=config["near_optimal_score"],
+                    verbose=1,
+                    temp_dir=".",
+                    use_default_policy=True,
+                )
+
+                progress_callback = ProgressBarCallback(
+                    total_timesteps=config["train_steps"]
+                )
+
+                model.learn(
+                    total_timesteps=config["train_steps"],
+                    callback=[eval_callback, progress_callback],
+                )

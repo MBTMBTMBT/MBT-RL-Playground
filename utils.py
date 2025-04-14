@@ -11,6 +11,7 @@ import pandas as pd
 from matplotlib import pyplot as plt
 from numpy import floating
 from stable_baselines3.common.base_class import BaseAlgorithm
+from stable_baselines3.common.buffers import ReplayBuffer
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.vec_env import (
     SubprocVecEnv,
@@ -20,6 +21,7 @@ from stable_baselines3.common.vec_env import (
     VecMonitor,
 )
 from stable_baselines3.common.monitor import Monitor
+from stable_baselines3.common.evaluation import evaluate_policy
 from tabulate import tabulate
 from tqdm import tqdm
 
@@ -455,28 +457,238 @@ class EvalAndGifCallback(BaseCallback):
         print(f"[GIF Saved] {gif_path}")
 
 
-# class Curriculum
+class CurriculumCallBack(EvalAndGifCallback):
+    def __init__(
+            self,
+            config: dict,
+            env_param_at_start: Union[int, float, Any],
+            env_param_target: Union[int, float, Any],
+            n_eval_envs: int,
+            run_idx: int,
+            eval_interval: int,
+            optimal_score: Union[int, float],
+            verbose=1,
+            temp_dir=".",
+            use_default_policy_at_start=True,
+    ):
+        super().__init__(
+            config=config,
+            env_param=env_param_at_start,
+            n_eval_envs=n_eval_envs,
+            run_idx=run_idx,
+            eval_interval=eval_interval,
+            optimal_score=optimal_score,
+            verbose=verbose,
+            temp_dir=temp_dir,
+            use_default_policy=use_default_policy_at_start,
+        )
+
+        self.env_param_target = env_param_target
+
+        if config["env_type"] == "lunarlander":
+            self.eval_env_target = SubprocVecEnv(
+                [
+                    make_lunarlander_env(
+                        lander_density=env_param_target,
+                        render_mode=None,
+                        deterministic_init=True,
+                        number_of_initial_states=config["num_init_states"],
+                        init_seed=i,
+                    )
+                    for i in range(self.n_eval_envs)
+                ]
+            )
+
+        elif config["env_type"] == "carracing":
+            self.eval_env_target = SubprocVecEnv(
+                [
+                    make_carracing_env(
+                        map_seed=env_param_target,
+                        render_mode=None,
+                        deterministic_init=False,
+                        number_of_initial_states=config["num_init_states"],
+                        init_seed=i,
+                    )
+                    for i in range(self.n_eval_envs)
+                ]
+            )
+
+        else:
+            self.eval_env_target = None
+
+        self.records["reward_target"] = []
+
+        self.change_env_flag = False
+
+    def _on_step(self):
+        if self.num_timesteps - self.last_eval_step >= self.eval_interval:
+            self.last_eval_step = self.num_timesteps
+
+            # Evaluate with prior policy sampling
+            prior_result = evaluate_policy_with_distribution(
+                self.original_model,
+                self.model,
+                use_default_policy=self.use_default_policy,
+                use_default_policy_for_prior=False,
+                env=self.eval_env if not self.change_env_flag else self.eval_env_target,
+                n_eval_episodes=self.eval_episodes,
+                deterministic=True,
+                render=False,
+                warn=False,
+            )
+
+            # Evaluate with current policy sampling
+            current_result = evaluate_policy_with_distribution(
+                self.model,
+                self.original_model,
+                use_default_policy=False,
+                use_default_policy_for_prior=self.use_default_policy,
+                env=self.eval_env if not self.change_env_flag else self.eval_env_target,
+                n_eval_episodes=self.eval_episodes,
+                deterministic=True,
+                render=False,
+                warn=False,
+            )
+
+            # Unpack reward results (only from current policy evaluation)
+            mean_reward, std_reward = current_result["reward"]
+            self.records["reward"].append((self.num_timesteps, mean_reward, std_reward))
+
+            # test target env all the times.
+            if not self.change_env_flag:
+                mean_reward, std_reward = evaluate_policy(
+                    self.model,
+                    env=self.eval_env_target,
+                    n_eval_episodes=self.eval_episodes,
+                    deterministic=True,
+                    render=False,
+                    warn=False,
+                )
+            self.records["reward_target"].append(
+                (self.num_timesteps, mean_reward, std_reward)
+            )
+
+            if mean_reward > self.config["optimal_score"] and not self.change_env_flag:
+                self.change_env_flag = True
+                # clean the buffer, no reuse of the previous data
+                self.model.replay_buffer = ReplayBuffer(
+                    buffer_size=self.model.replay_buffer.buffer_size,
+                    observation_space=self.model.observation_space,
+                    action_space=self.model.action_space,
+                    device=self.model.device,
+                    n_envs=self.model.replay_buffer.n_envs,
+                    optimize_memory_usage=self.model.replay_buffer.optimize_memory_usage,
+                    handle_timeout_termination=self.model.replay_buffer.handle_timeout_termination,
+                )
+                if self.config["env_type"] == "lunarlander":
+                    env_target = SubprocVecEnv(
+                        [
+                            make_lunarlander_env(
+                                lander_density=self.env_param_target,
+                                render_mode=None,
+                                deterministic_init=True,
+                                number_of_initial_states=self.config["num_init_states"],
+                                init_seed=i,
+                            )
+                            for i in range(self.n_eval_envs)
+                        ]
+                    )
+
+                elif self.config["env_type"] == "carracing":
+                    env_target = SubprocVecEnv(
+                        [
+                            make_carracing_env(
+                                map_seed=self.env_param_target,
+                                render_mode=None,
+                                deterministic_init=False,
+                                number_of_initial_states=self.config["num_init_states"],
+                                init_seed=i,
+                            )
+                            for i in range(self.n_eval_envs)
+                        ]
+                    )
+
+                else:
+                    env_target = None
+                self.model.set_env(env_target)
+
+            # Record prior policy sampling distribution metrics
+            for key, value in prior_result.items():
+                if key == "reward":
+                    continue  # Skip prior reward
+                self.records[f"prior_policy-{key}"].append(
+                    (self.num_timesteps, value[0], value[1])
+                )
+
+            # Record current policy sampling distribution metrics
+            for key, value in current_result.items():
+                if key == "reward" or (not self.change_env_flag):
+                    continue  # Already recorded
+                self.records[f"current_policy-{key}"].append(
+                    (self.num_timesteps, value[0], value[1])
+                )
+
+            if self.verbose:
+                # Prepare table content
+                table_data = [
+                    ["Env Param", self.env_param],
+                    ["Repeat", self.run_idx],
+                    ["Steps", self.num_timesteps],
+                    ["Mean Reward", f"{mean_reward:.2f} ± {std_reward:.2f}"],
+                    ["-- Prior Policy Metrics --", ""],
+                ]
+
+                # Append prior_policy metrics
+                for key in MEASURES:
+                    mean, std = prior_result[key]
+                    table_data.append(
+                        [f"prior_policy-{key}", f"{mean:.4f} ± {std:.4f}"]
+                    )
+
+                # Append current_policy metrics
+                table_data.append(["-- Current Policy Metrics --", ""])
+                for key in MEASURES:
+                    mean, std = current_result[key]
+                    table_data.append(
+                        [f"current_policy-{key}", f"{mean:.4f} ± {std:.4f}"]
+                    )
+
+                print("[EvalCallback] Evaluation Summary")
+                print(tabulate(table_data, tablefmt="grid"))
+
+            if mean_reward > self.best_mean_reward:
+                self.best_mean_reward = mean_reward
+                print(
+                    f"[Best Model] Saving new best model at step {self.num_timesteps} "
+                    f"with mean reward {mean_reward:.2f}"
+                )
+                self.model.save(self.best_model_path)
+
+                if (
+                    self.config["near_optimal_score"] > 0
+                    and mean_reward >= (self.config["near_optimal_score"] / 2)
+                ) or self.config["near_optimal_score"] <= 0:
+                    pass
+                    # self.save_gif()
+
+            # must be the target phase
+            if self.change_env_flag and mean_reward >= self.optimal_score and self.step_reached_optimal is None:
+                self.step_reached_optimal = self.num_timesteps
+
+        return True
 
 
-# single param single run
-def plot_eval_results(config, results, save_dir):
-    """
-    Plot evaluation results for different environments.
-    This function will plot:
-        - Reward curve
-        - All distribution metrics curves (per metric)
-
-    Args:
-        config (dict): Configuration dictionary, must contain "env_type".
-        results (dict): Dictionary of evaluation results per env_param or density.
-        save_dir (str): Directory to save the plots.
-    """
+def plot_eval_results(config, results, save_dir, save_name=None):
     env_type = config["env_type"]
     assert env_type in ["lunarlander", "carracing"], "Unsupported env_type."
 
-    # Determine available metrics from the first result item
     metrics_keys = [key[:-5] for key in results[list(results.keys())[0]].keys()
                     if key.endswith("_mean")]
+
+    # Get the longest step sequence (global timeline)
+    all_timesteps = [res["Timesteps"] for res in results.values()]
+    max_len = max(len(t) for t in all_timesteps)
+    global_steps = max(all_timesteps, key=len)  # pick the longest one
 
     for metric in metrics_keys:
         plt.figure(figsize=(12, 8))
@@ -486,63 +698,46 @@ def plot_eval_results(config, results, save_dir):
             means = result[metric + "_mean"]
             stds = result[metric + "_std"]
 
-            plt.plot(steps, means, label=f"{env_type.capitalize()} Param {env_param}")
-            plt.fill_between(
-                steps,
-                np.array(means) - np.array(stds),
-                np.array(means) + np.array(stds),
-                alpha=0.2,
-            )
+            # Right-align the steps to match global_steps
+            aligned_steps = global_steps[-len(steps):]
 
-            # Plot single curve for this env_param
+            # Plot on global axis
+            plt.plot(aligned_steps, means, label=f"{env_type.capitalize()} Param {env_param}")
+            plt.fill_between(aligned_steps, np.array(means) - np.array(stds),
+                             np.array(means) + np.array(stds), alpha=0.2)
+
+            # Single curve figure
             plt_single = plt.figure(figsize=(10, 6))
             ax = plt_single.add_subplot(111)
-            ax.plot(steps, means, label=f"{env_type.capitalize()} Param {env_param}")
-            ax.fill_between(
-                steps,
-                np.array(means) - np.array(stds),
-                np.array(means) + np.array(stds),
-                alpha=0.2,
-            )
+            ax.plot(aligned_steps, means, label=f"{env_type.capitalize()} Param {env_param}")
+            ax.fill_between(aligned_steps, np.array(means) - np.array(stds),
+                            np.array(means) + np.array(stds), alpha=0.2)
             ax.set_xlabel("Timesteps")
             ax.set_ylabel(f"Mean {metric.replace('_', ' ').title()}")
-            ax.set_title(
-                f"{metric.replace('_', ' ').title()} Curve for {env_type.capitalize()} Param {env_param}"
-            )
+            ax.set_title(f"{metric.replace('_', ' ').title()} Curve for {env_type.capitalize()} Param {env_param}")
             ax.legend()
             ax.grid()
 
-            single_plot_path = os.path.join(
-                save_dir, f"{metric}_curve_{env_type}_param_{env_param}.png"
-            )
+            single_name = f"{metric}_" + save_name or f"{metric}_curve_{env_type}_param_{env_param}.png"
+            single_plot_path = os.path.join(save_dir, single_name)
             plt_single.savefig(single_plot_path)
             plt.close(plt_single)
 
         plt.xlabel("Timesteps")
         plt.ylabel(f"Mean {metric.replace('_', ' ').title()}")
-        plt.title(
-            f"{metric.replace('_', ' ').title()} over Timesteps (All {env_type.capitalize()} Params)"
-        )
+        plt.title(f"{metric.replace('_', ' ').title()} over Timesteps (All {env_type.capitalize()} Params)")
         plt.legend()
         plt.grid()
 
-        all_plot_path = os.path.join(save_dir, f"{metric}_curves_all_{env_type}.png")
+        all_name = f"{metric}_" + save_name or f"{metric}_curves_all_{env_type}.png"
+        all_plot_path = os.path.join(save_dir, all_name)
         plt.savefig(all_plot_path)
         plt.close()
 
         print(f"[Plot Saved] {all_plot_path}")
 
 
-# multiple params multiple runs
-def plot_optimal_step_bar_chart(config, summary_results, save_dir):
-    """
-    Plot bar chart of average steps to reach near-optimal score.
-
-    Args:
-        config (dict): Configuration dictionary, must contain "env_type".
-        summary_results (dict or list): A list of summary results, each element is a dict.
-        save_dir (str): Directory to save the plot.
-    """
+def plot_optimal_step_bar_chart_and_return_max(config, summary_results, save_dir, save_name=None):
     env_type = config["env_type"]
     assert env_type in ["lunarlander", "carracing"], "Unsupported env_type."
 
@@ -551,9 +746,11 @@ def plot_optimal_step_bar_chart(config, summary_results, save_dir):
     if env_type == "lunarlander":
         x_labels = df["LanderDensity"]
         x_name = "Lander Density"
-    else:  # carracing
+        param_column = "LanderDensity"
+    else:
         x_labels = df["MapSeed"]
         x_name = "Map Seed"
+        param_column = "MapSeed"
 
     means = df["OptimalStepMean"]
     stds = df["OptimalStepStd"]
@@ -567,11 +764,17 @@ def plot_optimal_step_bar_chart(config, summary_results, save_dir):
     plt.xticks(x_labels, rotation=45 if env_type == "lunarlander" else 0)
     plt.grid(True, axis="y")
 
-    plot_path = os.path.join(save_dir, f"optimal_step_bar_chart_{env_type}.png")
+    bar_name = save_name or f"optimal_step_bar_chart_{env_type}.png"
+    plot_path = os.path.join(save_dir, bar_name)
     plt.savefig(plot_path)
     plt.close()
 
     print(f"[Plot Saved] {plot_path}")
+
+    max_idx = means.idxmax()
+    max_param = df.loc[max_idx, param_column]
+
+    return max_param
 
 
 class ProgressBarCallback(BaseCallback):
