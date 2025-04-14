@@ -4,7 +4,8 @@ from sbx import SAC
 import jax.numpy as jnp
 from stable_baselines3.common.buffers import ReplayBuffer
 from stable_baselines3.common.noise import ActionNoise
-from stable_baselines3.common.type_aliases import GymEnv, Schedule
+from stable_baselines3.common.off_policy_algorithm import SelfOffPolicyAlgorithm
+from stable_baselines3.common.type_aliases import GymEnv, Schedule, MaybeCallback, TrainFreq
 
 
 def sample_gaussian_action(
@@ -217,6 +218,59 @@ class SACJax(SAC):
         action = self.policy.unscale_action(squashed_action)
 
         return action
+
+    def learn(
+        self: SelfOffPolicyAlgorithm,
+        total_timesteps: int,
+        callback: MaybeCallback = None,
+        log_interval: int = 4,
+        tb_log_name: str = "run",
+        reset_num_timesteps: bool = True,
+        progress_bar: bool = False,
+    ) -> SelfOffPolicyAlgorithm:
+        total_timesteps, callback = self._setup_learn(
+            total_timesteps,
+            callback,
+            reset_num_timesteps,
+            tb_log_name,
+            progress_bar,
+        )
+
+        callback.on_training_start(locals(), globals())
+
+        assert self.env is not None, "You must set the environment before calling learn()"
+        assert isinstance(self.train_freq, TrainFreq)  # check done in _setup_learn()
+
+        while self.num_timesteps < total_timesteps:
+            rollout = self.collect_rollouts(
+                self.env,
+                train_freq=self.train_freq,
+                action_noise=self.action_noise,
+                callback=callback,
+                learning_starts=self.learning_starts,
+                replay_buffer=self.replay_buffer,
+                log_interval=log_interval,
+            )
+
+            if not rollout.continue_training:
+                break
+
+            if self.num_timesteps > 0 and self.num_timesteps > self.learning_starts:
+                # Additional condition: make sure replay buffer is sufficiently filled
+                buffer_ready = (
+                        self.replay_buffer.size >= min(self.learning_starts, self.replay_buffer.buffer_size)
+                )
+                if buffer_ready:
+                    # If no `gradient_steps` is specified,
+                    # do as many gradients steps as steps performed during the rollout
+                    gradient_steps = self.gradient_steps if self.gradient_steps >= 0 else rollout.episode_timesteps
+                    # Special case when the user passes `gradient_steps=0`
+                    if gradient_steps > 0:
+                        self.train(batch_size=self.batch_size, gradient_steps=gradient_steps)
+
+        callback.on_training_end()
+
+        return self
 
 
 class MixPolicySAC:
