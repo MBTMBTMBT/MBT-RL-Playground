@@ -16,7 +16,7 @@ from utils import (
     plot_eval_results,
     plot_optimal_step_bar_chart_and_return_max,
     evaluate_mix_policy_agent,
-    compute_and_plot_mix_policy_results, CurriculumCallBack,
+    compute_and_plot_mix_policy_results, CurriculumCallBack, evaluate_policy_with_distribution,
 )
 
 from configs import lunarlander_config, carracing_config
@@ -322,8 +322,8 @@ if __name__ == "__main__":
             repeat_results_ = []
             all_repeat_records_ = []
 
-            if env_param == most_difficult_param:
-                continue
+            # if env_param == most_difficult_param:
+            #     continue
             for run in range(config["n_repeat"]):
                 print(
                     f"\n--- Repeat {run + 1}/{config['n_repeat']} for Env Param = {env_param} ---"
@@ -484,6 +484,35 @@ if __name__ == "__main__":
         most_difficult_param = df_summary.loc[max_idx, param_column]
         print(f"Most difficult param: {most_difficult_param}")
 
+        if config["env_type"] == "lunarlander":
+            test_env = SubprocVecEnv(
+                    [
+                        make_lunarlander_env(
+                            lander_density=most_difficult_param,
+                            render_mode=None,
+                            deterministic_init=True,
+                            number_of_initial_states=config["num_init_states"],
+                            init_seed=i,
+                        )
+                        for i in range(config["n_envs"])
+                    ]
+                )
+        elif config["env_type"] == "carracing":
+            test_env = SubprocVecEnv(
+                [
+                    make_carracing_env(
+                        map_seed=most_difficult_param,
+                        render_mode=None,
+                        deterministic_init=False,
+                        number_of_initial_states=config["num_init_states"],
+                        init_seed=i,
+                    )
+                    for i in range(config["n_envs"])
+                ]
+            )
+        else:
+            test_env = None
+
         for env_param in env_params:
             if env_param == most_difficult_param:
                 continue  # skip the most difficult param itself here
@@ -501,3 +530,29 @@ if __name__ == "__main__":
 
                 print(f"Target model loaded from: {target_model_path}")
                 print(f"Prior model loaded from: {prior_model_path}")
+
+                # Evaluate with prior policy sampling
+                prior_result = evaluate_policy_with_distribution(
+                    prior_model,
+                    target_model,
+                    use_default_policy=False,
+                    use_default_policy_for_prior=False,
+                    env=test_env,
+                    n_eval_episodes=config["eval_episodes"],
+                    deterministic=True,
+                    render=False,
+                    warn=False,
+                )
+
+                # Evaluate with current policy sampling
+                current_result = evaluate_policy_with_distribution(
+                    target_model,
+                    prior_model,
+                    use_default_policy=False,
+                    use_default_policy_for_prior=False,
+                    env=test_env,
+                    n_eval_episodes=config["eval_episodes"],
+                    deterministic=True,
+                    render=False,
+                    warn=False,
+                )
