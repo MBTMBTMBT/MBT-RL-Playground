@@ -324,9 +324,6 @@ class EvalAndGifCallback(BaseCallback):
         self.last_eval_step = -self.eval_interval
         self._on_step()
 
-    import numpy as np
-    import pandas as pd
-    import os
 
     def _on_training_end(self):
         """
@@ -580,7 +577,6 @@ class CurriculumCallBack(EvalAndGifCallback):
                 )
                 self.eval_env.close()
                 self.model.env.close()
-                del self.model.env
                 if self.config["env_type"] == "lunarlander":
                     env_target = SubprocVecEnv(
                         [
@@ -685,6 +681,11 @@ class CurriculumCallBack(EvalAndGifCallback):
                 self.step_reached_optimal = self.num_timesteps
 
         return True
+
+    def _on_training_end(self):
+        super()._on_training_end()
+        # Close evaluation environment
+        self.eval_env_target.close()
 
 
 def plot_eval_results(config, results, save_dir, save_name=None):
