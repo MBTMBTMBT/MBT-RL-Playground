@@ -570,7 +570,7 @@ class CurriculumCallBack(EvalAndGifCallback):
                     (self.num_timesteps, mean_reward, std_reward)
                 )
 
-            if mean_reward > self.config["near_optimal_score"] and not self.change_env_flag:
+            if mean_reward > self.config["sub_optimal_score"] and not self.change_env_flag:
                 print("First stage training ends.")
                 self.change_env_flag = True
                 # clean the buffer, no reuse of the previous data
@@ -1296,3 +1296,78 @@ def compute_and_plot_mix_policy_results(config, results_dict, save_path):
     print("[Compute] All results computation and visualization finished.")
 
     return final_results
+
+
+def plot_distribution_metrics_comparison(
+    results_dict: dict,
+    env_type: str,
+    most_difficult_param: float,
+    save_path: str,
+):
+    example_param = next(iter(results_dict))
+    metric_names = results_dict[example_param]["prior"].keys()
+
+    for metric in metric_names:
+        env_params = []
+        prior_means = []
+        prior_stds = []
+        current_means = []
+        current_stds = []
+
+        for param in sorted(results_dict.keys()):
+            env_params.append(param)
+
+            prior_values = results_dict[param]["prior"][metric]
+            current_values = results_dict[param]["current"][metric]
+
+            prior_means.append(np.mean(prior_values))
+            prior_stds.append(np.std(prior_values))
+            current_means.append(np.mean(current_values))
+            current_stds.append(np.std(current_values))
+
+        x = np.arange(len(env_params))
+        width = 0.35
+
+        plt.figure(figsize=(12, 6))
+        bars1 = plt.bar(x - width / 2, prior_means, width, yerr=prior_stds, capsize=5, label="Prior")
+        bars2 = plt.bar(x + width / 2, current_means, width, yerr=current_stds, capsize=5, label="Current")
+
+        for idx, bar in enumerate(bars1):
+            height = bar.get_height()
+            std = prior_stds[idx]
+            offset = std * 0.05
+            plt.text(
+                bar.get_x() + bar.get_width() / 2,
+                height + std + offset,
+                f"{height:.2f}",
+                ha="center",
+                va="bottom",
+                fontsize=9,
+            )
+
+        for idx, bar in enumerate(bars2):
+            height = bar.get_height()
+            std = current_stds[idx]
+            offset = std * 0.05
+            plt.text(
+                bar.get_x() + bar.get_width() / 2,
+                height + std + offset,
+                f"{height:.2f}",
+                ha="center",
+                va="bottom",
+                fontsize=9,
+            )
+
+        plt.xticks(x, [str(p) for p in env_params], rotation=45)
+        plt.xlabel("Env Param" if env_type == "carracing" else "Lander Density")
+        plt.ylabel(f"{metric} (Mean ± Std)")
+        plt.title(f"{metric} Comparison vs Env Param (target={most_difficult_param})")
+        plt.legend()
+        plt.tight_layout()
+
+        save_name = f"{env_type}_{metric}_comparison.png"
+        save_file = os.path.join(save_path, save_name)
+        plt.savefig(save_file)
+        plt.close()
+
+        print(f"[Plot Saved] {save_file}")
