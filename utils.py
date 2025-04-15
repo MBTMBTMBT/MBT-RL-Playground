@@ -480,31 +480,28 @@ class CurriculumCallBack(EvalAndGifCallback):
             temp_dir=temp_dir,
             use_default_policy=use_default_policy_at_start,
         )
-
         self.env_param_target = env_param_target
-
-        if config["env_type"] == "lunarlander":
+        if self.config["env_type"] == "lunarlander":
             self.eval_env_target = SubprocVecEnv(
                 [
                     make_lunarlander_env(
-                        lander_density=env_param_target,
+                        lander_density=self.env_param_target,
                         render_mode=None,
                         deterministic_init=True,
-                        number_of_initial_states=config["num_init_states"],
+                        number_of_initial_states=self.config["num_init_states"],
                         init_seed=i,
                     )
                     for i in range(self.n_eval_envs)
                 ]
             )
-
-        elif config["env_type"] == "carracing":
+        elif self.config["env_type"] == "carracing":
             self.eval_env_target = SubprocVecEnv(
                 [
                     make_carracing_env(
-                        map_seed=env_param_target,
+                        map_seed=self.env_param_target,
                         render_mode=None,
                         deterministic_init=False,
-                        number_of_initial_states=config["num_init_states"],
+                        number_of_initial_states=self.config["num_init_states"],
                         init_seed=i,
                     )
                     for i in range(self.n_eval_envs)
@@ -513,9 +510,7 @@ class CurriculumCallBack(EvalAndGifCallback):
 
         else:
             self.eval_env_target = None
-
         self.records["reward_target"] = []
-
         self.change_env_flag = False
 
     def _on_step(self):
@@ -583,6 +578,9 @@ class CurriculumCallBack(EvalAndGifCallback):
                     optimize_memory_usage=self.model.replay_buffer.optimize_memory_usage,
                     handle_timeout_termination=self.model.replay_buffer.handle_timeout_termination,
                 )
+                self.eval_env.close()
+                self.model.env.close()
+                del self.model.env
                 if self.config["env_type"] == "lunarlander":
                     env_target = SubprocVecEnv(
                         [
@@ -596,7 +594,6 @@ class CurriculumCallBack(EvalAndGifCallback):
                             for i in range(self.n_eval_envs)
                         ]
                     )
-
                 elif self.config["env_type"] == "carracing":
                     env_target = SubprocVecEnv(
                         [
@@ -610,7 +607,6 @@ class CurriculumCallBack(EvalAndGifCallback):
                             for i in range(self.n_eval_envs)
                         ]
                     )
-
                 else:
                     env_target = None
 
