@@ -518,8 +518,8 @@ if __name__ == "__main__":
         distribution_results = {}
 
         for env_param in env_params:
-            if env_param == most_difficult_param:
-                continue  # skip the most difficult param itself here
+            # if env_param == most_difficult_param:
+            #     continue  # skip the most difficult param itself here
 
             distribution_results[env_param] = {
                 "prior": {},
@@ -546,7 +546,7 @@ if __name__ == "__main__":
                     use_default_policy=False,
                     use_default_policy_for_prior=False,
                     env=test_env,
-                    n_eval_episodes=config["eval_episodes"],
+                    n_eval_episodes=128,
                     deterministic=True,
                     render=False,
                     warn=False,
@@ -559,7 +559,7 @@ if __name__ == "__main__":
                     use_default_policy=False,
                     use_default_policy_for_prior=False,
                     env=test_env,
-                    n_eval_episodes=config["eval_episodes"],
+                    n_eval_episodes=128,
                     deterministic=True,
                     render=False,
                     warn=False,
