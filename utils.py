@@ -575,8 +575,8 @@ class CurriculumCallBack(EvalAndGifCallback):
                     optimize_memory_usage=self.model.replay_buffer.optimize_memory_usage,
                     handle_timeout_termination=self.model.replay_buffer.handle_timeout_termination,
                 )
-                # self.eval_env.close()
-                self.model.env.close()
+                self.eval_env.close()
+                # self.model.env.close()
                 if self.config["env_type"] == "lunarlander":
                     env_target = SubprocVecEnv(
                         [
