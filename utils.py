@@ -575,7 +575,7 @@ class CurriculumCallBack(EvalAndGifCallback):
                     optimize_memory_usage=self.model.replay_buffer.optimize_memory_usage,
                     handle_timeout_termination=self.model.replay_buffer.handle_timeout_termination,
                 )
-                self.eval_env.close()
+                # self.eval_env.close()
                 self.model.env.close()
                 if self.config["env_type"] == "lunarlander":
                     env_target = SubprocVecEnv(
@@ -701,7 +701,7 @@ def plot_eval_results(config, results, save_dir, save_name=None):
     global_steps = max(all_timesteps, key=len)  # pick the longest one
 
     for metric in metrics_keys:
-        plt.figure(figsize=(12, 8))
+        plt.figure(figsize=(10, 8))
 
         for env_param, result in results.items():
             steps = result["Timesteps"]
@@ -717,7 +717,7 @@ def plot_eval_results(config, results, save_dir, save_name=None):
                              np.array(means) + np.array(stds), alpha=0.2)
 
             # Single curve figure
-            plt_single = plt.figure(figsize=(10, 6))
+            plt_single = plt.figure(figsize=(10, 8))
             ax = plt_single.add_subplot(111)
             ax.plot(aligned_steps, means, label=f"{env_type.capitalize()} Param {env_param}")
             ax.fill_between(aligned_steps, np.array(means) - np.array(stds),
@@ -769,7 +769,7 @@ def plot_optimal_step_bar_chart_and_return_max(config, summary_results, save_dir
     means = df["OptimalStepMean"]
     stds = df["OptimalStepStd"]
 
-    plt.figure(figsize=(12, 6))
+    plt.figure(figsize=(8, 8))
     plt.bar(x_labels, means, yerr=stds, align="center", alpha=0.7, capsize=5)
 
     plt.xlabel(x_name)
@@ -1133,7 +1133,7 @@ def compute_and_plot_mix_policy_results(config, results_dict, save_path):
     norm_integral_data = []
 
     print("[Compute] Start plotting raw reward curves...")
-    plt.figure()
+    plt.figure(figsize=(10, 8))
     for env_param in sorted(results_dict.keys()):
         result = results_dict[env_param]
         p_values = result["p_values"]
@@ -1185,7 +1185,7 @@ def compute_and_plot_mix_policy_results(config, results_dict, save_path):
     print(f"[Save Figure] Raw reward curve figure saved to {curve_path}")
 
     print("[Compute] Start plotting normalized reward curves...")
-    plt.figure()
+    plt.figure(figsize=(10, 8))
     for env_param in sorted(results_dict.keys()):
         result = results_dict[env_param]
         p_values = result["p_values"]
@@ -1243,7 +1243,7 @@ def compute_and_plot_mix_policy_results(config, results_dict, save_path):
     print(f"[Save Figure] Normalized reward curve figure saved to {norm_curve_path}")
 
     # Plot raw integral bar chart
-    plt.figure()
+    plt.figure(figsize=(8, 8))
     env_params = list(sorted(results_dict.keys()))
     integrals = [final_results["integrals"][p] for p in env_params]
     integrals_std = [final_results["integrals_std"][p] for p in env_params]
@@ -1259,7 +1259,7 @@ def compute_and_plot_mix_policy_results(config, results_dict, save_path):
     print(f"[Save Figure] Raw reward integral bar chart saved to {bar_path}")
 
     # Plot normalized integral bar chart
-    plt.figure()
+    plt.figure(figsize=(8, 8))
     integrals_norm = [final_results["integrals_norm"][p] for p in env_params]
     integrals_norm_std = [final_results["integrals_norm_std"][p] for p in env_params]
 
@@ -1301,37 +1301,54 @@ def plot_distribution_metrics_comparison(
     most_difficult_param: float,
     save_path: str,
 ):
+    from matplotlib.patches import Patch
+
+    def remove_outliers(data: np.ndarray, k: float = 1.5) -> np.ndarray:
+        """Remove outliers using the IQR method."""
+        q1 = np.percentile(data, 25)
+        q3 = np.percentile(data, 75)
+        iqr = q3 - q1
+        lower = q1 - k * iqr
+        upper = q3 + k * iqr
+        return data[(data >= lower) & (data <= upper)]
+
     example_param = next(iter(results_dict))
     metric_names = results_dict[example_param]["prior"].keys()
 
     for metric in metric_names:
-        env_params = []
+        env_params = sorted(results_dict.keys())
+
         prior_means = []
         prior_stds = []
         current_means = []
         current_stds = []
 
-        for param in sorted(results_dict.keys()):
-            env_params.append(param)
+        for param in env_params:
+            prior_values = np.array(results_dict[param]["prior"][metric])
+            current_values = np.array(results_dict[param]["current"][metric])
 
-            prior_values = results_dict[param]["prior"][metric]
-            current_values = results_dict[param]["current"][metric]
+            prior_clean = remove_outliers(prior_values)
+            current_clean = remove_outliers(current_values)
 
-            prior_means.append(np.mean(prior_values))
-            prior_stds.append(np.std(prior_values))
-            current_means.append(np.mean(current_values))
-            current_stds.append(np.std(current_values))
+            prior_means.append(np.mean(prior_clean))
+            prior_stds.append(np.std(prior_clean))
+            current_means.append(np.mean(current_clean))
+            current_stds.append(np.std(current_clean))
 
-        x = np.arange(len(env_params))
-        width = 0.35
+        # Concatenate for sequential layout: [Prior 1..n] + [Current 1..n]
+        all_labels = [f"{p}\nPrior" for p in env_params] + [f"{p}\nCurrent" for p in env_params]
+        all_means = prior_means + current_means
+        all_stds = prior_stds + current_stds
 
-        plt.figure(figsize=(12, 6))
-        bars1 = plt.bar(x - width / 2, prior_means, width, yerr=prior_stds, capsize=5, label="Prior")
-        bars2 = plt.bar(x + width / 2, current_means, width, yerr=current_stds, capsize=5, label="Current")
+        x = np.arange(len(all_labels))
+        colors = ["tab:blue"] * len(env_params) + ["tab:orange"] * len(env_params)
 
-        for idx, bar in enumerate(bars1):
+        plt.figure(figsize=(8, 8))
+        bars = plt.bar(x, all_means, yerr=all_stds, capsize=5, alpha=0.8, color=colors)
+
+        for idx, bar in enumerate(bars):
             height = bar.get_height()
-            std = prior_stds[idx]
+            std = all_stds[idx]
             offset = std * 0.05
             plt.text(
                 bar.get_x() + bar.get_width() / 2,
@@ -1342,24 +1359,18 @@ def plot_distribution_metrics_comparison(
                 fontsize=9,
             )
 
-        for idx, bar in enumerate(bars2):
-            height = bar.get_height()
-            std = current_stds[idx]
-            offset = std * 0.05
-            plt.text(
-                bar.get_x() + bar.get_width() / 2,
-                height + std + offset,
-                f"{height:.2f}",
-                ha="center",
-                va="bottom",
-                fontsize=9,
-            )
-
-        plt.xticks(x, [str(p) for p in env_params], rotation=45)
+        plt.xticks(x, all_labels, rotation=45)
         plt.xlabel("Env Param" if env_type == "carracing" else "Lander Density")
-        plt.ylabel(f"{metric} (Mean ± Std)")
+        plt.ylabel(f"{metric} (Mean ± Std, Outliers Removed)")
         plt.title(f"{metric} Comparison vs Env Param (target={most_difficult_param})")
-        plt.legend()
+
+        legend_elements = [
+            Patch(facecolor="tab:blue", label="Prior"),
+            Patch(facecolor="tab:orange", label="Current"),
+        ]
+        plt.legend(handles=legend_elements)
+
+        plt.grid(axis="y")
         plt.tight_layout()
 
         save_name = f"{env_type}_{metric}_comparison.png"
