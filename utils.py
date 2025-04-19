@@ -50,7 +50,7 @@ def make_lunarlander_env(
 ):
     def _init():
         env = gym.make(
-            "CustomLunarLander-v3",
+            "CustomLunarLander",
             continuous=True,
             render_mode=render_mode,
             gravity=-10.0,  # fixed gravity
@@ -74,7 +74,7 @@ def make_carracing_env(
 ):
     def _init():
         env = gym.make(
-            "CarRacingFixedMap-v2",
+            "CarRacingFixedMap",
             continuous=True,
             render_mode=render_mode,
             map_seed=map_seed,
@@ -84,6 +84,26 @@ def make_carracing_env(
             number_of_initial_states=number_of_initial_states,
             init_seed=init_seed,
             vector_obs=True,
+        )
+        env = gym.wrappers.RecordEpisodeStatistics(env)
+        return env
+
+    return _init
+
+
+def make_invertedpendulum_env(
+    render_mode=None,
+    length=0.6,
+    pole_density=1000.0,
+    cart_density=1000.0,
+):
+    def _init():
+        env = gym.make(
+            "CustomInvertedPendulum",
+            render_mode=render_mode,
+            length=length,
+            pole_density=pole_density,
+            cart_density=cart_density,
         )
         env = gym.wrappers.RecordEpisodeStatistics(env)
         return env

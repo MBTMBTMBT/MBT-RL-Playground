@@ -43,3 +43,19 @@ lunarlander_config = {
     "sub_optimal_score": 175,
     "save_path": "./lunar_lander_density_results",
 }
+
+invertedpendulum_config = {
+    "env_type": "invertedpendulum",
+    "num_densities": 5,
+    "density_start": 500.0,
+    "density_stop": 1500.0,
+    "n_repeat": 8,
+    "n_envs": 16,
+    "train_steps": 5_000_000,
+    "eval_interval": 5_000 * 16,
+    "num_init_states": 16,
+    "eval_episodes": 32,
+    "near_optimal_score": 950,
+    "sub_optimal_score": 750,
+    "save_path": "./inverted_pendulum_density_results",
+}

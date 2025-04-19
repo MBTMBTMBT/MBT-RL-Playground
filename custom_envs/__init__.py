@@ -18,6 +18,7 @@ from gymnasium.envs.classic_control.acrobot import AcrobotEnv
 from gymnasium.envs.box2d.car_racing import CarRacing
 from gymnasium.envs.registration import register
 from gymnasium.envs.box2d.lunar_lander import LunarLander
+from custom_inverted_pendulum import CustomInvertedPendulum
 
 
 WELCOME = "CUSTOM ENVS OF MBTMBTMBT!!!"
@@ -26,7 +27,7 @@ WELCOME = "CUSTOM ENVS OF MBTMBTMBT!!!"
 
 # Register the custom environments
 register(
-    id="CustomFrozenLake-v1",
+    id="CustomFrozenLake",
     entry_point="custom_envs:CustomFrozenLakeEnv",
     kwargs={
         "render_mode": None,
@@ -39,7 +40,7 @@ register(
 )
 
 register(
-    id="CustomMountainCar-v0",
+    id="CustomMountainCar",
     entry_point="custom_envs:CustomMountainCarEnv",
     kwargs={
         "render_mode": None,
@@ -53,7 +54,7 @@ register(
 )
 
 register(
-    id="CustomAcrobot-v1",
+    id="CustomAcrobot",
     entry_point="custom_envs:CustomAcrobotEnv",
     kwargs={
         "render_mode": None,
@@ -70,7 +71,7 @@ register(
 )
 
 register(
-    id="CarRacingFixedMap-v2",
+    id="CarRacingFixedMap",
     entry_point="custom_envs:CarRacingFixedMap",
     kwargs={
         "render_mode": None,
@@ -89,7 +90,7 @@ register(
 )
 
 register(
-    id="CustomLunarLander-v3",
+    id="CustomLunarLander",
     entry_point="custom_envs:CustomLunarLander",
     kwargs={
         "render_mode": None,
@@ -102,6 +103,20 @@ register(
         "number_of_initial_states": 256,
         "use_deterministic_initial_states": True,
         "init_seed": None,
+    },
+    max_episode_steps=500,
+)
+
+register(
+    id="CustomInvertedPendulum",
+    entry_point="custom_envs:CustomInvertedPendulum",
+    kwargs={
+        "render_mode": None,
+        "length": 0.6,
+        "pole_density": 1000.0,
+        "cart_density": 1000.0,
+        "xml_file": "./assets/inverted_pendulum.xml",
+        "reset_noise_scale": 0.01,
     },
     max_episode_steps=500,
 )
